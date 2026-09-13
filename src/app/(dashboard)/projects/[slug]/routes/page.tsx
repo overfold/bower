@@ -1,94 +1,34 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { getCurrentUser } from '@/lib/auth'
-import {
-  getUserOrganization,
-  getProjectBySlug,
-  getRoutesByProject,
-} from '@/lib/queries'
-import { Panel, SectionTitle } from '@/components/ui/panel'
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
-import { EmptyState } from '@/components/ui/empty-state'
 import { Globe } from 'lucide-react'
+import { getProjectBySlug, getRoutesByProject, getServicesByProject, getEnvironmentsByProject } from '@/lib/queries'
+import { getVerifiedOrganizationDomains } from '@/lib/domain-queries'
+import { requireContext, requireProject } from '@/lib/actions/shared'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/empty-state'
+import { Panel, PanelHeader } from '@/components/ui/panel'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { AddRouteDialog, DeleteRouteButton } from './route-actions'
 
-const tlsBadgeVariant: Record<string, 'success' | 'secondary' | 'outline'> = {
-  auto: 'success',
-  custom: 'secondary',
-  none: 'outline',
-}
+const tlsBadgeVariant: Record<string, 'success' | 'secondary' | 'outline'> = { auto: 'success', custom: 'secondary', none: 'outline' }
 
-export default async function RoutesPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>
-}) {
-  const user = await getCurrentUser()
-  if (!user) redirect('/login')
-
-  const ctx = await getUserOrganization(user.id)
-  if (!ctx) redirect('/login')
-
+export default async function RoutesPage({ params }: { params: Promise<{ slug: string }> }) {
+  const ctx = await requireContext()
   const { slug } = await params
   const project = await getProjectBySlug(ctx.org.id, slug)
   if (!project) redirect('/projects')
-
-  const routes = await getRoutesByProject(project.id)
+  const access = await requireProject(project.id)
+  const [routeRows, services, environments, managedDomains] = await Promise.all([
+    getRoutesByProject(project.id), getServicesByProject(project.id), getEnvironmentsByProject(project.id), getVerifiedOrganizationDomains(ctx.org.id),
+  ])
+  const canManage = access.projectRole === 'admin'
 
   return (
     <div className="space-y-5">
-      <SectionTitle>Routes</SectionTitle>
-
-      {routes.length === 0 ? (
-        <Panel>
-          <EmptyState
-            icon={<Globe className="h-4 w-4" />}
-            title="No routes configured"
-            body="Add a route to expose your services to traffic."
-          />
-        </Panel>
-      ) : (
-        <Panel>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Domain</TableHead>
-                <TableHead>Path</TableHead>
-                <TableHead>Service</TableHead>
-                <TableHead>Environment</TableHead>
-                <TableHead>Port</TableHead>
-                <TableHead>TLS Mode</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {routes.map((row) => (
-                <TableRow key={row.route.id}>
-                  <TableCell className="font-medium">{row.route.domain}</TableCell>
-                  <TableCell className="font-mono text-xs text-ink-muted">
-                    {row.route.pathPrefix}
-                  </TableCell>
-                  <TableCell>{row.serviceName}</TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">{row.environmentName}</Badge>
-                  </TableCell>
-                  <TableCell>{row.route.port}</TableCell>
-                  <TableCell>
-                    <Badge variant={tlsBadgeVariant[row.route.tlsMode] ?? 'outline'}>
-                      {row.route.tlsMode}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Panel>
-      )}
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-semibold tracking-tight text-ink">Routes</h2><p className="mt-1 text-[13px] text-ink-muted">Hostnames come from domains verified at the organization level.</p></div>{canManage ? <AddRouteDialog projectId={project.id} services={services.map((service) => ({ id: service.id, name: service.name }))} environments={environments.map((environment) => ({ id: environment.id, name: environment.name }))} domains={managedDomains.map((domain) => ({ id: domain.id, domain: domain.domain }))} /> : null}</div>
+      {managedDomains.length === 0 ? <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-sunken px-4 py-3.5"><div><p className="text-[13px] font-medium text-ink">No verified organization domains</p><p className="mt-0.5 text-xs text-ink-muted">Verify a domain before creating new routes.</p></div>{ctx.role !== 'member' ? <Button asChild size="sm"><Link href="/settings/domains">Manage domains</Link></Button> : null}</div> : null}
+      <Panel><PanelHeader title={`${routeRows.length} route${routeRows.length === 1 ? '' : 's'}`} hint="Project hostname bindings" />{routeRows.length === 0 ? <EmptyState icon={<Globe className="h-4 w-4" />} title="No routes configured" body="Bind a hostname from a verified organization domain to expose a service." /> : <Table><TableHeader><TableRow><TableHead>Hostname</TableHead><TableHead>Path</TableHead><TableHead>Target</TableHead><TableHead>Environment</TableHead><TableHead>TLS</TableHead><TableHead className="w-[56px] text-right">Actions</TableHead></TableRow></TableHeader><TableBody>{routeRows.map((row) => <TableRow key={row.route.id}><TableCell className="font-mono text-[12.5px] font-medium text-ink">{row.route.domain}</TableCell><TableCell className="font-mono text-xs text-ink-muted">{row.route.pathPrefix}</TableCell><TableCell className="text-[13px]">{row.serviceName}:{row.route.port}</TableCell><TableCell><Badge variant="secondary">{row.environmentName}</Badge></TableCell><TableCell><Badge variant={tlsBadgeVariant[row.route.tlsMode] ?? 'outline'}>{row.route.tlsMode}</Badge></TableCell><TableCell>{canManage ? <DeleteRouteButton projectId={project.id} routeId={row.route.id} hostname={row.route.domain} /> : null}</TableCell></TableRow>)}</TableBody></Table>}</Panel>
     </div>
   )
 }
