@@ -89,7 +89,6 @@ export async function registerAction(
 
   const tokenHash = createHash('sha256').update(trimmedToken).digest('hex')
 
-  // Check email uniqueness early
   const existingUsers = await db
     .select()
     .from(users)
@@ -102,7 +101,6 @@ export async function registerAction(
 
   const passwordHash = await hashPassword(password)
 
-  // Try instance token first
   const instanceRows = await db
     .select()
     .from(instanceTokens)
@@ -119,21 +117,15 @@ export async function registerAction(
       .values({ email: normalizedEmail, name: trimmedName, passwordHash, isInstanceAdmin: true })
       .returning({ id: users.id })
 
-    const allOrgs = await db.select({ id: organizations.id }).from(organizations)
-    for (const org of allOrgs) {
-      await db.insert(organizationMembers).values({
-        orgId: org.id, userId: newUser.id, role: 'owner',
-      })
-    }
-
     await db
       .update(instanceTokens)
       .set({ usedByUserId: newUser.id, usedAt: new Date() })
       .where(eq(instanceTokens.id, instance.id))
 
-    if (allOrgs.length > 0) {
+    const [firstOrg] = await db.select({ id: organizations.id }).from(organizations).limit(1)
+    if (firstOrg) {
       await recordAudit({
-        orgId: allOrgs[0].id, userId: newUser.id,
+        orgId: firstOrg.id, userId: newUser.id,
         action: 'user.registered', resourceType: 'user', resourceId: newUser.id,
         details: { name: trimmedName, instanceAdmin: true, tokenPrefix: instance.tokenPrefix },
       })
@@ -145,26 +137,17 @@ export async function registerAction(
     redirect('/dashboard')
   }
 
-  // Fall back to organization token
   const orgTokenRows = await db
     .select()
     .from(organizationTokens)
     .where(eq(organizationTokens.tokenHash, tokenHash))
     .limit(1)
 
-  if (orgTokenRows.length === 0) {
-    return { error: 'Invalid token.' }
-  }
+  if (orgTokenRows.length === 0) return { error: 'Invalid token.' }
 
   const invite = orgTokenRows[0]
-
-  if (invite.usedAt) {
-    return { error: 'This token has already been used.' }
-  }
-
-  if (invite.expiresAt && invite.expiresAt < new Date()) {
-    return { error: 'This token has expired.' }
-  }
+  if (invite.usedAt) return { error: 'This token has already been used.' }
+  if (invite.expiresAt && invite.expiresAt < new Date()) return { error: 'This token has expired.' }
 
   const [newUser] = await db
     .insert(users)
@@ -210,11 +193,7 @@ export async function logoutAction(): Promise<void> {
   const cookieStore = await cookies()
   const sessionCookie = cookieStore.get(SESSION_COOKIE_NAME)
 
-  if (sessionCookie?.value) {
-    await deleteSession(sessionCookie.value)
-  }
-
+  if (sessionCookie?.value) await deleteSession(sessionCookie.value)
   cookieStore.delete(SESSION_COOKIE_NAME)
-
   redirect('/login')
 }

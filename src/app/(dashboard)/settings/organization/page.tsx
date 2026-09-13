@@ -1,14 +1,10 @@
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
-import { getUserOrganization, getOrgMembers, getOrganizationTokens } from '@/lib/queries'
+import { getUserOrganization } from '@/lib/queries'
 import { PageHeading } from '@/components/page-heading'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Separator } from '@/components/ui/separator'
 import { OrgSettingsForm } from '@/components/org-settings-form'
-import { InviteTokensSection } from '@/components/invite-tokens-section'
 
 export default async function OrganizationSettingsPage() {
   const user = await getCurrentUser()
@@ -16,86 +12,32 @@ export default async function OrganizationSettingsPage() {
   const orgCtx = await getUserOrganization(user.id)
   if (!orgCtx) redirect('/login')
 
-  const [members, tokens] = await Promise.all([
-    getOrgMembers(orgCtx.org.id),
-    getOrganizationTokens(orgCtx.org.id),
-  ])
-
   return (
-    <div className="space-y-8">
-      <PageHeading title="Organization" description="Manage your organization settings and members." />
-
-      <OrgSettingsForm
-        org={{
-          id: orgCtx.org.id,
-          name: orgCtx.org.name,
-          slug: orgCtx.org.slug,
-        }}
+    <div className="mx-auto max-w-[820px] space-y-6">
+      <PageHeading
+        title="Organization"
+        description="Manage the identity and organization-wide configuration for the currently selected organization."
       />
 
-      <Separator />
+      <OrgSettingsForm
+        org={{ id: orgCtx.org.id, name: orgCtx.org.name, slug: orgCtx.org.slug }}
+      />
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Members</CardTitle>
+          <CardTitle>Organization identity</CardTitle>
         </CardHeader>
-        <CardContent>
-          {members.length === 0 ? (
-            <p className="text-sm text-ink-muted">No members found.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Member</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {members.map((m) => (
-                  <TableRow key={m.membership.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-6 w-6">
-                          {m.userAvatar && <AvatarImage src={m.userAvatar} />}
-                          <AvatarFallback className="text-xs">
-                            {(m.userName ?? '?')[0].toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        {m.userName}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-ink-muted">{m.userEmail}</TableCell>
-                    <TableCell>
-                      <Badge variant={m.membership.role === 'owner' ? 'default' : 'secondary'}>
-                        {m.membership.role}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+        <CardContent className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <p className="text-xs text-ink-muted">Slug</p>
+            <p className="mt-1 font-mono text-[12.5px] text-ink">{orgCtx.org.slug}</p>
+          </div>
+          <div>
+            <p className="text-xs text-ink-muted">Your role</p>
+            <div className="mt-1"><Badge variant="secondary" className="capitalize">{orgCtx.role}</Badge></div>
+          </div>
         </CardContent>
       </Card>
-
-      <Separator />
-
-      <InviteTokensSection
-        tokens={tokens.map((t) => ({
-          token: {
-            id: t.token.id,
-            tokenPrefix: t.token.tokenPrefix,
-            role: t.token.role,
-            note: t.token.note,
-            usedAt: t.token.usedAt?.toISOString() ?? null,
-            expiresAt: t.token.expiresAt?.toISOString() ?? null,
-            createdAt: t.token.createdAt.toISOString(),
-          },
-          createdByName: t.createdByName,
-        }))}
-        role={orgCtx.role}
-      />
     </div>
   )
 }

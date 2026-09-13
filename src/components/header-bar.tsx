@@ -16,8 +16,10 @@ const segmentLabels: Record<string, string> = {
   settings: 'Settings',
   audit: 'Audit log',
   organization: 'Organization',
+  members: 'Members',
   teams: 'Teams',
   cluster: 'Cluster',
+  instance: 'Instance',
   account: 'Account',
   services: 'Services',
   environments: 'Environments',
@@ -100,14 +102,9 @@ export function HeaderBar({ orgs, currentOrg, teams, searchData, user }: HeaderB
             <Fragment key={crumb.href}>
               <ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-faint" />
               {i === crumbs.length - 1 ? (
-                <span className="min-w-0 truncate text-[13px] font-semibold text-ink">
-                  {crumb.label}
-                </span>
+                <span className="min-w-0 truncate text-[13px] font-semibold text-ink">{crumb.label}</span>
               ) : (
-                <Link
-                  href={crumb.href}
-                  className="min-w-0 truncate text-[13px] font-medium text-ink-muted transition-colors hover:text-ink"
-                >
+                <Link href={crumb.href} className="min-w-0 truncate text-[13px] font-medium text-ink-muted transition-colors hover:text-ink">
                   {crumb.label}
                 </Link>
               )}
@@ -122,9 +119,7 @@ export function HeaderBar({ orgs, currentOrg, teams, searchData, user }: HeaderB
         >
           <Search className="h-3.5 w-3.5" />
           Search
-          <kbd className="ml-3 rounded border border-line bg-sunken px-1.5 py-px font-sans text-2xs">
-            ⌘K
-          </kbd>
+          <kbd className="ml-3 rounded border border-line bg-sunken px-1.5 py-px font-sans text-2xs">⌘K</kbd>
         </button>
       </header>
 
