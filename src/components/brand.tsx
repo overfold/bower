@@ -8,29 +8,36 @@ export function LogoMark({ className }: { className?: string }) {
       aria-hidden="true"
       className={cn('h-6 w-6', className)}
     >
-      <rect x="0.5" y="0.5" width="23" height="23" rx="6" fill="var(--brand-500, #0E6E62)" />
+      <defs>
+        <clipPath id="bower-ac">
+          <path d="M7.3 19V12.1a4.7 4.7 0 0 1 9.4 0V19Z" />
+        </clipPath>
+      </defs>
+      <rect x="0.5" y="0.5" width="23" height="23" rx="6" fill="var(--brand-500, #0C7065)" />
+      <g clipPath="url(#bower-ac)" stroke="white" strokeWidth="0.4">
+        <line x1="7.5" y1="0" x2="24" y2="16.5" />
+        <line x1="5" y1="0" x2="24" y2="19" />
+        <line x1="2.5" y1="0" x2="24" y2="21.5" />
+        <line x1="0" y1="0" x2="24" y2="24" />
+        <line x1="0" y1="2.5" x2="21.5" y2="24" />
+        <line x1="0" y1="5" x2="19" y2="24" />
+        <line x1="0" y1="7.5" x2="16.5" y2="24" />
+        <line x1="0" y1="10" x2="14" y2="24" />
+        <line x1="0" y1="14" x2="14" y2="0" />
+        <line x1="0" y1="16.5" x2="16.5" y2="0" />
+        <line x1="0" y1="19" x2="19" y2="0" />
+        <line x1="0" y1="21.5" x2="21.5" y2="0" />
+        <line x1="0" y1="24" x2="24" y2="0" />
+        <line x1="2.5" y1="24" x2="24" y2="2.5" />
+        <line x1="5" y1="24" x2="24" y2="5" />
+        <line x1="7.5" y1="24" x2="24" y2="7.5" />
+        <line x1="10" y1="24" x2="24" y2="10" />
+      </g>
       <path
-        d="M6.5 18.5V12a5.5 5.5 0 0 1 11 0v6.5"
+        d="M6.5 19V12a5.5 5.5 0 0 1 11 0v7"
         stroke="white"
         strokeWidth="1.6"
         strokeLinecap="round"
-      />
-      <path
-        d="M12 18.5V9"
-        stroke="white"
-        strokeOpacity="0.55"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-      />
-      <path
-        d="M12 13c1.6 0 2.6-.9 2.9-2.6-1.7-.2-2.8.6-2.9 2.6Z"
-        fill="white"
-        fillOpacity="0.9"
-      />
-      <path
-        d="M12 10.4c-1.5 0-2.4-.9-2.7-2.4 1.6-.2 2.6.5 2.7 2.4Z"
-        fill="white"
-        fillOpacity="0.6"
       />
     </svg>
   )
