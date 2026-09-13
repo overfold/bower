@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { createTeamAction, deleteTeamAction } from '@/lib/actions/operations'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogBody, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -38,25 +38,30 @@ function CreateTeamDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="primary" size="sm">
-          <Plus className="mr-1.5 h-4 w-4" />
+          <Plus className="h-4 w-4" />
           New team
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Create team</DialogTitle>
         </DialogHeader>
-        <DialogBody>
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit}>
+          <DialogBody>
             <div className="space-y-2">
-              <Label htmlFor="name">Team name</Label>
-              <Input id="name" name="name" placeholder="Engineering" required />
+              <Label htmlFor="team-name">Team name</Label>
+              <Input id="team-name" name="name" placeholder="Engineering" required />
             </div>
-            <Button variant="primary" type="submit" className="w-full" disabled={pending}>
-              {pending ? 'Creating...' : 'Create team'}
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="default" type="button" size="sm" onClick={() => setOpen(false)} disabled={pending}>
+              Cancel
             </Button>
-          </form>
-        </DialogBody>
+            <Button variant="primary" type="submit" size="sm" disabled={pending}>
+              {pending ? 'Creating…' : 'Create team'}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )
@@ -68,7 +73,7 @@ function DeleteTeamButton({ teamId, teamName }: { teamId: string; teamName: stri
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="ghost" size="sm" disabled={pending}>
+        <Button variant="ghost" size="icon" disabled={pending} aria-label={`Delete ${teamName}`}>
           <Trash2 className="h-3.5 w-3.5 text-ink-muted" />
         </Button>
       </AlertDialogTrigger>

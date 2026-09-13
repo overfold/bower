@@ -2,10 +2,10 @@ import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { getUserOrganization, getTeamsByOrg, getTeamMembers, getTeamProjectAccessList } from '@/lib/queries'
 import { PageHeading } from '@/components/page-heading'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
+import { EmptyState } from '@/components/ui/empty-state'
 import { TeamActions } from './team-actions'
 import { Users } from 'lucide-react'
 
@@ -16,7 +16,6 @@ export default async function TeamsPage() {
   if (!orgCtx) redirect('/login')
 
   const teams = await getTeamsByOrg(orgCtx.org.id)
-
   const teamsWithDetails = await Promise.all(
     teams.map(async (team) => {
       const [members, access] = await Promise.all([
@@ -24,11 +23,11 @@ export default async function TeamsPage() {
         getTeamProjectAccessList(team.id),
       ])
       return { team, members, access }
-    })
+    }),
   )
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-[1180px] space-y-6">
       <PageHeading
         title="Teams"
         description="Manage teams and their project access."
@@ -37,27 +36,31 @@ export default async function TeamsPage() {
 
       {teamsWithDetails.length === 0 ? (
         <Card>
-          <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-            <Users className="h-10 w-10 text-ink-muted/50" />
-            <p className="text-ink-muted">No teams yet. Create one to organize project access.</p>
-          </CardContent>
+          <EmptyState
+            icon={<Users className="h-5 w-5" />}
+            title="No teams yet"
+            body="Create a team to group members and control project access."
+            action={<TeamActions mode="create" />}
+          />
         </Card>
       ) : (
         <div className="space-y-4">
           {teamsWithDetails.map(({ team, members, access }) => (
             <Card key={team.id}>
-              <CardHeader className="flex-row items-center justify-between space-y-0">
-                <div className="flex items-center gap-2">
-                  <CardTitle className="text-base">{team.name}</CardTitle>
-                  <Badge variant="secondary">{members.length} members</Badge>
+              <CardHeader>
+                <div className="flex min-w-0 items-center gap-2">
+                  <CardTitle>{team.name}</CardTitle>
+                  <Badge variant="secondary">{members.length} {members.length === 1 ? 'member' : 'members'}</Badge>
                 </div>
                 <TeamActions mode="delete" teamId={team.id} teamName={team.name} />
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <h4 className="mb-2 text-sm font-medium">Members</h4>
+              <CardContent className="grid gap-6 p-0 lg:grid-cols-2 lg:divide-x lg:divide-line">
+                <section className="min-w-0">
+                  <div className="border-b border-line px-4 py-3">
+                    <h3 className="text-[13px] font-semibold tracking-tight text-ink">Members</h3>
+                  </div>
                   {members.length === 0 ? (
-                    <p className="text-sm text-ink-muted">No members.</p>
+                    <div className="px-4 py-8 text-center text-[13px] text-ink-muted">No members assigned.</div>
                   ) : (
                     <Table>
                       <TableHeader>
@@ -67,21 +70,23 @@ export default async function TeamsPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {members.map((m) => (
-                          <TableRow key={m.membership.id}>
-                            <TableCell>{m.userName}</TableCell>
-                            <TableCell className="text-ink-muted">{m.userEmail}</TableCell>
+                        {members.map((member) => (
+                          <TableRow key={member.membership.id}>
+                            <TableCell className="font-medium text-ink">{member.userName}</TableCell>
+                            <TableCell className="text-ink-muted">{member.userEmail}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
                     </Table>
                   )}
-                </div>
-                <Separator />
-                <div>
-                  <h4 className="mb-2 text-sm font-medium">Project access</h4>
+                </section>
+
+                <section className="min-w-0 lg:pl-0">
+                  <div className="border-b border-line px-4 py-3">
+                    <h3 className="text-[13px] font-semibold tracking-tight text-ink">Project access</h3>
+                  </div>
                   {access.length === 0 ? (
-                    <p className="text-sm text-ink-muted">No project access granted.</p>
+                    <div className="px-4 py-8 text-center text-[13px] text-ink-muted">No project access granted.</div>
                   ) : (
                     <Table>
                       <TableHeader>
@@ -91,18 +96,16 @@ export default async function TeamsPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {access.map((a) => (
-                          <TableRow key={a.access.id}>
-                            <TableCell>{a.projectName}</TableCell>
-                            <TableCell>
-                              <Badge variant="secondary">{a.access.role}</Badge>
-                            </TableCell>
+                        {access.map((entry) => (
+                          <TableRow key={entry.access.id}>
+                            <TableCell className="font-medium text-ink">{entry.projectName}</TableCell>
+                            <TableCell><Badge variant="secondary">{entry.access.role}</Badge></TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
                     </Table>
                   )}
-                </div>
+                </section>
               </CardContent>
             </Card>
           ))}

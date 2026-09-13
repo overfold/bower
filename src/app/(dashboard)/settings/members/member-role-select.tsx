@@ -20,7 +20,7 @@ export function MemberRoleSelect({ membershipId, role, canManage }: {
         await updateOrganizationMemberRoleAction(membershipId, value as 'owner' | 'admin' | 'member')
       })}
     >
-      <SelectTrigger className="h-8 w-[112px]"><SelectValue /></SelectTrigger>
+      <SelectTrigger className="w-[112px]"><SelectValue /></SelectTrigger>
       <SelectContent>
         <SelectItem value="owner">Owner</SelectItem>
         <SelectItem value="admin">Admin</SelectItem>

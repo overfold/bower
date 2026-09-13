@@ -2,12 +2,13 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Copy, Plus, Trash2 } from 'lucide-react'
+import { Copy, MailPlus, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { EmptyState, InlineNotice } from '@/components/ui/empty-state'
 import {
   Dialog,
   DialogContent,
@@ -18,21 +19,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { createInviteTokenAction, revokeInviteTokenAction } from '@/lib/actions/settings'
 
 interface TokenRow {
@@ -53,7 +41,7 @@ interface InviteTokensSectionProps {
   role: string
 }
 
-function tokenStatus(token: TokenRow['token']): { label: string; variant: 'default' | 'secondary' | 'danger' | 'success' } {
+function tokenStatus(token: TokenRow['token']): { label: string; variant: 'secondary' | 'danger' | 'success' } {
   if (token.usedAt) return { label: 'Used', variant: 'secondary' }
   if (token.expiresAt && new Date(token.expiresAt) < new Date()) return { label: 'Expired', variant: 'danger' }
   return { label: 'Active', variant: 'success' }
@@ -115,31 +103,33 @@ export function InviteTokensSection({ tokens, role }: InviteTokensSectionProps) 
                 Invite member
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-lg">
               <DialogHeader>
                 <DialogTitle>Invite member</DialogTitle>
                 <DialogDescription>Create a one-time invite link for this organization.</DialogDescription>
               </DialogHeader>
               {createdToken ? (
-                <DialogBody>
-                  <div className="space-y-3">
-                    <p className="text-[13px] font-medium text-ink">Copy this invite link token now. It will not be shown again.</p>
-                    <div className="flex items-center gap-2">
-                      <code className="flex-1 break-all rounded-lg border border-line bg-sunken px-3 py-2 font-mono text-[12.5px] text-ink">
-                        {createdToken}
-                      </code>
-                      <Button variant="default" size="icon" onClick={() => navigator.clipboard.writeText(createdToken)} aria-label="Copy invitation">
-                        <Copy className="h-4 w-4" />
-                      </Button>
+                <>
+                  <DialogBody>
+                    <div className="space-y-3">
+                      <p className="text-[13px] font-medium text-ink">Copy this invite link token now. It will not be shown again.</p>
+                      <div className="flex items-center gap-2">
+                        <code className="flex-1 break-all rounded-lg border border-line bg-sunken px-3 py-2 font-mono text-[12.5px] text-ink">
+                          {createdToken}
+                        </code>
+                        <Button variant="default" size="icon" onClick={() => navigator.clipboard.writeText(createdToken)} aria-label="Copy invitation">
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                  <DialogFooter className="mt-4 border-t-0 bg-transparent px-0 py-0">
-                    <Button variant="primary" onClick={handleClose}>Done</Button>
+                  </DialogBody>
+                  <DialogFooter>
+                    <Button variant="primary" size="sm" onClick={handleClose}>Done</Button>
                   </DialogFooter>
-                </DialogBody>
+                </>
               ) : (
-                <DialogBody>
-                  <form onSubmit={handleCreate} className="space-y-4">
+                <form onSubmit={handleCreate}>
+                  <DialogBody className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="invite-role">Organization role</Label>
                       <Select value={selectedRole} onValueChange={setSelectedRole}>
@@ -155,14 +145,15 @@ export function InviteTokensSection({ tokens, role }: InviteTokensSectionProps) 
                       <Label htmlFor="note">Note <span className="font-normal text-ink-muted">(optional)</span></Label>
                       <Input id="note" name="note" placeholder="e.g. Platform team" />
                     </div>
-                    {error ? <p className="text-sm text-danger-500">{error}</p> : null}
-                    <DialogFooter className="border-t-0 bg-transparent px-0 py-0">
-                      <Button variant="primary" type="submit" disabled={loading}>
-                        {loading ? 'Creating…' : 'Create invitation'}
-                      </Button>
-                    </DialogFooter>
-                  </form>
-                </DialogBody>
+                    {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
+                  </DialogBody>
+                  <DialogFooter>
+                    <Button variant="default" type="button" size="sm" onClick={handleClose} disabled={loading}>Cancel</Button>
+                    <Button variant="primary" type="submit" size="sm" disabled={loading}>
+                      {loading ? 'Creating…' : 'Create invitation'}
+                    </Button>
+                  </DialogFooter>
+                </form>
               )}
             </DialogContent>
           </Dialog>
@@ -170,7 +161,11 @@ export function InviteTokensSection({ tokens, role }: InviteTokensSectionProps) 
       </CardHeader>
       <CardContent className="p-0">
         {tokens.length === 0 ? (
-          <div className="px-4 py-10 text-center text-[13px] text-ink-muted">No invitations have been created.</div>
+          <EmptyState
+            icon={<MailPlus className="h-5 w-5" />}
+            title="No invitations yet"
+            body={isAdmin ? 'Create an invitation to add someone to this organization.' : 'No organization invitations have been created.'}
+          />
         ) : (
           <Table>
             <TableHeader>

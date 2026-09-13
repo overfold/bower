@@ -3,9 +3,10 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { InlineNotice } from '@/components/ui/empty-state'
 import { updateOrganizationAction } from '@/lib/actions/settings'
 
 interface OrgSettingsFormProps {
@@ -29,9 +30,8 @@ export function OrgSettingsForm({ org }: OrgSettingsFormProps) {
     setSuccess(false)
     const formData = new FormData(e.currentTarget)
     const result = await updateOrganizationAction(formData)
-    if (result?.error) {
-      setError(result.error)
-    } else if (result?.success) {
+    if (result?.error) setError(result.error)
+    else if (result?.success) {
       setSuccess(true)
       router.refresh()
     }
@@ -40,22 +40,24 @@ export function OrgSettingsForm({ org }: OrgSettingsFormProps) {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Organization details</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && <div className="rounded-md bg-danger-50 p-3 text-sm text-danger-500">{error}</div>}
-          {success && <div className="rounded-md bg-brand-50 p-3 text-sm text-brand-700">Settings updated.</div>}
+      <form onSubmit={handleSubmit}>
+        <CardHeader>
+          <CardTitle>Organization details</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
+          {success ? <InlineNotice tone="brand">Settings updated.</InlineNotice> : null}
           <div className="space-y-2">
             <Label htmlFor="name">Organization name</Label>
             <Input id="name" name="name" defaultValue={org.name} required />
           </div>
-          <Button variant="primary" type="submit" disabled={loading}>
-            {loading ? 'Saving...' : 'Save changes'}
+        </CardContent>
+        <CardFooter>
+          <Button variant="primary" type="submit" size="sm" disabled={loading}>
+            {loading ? 'Saving…' : 'Save changes'}
           </Button>
-        </form>
-      </CardContent>
+        </CardFooter>
+      </form>
     </Card>
   )
 }

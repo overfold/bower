@@ -3,7 +3,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { getInstanceAdmins, getInstanceOrganizations, isInstanceAdmin } from '@/lib/queries'
 import { createOrganizationAction } from '@/lib/actions/settings'
 import { PageHeading } from '@/components/page-heading'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -59,14 +59,14 @@ export default async function InstanceSettingsPage() {
       </Card>
 
       <Card>
-        <CardHeader>
-          <div>
-            <CardTitle>Create organization</CardTitle>
-            <p className="mt-0.5 text-xs text-ink-muted">Connect a new organization to its Trellis cluster</p>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <form action={createOrganizationAction} className="space-y-4">
+        <form action={createOrganizationAction}>
+          <CardHeader>
+            <div>
+              <CardTitle>Create organization</CardTitle>
+              <p className="mt-0.5 text-xs text-ink-muted">Connect a new organization to its Trellis cluster</p>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="instance-org-name">Name</Label>
@@ -85,9 +85,11 @@ export default async function InstanceSettingsPage() {
               <Label htmlFor="instance-trellis-token">Trellis API token</Label>
               <Input id="instance-trellis-token" name="trellisApiToken" type="password" autoComplete="off" required />
             </div>
+          </CardContent>
+          <CardFooter>
             <Button type="submit" variant="primary" size="sm">Create organization</Button>
-          </form>
-        </CardContent>
+          </CardFooter>
+        </form>
       </Card>
 
       <Card>
