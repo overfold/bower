@@ -2,13 +2,24 @@
 
 Bower manages a reverse proxy per Trellis namespace, so services can be exposed via HTTP/HTTPS routes without manually authoring proxy jobs.
 
+## Domains and routes
+
+Domain ownership is organization-wide, while routing is project-scoped.
+
+Organization owners and admins add DNS domains under **Settings → Domains**. Bower verifies ownership with a TXT record at `_bower.<domain>`. A managed domain may be an apex such as `example.com` or a delegated subtree such as `internal.example.com`.
+
+Once verified, project admins can create routes using the domain itself or hostnames beneath it. A hostname may only be claimed by one project/environment in an organization; multiple path routes within that same project/environment are allowed.
+
+Existing routes created before domain management was introduced continue to run, but new routes and hostname changes must use a verified organization domain.
+
 ## How it works
 
 When a route is created or updated, Bower:
 
-1. Generates a Caddyfile for the route configuration and writes it as a Trellis namespace secret
-2. Deploys (or updates) a two-task task group in the namespace: a Caddy instance and a route-sync agent
-3. The sync agent uses `api_access: namespace/read` to watch healthy allocations via labels, renders upstream addresses, and reloads Caddy through its admin API whenever allocations change
+1. Validates that the hostname is covered by a verified organization domain and is not claimed by another project/environment
+2. Generates a Caddyfile for the route configuration and writes it as a Trellis namespace secret
+3. Deploys (or updates) a two-task task group in the namespace: a Caddy instance and a route-sync agent
+4. The sync agent uses `api_access: namespace/read` to watch healthy allocations via labels, renders upstream addresses, and reloads Caddy through its admin API whenever allocations change
 
 The proxy job is managed infrastructure — it appears in the Bower UI but is not shown as a user service.
 
@@ -22,7 +33,9 @@ The proxy job is managed infrastructure — it appears in the Bower UI but is no
 
 ## DNS
 
-Bower tells you what DNS record to create (e.g. "Point `api.example.com` CNAME to `node-1.cluster.example.com`"). It does not manage DNS records itself.
+Bower uses DNS only to verify that the organization controls a managed domain and to tell you what traffic record to create for a route. It does not create, modify, or delete DNS records itself.
+
+For domain verification, create the TXT record shown in **Settings → Domains**. For a project route, Bower tells you what traffic record to create (for example, `api.example.com CNAME node-1.cluster.example.com`).
 
 ## Canary weight
 

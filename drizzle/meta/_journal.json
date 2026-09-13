@@ -2,47 +2,12 @@
   "version": "7",
   "dialect": "postgresql",
   "entries": [
-    {
-      "idx": 0,
-      "version": "7",
-      "when": 1788432203162,
-      "tag": "0000_round_mojo",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1788446492931,
-      "tag": "0001_chemical_senator_kelly",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1788549587848,
-      "tag": "0002_odd_energizer",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1788764834280,
-      "tag": "0003_wild_taskmaster",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1788825600000,
-      "tag": "0004_instance_tokens",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1789430400000,
-      "tag": "0005_remove_service_types",
-      "breakpoints": true
-    }
+    { "idx": 0, "version": "7", "when": 1788432203162, "tag": "0000_round_mojo", "breakpoints": true },
+    { "idx": 1, "version": "7", "when": 1788446492931, "tag": "0001_chemical_senator_kelly", "breakpoints": true },
+    { "idx": 2, "version": "7", "when": 1788549587848, "tag": "0002_odd_energizer", "breakpoints": true },
+    { "idx": 3, "version": "7", "when": 1788764834280, "tag": "0003_wild_taskmaster", "breakpoints": true },
+    { "idx": 4, "version": "7", "when": 1788825600000, "tag": "0004_instance_tokens", "breakpoints": true },
+    { "idx": 5, "version": "7", "when": 1789430400000, "tag": "0005_remove_service_types", "breakpoints": true },
+    { "idx": 6, "version": "7", "when": 1789430401000, "tag": "0006_organization_domains", "breakpoints": true }
   ]
 }
