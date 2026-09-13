@@ -1,14 +1,11 @@
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { getInstanceAdmins, getInstanceOrganizations, isInstanceAdmin } from '@/lib/queries'
-import { createOrganizationAction } from '@/lib/actions/settings'
 import { PageHeading } from '@/components/page-heading'
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { CreateOrganizationForm } from './create-organization-form'
 
 export default async function InstanceSettingsPage() {
   const user = await getCurrentUser()
@@ -48,9 +45,9 @@ export default async function InstanceSettingsPage() {
               {organizations.map(({ org, memberCount }) => (
                 <TableRow key={org.id}>
                   <TableCell className="font-medium text-ink">{org.name}</TableCell>
-                  <TableCell className="font-mono text-xs text-ink-muted">{org.slug}</TableCell>
+                  <TableCell className="font-mono text-[12.5px] text-ink-muted">{org.slug}</TableCell>
                   <TableCell className="nums text-ink-muted">{memberCount}</TableCell>
-                  <TableCell className="max-w-[360px] truncate font-mono text-xs text-ink-muted">{org.trellisApiUrl}</TableCell>
+                  <TableCell className="max-w-[360px] truncate font-mono text-[12.5px] text-ink-muted">{org.trellisApiUrl}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -58,39 +55,7 @@ export default async function InstanceSettingsPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <form action={createOrganizationAction}>
-          <CardHeader>
-            <div>
-              <CardTitle>Create organization</CardTitle>
-              <p className="mt-0.5 text-xs text-ink-muted">Connect a new organization to its Trellis cluster</p>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="instance-org-name">Name</Label>
-                <Input id="instance-org-name" name="name" placeholder="Acme" required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="instance-org-slug">Slug</Label>
-                <Input id="instance-org-slug" name="slug" placeholder="acme" className="font-mono" required />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="instance-trellis-url">Trellis API URL</Label>
-              <Input id="instance-trellis-url" name="trellisApiUrl" type="url" placeholder="https://trellis.example.com" className="font-mono" required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="instance-trellis-token">Trellis API token</Label>
-              <Input id="instance-trellis-token" name="trellisApiToken" type="password" autoComplete="off" required />
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button type="submit" variant="primary" size="sm">Create organization</Button>
-          </CardFooter>
-        </form>
-      </Card>
+      <CreateOrganizationForm />
 
       <Card>
         <CardHeader>
