@@ -142,6 +142,10 @@ export class TrellisClient {
     return this.request<TrellisNode[]>('GET', '/v1/nodes')
   }
 
+  async getMetrics(): Promise<string> {
+    return this.request<string>('GET', '/metrics', { rawText: true })
+  }
+
   async drainNode(id: string): Promise<void> {
     await this.request<void>('POST', `/v1/nodes/${encodeURIComponent(id)}/drain`)
   }
