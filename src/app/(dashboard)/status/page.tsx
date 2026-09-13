@@ -6,10 +6,11 @@ import {
   getRouteCountsByEnvironment,
 } from '@/lib/queries'
 import { getTrellisClient } from '@/lib/trellis-instance'
+import { parseNodeAllocatedResources } from '@/lib/trellis-resource-metrics'
 import { PageHeading } from '@/components/page-heading'
 import { Panel, PanelHeader, KeyValue } from '@/components/ui/panel'
-import { Chip, Dot, Meter, Mono, StatusDot } from '@/components/status'
-import { EmptyState, InlineNotice } from '@/components/ui/empty-state'
+import { Chip, Dot, Meter, Mono } from '@/components/status'
+import { EmptyState } from '@/components/ui/empty-state'
 import {
   Table,
   TableBody,
@@ -21,15 +22,6 @@ import {
 import { Server } from 'lucide-react'
 import { DrainToggle } from '../cluster/drain-toggle'
 import type { TrellisNode } from '@/types/trellis'
-
-function formatCpu(millicores: number) {
-  if (millicores >= 1000) return `${(millicores / 1000).toFixed(1)}`
-  return `${(millicores / 1000).toFixed(2)}`
-}
-
-function formatMemGiB(bytes: number) {
-  return (bytes / (1024 * 1024 * 1024)).toFixed(1)
-}
 
 function relTime(date: Date): string {
   const now = Date.now()
@@ -51,12 +43,18 @@ export default async function StatusPage() {
   if (!orgCtx) redirect('/login')
 
   let nodes: TrellisNode[] = []
+  let allocatedByNode = new Map<string, { cpu: number; memory: number }>()
   let clusterError: string | null = null
   let clusterUrl: string | null = null
 
   try {
     const client = await getTrellisClient(orgCtx.org.id)
-    nodes = await client.listNodes()
+    const [listedNodes, metrics] = await Promise.all([
+      client.listNodes(),
+      client.getMetrics(),
+    ])
+    nodes = listedNodes
+    allocatedByNode = parseNodeAllocatedResources(metrics)
     clusterUrl = orgCtx.org.trellisApiUrl?.replace(/^https?:\/\//, '').replace(/\/+$/, '') ?? null
   } catch (err) {
     clusterError = err instanceof Error ? err.message : 'Failed to connect to cluster.'
@@ -71,11 +69,11 @@ export default async function StatusPage() {
 
   const healthyNodes = nodes.filter((n) => n.status === 'healthy').length
   const totalCpu = nodes.reduce((sum, n) => sum + n.cpu, 0)
-  const usedCpu = nodes.reduce((sum, n) => sum + (n.cpu_used ?? 0), 0)
+  const allocatedCpu = nodes.reduce((sum, n) => sum + (allocatedByNode.get(n.id)?.cpu ?? 0), 0)
   const totalMem = nodes.reduce((sum, n) => sum + n.memory, 0)
-  const usedMem = nodes.reduce((sum, n) => sum + (n.memory_used ?? 0), 0)
-  const cpuPct = totalCpu > 0 ? Math.round((usedCpu / totalCpu) * 100) : 0
-  const memPct = totalMem > 0 ? Math.round((usedMem / totalMem) * 100) : 0
+  const allocatedMem = nodes.reduce((sum, n) => sum + (allocatedByNode.get(n.id)?.memory ?? 0), 0)
+  const cpuPct = totalCpu > 0 ? Math.round((allocatedCpu / totalCpu) * 100) : 0
+  const memPct = totalMem > 0 ? Math.round((allocatedMem / totalMem) * 100) : 0
 
   if (clusterError) {
     return (
@@ -123,25 +121,15 @@ export default async function StatusPage() {
           <PanelHeader title="Capacity" hint={`${nodes.length} node${nodes.length === 1 ? '' : 's'}`} />
           <div className="space-y-4 p-4">
             <div>
-              <div className="flex items-baseline justify-between">
-                <span className="text-[13px] text-ink-soft">CPU</span>
-                <span className="nums text-[13px] text-ink">
-                  {formatCpu(usedCpu)} / {formatCpu(totalCpu)} cores
-                </span>
-              </div>
+              <span className="text-[13px] text-ink-soft">CPU allocated</span>
               <div className="mt-2">
-                <Meter value={cpuPct} label="Cluster CPU" />
+                <Meter value={cpuPct} label="Cluster CPU allocated" />
               </div>
             </div>
             <div>
-              <div className="flex items-baseline justify-between">
-                <span className="text-[13px] text-ink-soft">Memory</span>
-                <span className="nums text-[13px] text-ink">
-                  {formatMemGiB(usedMem)} / {formatMemGiB(totalMem)} GiB
-                </span>
-              </div>
+              <span className="text-[13px] text-ink-soft">Memory allocated</span>
               <div className="mt-2">
-                <Meter value={memPct} label="Cluster memory" />
+                <Meter value={memPct} label="Cluster memory allocated" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4 border-t border-line pt-4">
@@ -186,8 +174,9 @@ export default async function StatusPage() {
             </TableHeader>
             <TableBody>
               {nodes.map((node) => {
-                const nodeCpuPct = node.cpu > 0 ? Math.round(((node.cpu_used ?? 0) / node.cpu) * 100) : 0
-                const nodeMemPct = node.memory > 0 ? Math.round(((node.memory_used ?? 0) / node.memory) * 100) : 0
+                const allocated = allocatedByNode.get(node.id)
+                const nodeCpuPct = node.cpu > 0 ? Math.round(((allocated?.cpu ?? 0) / node.cpu) * 100) : 0
+                const nodeMemPct = node.memory > 0 ? Math.round(((allocated?.memory ?? 0) / node.memory) * 100) : 0
                 return (
                   <TableRow key={node.id}>
                     <TableCell className="font-medium text-ink">{node.id}</TableCell>
@@ -209,10 +198,10 @@ export default async function StatusPage() {
                       </span>
                     </TableCell>
                     <TableCell>
-                      <Meter value={nodeCpuPct} label={`${node.id} CPU`} />
+                      <Meter value={nodeCpuPct} label={`${node.id} CPU allocated`} />
                     </TableCell>
                     <TableCell>
-                      <Meter value={nodeMemPct} label={`${node.id} memory`} />
+                      <Meter value={nodeMemPct} label={`${node.id} memory allocated`} />
                     </TableCell>
                     <TableCell>
                       <Chip tone="neutral">{node.arch}</Chip>
