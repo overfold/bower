@@ -108,10 +108,10 @@ export function DeploymentFilters({ items, projects, environments }: DeploymentF
         <PanelHeader
           title={`${filtered.length} deployment${filtered.length === 1 ? '' : 's'}`}
           action={
-            <div className="flex items-center gap-2">
+            <div className="grid w-full grid-cols-1 gap-2 sm:w-auto sm:grid-cols-2">
               <select
                 aria-label="Filter by project"
-                className="h-8 w-[150px] appearance-none rounded-lg border border-line bg-surface px-2.5 pr-8 text-[12.5px] text-ink shadow-card transition-[border-color,box-shadow] duration-150 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                className="h-10 w-full appearance-none sm:h-8 sm:w-[150px] rounded-lg border border-line bg-surface px-2.5 pr-8 text-[12.5px] text-ink shadow-card transition-[border-color,box-shadow] duration-150 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
                 value={projectFilter}
                 onChange={(e) => setProjectFilter(e.target.value)}
               >
@@ -122,7 +122,7 @@ export function DeploymentFilters({ items, projects, environments }: DeploymentF
               </select>
               <select
                 aria-label="Filter by environment"
-                className="h-8 w-[140px] appearance-none rounded-lg border border-line bg-surface px-2.5 pr-8 text-[12.5px] text-ink shadow-card transition-[border-color,box-shadow] duration-150 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                className="h-10 w-full appearance-none sm:h-8 sm:w-[140px] rounded-lg border border-line bg-surface px-2.5 pr-8 text-[12.5px] text-ink shadow-card transition-[border-color,box-shadow] duration-150 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
                 value={envFilter}
                 onChange={(e) => setEnvFilter(e.target.value)}
               >
