@@ -93,7 +93,7 @@ const AlertDialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDiv
 )
 
 const AlertDialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn('flex flex-col-reverse items-stretch justify-end gap-2 border-t border-line bg-sunken px-4 py-3 sm:flex-row sm:items-center sm:px-5', className)} {...props} />
+  <div className={cn('flex flex-col items-stretch justify-end gap-2 border-t border-line bg-sunken px-4 py-3 sm:flex-row sm:items-center sm:px-5', className)} {...props} />
 )
 
 const AlertDialogTitle = React.forwardRef<
