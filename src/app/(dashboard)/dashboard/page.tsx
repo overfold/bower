@@ -141,7 +141,7 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div className="space-y-7">
+    <div className="min-w-0 space-y-7">
       <DeploymentPoller active={hasActive} />
 
       <PageHeading
@@ -197,9 +197,9 @@ export default async function DashboardPage() {
         </Panel>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+      <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
         {/* Left column */}
-        <div className="space-y-5">
+        <div className="min-w-0 space-y-5">
           {/* Stats grid */}
           <div className="grid grid-cols-2 gap-4">
             <Panel>
@@ -229,7 +229,7 @@ export default async function DashboardPage() {
           </div>
 
           {/* Recent deployments */}
-          <Panel>
+          <Panel className="min-w-0 overflow-hidden">
             <PanelHeader
               title="Recent deployments"
               action={
@@ -300,7 +300,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* Right column */}
-        <div className="space-y-5">
+        <div className="min-w-0 space-y-5">
           {/* Cluster health */}
           {!clusterError && nodes.length > 0 && (
             <Panel>

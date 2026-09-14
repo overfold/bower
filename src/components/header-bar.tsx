@@ -94,17 +94,17 @@ export function HeaderBar({ orgs, currentOrg, teams, searchData, user }: HeaderB
 
   return (
     <>
-      <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-line bg-canvas/85 px-4 backdrop-blur-md sm:px-6">
+      <header className="sticky top-0 z-20 flex h-14 w-full shrink-0 items-center gap-2 border-b border-line bg-canvas/85 px-3 backdrop-blur-md sm:gap-3 sm:px-6">
         <MobileDrawer user={user} />
-        <div className="flex min-w-0 flex-1 items-center gap-1">
+        <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
           <OrgTeamPicker orgs={orgs} currentOrg={currentOrg} teams={teams} />
           {crumbs.map((crumb, i) => (
             <Fragment key={crumb.href}>
-              <ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-faint" />
+              <ChevronRight className={`h-3.5 w-3.5 shrink-0 text-ink-faint ${i < crumbs.length - 1 ? "max-sm:hidden" : ""}`} />
               {i === crumbs.length - 1 ? (
                 <span className="min-w-0 truncate text-[13px] font-semibold text-ink">{crumb.label}</span>
               ) : (
-                <Link href={crumb.href} className="min-w-0 truncate text-[13px] font-medium text-ink-muted transition-colors hover:text-ink">
+                <Link href={crumb.href} className="min-w-0 truncate text-[13px] font-medium text-ink-muted transition-colors hover:text-ink max-sm:hidden">
                   {crumb.label}
                 </Link>
               )}
@@ -115,11 +115,12 @@ export function HeaderBar({ orgs, currentOrg, teams, searchData, user }: HeaderB
         <button
           type="button"
           onClick={() => setPaletteOpen(true)}
-          className="flex h-8 items-center gap-2 rounded-lg border border-line bg-surface px-2.5 text-[12.5px] text-ink-muted shadow-card transition-colors duration-150 hover:border-line-strong hover:text-ink"
+          aria-label="Search"
+          className="flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-line bg-surface text-[12.5px] text-ink-muted shadow-card transition-colors duration-150 hover:border-line-strong hover:text-ink sm:h-8 sm:w-auto sm:px-2.5"
         >
-          <Search className="h-3.5 w-3.5" />
-          Search
-          <kbd className="ml-3 rounded border border-line bg-sunken px-1.5 py-px font-sans text-2xs">⌘K</kbd>
+          <Search className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+          <span className="hidden sm:inline">Search</span>
+          <kbd className="ml-3 hidden rounded border border-line bg-sunken px-1.5 py-px font-sans text-2xs md:inline">⌘K</kbd>
         </button>
       </header>
 
