@@ -259,8 +259,6 @@ export const environments = pgTable(
     trellisNamespace: text("trellis_namespace").notNull(),
     promotionOrder: integer("promotion_order").notNull(),
     isLocked: boolean("is_locked").notNull().default(false),
-    defaultReplicas: integer("default_replicas").notNull().default(1),
-    resourceTier: resourceTierEnum("resource_tier").notNull().default("small"),
     envVars: jsonb("env_vars").notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -305,12 +303,8 @@ export const serviceConfigs = pgTable(
     serviceId: uuid("service_id")
       .notNull()
       .references(() => services.id, { onDelete: "cascade" }),
-    environmentId: uuid("environment_id")
-      .notNull()
-      .references(() => environments.id, { onDelete: "cascade" }),
     image: text("image").notNull(),
     port: integer("port"),
-    replicas: integer("replicas").notNull().default(1),
     cpu: integer("cpu").notNull(),
     memory: integer("memory").notNull(),
     healthCheckPath: text("health_check_path"),
@@ -323,15 +317,11 @@ export const serviceConfigs = pgTable(
       .notNull()
       .default("rolling"),
     resourceTier: resourceTierEnum("resource_tier").notNull(),
-    envVars: jsonb("env_vars").notNull().default({}),
     labels: jsonb("labels").notNull().default({}),
     command: text("command"),
     volumes: jsonb("volumes").notNull().default([]),
-    secretBindings: jsonb("secret_bindings").notNull().default([]),
     rawConfig: jsonb("raw_config"),
     cronSchedule: text("cron_schedule"),
-    pausedReplicas: integer("paused_replicas"),
-    activeJobName: text("active_job_name"),
     autoRollbackSeconds: integer("auto_rollback_seconds").notNull().default(300),
     canarySteps: jsonb("canary_steps").notNull().default([10, 25, 50, 100]),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -341,8 +331,33 @@ export const serviceConfigs = pgTable(
       .notNull()
       .defaultNow(),
   },
+  (table) => [uniqueIndex("service_configs_service_idx").on(table.serviceId)]
+);
+
+export const serviceDeployments = pgTable(
+  "service_deployments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    serviceId: uuid("service_id")
+      .notNull()
+      .references(() => services.id, { onDelete: "cascade" }),
+    environmentId: uuid("environment_id")
+      .notNull()
+      .references(() => environments.id, { onDelete: "cascade" }),
+    replicas: integer("replicas").notNull().default(1),
+    pausedReplicas: integer("paused_replicas"),
+    activeJobName: text("active_job_name"),
+    envVars: jsonb("env_vars").notNull().default({}),
+    secretBindings: jsonb("secret_bindings").notNull().default([]),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
   (table) => [
-    uniqueIndex("service_configs_service_env_idx").on(
+    uniqueIndex("service_deployments_service_env_idx").on(
       table.serviceId,
       table.environmentId
     ),
