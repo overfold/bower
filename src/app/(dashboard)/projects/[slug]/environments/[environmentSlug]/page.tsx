@@ -7,7 +7,7 @@ import {
   getEnvironmentsByProject,
   getProjectBySlug,
   getSecretsByProject,
-  getServiceConfigs,
+  getServiceConfigsWithEnvironments,
   getServicesByProject,
   getUserOrganization,
 } from '@/lib/queries'
@@ -61,9 +61,9 @@ export default async function EnvironmentDetailPage({ params }: { params: Promis
     getDeploymentsByProject(project.id, 100),
   ])
   const serviceRows = (await Promise.all(services.map(async (service) => {
-    const configs = await getServiceConfigs(service.id)
-    const config = configs.find((item) => item.environmentId === environment.id)
-    return config ? { service, config } : null
+    const rows = await getServiceConfigsWithEnvironments(service.id)
+    const row = rows.find((item) => item.environment.id === environment.id)
+    return row ? { service, config: row.config, target: row.deployment } : null
   }))).filter((row): row is NonNullable<typeof row> => row !== null)
   const secrets = allSecrets.filter((row) => row.secret.environmentId === environment.id)
   const secretNames = secrets.map((row) => row.secret.trellisSecretName)
@@ -92,9 +92,7 @@ export default async function EnvironmentDetailPage({ params }: { params: Promis
                   projectId={project.id}
                   environment={{
                     id: environment.id,
-                    defaultReplicas: environment.defaultReplicas,
                     promotionOrder: environment.promotionOrder,
-                    resourceTier: environment.resourceTier,
                     envVarNames: sharedVariables.map(([name]) => name),
                   }}
                 />
@@ -111,20 +109,19 @@ export default async function EnvironmentDetailPage({ params }: { params: Promis
       </div>
 
       <Panel>
-        <PanelHeader title="Environment defaults" hint="Inherited by services unless their configuration overrides them" />
+        <PanelHeader title="Environment" hint="Deployment and isolation context" />
         <div className="p-4">
-          <dl className="grid grid-cols-2 gap-x-8 gap-y-1 md:grid-cols-4">
+          <dl className="grid grid-cols-2 gap-x-8 gap-y-1 md:grid-cols-3">
             <KeyValue label="Namespace" mono>{environment.trellisNamespace}</KeyValue>
-            <KeyValue label="Resource tier"><span className="capitalize">{environment.resourceTier}</span></KeyValue>
-            <KeyValue label="Default replicas">{environment.defaultReplicas}</KeyValue>
             <KeyValue label="Promotion order">{environment.promotionOrder}</KeyValue>
+            <KeyValue label="Protection">{environment.isLocked ? 'Locked' : 'Unlocked'}</KeyValue>
           </dl>
         </div>
       </Panel>
 
       <div className="grid gap-5 xl:grid-cols-2">
         <Panel>
-          <PanelHeader title="Shared environment variables" hint="Secret-backed values injected into every service" />
+          <PanelHeader title="Shared environment variables" hint="Secret-backed values injected into every deployed service" />
           {sharedVariables.length === 0 ? (
             <div className="p-4 text-[13px] text-ink-muted">No shared variables are configured.</div>
           ) : (
@@ -146,7 +143,7 @@ export default async function EnvironmentDetailPage({ params }: { params: Promis
             action={<CreateSecretDialog projectId={project.id} environments={[{ id: environment.id, name: environment.name }]} />}
           />
           {secrets.length === 0 ? (
-            <EmptyState icon={<KeyRound className="h-4 w-4" />} title="No secrets" body="Add a secret, then bind it to a service below." />
+            <EmptyState icon={<KeyRound className="h-4 w-4" />} title="No secrets" body="Add a secret, then bind it to a service deployment below." />
           ) : (
             <div className="overflow-x-auto">
               <Table>
@@ -176,22 +173,22 @@ export default async function EnvironmentDetailPage({ params }: { params: Promis
 
       <div className="space-y-4">
         <div className="space-y-1">
-          <SectionTitle>Service configuration</SectionTitle>
-          <p className="text-[13px] text-ink-muted">Environment-specific service values and secret bindings live here; service-wide execution settings stay with the service.</p>
+          <SectionTitle>Service deployments</SectionTitle>
+          <p className="text-[13px] text-ink-muted">This page only owns environment context: desired replicas, variables, secret bindings, and deployment state. Workload configuration stays with each service.</p>
         </div>
         {serviceRows.length === 0 ? (
           <Panel>
-            <EmptyState icon={<Box className="h-4 w-4" />} title="No services" body="Services configured for this environment will appear here." />
+            <EmptyState icon={<Box className="h-4 w-4" />} title="No services" body="Project services get a deployment target in this environment automatically." />
           </Panel>
         ) : (
-          serviceRows.map(({ service, config }) => {
-            const variables = recordEntries(config.envVars)
-            const secretBindings = bindings(config.secretBindings)
+          serviceRows.map(({ service, config, target }) => {
+            const variables = recordEntries(target.envVars)
+            const secretBindings = bindings(target.secretBindings)
             return (
-              <Panel key={config.id}>
+              <Panel key={target.id}>
                 <PanelHeader
                   title={service.name}
-                  hint={`${config.image} · ${config.replicas} ${config.replicas === 1 ? 'replica' : 'replicas'}`}
+                  hint={`${target.replicas} ${target.replicas === 1 ? 'replica' : 'replicas'} · ${config.image}`}
                   action={
                     <div className="flex items-center gap-2">
                       <Link href={`/projects/${slug}/services/${service.slug}`}>
@@ -201,8 +198,8 @@ export default async function EnvironmentDetailPage({ params }: { params: Promis
                         serviceId={service.id}
                         environmentId={environment.id}
                         serviceName={service.name}
-                        envVars={config.envVars}
-                        secretBindings={config.secretBindings}
+                        envVars={target.envVars}
+                        secretBindings={target.secretBindings}
                         secretNames={secretNames}
                       />
                     </div>
@@ -210,9 +207,9 @@ export default async function EnvironmentDetailPage({ params }: { params: Promis
                 />
                 <div className="grid gap-0 divide-y divide-line lg:grid-cols-2 lg:divide-x lg:divide-y-0">
                   <div className="p-4">
-                    <p className="mb-3 text-[12px] font-semibold uppercase tracking-wide text-ink-muted">Variables</p>
+                    <p className="mb-3 text-[12px] font-semibold uppercase tracking-wide text-ink-muted">Deployment variables</p>
                     {variables.length === 0 ? (
-                      <p className="text-[13px] text-ink-muted">No service-specific variables.</p>
+                      <p className="text-[13px] text-ink-muted">No service-specific variables for this environment.</p>
                     ) : (
                       <div className="space-y-2.5">
                         {variables.map(([name, value]) => (
