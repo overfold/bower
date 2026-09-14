@@ -7,6 +7,7 @@ import {
   environments,
   services,
   serviceConfigs,
+  serviceDeployments,
   deployments,
   routes,
   teams,
@@ -88,21 +89,17 @@ export async function getInstanceAdmins() {
 }
 
 export async function getInstanceTokens() {
-  return db
-    .select({ token: instanceTokens, createdByName: users.name })
+  return db.select({ token: instanceTokens, createdByName: users.name })
     .from(instanceTokens)
     .leftJoin(users, eq(users.id, instanceTokens.createdByUserId))
     .orderBy(desc(instanceTokens.createdAt))
 }
 
 export async function getUserTeams(userId: string, orgId: string) {
-  return db
-    .select({ team: teams })
-    .from(teamMemberships)
+  return db.select({ team: teams }).from(teamMemberships)
     .innerJoin(teams, eq(teams.id, teamMemberships.teamId))
     .where(and(eq(teamMemberships.userId, userId), eq(teams.orgId, orgId)))
-    .orderBy(teams.name)
-    .then((rows) => rows.map((r) => r.team))
+    .orderBy(teams.name).then((rows) => rows.map((r) => r.team))
 }
 
 export async function getProjectsByOrg(orgId: string) {
@@ -130,23 +127,12 @@ export async function getProjectBySlug(orgId: string, slug: string) {
 }
 
 export async function getProjectAccess(projectId: string) {
-  const teamGrants = await db.select({
-    access: teamProjectAccess,
-    teamName: teams.name,
-  }).from(teamProjectAccess)
+  const teamGrants = await db.select({ access: teamProjectAccess, teamName: teams.name }).from(teamProjectAccess)
     .innerJoin(teams, eq(teams.id, teamProjectAccess.teamId))
-    .where(eq(teamProjectAccess.projectId, projectId))
-    .orderBy(teams.name)
-
-  const userGrants = await db.select({
-    access: projectUserAccess,
-    userName: users.name,
-    userEmail: users.email,
-  }).from(projectUserAccess)
+    .where(eq(teamProjectAccess.projectId, projectId)).orderBy(teams.name)
+  const userGrants = await db.select({ access: projectUserAccess, userName: users.name, userEmail: users.email }).from(projectUserAccess)
     .innerJoin(users, eq(users.id, projectUserAccess.userId))
-    .where(eq(projectUserAccess.projectId, projectId))
-    .orderBy(users.name)
-
+    .where(eq(projectUserAccess.projectId, projectId)).orderBy(users.name)
   return { teamGrants, userGrants }
 }
 
@@ -167,15 +153,31 @@ export async function getServiceConfigs(serviceId: string) {
   return db.select().from(serviceConfigs).where(eq(serviceConfigs.serviceId, serviceId))
 }
 
+export async function getServiceConfig(serviceId: string) {
+  const [config] = await db.select().from(serviceConfigs).where(eq(serviceConfigs.serviceId, serviceId)).limit(1)
+  return config ?? null
+}
+
 export async function getServiceBySlug(projectId: string, slug: string) {
   const rows = await db.select().from(services).where(and(eq(services.projectId, projectId), eq(services.slug, slug))).limit(1)
   return rows[0] ?? null
 }
 
+export async function getServiceDeploymentsWithEnvironments(serviceId: string) {
+  return db.select({ deployment: serviceDeployments, environment: environments })
+    .from(serviceDeployments)
+    .innerJoin(environments, eq(environments.id, serviceDeployments.environmentId))
+    .where(eq(serviceDeployments.serviceId, serviceId))
+    .orderBy(environments.promotionOrder)
+}
+
 export async function getServiceConfigsWithEnvironments(serviceId: string) {
-  return db.select({ config: serviceConfigs, environment: environments }).from(serviceConfigs)
-    .innerJoin(environments, eq(environments.id, serviceConfigs.environmentId))
-    .where(eq(serviceConfigs.serviceId, serviceId)).orderBy(environments.promotionOrder)
+  return db.select({ config: serviceConfigs, deployment: serviceDeployments, environment: environments })
+    .from(serviceDeployments)
+    .innerJoin(serviceConfigs, eq(serviceConfigs.serviceId, serviceDeployments.serviceId))
+    .innerJoin(environments, eq(environments.id, serviceDeployments.environmentId))
+    .where(eq(serviceDeployments.serviceId, serviceId))
+    .orderBy(environments.promotionOrder)
 }
 
 export async function getSidecars(serviceConfigId: string) {
@@ -299,11 +301,8 @@ export async function getApiKeys(userId: string) {
 }
 
 export async function getTeamMembershipsForOrg(orgId: string) {
-  return db
-    .select({ userId: teamMemberships.userId, teamId: teams.id, teamName: teams.name })
-    .from(teamMemberships)
-    .innerJoin(teams, eq(teams.id, teamMemberships.teamId))
-    .where(eq(teams.orgId, orgId))
+  return db.select({ userId: teamMemberships.userId, teamId: teams.id, teamName: teams.name })
+    .from(teamMemberships).innerJoin(teams, eq(teams.id, teamMemberships.teamId)).where(eq(teams.orgId, orgId))
 }
 
 export async function getOrganizationTokens(orgId: string) {
@@ -311,4 +310,3 @@ export async function getOrganizationTokens(orgId: string) {
     .leftJoin(users, eq(users.id, organizationTokens.createdByUserId))
     .where(eq(organizationTokens.orgId, orgId)).orderBy(desc(organizationTokens.createdAt))
 }
-
