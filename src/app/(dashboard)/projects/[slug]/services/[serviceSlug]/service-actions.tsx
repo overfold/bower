@@ -14,7 +14,7 @@ interface ServiceActionsProps {
   serviceId: string
   environmentId: string
   isLocked: boolean
-  replicas: number
+  replicas?: number
   canPromote?: boolean
   promotionTargets?: { id: string; name: string }[]
   hasDeployments?: boolean
@@ -39,9 +39,9 @@ export function ServiceActions({ serviceId, environmentId, isLocked, canPromote,
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Rollback service?</AlertDialogTitle>
+              <AlertDialogTitle>Rollback deployment?</AlertDialogTitle>
               <AlertDialogDescription>
-                This will re-apply the previous deployment spec for this environment. The current configuration will be replaced.
+                This re-applies the previous JobSpec in this environment. It does not change the service definition used by future deployments.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -65,7 +65,7 @@ export function ServiceActions({ serviceId, environmentId, isLocked, canPromote,
             <AlertDialogHeader>
               <AlertDialogTitle>Promote to another environment?</AlertDialogTitle>
               <AlertDialogDescription>
-                This will copy the current configuration and deploy it to the target environment.
+                This deploys the current service definition to the target environment. The target keeps its own replica count, variables, and secret bindings.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <div className="px-6 pb-2">

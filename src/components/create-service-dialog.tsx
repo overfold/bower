@@ -50,15 +50,9 @@ export function CreateServiceDialog({ projectSlug }: { projectSlug: string }) {
               <Label htmlFor="image">Image</Label>
               <Input id="image" name="image" placeholder="nginx:latest" required />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="port">Port</Label>
-                <Input id="port" name="port" type="number" placeholder="8080" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="replicas">Replicas</Label>
-                <Input id="replicas" name="replicas" type="number" defaultValue={1} min={0} required />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="port">Application port</Label>
+              <Input id="port" name="port" type="number" placeholder="8080" />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -79,7 +73,7 @@ export function CreateServiceDialog({ projectSlug }: { projectSlug: string }) {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="cpu">CPU (MHz)</Label>
+                <Label htmlFor="cpu">CPU (millicores)</Label>
                 <Input id="cpu" name="cpu" type="number" defaultValue={100} required />
               </div>
             </div>
@@ -87,6 +81,9 @@ export function CreateServiceDialog({ projectSlug }: { projectSlug: string }) {
               <Label htmlFor="memory">Memory (MB)</Label>
               <Input id="memory" name="memory" type="number" defaultValue={128} required />
             </div>
+            <p className="text-2xs leading-relaxed text-ink-muted">
+              Each environment gets its own deployment target after creation. Replica counts are set per environment from the service page.
+            </p>
             <Button variant="primary" type="submit" className="w-full" disabled={loading}>
               {loading ? 'Creating...' : 'Create service'}
             </Button>

@@ -18,14 +18,14 @@ export default async function RevisionsPage({ params }: { params: Promise<{ slug
   const service = await getServiceBySlug(project.id, serviceSlug)
   if (!service) notFound()
 
-  const configs = await getServiceConfigsWithEnvironments(service.id)
-  const activeConfig = configs.find((c) => c.config.activeJobName)
+  const targets = await getServiceConfigsWithEnvironments(service.id)
+  const activeTarget = targets.find((row) => row.deployment.activeJobName)
 
   let revisions: TrellisJobRevision[] = []
-  if (activeConfig) {
+  if (activeTarget) {
     try {
       const client = await getTrellisClient(orgCtx.org.id)
-      revisions = await client.getJobRevisions(activeConfig.config.activeJobName!)
+      revisions = await client.getJobRevisions(activeTarget.deployment.activeJobName!)
     } catch {
       // Trellis may be unreachable
     }
@@ -35,7 +35,7 @@ export default async function RevisionsPage({ params }: { params: Promise<{ slug
     <div className="space-y-6">
       <ServiceHeader slug={slug} serviceSlug={serviceSlug} serviceName={service.name} />
 
-      {!activeConfig ? (
+      {!activeTarget ? (
         <Card>
           <CardContent className="py-8 text-center text-ink-muted">
             No active Trellis job for this service.
@@ -62,9 +62,7 @@ export default async function RevisionsPage({ params }: { params: Promise<{ slug
                 <TableRow key={rev.revision}>
                   <TableCell className="font-mono">{rev.revision}</TableCell>
                   <TableCell className="font-mono text-xs text-ink-muted">{rev.spec.name}</TableCell>
-                  <TableCell className="text-ink-muted">
-                    {new Date(rev.created_at).toLocaleString()}
-                  </TableCell>
+                  <TableCell className="text-ink-muted">{new Date(rev.created_at).toLocaleString()}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

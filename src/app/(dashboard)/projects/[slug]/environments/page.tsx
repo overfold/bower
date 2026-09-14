@@ -44,7 +44,7 @@ export default async function EnvironmentsPage({
       <div className="flex items-center justify-between gap-4">
         <div>
           <SectionTitle>Environments</SectionTitle>
-          <p className="mt-1 text-[13px] text-ink-muted">Own shared variables, secrets, and environment-specific service configuration.</p>
+          <p className="mt-1 text-[13px] text-ink-muted">Deployment and isolation boundaries that own namespaces, shared variables, secrets, and protection state.</p>
         </div>
         <CreateEnvironmentDialog projectId={project.id} />
       </div>
@@ -54,7 +54,7 @@ export default async function EnvironmentsPage({
           <EmptyState
             icon={<Layers className="h-4 w-4" />}
             title="No environments"
-            body="Create an environment to begin configuring deployments."
+            body="Create an environment to begin deploying services."
           />
         </Panel>
       ) : (
@@ -65,8 +65,7 @@ export default async function EnvironmentsPage({
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Namespace</TableHead>
-                  <TableHead>Resource tier</TableHead>
-                  <TableHead>Default replicas</TableHead>
+                  <TableHead>Promotion order</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -82,10 +81,7 @@ export default async function EnvironmentsPage({
                     <TableCell className="font-mono text-xs text-ink-muted">
                       {env.trellisNamespace}
                     </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{env.resourceTier}</Badge>
-                    </TableCell>
-                    <TableCell>{env.defaultReplicas}</TableCell>
+                    <TableCell>{env.promotionOrder}</TableCell>
                     <TableCell>
                       {env.isLocked ? (
                         <Badge variant="warning">
@@ -103,7 +99,7 @@ export default async function EnvironmentsPage({
                       <div className="flex justify-end gap-1">
                         <Link href={`/projects/${slug}/environments/${env.slug}`}>
                           <Button variant="ghost" size="sm">
-                            Configure
+                            Open
                             <ArrowRight className="h-3.5 w-3.5" />
                           </Button>
                         </Link>

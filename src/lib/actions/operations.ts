@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { db } from '@/db'
 import {
   environments, routes, secretsMetadata, services, teams, teamMemberships,
-  teamProjectAccess, users, projects, serviceConfigs,
+  teamProjectAccess, users, projects, serviceDeployments,
   sharedSecretGroups, sharedSecretMembers, organizationMembers,
   projectUserAccess,
 } from '@/db/schema'
@@ -24,13 +24,26 @@ export async function createEnvironmentAction(projectId: string, formData: FormD
   let env: typeof environments.$inferSelect
   try {
     ;[env] = await db.insert(environments).values({
-      projectId, name, slug, trellisNamespace: `${ctx.project.slug}-${slug}`,
+      projectId,
+      name,
+      slug,
+      trellisNamespace: `${ctx.project.slug}-${slug}`,
       promotionOrder: (last?.promotionOrder ?? -1) + 1,
-      defaultReplicas: Math.max(0, integer(formData, 'replicas', 1)),
-      resourceTier: (text(formData, 'resourceTier') || 'small') as 'small' | 'medium' | 'large' | 'xl' | 'custom',
       envVars: {},
     }).returning()
-  } catch { throw new Error('An environment with this name already exists.') }
+  } catch {
+    throw new Error('An environment with this name already exists.')
+  }
+
+  const projectServices = await db.select({ id: services.id }).from(services).where(eq(services.projectId, projectId))
+  if (projectServices.length) {
+    await db.insert(serviceDeployments).values(projectServices.map((service) => ({
+      serviceId: service.id,
+      environmentId: env.id,
+      replicas: 1,
+    })))
+  }
+
   const submitted = parseLines(text(formData, 'envVars'))
   if (Object.keys(submitted).length) {
     const envVars = await storeEnvironmentVariables(ctx.org.id, env, submitted)
@@ -66,12 +79,15 @@ export async function updateEnvironmentAction(projectId: string, environmentId: 
   const [before] = await db.select().from(environments).where(and(eq(environments.id, environmentId), eq(environments.projectId, projectId))).limit(1)
   if (!before) throw new Error('Environment not found.')
   const envVars = await storeEnvironmentVariables(ctx.org.id, before, parseLines(text(formData, 'envVars')))
-  const after = { defaultReplicas: Math.max(0, integer(formData, 'replicas', 1)), promotionOrder: Math.max(0, integer(formData, 'promotionOrder', before.promotionOrder)), resourceTier: (text(formData, 'resourceTier') || 'small') as 'small' | 'medium' | 'large' | 'xl' | 'custom', envVars, updatedAt: new Date() }
+  const after = {
+    promotionOrder: Math.max(0, integer(formData, 'promotionOrder', before.promotionOrder)),
+    envVars,
+    updatedAt: new Date(),
+  }
   await db.update(environments).set(after).where(eq(environments.id, environmentId))
-  const tierResources = { small: [100, 134217728], medium: [250, 268435456], large: [500, 536870912], xl: [1000, 1073741824] } as const
-  if (after.resourceTier !== 'custom') await db.update(serviceConfigs).set({ resourceTier: after.resourceTier, cpu: tierResources[after.resourceTier][0], memory: tierResources[after.resourceTier][1], updatedAt: new Date() }).where(eq(serviceConfigs.environmentId, environmentId))
   await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'environment.updated', resourceType: 'environment', resourceId: environmentId, details: { before, after } })
   revalidatePath(`/projects/${ctx.project.slug}/environments`)
+  revalidatePath(`/projects/${ctx.project.slug}/environments/${before.slug}`)
 }
 
 export async function toggleEnvironmentLockAction(projectId: string, environmentId: string, locked: boolean) {
@@ -194,7 +210,7 @@ export async function setSecretAction(projectId: string, formData: FormData) {
     await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'secret.rotated',
       resourceType: 'secret', resourceId: `${environmentId}:${name}`, details: { name, sharedName } })
   } catch (error) { throw new Error(error instanceof Error ? error.message : 'Could not store secret.') }
-  revalidatePath(`/projects/${ctx.project.slug}/secrets`)
+  revalidatePath(`/projects/${ctx.project.slug}/environments`)
 }
 
 export async function deleteSecretAction(projectId: string, secretId: string) {
@@ -204,9 +220,9 @@ export async function deleteSecretAction(projectId: string, secretId: string) {
     .from(secretsMetadata).innerJoin(environments, eq(environments.id, secretsMetadata.environmentId))
     .where(and(eq(secretsMetadata.id, secretId), eq(secretsMetadata.projectId, projectId))).limit(1)
   if (!row) return
-  const configs = await db.select().from(serviceConfigs).where(eq(serviceConfigs.environmentId, row.secret.environmentId))
-  const consumers = configs.filter((config) => (config.secretBindings as Array<{ name: string }>).some((binding) => binding.name === row.secret.trellisSecretName))
-  if (consumers.length) throw new Error(`Secret is referenced by ${consumers.length} service configuration${consumers.length === 1 ? '' : 's'}. Remove those bindings first.`)
+  const targets = await db.select().from(serviceDeployments).where(eq(serviceDeployments.environmentId, row.secret.environmentId))
+  const consumers = targets.filter((target) => (target.secretBindings as Array<{ name: string }>).some((binding) => binding.name === row.secret.trellisSecretName))
+  if (consumers.length) throw new Error(`Secret is referenced by ${consumers.length} service deployment${consumers.length === 1 ? '' : 's'}. Remove those bindings first.`)
   const routeConsumers = (await db.select().from(routes).where(eq(routes.environmentId, row.secret.environmentId))).filter((route) => route.tlsCertSecret === row.secret.trellisSecretName || route.tlsKeySecret === row.secret.trellisSecretName)
   if (routeConsumers.length) throw new Error('Secret is referenced by a custom TLS route. Change the route first.')
   const client = await getTrellisClient(ctx.org.id)
@@ -214,7 +230,7 @@ export async function deleteSecretAction(projectId: string, secretId: string) {
   await db.delete(secretsMetadata).where(eq(secretsMetadata.id, secretId))
   await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'secret.deleted',
     resourceType: 'secret', resourceId: secretId, details: { name: row.secret.name } })
-  revalidatePath(`/projects/${ctx.project.slug}/secrets`)
+  revalidatePath(`/projects/${ctx.project.slug}/environments`)
 }
 
 export async function setNodeDrainAction(nodeId: string, drain: boolean) {
@@ -340,4 +356,3 @@ export async function revokeProjectUserAccessAction(projectId: string, accessId:
   await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'project.access.user.revoked', resourceType: 'project', resourceId: projectId, details: { accessId } })
   revalidatePath(`/projects/${ctx.project.slug}/access`)
 }
-
