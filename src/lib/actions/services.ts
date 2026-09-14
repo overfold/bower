@@ -47,6 +47,49 @@ function inferResourceTier(cpu: number, memory: number): ResourceTier {
   return tiers.find(([, tierCpu, tierMemory]) => cpu === tierCpu && memory === tierMemory)?.[0] ?? 'custom'
 }
 
+async function applyReplicaCountToCurrentJob({
+  orgId,
+  serviceId,
+  serviceSlug,
+  environmentId,
+  namespace,
+  activeJobName,
+  replicas,
+}: {
+  orgId: string
+  serviceId: string
+  serviceSlug: string
+  environmentId: string
+  namespace: string
+  activeJobName: string | null
+  replicas: number
+}) {
+  const [latestHealthy] = await db.select({ trellisJobName: deployments.trellisJobName })
+    .from(deployments)
+    .where(and(
+      eq(deployments.serviceId, serviceId),
+      eq(deployments.environmentId, environmentId),
+      eq(deployments.status, 'healthy'),
+    ))
+    .orderBy(desc(deployments.createdAt))
+    .limit(1)
+  if (!latestHealthy) return false
+
+  const jobName = activeJobName || latestHealthy.trellisJobName || serviceSlug
+  const client = await getTrellisClient(orgId)
+  const job = await client.getJob(jobName, namespace)
+  let groupIndex = job.spec.task_groups.findIndex((group) => group.name === jobName || group.name === serviceSlug)
+  if (groupIndex < 0 && job.spec.task_groups.length === 1) groupIndex = 0
+  if (groupIndex < 0) throw new Error('Could not determine which task group represents this service deployment.')
+
+  const spec: TrellisJobSpec = {
+    ...job.spec,
+    task_groups: job.spec.task_groups.map((group, index) => index === groupIndex ? { ...group, count: replicas } : group),
+  }
+  await client.applyJob(spec, namespace)
+  return true
+}
+
 async function executeDeployment(serviceId: string, environmentId: string, triggerType: Trigger, userId?: string | null) {
   const row = await createDeploymentSpec(serviceId, environmentId)
   if (row.environment.isLocked && triggerType === 'webhook') throw new Error('This environment is locked and requires an administrator.')
@@ -318,21 +361,59 @@ export async function deleteSidecarAction(serviceId: string, sidecarId: string) 
 
 export async function scaleServiceAction(serviceId: string, environmentId: string, replicas: number) {
   const access = await requireService(serviceId); if (access.projectRole === 'viewer') throw new Error('Insufficient permissions.')
-  const [target] = await db.select().from(serviceDeployments).where(and(eq(serviceDeployments.serviceId, serviceId), eq(serviceDeployments.environmentId, environmentId))).limit(1)
-  if (!target || !Number.isInteger(replicas) || replicas < 0) throw new Error('Invalid replica count.')
-  await db.update(serviceDeployments).set({ replicas, pausedReplicas: replicas === 0 ? Math.max(1, target.replicas) : null, updatedAt: new Date() }).where(eq(serviceDeployments.id, target.id))
-  await recordAudit({ orgId: access.org.id, userId: access.user.id, action: replicas === 0 ? 'service.paused' : 'service.scaled', resourceType: 'service', resourceId: serviceId, details: { environmentId, before: target.replicas, after: replicas } })
-  await executeDeployment(serviceId, environmentId, 'manual', access.user.id)
+  const [row] = await db.select({ target: serviceDeployments, environment: environments })
+    .from(serviceDeployments)
+    .innerJoin(environments, eq(environments.id, serviceDeployments.environmentId))
+    .where(and(eq(serviceDeployments.serviceId, serviceId), eq(serviceDeployments.environmentId, environmentId))).limit(1)
+  if (!row || !Number.isInteger(replicas) || replicas < 0) throw new Error('Invalid replica count.')
+  if (row.environment.isLocked && access.projectRole !== 'admin') throw new Error('This environment is locked. An administrator must scale it.')
+
+  const pausedReplicas = replicas === 0 ? (row.target.pausedReplicas ?? Math.max(1, row.target.replicas)) : null
+  await db.update(serviceDeployments).set({ replicas, pausedReplicas, updatedAt: new Date() }).where(eq(serviceDeployments.id, row.target.id))
+  const applied = await applyReplicaCountToCurrentJob({
+    orgId: access.org.id,
+    serviceId,
+    serviceSlug: access.service.slug,
+    environmentId,
+    namespace: row.environment.trellisNamespace,
+    activeJobName: row.target.activeJobName,
+    replicas,
+  })
+  await recordAudit({
+    orgId: access.org.id,
+    userId: access.user.id,
+    action: replicas === 0 ? 'service.paused' : 'service.scaled',
+    resourceType: 'service',
+    resourceId: serviceId,
+    details: { environmentId, before: row.target.replicas, after: replicas, activeDeploymentUpdated: applied },
+  })
   revalidatePath(`/projects/${access.project.slug}/services/${access.service.slug}`)
+  revalidatePath(`/projects/${access.project.slug}/environments/${row.environment.slug}`)
 }
 
 export async function resumeServiceAction(serviceId: string, environmentId: string) {
   const access = await requireService(serviceId); if (access.projectRole === 'viewer') throw new Error('Insufficient permissions.')
-  const [target] = await db.select().from(serviceDeployments).where(and(eq(serviceDeployments.serviceId, serviceId), eq(serviceDeployments.environmentId, environmentId))).limit(1)
-  if (!target?.pausedReplicas) throw new Error('This service is not paused in this environment.')
-  await db.update(serviceDeployments).set({ replicas: target.pausedReplicas, pausedReplicas: null, updatedAt: new Date() }).where(eq(serviceDeployments.id, target.id))
-  await executeDeployment(serviceId, environmentId, 'manual', access.user.id)
-  await recordAudit({ orgId: access.org.id, userId: access.user.id, action: 'service.resumed', resourceType: 'service', resourceId: serviceId, details: { environmentId, replicas: target.pausedReplicas } })
+  const [row] = await db.select({ target: serviceDeployments, environment: environments })
+    .from(serviceDeployments)
+    .innerJoin(environments, eq(environments.id, serviceDeployments.environmentId))
+    .where(and(eq(serviceDeployments.serviceId, serviceId), eq(serviceDeployments.environmentId, environmentId))).limit(1)
+  if (!row?.target.pausedReplicas) throw new Error('This service is not paused in this environment.')
+  if (row.environment.isLocked && access.projectRole !== 'admin') throw new Error('This environment is locked. An administrator must resume it.')
+
+  const replicas = row.target.pausedReplicas
+  await db.update(serviceDeployments).set({ replicas, pausedReplicas: null, updatedAt: new Date() }).where(eq(serviceDeployments.id, row.target.id))
+  const applied = await applyReplicaCountToCurrentJob({
+    orgId: access.org.id,
+    serviceId,
+    serviceSlug: access.service.slug,
+    environmentId,
+    namespace: row.environment.trellisNamespace,
+    activeJobName: row.target.activeJobName,
+    replicas,
+  })
+  await recordAudit({ orgId: access.org.id, userId: access.user.id, action: 'service.resumed', resourceType: 'service', resourceId: serviceId, details: { environmentId, replicas, activeDeploymentUpdated: applied } })
+  revalidatePath(`/projects/${access.project.slug}/services/${access.service.slug}`)
+  revalidatePath(`/projects/${access.project.slug}/environments/${row.environment.slug}`)
 }
 
 export async function restartServiceAction(serviceId: string, environmentId: string) {
@@ -342,6 +423,7 @@ export async function restartServiceAction(serviceId: string, environmentId: str
     .innerJoin(environments, eq(environments.id, serviceDeployments.environmentId))
     .where(and(eq(serviceDeployments.serviceId, serviceId), eq(serviceDeployments.environmentId, environmentId))).limit(1)
   if (!row) throw new Error('Service deployment target not found.')
+  if (row.environment.isLocked && access.projectRole !== 'admin') throw new Error('This environment is locked. An administrator must restart it.')
   const jobName = row.target.activeJobName || access.service.slug
   const client = await getTrellisClient(access.org.id)
   await client.restartJob(jobName, row.environment.trellisNamespace)
