@@ -42,16 +42,11 @@ export default async function AdvancedPage({ params }: { params: Promise<{ slug:
       <div className="space-y-4">
         {configs.map(({ config, environment }) => {
           const advanced = advancedByConfig.get(config.id)
-          const runtime = advanced?.runtime === 'runsc' ? 'runsc' : 'runc'
-          const access = advanced?.apiAccessScope && advanced?.apiAccessLevel
-            ? `${advanced.apiAccessScope} ${advanced.apiAccessLevel}`
-            : 'disabled'
           return (
             <Panel key={config.id}>
               <PanelHeader
                 title={environment.name}
                 hint="Task-group execution settings"
-                action={<div className="flex items-center gap-2"><Chip tone="neutral">{runtime}</Chip><Chip tone={access === 'disabled' ? 'neutral' : 'warn'}>{access}</Chip></div>}
               />
               <AdvancedConfigForm
                 serviceId={service.id}
