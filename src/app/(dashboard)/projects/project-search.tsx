@@ -34,9 +34,11 @@ function relTime(iso: string): string {
 export function ProjectSearch({
   projects,
   clusterConfigured,
+  teams,
 }: {
   projects: ProjectRow[]
   clusterConfigured: boolean
+  teams?: { id: string; name: string }[]
 }) {
   const [query, setQuery] = useState('')
 
@@ -70,7 +72,7 @@ export function ProjectSearch({
             icon={<BoxesIcon className="h-4 w-4" />}
             title="No projects match that filter"
             body="Try a different name, or create a project to group your services and environments."
-            action={clusterConfigured ? <CreateProjectDialog /> : undefined}
+            action={clusterConfigured ? <CreateProjectDialog teams={teams} /> : undefined}
           />
         </Panel>
       ) : (

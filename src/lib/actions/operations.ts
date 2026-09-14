@@ -7,6 +7,7 @@ import {
   environments, routes, secretsMetadata, services, teams, teamMemberships,
   teamProjectAccess, users, projects, serviceConfigs,
   sharedSecretGroups, sharedSecretMembers, organizationMembers,
+  projectUserAccess,
 } from '@/db/schema'
 import { getTrellisClient } from '@/lib/trellis-instance'
 import { integer, recordAudit, requireContext, requireProject, text } from './shared'
@@ -292,6 +293,51 @@ export async function addOrganizationMemberAction(formData: FormData) {
   const email = text(formData, 'email').toLowerCase(); const [member] = await db.select().from(users).where(eq(users.email, email)).limit(1); if (!member) throw new Error('That user must register before being added.')
   const role = text(formData, 'role') as 'owner' | 'admin' | 'member'
   await db.insert(organizationMembers).values({ orgId: ctx.org.id, userId: member.id, role }).onConflictDoUpdate({ target: [organizationMembers.orgId, organizationMembers.userId], set: { role } })
-  await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'organization.member.upserted', resourceType: 'organization', resourceId: ctx.org.id, details: { memberId: member.id, email, role } }); revalidatePath('/settings/teams')
+  await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'organization.member.upserted', resourceType: 'organization', resourceId: ctx.org.id, details: { memberId: member.id, email, role } }); revalidatePath('/settings/members')
+}
+
+export async function grantProjectAccessAction(projectId: string, formData: FormData) {
+  const ctx = await requireProject(projectId)
+  if (ctx.projectRole !== 'admin') throw new Error('Insufficient permissions.')
+  const kind = text(formData, 'kind')
+  const role = text(formData, 'role') as 'admin' | 'deployer' | 'viewer'
+  if (!['admin', 'deployer', 'viewer'].includes(role)) throw new Error('Invalid role.')
+
+  if (kind === 'team') {
+    const teamId = text(formData, 'teamId')
+    const [team] = await db.select().from(teams).where(and(eq(teams.id, teamId), eq(teams.orgId, ctx.org.id))).limit(1)
+    if (!team) throw new Error('Team not found.')
+    await db.insert(teamProjectAccess).values({ teamId, projectId, role }).onConflictDoUpdate({
+      target: [teamProjectAccess.teamId, teamProjectAccess.projectId],
+      set: { role },
+    })
+    await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'project.access.team.granted', resourceType: 'project', resourceId: projectId, details: { teamId, teamName: team.name, role } })
+  } else {
+    const email = text(formData, 'email').toLowerCase()
+    const [member] = await db.select().from(users).where(eq(users.email, email)).limit(1)
+    if (!member) throw new Error('No registered user has that email.')
+    await db.insert(projectUserAccess).values({ projectId, userId: member.id, role }).onConflictDoUpdate({
+      target: [projectUserAccess.projectId, projectUserAccess.userId],
+      set: { role },
+    })
+    await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'project.access.user.granted', resourceType: 'project', resourceId: projectId, details: { userId: member.id, email, role } })
+  }
+  revalidatePath(`/projects/${ctx.project.slug}/access`)
+}
+
+export async function revokeProjectTeamAccessAction(projectId: string, accessId: string) {
+  const ctx = await requireProject(projectId)
+  if (ctx.projectRole !== 'admin') throw new Error('Insufficient permissions.')
+  await db.delete(teamProjectAccess).where(and(eq(teamProjectAccess.id, accessId), eq(teamProjectAccess.projectId, projectId)))
+  await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'project.access.team.revoked', resourceType: 'project', resourceId: projectId, details: { accessId } })
+  revalidatePath(`/projects/${ctx.project.slug}/access`)
+}
+
+export async function revokeProjectUserAccessAction(projectId: string, accessId: string) {
+  const ctx = await requireProject(projectId)
+  if (ctx.projectRole !== 'admin') throw new Error('Insufficient permissions.')
+  await db.delete(projectUserAccess).where(and(eq(projectUserAccess.id, accessId), eq(projectUserAccess.projectId, projectId)))
+  await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'project.access.user.revoked', resourceType: 'project', resourceId: projectId, details: { accessId } })
+  revalidatePath(`/projects/${ctx.project.slug}/access`)
 }
 

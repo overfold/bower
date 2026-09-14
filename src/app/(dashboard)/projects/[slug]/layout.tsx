@@ -52,6 +52,7 @@ export default async function ProjectLayout({
     { label: 'Secrets', href: '/secrets' },
     { label: 'Routes', href: '/routes' },
     { label: 'Integrations', href: '/integrations' },
+    { label: 'Access', href: '/access' },
     { label: 'Settings', href: '/settings' },
   ]
 

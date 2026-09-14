@@ -4,19 +4,20 @@ import {
   getUserOrganization,
   getProjectBySlug,
   getProjectIntegrations,
+  getServicesByProject,
+  getEnvironmentsByProject,
 } from '@/lib/queries'
-import { Panel, PanelHeader, SectionTitle } from '@/components/ui/panel'
+import { Panel, SectionTitle } from '@/components/ui/panel'
 import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
+  Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Webhook, Bell } from 'lucide-react'
+import {
+  CreateWebhookDialog, DeleteWebhookButton,
+  CreateNotificationDialog, DeleteNotificationButton,
+} from './integration-actions'
 
 export default async function IntegrationsPage({
   params,
@@ -33,12 +34,27 @@ export default async function IntegrationsPage({
   const project = await getProjectBySlug(ctx.org.id, slug)
   if (!project) redirect('/projects')
 
-  const { hooks, channels } = await getProjectIntegrations(project.id)
+  const [{ hooks, channels }, services, environments] = await Promise.all([
+    getProjectIntegrations(project.id),
+    getServicesByProject(project.id),
+    getEnvironmentsByProject(project.id),
+  ])
+
+  const isAdmin = ctx.role === 'owner' || ctx.role === 'admin'
 
   return (
     <div className="space-y-8">
       <div className="space-y-5">
-        <SectionTitle>Webhooks</SectionTitle>
+        <div className="flex items-center justify-between">
+          <SectionTitle>Webhooks</SectionTitle>
+          {isAdmin && (
+            <CreateWebhookDialog
+              projectId={project.id}
+              services={services.map((s) => ({ id: s.id, name: s.name }))}
+              environments={environments.map((e) => ({ id: e.id, name: e.name }))}
+            />
+          )}
+        </div>
 
         {hooks.length === 0 ? (
           <Panel>
@@ -58,6 +74,7 @@ export default async function IntegrationsPage({
                   <TableHead>Provider</TableHead>
                   <TableHead>Deploy Mode</TableHead>
                   <TableHead>Status</TableHead>
+                  {isAdmin && <TableHead className="w-[56px]" />}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -80,6 +97,11 @@ export default async function IntegrationsPage({
                         {row.hook.isActive ? 'Active' : 'Inactive'}
                       </Badge>
                     </TableCell>
+                    {isAdmin && (
+                      <TableCell>
+                        <DeleteWebhookButton projectId={project.id} hookId={row.hook.id} serviceName={row.serviceName} />
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
@@ -89,7 +111,10 @@ export default async function IntegrationsPage({
       </div>
 
       <div className="space-y-5">
-        <SectionTitle>Notification Channels</SectionTitle>
+        <div className="flex items-center justify-between">
+          <SectionTitle>Notification Channels</SectionTitle>
+          {isAdmin && <CreateNotificationDialog projectId={project.id} />}
+        </div>
 
         {channels.length === 0 ? (
           <Panel>
@@ -107,6 +132,7 @@ export default async function IntegrationsPage({
                   <TableHead>Name</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Status</TableHead>
+                  {isAdmin && <TableHead className="w-[56px]" />}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -119,12 +145,15 @@ export default async function IntegrationsPage({
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        variant={channel.isActive ? 'success' : 'outline'}
-                      >
+                      <Badge variant={channel.isActive ? 'success' : 'outline'}>
                         {channel.isActive ? 'Active' : 'Inactive'}
                       </Badge>
                     </TableCell>
+                    {isAdmin && (
+                      <TableCell>
+                        <DeleteNotificationButton projectId={project.id} channelId={channel.id} channelName={channel.name} />
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>

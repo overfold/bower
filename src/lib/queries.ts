@@ -25,6 +25,7 @@ import {
   sharedSecretMembers,
   organizationTokens,
   instanceTokens,
+  projectUserAccess,
 } from '@/db/schema'
 
 export async function isInstanceAdmin(userId: string) {
@@ -110,15 +111,43 @@ export async function getProjectsByOrg(orgId: string) {
 
 export async function getProjectsForUser(orgId: string, userId: string, orgRole: 'owner' | 'admin' | 'member') {
   if (orgRole !== 'member') return getProjectsByOrg(orgId)
-  return db.selectDistinct({ project: projects }).from(projects)
-    .innerJoin(teamProjectAccess, eq(teamProjectAccess.projectId, projects.id))
-    .innerJoin(teamMemberships, and(eq(teamMemberships.teamId, teamProjectAccess.teamId), eq(teamMemberships.userId, userId)))
-    .where(eq(projects.orgId, orgId)).orderBy(desc(projects.updatedAt)).then((rows) => rows.map((row) => row.project))
+  const { inArray } = await import('drizzle-orm')
+  const teamGrantedIds = await db.select({ id: teamProjectAccess.projectId }).from(teamMemberships)
+    .innerJoin(teamProjectAccess, eq(teamProjectAccess.teamId, teamMemberships.teamId))
+    .where(eq(teamMemberships.userId, userId))
+  const userGrantedIds = await db.select({ id: projectUserAccess.projectId }).from(projectUserAccess)
+    .where(eq(projectUserAccess.userId, userId))
+  const allIds = [...new Set([...teamGrantedIds.map(r => r.id), ...userGrantedIds.map(r => r.id)])]
+  if (allIds.length === 0) return []
+  return db.select().from(projects)
+    .where(and(eq(projects.orgId, orgId), inArray(projects.id, allIds)))
+    .orderBy(desc(projects.updatedAt))
 }
 
 export async function getProjectBySlug(orgId: string, slug: string) {
   const rows = await db.select().from(projects).where(and(eq(projects.orgId, orgId), eq(projects.slug, slug))).limit(1)
   return rows[0] ?? null
+}
+
+export async function getProjectAccess(projectId: string) {
+  const teamGrants = await db.select({
+    access: teamProjectAccess,
+    teamName: teams.name,
+  }).from(teamProjectAccess)
+    .innerJoin(teams, eq(teams.id, teamProjectAccess.teamId))
+    .where(eq(teamProjectAccess.projectId, projectId))
+    .orderBy(teams.name)
+
+  const userGrants = await db.select({
+    access: projectUserAccess,
+    userName: users.name,
+    userEmail: users.email,
+  }).from(projectUserAccess)
+    .innerJoin(users, eq(users.id, projectUserAccess.userId))
+    .where(eq(projectUserAccess.projectId, projectId))
+    .orderBy(users.name)
+
+  return { teamGrants, userGrants }
 }
 
 export async function getServicesByProject(projectId: string) {
@@ -269,8 +298,17 @@ export async function getApiKeys(userId: string) {
   return db.select().from(apiKeys).where(eq(apiKeys.userId, userId)).orderBy(desc(apiKeys.createdAt))
 }
 
+export async function getTeamMembershipsForOrg(orgId: string) {
+  return db
+    .select({ userId: teamMemberships.userId, teamId: teams.id, teamName: teams.name })
+    .from(teamMemberships)
+    .innerJoin(teams, eq(teams.id, teamMemberships.teamId))
+    .where(eq(teams.orgId, orgId))
+}
+
 export async function getOrganizationTokens(orgId: string) {
   return db.select({ token: organizationTokens, createdByName: users.name }).from(organizationTokens)
     .leftJoin(users, eq(users.id, organizationTokens.createdByUserId))
     .where(eq(organizationTokens.orgId, orgId)).orderBy(desc(organizationTokens.createdAt))
 }
+

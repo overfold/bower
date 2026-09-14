@@ -1,6 +1,6 @@
 import { redirect, notFound } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
-import { getUserOrganization, getProjectBySlug } from '@/lib/queries'
+import { getUserOrganization, getProjectBySlug, getTeamsByOrg } from '@/lib/queries'
 import { ProjectSettingsForm } from './project-settings-form'
 
 export default async function ProjectSettingsPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -11,6 +11,7 @@ export default async function ProjectSettingsPage({ params }: { params: Promise<
   if (!orgCtx) redirect('/login')
   const project = await getProjectBySlug(orgCtx.org.id, slug)
   if (!project) notFound()
+  const orgTeams = await getTeamsByOrg(orgCtx.org.id)
 
   return (
     <ProjectSettingsForm
@@ -20,8 +21,10 @@ export default async function ProjectSettingsPage({ params }: { params: Promise<
         slug: project.slug,
         description: project.description,
         registryUrl: project.registryUrl,
+        owningTeamId: project.owningTeamId,
         createdAt: project.createdAt.toISOString(),
       }}
+      teams={orgTeams.map((t) => ({ id: t.id, name: t.name }))}
     />
   )
 }

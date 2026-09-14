@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
-import { getUserOrganization, getOrgMembers, getOrganizationTokens } from '@/lib/queries'
+import { getUserOrganization, getOrgMembers, getOrganizationTokens, getTeamMembershipsForOrg } from '@/lib/queries'
 import { PageHeading } from '@/components/page-heading'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { InviteTokensSection } from '@/components/invite-tokens-section'
 import { MemberRoleSelect } from './member-role-select'
+import { AddMemberDialog } from './add-member-dialog'
 
 export default async function MembersSettingsPage() {
   const user = await getCurrentUser()
@@ -15,17 +16,26 @@ export default async function MembersSettingsPage() {
   const orgCtx = await getUserOrganization(user.id)
   if (!orgCtx) redirect('/login')
 
-  const [members, tokens] = await Promise.all([
+  const [members, tokens, teamMemberships] = await Promise.all([
     getOrgMembers(orgCtx.org.id),
     getOrganizationTokens(orgCtx.org.id),
+    getTeamMembershipsForOrg(orgCtx.org.id),
   ])
   const canManageRoles = orgCtx.role === 'owner'
+
+  const teamsByUser = new Map<string, string[]>()
+  for (const tm of teamMemberships) {
+    const existing = teamsByUser.get(tm.userId) ?? []
+    existing.push(tm.teamName)
+    teamsByUser.set(tm.userId, existing)
+  }
 
   return (
     <div className="mx-auto max-w-[1180px] space-y-6">
       <PageHeading
         title="Members"
         description="Manage who belongs to this organization and invite new members. Team membership and project access are managed separately under Teams."
+        actions={<AddMemberDialog canManage={canManageRoles} />}
       />
 
       <Card>
@@ -41,41 +51,56 @@ export default async function MembersSettingsPage() {
               <TableRow>
                 <TableHead>Member</TableHead>
                 <TableHead>Email</TableHead>
+                <TableHead>Teams</TableHead>
                 <TableHead>Organization role</TableHead>
                 {canManageRoles ? <TableHead className="w-[136px]" /> : null}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {members.map((member) => (
-                <TableRow key={member.membership.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-2.5">
-                      <Avatar className="h-7 w-7 rounded-md">
-                        {member.userAvatar ? <AvatarImage src={member.userAvatar} /> : null}
-                        <AvatarFallback className="rounded-md bg-ink text-2xs font-semibold text-white">
-                          {member.userName.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="text-[13px] font-medium text-ink">{member.userName}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-ink-muted">{member.userEmail}</TableCell>
-                  <TableCell>
-                    <Badge variant={member.membership.role === 'owner' ? 'default' : 'secondary'} className="capitalize">
-                      {member.membership.role}
-                    </Badge>
-                  </TableCell>
-                  {canManageRoles ? (
+              {members.map((member) => {
+                const memberTeams = teamsByUser.get(member.membership.userId) ?? []
+                return (
+                  <TableRow key={member.membership.id}>
                     <TableCell>
-                      <MemberRoleSelect
-                        membershipId={member.membership.id}
-                        role={member.membership.role}
-                        canManage={canManageRoles}
-                      />
+                      <div className="flex items-center gap-2.5">
+                        <Avatar className="h-7 w-7 rounded-md">
+                          {member.userAvatar ? <AvatarImage src={member.userAvatar} /> : null}
+                          <AvatarFallback className="rounded-md bg-ink text-2xs font-semibold text-white">
+                            {member.userName.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-[13px] font-medium text-ink">{member.userName}</span>
+                      </div>
                     </TableCell>
-                  ) : null}
-                </TableRow>
-              ))}
+                    <TableCell className="text-ink-muted">{member.userEmail}</TableCell>
+                    <TableCell>
+                      {memberTeams.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {memberTeams.map((name) => (
+                            <Badge key={name} variant="secondary">{name}</Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-ink-muted">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={member.membership.role === 'owner' ? 'default' : 'secondary'} className="capitalize">
+                        {member.membership.role}
+                      </Badge>
+                    </TableCell>
+                    {canManageRoles ? (
+                      <TableCell>
+                        <MemberRoleSelect
+                          membershipId={member.membership.id}
+                          role={member.membership.role}
+                          canManage={canManageRoles}
+                        />
+                      </TableCell>
+                    ) : null}
+                  </TableRow>
+                )
+              })}
             </TableBody>
           </Table>
         </CardContent>

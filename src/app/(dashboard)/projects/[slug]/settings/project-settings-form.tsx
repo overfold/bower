@@ -13,6 +13,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Trash2 } from 'lucide-react'
 
 interface Props {
@@ -22,11 +23,13 @@ interface Props {
     slug: string
     description: string | null
     registryUrl: string | null
+    owningTeamId: string | null
     createdAt: string
   }
+  teams?: { id: string; name: string }[]
 }
 
-export function ProjectSettingsForm({ project }: Props) {
+export function ProjectSettingsForm({ project, teams }: Props) {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -75,6 +78,17 @@ export function ProjectSettingsForm({ project }: Props) {
               <Label htmlFor="description">Description</Label>
               <Textarea id="description" name="description" defaultValue={project.description ?? ''} rows={3} />
             </div>
+            {teams && teams.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="owningTeamId">Owning team <span className="font-normal text-ink-muted">(optional)</span></Label>
+                <Select name="owningTeamId" defaultValue={project.owningTeamId ?? undefined}>
+                  <SelectTrigger id="owningTeamId"><SelectValue placeholder="None" /></SelectTrigger>
+                  <SelectContent>
+                    {teams.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="registryUrl">Registry URL</Label>
               <Input id="registryUrl" name="registryUrl" defaultValue={project.registryUrl ?? ''} />

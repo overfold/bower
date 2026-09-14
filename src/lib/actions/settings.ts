@@ -2,7 +2,7 @@
 
 import { and, eq } from 'drizzle-orm'
 import { db } from '@/db'
-import { organizations, users, organizationTokens, organizationMembers, apiKeys } from '@/db/schema'
+import { organizations, users, organizationTokens, organizationMembers, apiKeys, instanceTokens } from '@/db/schema'
 import { createHash, randomBytes } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { getCurrentUser, hashPassword, verifyPassword } from '@/lib/auth'
@@ -249,5 +249,58 @@ export async function revokeInviteTokenAction(id: string) {
   await db.delete(organizationTokens).where(eq(organizationTokens.id, id))
   await recordAudit({ orgId: ctx.org.id, userId: user.id, action: 'invite_token.revoked', resourceType: 'invite_token', resourceId: id, details: { prefix: token.tokenPrefix } })
   revalidatePath('/settings/members')
+  return { success: true }
+}
+
+export async function toggleInstanceAdminAction(
+  email: string,
+  promote: boolean,
+): Promise<{ error?: string; success?: boolean }> {
+  const user = await getCurrentUser()
+  if (!user) return { error: 'Not authenticated.' }
+  if (!(await isInstanceAdmin(user.id))) return { error: 'Instance administrator access required.' }
+
+  const [target] = await db.select().from(users).where(eq(users.email, email.toLowerCase())).limit(1)
+  if (!target) return { error: 'No registered user has that email.' }
+  if (!promote && target.id === user.id) return { error: 'You cannot remove your own instance admin access.' }
+
+  await db.update(users).set({ isInstanceAdmin: promote, updatedAt: new Date() }).where(eq(users.id, target.id))
+  revalidatePath('/settings/instance')
+  return { success: true }
+}
+
+export async function createInstanceTokenAction(
+  note?: string,
+): Promise<{ error?: string; token?: string }> {
+  const user = await getCurrentUser()
+  if (!user) return { error: 'Not authenticated.' }
+  if (!(await isInstanceAdmin(user.id))) return { error: 'Instance administrator access required.' }
+
+  const rawToken = `it_${randomBytes(24).toString('base64url')}`
+  const tokenHash = createHash('sha256').update(rawToken).digest('hex')
+  const tokenPrefix = rawToken.slice(0, 11)
+
+  await db.insert(instanceTokens).values({
+    tokenHash,
+    tokenPrefix,
+    note: note?.trim() || null,
+    createdByUserId: user.id,
+  })
+
+  revalidatePath('/settings/instance')
+  return { token: rawToken }
+}
+
+export async function revokeInstanceTokenAction(id: string) {
+  const user = await getCurrentUser()
+  if (!user) return { error: 'Not authenticated.' }
+  if (!(await isInstanceAdmin(user.id))) return { error: 'Instance administrator access required.' }
+
+  const [token] = await db.select().from(instanceTokens).where(eq(instanceTokens.id, id)).limit(1)
+  if (!token) return { error: 'Token not found.' }
+  if (token.usedAt) return { error: 'Cannot revoke a token that has already been used.' }
+
+  await db.delete(instanceTokens).where(eq(instanceTokens.id, id))
+  revalidatePath('/settings/instance')
   return { success: true }
 }

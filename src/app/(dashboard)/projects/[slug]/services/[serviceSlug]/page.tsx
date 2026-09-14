@@ -81,6 +81,11 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
                       environmentId={environment.id}
                       isLocked={environment.isLocked}
                       replicas={config.replicas}
+                      canPromote={configs.length > 1}
+                      promotionTargets={configs
+                        .filter((c) => c.environment.id !== environment.id)
+                        .map((c) => ({ id: c.environment.id, name: c.environment.name }))}
+                      hasDeployments={deployments.some((d) => d.environmentId === environment.id)}
                     />
                   </div>
                 }

@@ -7,9 +7,10 @@ import { Dialog, DialogContent, DialogHeader, DialogBody, DialogTitle, DialogTri
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Plus } from 'lucide-react'
 
-export function CreateProjectDialog() {
+export function CreateProjectDialog({ teams }: { teams?: { id: string; name: string }[] }) {
   const [open, setOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -51,6 +52,17 @@ export function CreateProjectDialog() {
               <Label htmlFor="description">Description</Label>
               <Textarea id="description" name="description" placeholder="Optional description" rows={3} />
             </div>
+            {teams && teams.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="owningTeamId">Owning team <span className="font-normal text-ink-muted">(optional)</span></Label>
+                <Select name="owningTeamId">
+                  <SelectTrigger id="owningTeamId"><SelectValue placeholder="None" /></SelectTrigger>
+                  <SelectContent>
+                    {teams.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="registryUrl">Registry URL</Label>
               <Input id="registryUrl" name="registryUrl" placeholder="registry.example.com" />
