@@ -26,15 +26,19 @@ function recordToLines(value: unknown) {
 
 function normalizeBindings(value: unknown): BowerSecretBinding[] {
   if (!Array.isArray(value)) return []
-  return value.flatMap((entry) => {
-    if (!entry || typeof entry !== 'object') return []
+  const result: BowerSecretBinding[] = []
+  for (const entry of value) {
+    if (!entry || typeof entry !== 'object') continue
     const row = entry as Record<string, unknown>
     const name = typeof row.name === 'string' ? row.name : ''
-    if (!name) return []
-    if (row.target === 'env' && typeof row.env === 'string') return [{ name, target: 'env' as const, env: row.env }]
-    if (row.target === 'file' && typeof row.path === 'string') return [{ name, target: 'file' as const, path: row.path }]
-    return []
-  })
+    if (!name) continue
+    if (row.target === 'env' && typeof row.env === 'string') {
+      result.push({ name, target: 'env', env: row.env })
+    } else if (row.target === 'file' && typeof row.path === 'string') {
+      result.push({ name, target: 'file', path: row.path })
+    }
+  }
+  return result
 }
 
 export function ServiceEnvironmentDialog({
