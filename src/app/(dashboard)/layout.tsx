@@ -44,7 +44,7 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="flex min-h-screen w-full bg-canvas">
+    <div className="flex min-h-screen w-full max-w-full overflow-x-clip bg-canvas">
       <Sidebar
         user={{
           name: user.name,
@@ -52,7 +52,7 @@ export default async function DashboardLayout({
           avatarUrl: user.avatarUrl,
         }}
       />
-      <div className="flex min-w-0 flex-1 flex-col lg:ml-[236px]">
+      <div className="flex min-w-0 flex-1 flex-col max-lg:w-screen max-lg:max-w-[100vw] lg:ml-[236px]">
         <HeaderBar
           orgs={orgs}
           currentOrg={currentOrg}
