@@ -50,11 +50,9 @@ function normalizeVolumes(value: unknown): EditableVolume[] {
 
 export function VolumeEditor({
   serviceId,
-  environmentId,
   volumes: initialVolumes,
 }: {
   serviceId: string
-  environmentId: string
   volumes: unknown
 }) {
   const router = useRouter()
@@ -101,7 +99,7 @@ export function VolumeEditor({
         container_path: volume.container_path,
         read_only: Boolean(volume.read_only),
       }))))
-      await updateServiceVolumesAction(serviceId, environmentId, formData)
+      await updateServiceVolumesAction(serviceId, formData)
       setOpen(false)
       router.refresh()
     } catch (err) {
@@ -123,12 +121,12 @@ export function VolumeEditor({
         <DialogBody>
           <div className="space-y-4">
             <p className="text-[13px] leading-relaxed text-ink-muted">
-              Managed local paths use <span className="font-mono text-ink-soft">@/</span> and are created under Trellis&apos;s namespaced volume root. Host paths use an absolute node path that must already exist.
+              Managed local paths use <span className="font-mono text-ink-soft">@/</span> and are created under each deployment namespace&apos;s Trellis volume root. Host paths use an absolute node path that must already exist.
             </p>
             {error && <div className="rounded-lg border border-danger-200 bg-danger-50 p-3 text-[13px] text-danger-500">{error}</div>}
             {volumes.length === 0 ? (
               <div className="rounded-xl border border-dashed border-line-strong bg-sunken px-4 py-8 text-center text-[13px] text-ink-muted">
-                This environment has no volumes attached.
+                This service has no volumes attached.
               </div>
             ) : (
               <div className="space-y-3">
