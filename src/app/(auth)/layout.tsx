@@ -3,10 +3,10 @@ import { GrowingTrellis } from '@/components/growing-trellis'
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen w-full bg-canvas lg:grid lg:grid-cols-[57fr_43fr]">
+    <div className="relative min-h-[100dvh] w-full overflow-hidden bg-[#0b1915] lg:grid lg:min-h-screen lg:grid-cols-[57fr_43fr] lg:overflow-visible lg:bg-canvas">
       {/* Left — dark panel with vine trellis */}
       <section
-        className="relative flex h-56 flex-col justify-between overflow-hidden px-6 py-6 sm:h-64 sm:px-10 sm:py-8 lg:h-auto lg:min-h-screen lg:px-12 lg:py-10"
+        className="absolute inset-0 flex min-h-[100dvh] flex-col justify-between overflow-hidden px-6 py-6 sm:px-10 sm:py-8 lg:relative lg:inset-auto lg:h-auto lg:min-h-screen lg:px-12 lg:py-10"
         style={
           {
             backgroundColor: '#0b1915',
@@ -26,9 +26,9 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       </section>
 
       {/* Right — auth form */}
-      <section className="flex items-center justify-center px-6 py-14 sm:px-10 lg:min-h-screen lg:px-12 lg:py-10 xl:px-16">
+      <section className="relative z-10 flex min-h-[100dvh] items-center justify-center px-4 py-24 sm:px-10 lg:min-h-screen lg:bg-canvas lg:px-12 lg:py-10 xl:px-16">
         <div className="w-full max-w-[368px]">
-          <div className="rounded-2xl border border-line bg-surface p-6 shadow-raised">
+          <div className="rounded-2xl border border-line bg-surface/95 p-5 shadow-pop backdrop-blur-sm sm:p-6 lg:bg-surface lg:shadow-raised">
             {children}
           </div>
         </div>
