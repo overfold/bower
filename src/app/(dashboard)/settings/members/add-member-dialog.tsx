@@ -1,19 +1,21 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useMemo, useTransition } from 'react'
 import { addOrganizationMemberAction } from '@/lib/actions/operations'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogBody, DialogFooter, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Plus } from 'lucide-react'
+import { Plus, User } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 export function AddMemberDialog({ canManage }: { canManage: boolean }) {
   const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [selectedRole, setSelectedRole] = useState<string>('member')
+  const [email, setEmail] = useState('')
 
   if (!canManage) return null
 
@@ -25,9 +27,7 @@ export function AddMemberDialog({ canManage }: { canManage: boolean }) {
     startTransition(async () => {
       try {
         await addOrganizationMemberAction(formData)
-        setOpen(false)
-        setSelectedRole('member')
-        setError(null)
+        handleClose()
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to add member.')
       }
@@ -38,6 +38,7 @@ export function AddMemberDialog({ canManage }: { canManage: boolean }) {
     setOpen(false)
     setError(null)
     setSelectedRole('member')
+    setEmail('')
   }
 
   return (
@@ -56,7 +57,15 @@ export function AddMemberDialog({ canManage }: { canManage: boolean }) {
           <DialogBody className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="add-member-email">Email</Label>
-              <Input id="add-member-email" name="email" type="email" placeholder="member@example.com" required />
+              <Input
+                id="add-member-email"
+                name="email"
+                type="email"
+                placeholder="member@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="add-member-role">Role</Label>

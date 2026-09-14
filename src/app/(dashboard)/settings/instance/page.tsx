@@ -1,24 +1,17 @@
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
-import { getInstanceAdmins, getInstanceOrganizations, getInstanceTokens, isInstanceAdmin } from '@/lib/queries'
+import { getInstanceOrganizations, isInstanceAdmin } from '@/lib/queries'
 import { PageHeading } from '@/components/page-heading'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
-import { CreateOrganizationForm } from './create-organization-form'
-import { AddInstanceAdminDialog, RemoveInstanceAdminButton } from './instance-admin-actions'
-import { InstanceTokensSection } from './instance-tokens-section'
+import { CreateOrganizationDialog } from './create-organization-form'
 
 export default async function InstanceSettingsPage() {
   const user = await getCurrentUser()
   if (!user) redirect('/login')
   if (!(await isInstanceAdmin(user.id))) redirect('/settings/organization')
 
-  const [organizations, admins, tokens] = await Promise.all([
-    getInstanceOrganizations(),
-    getInstanceAdmins(),
-    getInstanceTokens(),
-  ])
+  const organizations = await getInstanceOrganizations()
 
   return (
     <div className="mx-auto max-w-[1180px] space-y-6">
@@ -33,6 +26,7 @@ export default async function InstanceSettingsPage() {
             <CardTitle>Organizations</CardTitle>
             <p className="mt-0.5 text-xs text-ink-muted">Organizations hosted by this Bower instance</p>
           </div>
+          <CreateOrganizationDialog />
         </CardHeader>
         <CardContent className="p-0">
           <Table>
@@ -57,44 +51,6 @@ export default async function InstanceSettingsPage() {
           </Table>
         </CardContent>
       </Card>
-
-      <CreateOrganizationForm />
-
-      <Card>
-        <CardHeader>
-          <div>
-            <CardTitle>Instance administrators</CardTitle>
-            <p className="mt-0.5 text-xs text-ink-muted">Global administrators can access every organization without becoming organization owners</p>
-          </div>
-          <AddInstanceAdminDialog />
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Administrator</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Scope</TableHead>
-                <TableHead className="w-[56px]" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {admins.map((admin) => (
-                <TableRow key={admin.id}>
-                  <TableCell className="font-medium text-ink">{admin.name}</TableCell>
-                  <TableCell className="text-ink-muted">{admin.email}</TableCell>
-                  <TableCell><Badge variant="secondary">Instance</Badge></TableCell>
-                  <TableCell>
-                    <RemoveInstanceAdminButton email={admin.email} adminId={admin.id} currentUserId={user.id} />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      <InstanceTokensSection tokens={tokens as any} />
     </div>
   )
 }

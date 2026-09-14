@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
-import { getUserOrganization, getProjectsForUser, getServicesByProject, getTeamsByOrg } from '@/lib/queries'
+import { getUserOrganization, getProjectsForUser, getServicesByProject } from '@/lib/queries'
 import { PageHeading } from '@/components/page-heading'
 import { Panel } from '@/components/ui/panel'
 import { Badge } from '@/components/ui/badge'
@@ -32,11 +32,7 @@ export default async function ProjectsPage() {
   if (!orgCtx) redirect('/login')
 
   const clusterConfigured = Boolean(orgCtx.org.trellisApiUrl && orgCtx.org.trellisApiToken)
-  const [projectList, orgTeams] = await Promise.all([
-    getProjectsForUser(orgCtx.org.id, user.id, orgCtx.role),
-    getTeamsByOrg(orgCtx.org.id),
-  ])
-  const teams = orgTeams.map((t) => ({ id: t.id, name: t.name }))
+  const projectList = await getProjectsForUser(orgCtx.org.id, user.id, orgCtx.role)
 
   const serviceCounts = await Promise.all(
     projectList.map(async (project) => {
@@ -61,7 +57,7 @@ export default async function ProjectsPage() {
       <PageHeading
         title="Projects"
         description="Each project groups services, environments, routes, and secrets."
-        actions={clusterConfigured ? <CreateProjectDialog teams={teams} /> : undefined}
+        actions={clusterConfigured ? <CreateProjectDialog /> : undefined}
       />
 
       {projectList.length === 0 ? (
@@ -74,11 +70,11 @@ export default async function ProjectsPage() {
                 ? 'Create your first project to start deploying services.'
                 : 'Connect a Trellis cluster in Settings to start creating projects.'
             }
-            action={clusterConfigured ? <CreateProjectDialog teams={teams} /> : undefined}
+            action={clusterConfigured ? <CreateProjectDialog /> : undefined}
           />
         </Panel>
       ) : (
-        <ProjectSearch projects={serializedProjects} clusterConfigured={clusterConfigured} teams={teams} />
+        <ProjectSearch projects={serializedProjects} clusterConfigured={clusterConfigured} />
       )}
     </div>
   )

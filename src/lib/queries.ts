@@ -264,7 +264,7 @@ export async function getTeamProjectAccessList(teamId: string) {
 
 export async function getOrgMembers(orgId: string) {
   return db.select({
-    membership: organizationMembers, userName: users.name, userEmail: users.email, userAvatar: users.avatarUrl,
+    membership: organizationMembers, userName: users.name, userEmail: users.email, userAvatar: users.avatarUrl, isInstanceAdmin: users.isInstanceAdmin,
   }).from(organizationMembers).innerJoin(users, eq(users.id, organizationMembers.userId))
     .where(eq(organizationMembers.orgId, orgId)).orderBy(users.name)
 }

@@ -46,7 +46,7 @@ export default async function RoutesPage({ params }: { params: Promise<{ slug: s
             Hostnames come from domains verified at the organization level.
           </p>
         </div>
-        {canManage ? (
+        {canManage && managedDomains.length > 0 ? (
           <AddRouteDialog
             projectId={project.id}
             services={services.map((service) => ({ id: service.id, name: service.name }))}

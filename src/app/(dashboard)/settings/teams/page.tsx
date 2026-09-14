@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
-import { getUserOrganization, getTeamsByOrg, getTeamMembers } from '@/lib/queries'
+import { getUserOrganization, getTeamsByOrg, getTeamMembers, getOrgMembers } from '@/lib/queries'
 import { PageHeading } from '@/components/page-heading'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -16,7 +16,17 @@ export default async function TeamsPage() {
   const orgCtx = await getUserOrganization(user.id)
   if (!orgCtx) redirect('/login')
 
-  const teams = await getTeamsByOrg(orgCtx.org.id)
+  const [teams, orgMembers] = await Promise.all([
+    getTeamsByOrg(orgCtx.org.id),
+    getOrgMembers(orgCtx.org.id),
+  ])
+
+  const orgMemberList = orgMembers.map((m) => ({
+    userId: m.membership.userId,
+    name: m.userName,
+    email: m.userEmail,
+  }))
+
   const teamsWithDetails = await Promise.all(
     teams.map(async (team) => {
       const members = await getTeamMembers(team.id)
@@ -58,7 +68,11 @@ export default async function TeamsPage() {
                   <CardContent className="p-0">
                     <div className="flex items-center justify-between border-b border-line px-4 py-3">
                       <h3 className="text-[13px] font-semibold tracking-tight text-ink">Members</h3>
-                      <AddTeamMemberDialog teamId={team.id} />
+                      <AddTeamMemberDialog
+                        teamId={team.id}
+                        orgMembers={orgMemberList}
+                        existingMemberIds={members.map((m) => m.membership.userId)}
+                      />
                     </div>
                     {members.length === 0 ? (
                       <div className="px-4 py-8 text-center text-[13px] text-ink-muted">No members assigned.</div>
