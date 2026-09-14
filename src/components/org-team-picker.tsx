@@ -50,14 +50,14 @@ export function OrgTeamPicker({ orgs, currentOrg, teams }: OrgTeamPickerProps) {
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger
         className={cn(
-          'flex items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-[13px] font-medium text-ink transition-colors',
+          'flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-2 text-left text-[13px] font-medium text-ink transition-colors sm:py-1',
           'hover:bg-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300',
           isPending && 'opacity-60',
         )}
         disabled={isPending}
       >
         <Building2 className="h-3.5 w-3.5 shrink-0 text-ink-muted" />
-        <span className="max-w-[160px] truncate">{currentOrg.name}</span>
+        <span className="max-w-[96px] truncate sm:max-w-[160px]">{currentOrg.name}</span>
         <ChevronsUpDown className="h-3 w-3 shrink-0 text-ink-faint" />
       </DropdownMenuTrigger>
 
