@@ -29,10 +29,25 @@ interface EditConfigDialogProps {
     resourceTier: string
     healthCheckPath: string | null
     healthCheckType: string | null
+    healthCheckCommand: unknown
+    healthCheckInterval: number
+    healthCheckTimeout: number
+    healthCheckThreshold: number
     command: string | null
     cronSchedule: string | null
     autoRollbackSeconds: number
+    envVars: unknown
+    labels: unknown
+    volumes: unknown
+    secretBindings: unknown
+    rawConfig: unknown
+    canarySteps: unknown
   }
+}
+
+function recordToLines(value: unknown) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return ''
+  return Object.entries(value as Record<string, unknown>).map(([key, entry]) => `${key}=${String(entry)}`).join('\n')
 }
 
 export function EditConfigDialog({ serviceId, environmentId, config }: EditConfigDialogProps) {
@@ -70,6 +85,16 @@ export function EditConfigDialog({ serviceId, environmentId, config }: EditConfi
           <DialogTitle>Edit Configuration</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
+          <input type="hidden" name="envVars" value={recordToLines(config.envVars)} />
+          <input type="hidden" name="labels" value={recordToLines(config.labels)} />
+          <input type="hidden" name="volumes" value={JSON.stringify(config.volumes ?? [])} />
+          <input type="hidden" name="secretBindings" value={JSON.stringify(config.secretBindings ?? [])} />
+          <input type="hidden" name="rawConfig" value={config.rawConfig ? JSON.stringify(config.rawConfig) : ''} />
+          <input type="hidden" name="canarySteps" value={JSON.stringify(config.canarySteps ?? [10, 25, 50, 100])} />
+          <input type="hidden" name="healthCommand" value={Array.isArray(config.healthCheckCommand) ? config.healthCheckCommand.join(' ') : ''} />
+          <input type="hidden" name="healthInterval" value={config.healthCheckInterval} />
+          <input type="hidden" name="healthTimeout" value={config.healthCheckTimeout} />
+          <input type="hidden" name="healthThreshold" value={config.healthCheckThreshold} />
           <DialogBody>
             <div className="space-y-4">
               {error && (
@@ -81,7 +106,7 @@ export function EditConfigDialog({ serviceId, environmentId, config }: EditConfi
                 <Input id="image" name="image" defaultValue={config.image} required mono />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="replicas">Replicas</Label>
                   <Input id="replicas" name="replicas" type="number" defaultValue={config.replicas} required min={0} />
@@ -105,7 +130,7 @@ export function EditConfigDialog({ serviceId, environmentId, config }: EditConfi
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="resourceTier">Resource tier</Label>
                   <div className="relative">
@@ -126,15 +151,16 @@ export function EditConfigDialog({ serviceId, environmentId, config }: EditConfi
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="port">Port</Label>
+                  <Label htmlFor="port">Application port</Label>
                   <Input id="port" name="port" type="number" defaultValue={config.port ?? ''} />
+                  <p className="text-2xs leading-relaxed text-ink-muted">Used by health checks and Bower routing; workloads stay on namespace networking.</p>
                 </div>
               </div>
 
               {tier === 'custom' && (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="cpu">CPU (MHz)</Label>
+                    <Label htmlFor="cpu">CPU (millicores)</Label>
                     <Input id="cpu" name="cpu" type="number" defaultValue={config.cpu} />
                   </div>
                   <div className="space-y-2">
@@ -144,7 +170,7 @@ export function EditConfigDialog({ serviceId, environmentId, config }: EditConfi
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="healthType">Health check type</Label>
                   <div className="relative">
@@ -189,7 +215,7 @@ export function EditConfigDialog({ serviceId, environmentId, config }: EditConfi
           </DialogBody>
           <DialogFooter>
             <Button variant="default" type="button" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button variant="primary" type="submit" disabled={loading}>Save changes</Button>
+            <Button variant="primary" type="submit" disabled={loading}>{loading ? 'Saving…' : 'Save changes'}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

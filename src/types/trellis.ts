@@ -44,8 +44,8 @@ export interface TrellisConstraint {
 
 export interface TrellisVolume {
   name: string
-  path: string
-  host_volume?: string
+  host_path: string
+  container_path: string
   read_only?: boolean
 }
 
@@ -116,10 +116,12 @@ export interface TrellisApiAccess {
   access: 'read' | 'write'
 }
 
+export type TrellisRuntime = '' | 'runc' | 'runsc'
+
 export interface TrellisTaskGroup {
   name: string
   count: number
-  runtime?: string
+  runtime?: TrellisRuntime
   labels?: Record<string, string>
   constraints?: TrellisConstraint[]
   api_access?: TrellisApiAccess

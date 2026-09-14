@@ -1,12 +1,10 @@
 import { redirect, notFound } from 'next/navigation'
-import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
 import { getUserOrganization, getProjectBySlug, getServiceBySlug, getServiceConfigsWithEnvironments } from '@/lib/queries'
 import { getTrellisClient } from '@/lib/trellis-instance'
-import { PageHeading } from '@/components/page-heading'
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { ArrowLeft } from 'lucide-react'
+import { ServiceHeader } from '../service-header'
 import type { TrellisJobRevision } from '@/types/trellis'
 
 export default async function RevisionsPage({ params }: { params: Promise<{ slug: string; serviceSlug: string }> }) {
@@ -35,12 +33,7 @@ export default async function RevisionsPage({ params }: { params: Promise<{ slug
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Link href={`/projects/${slug}/services/${serviceSlug}`} className="text-ink-muted hover:text-ink">
-          <ArrowLeft className="h-4 w-4" />
-        </Link>
-        <PageHeading title="Revisions" eyebrow={service.name} />
-      </div>
+      <ServiceHeader slug={slug} serviceSlug={serviceSlug} serviceName={service.name} />
 
       {!activeConfig ? (
         <Card>
