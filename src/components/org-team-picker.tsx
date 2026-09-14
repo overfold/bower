@@ -57,7 +57,7 @@ export function OrgTeamPicker({ orgs, currentOrg, teams }: OrgTeamPickerProps) {
         disabled={isPending}
       >
         <Building2 className="h-3.5 w-3.5 shrink-0 text-ink-muted" />
-        <span className="max-w-[96px] truncate sm:max-w-[160px]">{currentOrg.name}</span>
+        <span className="max-w-[120px] truncate sm:max-w-[160px]">{currentOrg.name}</span>
         <ChevronsUpDown className="h-3 w-3 shrink-0 text-ink-faint" />
       </DropdownMenuTrigger>
 
