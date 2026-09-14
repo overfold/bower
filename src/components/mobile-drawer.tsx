@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { usePathname } from 'next/navigation'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { Menu, X } from 'lucide-react'
@@ -16,8 +17,11 @@ interface MobileDrawerProps {
 
 function DrawerInner({ user }: MobileDrawerProps) {
   const [open, setOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const reduced = useReducedMotion()
   const close = useCallback(() => setOpen(false), [])
+
+  useEffect(() => setMounted(true), [])
 
   useEffect(() => {
     if (!open) return
@@ -44,8 +48,9 @@ function DrawerInner({ user }: MobileDrawerProps) {
         <Menu className="h-5 w-5" />
       </button>
 
-      <AnimatePresence>
-        {open && (
+      {mounted && createPortal(
+        <AnimatePresence>
+          {open && (
           <div className="fixed inset-0 z-40 lg:hidden">
             <motion.div
               className="absolute inset-0 bg-ink/30"
@@ -78,8 +83,10 @@ function DrawerInner({ user }: MobileDrawerProps) {
               <SidebarContent user={user} onNavigate={close} />
             </motion.div>
           </div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
     </>
   )
 }
