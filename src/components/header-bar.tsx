@@ -28,6 +28,8 @@ const segmentLabels: Record<string, string> = {
   integrations: 'Integrations',
   revisions: 'Revisions',
   allocations: 'Allocations',
+  volumes: 'Volumes',
+  advanced: 'Advanced',
 }
 
 function prettifySlug(slug: string): string {
