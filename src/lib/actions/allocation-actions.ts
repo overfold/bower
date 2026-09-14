@@ -3,23 +3,29 @@
 import { eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/db'
-import { serviceConfigs } from '@/db/schema'
+import { environments, serviceConfigs } from '@/db/schema'
 import { getTrellisClient } from '@/lib/trellis-instance'
 import { recordAudit, requireService } from '@/lib/actions/shared'
-import type { TrellisAllocation } from '@/types/trellis'
 
 async function getOwnedAllocation(serviceId: string, allocationId: string) {
   const access = await requireService(serviceId)
   const [allocations, configs] = await Promise.all([
     getTrellisClient(access.org.id).then((client) => client.listAllocations()),
-    db.select({ activeJobName: serviceConfigs.activeJobName }).from(serviceConfigs).where(eq(serviceConfigs.serviceId, serviceId)),
+    db.select({
+      activeJobName: serviceConfigs.activeJobName,
+      namespace: environments.trellisNamespace,
+    })
+      .from(serviceConfigs)
+      .innerJoin(environments, eq(environments.id, serviceConfigs.environmentId))
+      .where(eq(serviceConfigs.serviceId, serviceId)),
   ])
   const allocation = allocations.find((item) => item.id === allocationId)
   if (!allocation) throw new Error('Allocation not found.')
 
   const knownJobs = new Set([access.service.slug, ...configs.map((item) => item.activeJobName).filter((value): value is string => Boolean(value))])
+  const knownNamespaces = new Set(configs.map((item) => item.namespace))
   const managedService = allocation.labels?.['bower/service']
-  if (managedService !== access.service.slug && !knownJobs.has(allocation.job)) {
+  if (!knownNamespaces.has(allocation.namespace) || (managedService !== access.service.slug && !knownJobs.has(allocation.job))) {
     throw new Error('Allocation not found.')
   }
 
@@ -50,5 +56,3 @@ export async function stopAllocationDetailAction(serviceId: string, allocationId
   revalidatePath(`/projects/${access.project.slug}/services/${access.service.slug}`)
   revalidatePath(`/projects/${access.project.slug}/services/${access.service.slug}/allocations/${allocationId}`)
 }
-
-export type OwnedAllocation = TrellisAllocation
