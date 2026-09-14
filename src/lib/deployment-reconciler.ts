@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray } from 'drizzle-orm'
 import { db } from '@/db'
-import { deploymentEvents, deployments, environments, projects, serviceConfigs, services } from '@/db/schema'
+import { deploymentEvents, deployments, environments, projects, serviceConfigs, serviceDeployments, services } from '@/db/schema'
 import { createDeploymentSpec, notifyDeployment, recordDeploymentEvent } from '@/lib/deployment-runtime'
 import { getDeploymentsByProject } from '@/lib/queries'
 import { syncManagedProxy } from '@/lib/managed-proxy'
@@ -14,11 +14,17 @@ export async function reconcileProjectDeployments(projectId: string, orgId: stri
   const active = (await getDeploymentsByProject(projectId, 100)).filter(({ deployment }) => ACTIVE_STATUSES.includes(deployment.status as typeof ACTIVE_STATUSES[number]))
   if (!active.length) return
   const client = await getTrellisClient(orgId)
+
   for (const item of active) {
     const deployment = item.deployment
     const [env] = await db.select().from(environments).where(eq(environments.id, deployment.environmentId)).limit(1)
-    const [config] = await db.select().from(serviceConfigs).where(and(eq(serviceConfigs.serviceId, deployment.serviceId), eq(serviceConfigs.environmentId, deployment.environmentId))).limit(1)
-    if (!env || !config) continue
+    const [config] = await db.select().from(serviceConfigs).where(eq(serviceConfigs.serviceId, deployment.serviceId)).limit(1)
+    const [target] = await db.select().from(serviceDeployments).where(and(
+      eq(serviceDeployments.serviceId, deployment.serviceId),
+      eq(serviceDeployments.environmentId, deployment.environmentId),
+    )).limit(1)
+    if (!env || !config || !target) continue
+
     try {
       const jobName = deployment.trellisJobName || item.serviceSlug
       const allocations = await client.listAllocations({ namespace: env.trellisNamespace, job: jobName })
@@ -26,12 +32,13 @@ export async function reconcileProjectDeployments(projectId: string, orgId: stri
       const currentAllocations = allocations.filter((allocation) => allocation.job_revision === latestRevision && allocation.phase !== 'stopped')
       const failed = currentAllocations.some((allocation) => allocation.phase === 'failed' || allocation.phase === 'lost' || allocation.health === 'unhealthy')
       const elapsed = (Date.now() - new Date(deployment.startedAt).getTime()) / 1000
+
       if (failed && elapsed >= config.autoRollbackSeconds) {
         if (deployment.previousJobSpec) {
           const previous = deployment.previousJobSpec as TrellisJobSpec
           await client.applyJob(previous, previous.namespace)
           if (deployment.strategy === 'blue_green' || deployment.strategy === 'canary') {
-            await db.update(serviceConfigs).set({ activeJobName: previous.name, updatedAt: new Date() }).where(eq(serviceConfigs.id, config.id))
+            await db.update(serviceDeployments).set({ activeJobName: previous.name, updatedAt: new Date() }).where(eq(serviceDeployments.id, target.id))
             if (jobName !== previous.name) await client.deleteJob(jobName, env.trellisNamespace).catch(() => undefined)
           }
           await db.update(deployments).set({ status: 'rolled_back', completedAt: new Date() }).where(eq(deployments.id, deployment.id))
@@ -44,32 +51,43 @@ export async function reconcileProjectDeployments(projectId: string, orgId: stri
         await notifyDeployment(await createDeploymentSpec(deployment.serviceId, deployment.environmentId), deployment.previousJobSpec ? 'rolled_back' : 'failed', deployment.triggeredByUserId)
         continue
       }
+
       const healthy = currentAllocations.length > 0 && currentAllocations.every((allocation) => allocation.phase === 'running' && allocation.health === 'healthy')
       if (!healthy) continue
+
       if (deployment.strategy === 'canary') {
         const steps = [...new Set([...(config.canarySteps as number[]), 100])].filter((step) => step > 0 && step <= 100).sort((a, b) => a - b)
         const existing = await db.select().from(deploymentEvents).where(eq(deploymentEvents.deploymentId, deployment.id)).orderBy(desc(deploymentEvents.createdAt))
         const previousWeight = Number((existing.find((entry) => entry.type === 'canary_step')?.details as { weight?: number } | undefined)?.weight ?? 0)
         const nextWeight = steps.find((step) => step > previousWeight)
         if (nextWeight) {
-          const replicas = Math.max(1, Math.ceil(config.replicas * nextWeight / 100))
-          const { spec } = await createDeploymentSpec(deployment.serviceId, deployment.environmentId, jobName, { replicas, labels: { 'trellis/weight': String(nextWeight), 'bower/canary': 'true' } })
+          const replicas = Math.max(1, Math.ceil(target.replicas * nextWeight / 100))
+          const { spec } = await createDeploymentSpec(deployment.serviceId, deployment.environmentId, jobName, {
+            replicas,
+            labels: { 'trellis/weight': String(nextWeight), 'bower/canary': 'true' },
+          })
           await client.applyJob(spec, env.trellisNamespace)
           await recordDeploymentEvent(deployment.id, 'canary_step', `Canary advanced to ${nextWeight}%.`, { weight: nextWeight, replicas })
           continue
         }
         await recordDeploymentEvent(deployment.id, 'canary_complete', 'Canary reached 100%; traffic switched atomically.', { weight: 100 })
       }
+
       if (deployment.strategy === 'blue_green' || deployment.strategy === 'canary') {
-        const oldJob = config.activeJobName || item.serviceSlug
-        await db.update(serviceConfigs).set({ activeJobName: jobName, updatedAt: new Date() }).where(eq(serviceConfigs.id, config.id))
+        const oldJob = target.activeJobName || item.serviceSlug
+        await db.update(serviceDeployments).set({ activeJobName: jobName, updatedAt: new Date() }).where(eq(serviceDeployments.id, target.id))
         await syncManagedProxy(projectId, env.id, orgId)
         if (oldJob !== jobName) await client.deleteJob(oldJob, env.trellisNamespace).catch(() => undefined)
       }
+
       await db.update(deployments).set({ status: 'healthy', completedAt: new Date(), trellisRevision: latestRevision }).where(eq(deployments.id, deployment.id))
-      await recordDeploymentEvent(deployment.id, 'healthy', 'All allocations are running and healthy.', { allocations: currentAllocations.map((allocation) => ({ id: allocation.id, phase: allocation.phase, health: allocation.health })) })
+      await recordDeploymentEvent(deployment.id, 'healthy', 'All allocations are running and healthy.', {
+        allocations: currentAllocations.map((allocation) => ({ id: allocation.id, phase: allocation.phase, health: allocation.health })),
+      })
       await notifyDeployment(await createDeploymentSpec(deployment.serviceId, deployment.environmentId), 'healthy', deployment.triggeredByUserId)
-    } catch { /* preserve state while Trellis is unreachable */ }
+    } catch {
+      // Preserve state while Trellis is unreachable.
+    }
   }
 }
 
