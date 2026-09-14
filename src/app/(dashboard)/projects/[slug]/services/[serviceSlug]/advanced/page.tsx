@@ -1,11 +1,11 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
-import { inArray } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { Network } from 'lucide-react'
 import { db } from '@/db'
 import { serviceAdvancedSettings } from '@/db/service-advanced-schema'
 import { getCurrentUser } from '@/lib/auth'
-import { getProjectBySlug, getServiceBySlug, getServiceConfigsWithEnvironments, getUserOrganization } from '@/lib/queries'
+import { getProjectBySlug, getServiceBySlug, getServiceConfig, getUserOrganization } from '@/lib/queries'
 import { Button } from '@/components/ui/button'
 import { Panel, PanelHeader, SectionTitle } from '@/components/ui/panel'
 import { Chip } from '@/components/status'
@@ -22,11 +22,10 @@ export default async function AdvancedPage({ params }: { params: Promise<{ slug:
   if (!project) notFound()
   const service = await getServiceBySlug(project.id, serviceSlug)
   if (!service) notFound()
-  const configs = await getServiceConfigsWithEnvironments(service.id)
-  const advancedRows = configs.length
-    ? await db.select().from(serviceAdvancedSettings).where(inArray(serviceAdvancedSettings.serviceConfigId, configs.map(({ config }) => config.id)))
-    : []
-  const advancedByConfig = new Map(advancedRows.map((row) => [row.serviceConfigId, row]))
+  const config = await getServiceConfig(service.id)
+  if (!config) notFound()
+  const [advanced] = await db.select().from(serviceAdvancedSettings)
+    .where(eq(serviceAdvancedSettings.serviceConfigId, config.id)).limit(1)
 
   return (
     <div className="space-y-6">
@@ -35,30 +34,19 @@ export default async function AdvancedPage({ params }: { params: Promise<{ slug:
       <div className="space-y-2">
         <SectionTitle>Advanced execution</SectionTitle>
         <p className="max-w-3xl text-[13px] leading-relaxed text-ink-muted">
-          Runtime and workload API credentials are lower-frequency execution controls. They are configured per environment and applied on the next deployment.
+          Runtime and workload API credentials are part of the service definition. They apply consistently wherever this service is deployed.
         </p>
       </div>
 
-      <div className="space-y-4">
-        {configs.map(({ config, environment }) => {
-          const advanced = advancedByConfig.get(config.id)
-          return (
-            <Panel key={config.id}>
-              <PanelHeader
-                title={environment.name}
-                hint="Task-group execution settings"
-              />
-              <AdvancedConfigForm
-                serviceId={service.id}
-                environmentId={environment.id}
-                runtime={advanced?.runtime}
-                apiAccessScope={advanced?.apiAccessScope}
-                apiAccessLevel={advanced?.apiAccessLevel}
-              />
-            </Panel>
-          )
-        })}
-      </div>
+      <Panel>
+        <PanelHeader title="Execution" hint="Task-group execution settings" />
+        <AdvancedConfigForm
+          serviceId={service.id}
+          runtime={advanced?.runtime}
+          apiAccessScope={advanced?.apiAccessScope}
+          apiAccessLevel={advanced?.apiAccessLevel}
+        />
+      </Panel>
 
       <Panel>
         <PanelHeader title="Networking" hint="Managed by Bower" action={<Chip tone="neutral">namespace</Chip>} />
@@ -70,7 +58,7 @@ export default async function AdvancedPage({ params }: { params: Promise<{ slug:
             <div>
               <p className="text-[13px] font-medium text-ink">Application workloads always use Trellis namespace networking.</p>
               <p className="mt-1 max-w-2xl text-[12px] leading-relaxed text-ink-muted">
-                Bower does not expose host or isolated workload modes. Public connectivity is configured through project Routes, while services remain on their environment&apos;s private Trellis namespace network.
+                Bower does not expose host or isolated workload modes. Public connectivity is configured through project Routes, while each deployment runs on its environment&apos;s private Trellis namespace network.
               </p>
             </div>
           </div>
