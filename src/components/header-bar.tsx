@@ -100,7 +100,7 @@ export function HeaderBar({ orgs, currentOrg, teams, searchData, user }: HeaderB
           <OrgTeamPicker orgs={orgs} currentOrg={currentOrg} teams={teams} />
           {crumbs.map((crumb, i) => (
             <Fragment key={crumb.href}>
-              <span className="contents max-sm:hidden">
+              <span className={i === crumbs.length - 1 ? "contents" : "contents max-sm:hidden"}>
               <ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-faint" />
               {i === crumbs.length - 1 ? (
                 <span className="min-w-0 truncate text-[13px] font-semibold text-ink">{crumb.label}</span>
