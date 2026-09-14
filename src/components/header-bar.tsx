@@ -94,7 +94,7 @@ export function HeaderBar({ orgs, currentOrg, teams, searchData, user }: HeaderB
 
   return (
     <>
-      <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-line bg-canvas/85 px-3 backdrop-blur-md sm:gap-3 sm:px-6">
+      <header className="sticky inset-x-0 top-0 z-20 flex h-14 w-full max-w-none self-stretch items-center gap-2 border-b border-line bg-canvas/85 px-3 backdrop-blur-md sm:gap-3 sm:px-6">
         <MobileDrawer user={user} />
         <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
           <OrgTeamPicker orgs={orgs} currentOrg={currentOrg} teams={teams} />
