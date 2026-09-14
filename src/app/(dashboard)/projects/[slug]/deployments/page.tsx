@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { getUserOrganization, getProjectBySlug, getDeploymentsByProject } from '@/lib/queries'
-import { Panel, PanelHeader, SectionTitle } from '@/components/ui/panel'
+import { Panel, SectionTitle } from '@/components/ui/panel'
 import {
   Table,
   TableHeader,

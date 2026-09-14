@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { Panel, PanelHeader } from '@/components/ui/panel'
 import { StatusDot, Chip, Mono } from '@/components/status'
 import { EmptyState } from '@/components/ui/empty-state'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Table,
   TableBody,
@@ -87,7 +86,7 @@ interface DeploymentFiltersProps {
 }
 
 export function DeploymentFilters({ items, projects, environments }: DeploymentFiltersProps) {
-  const [status, setStatus] = useState<StatusFilter>('all')
+  const [status] = useState<StatusFilter>('all')
   const [projectFilter, setProjectFilter] = useState('all')
   const [envFilter, setEnvFilter] = useState('all')
 

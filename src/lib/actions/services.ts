@@ -16,7 +16,6 @@ import { reconcileProjectDeployments } from '@/lib/deployment-reconciler'
 import type { TrellisExecResponse, TrellisJobSpec, TrellisVolume } from '@/types/trellis'
 
 type Trigger = 'manual' | 'webhook' | 'promotion' | 'rollback' | 'auto_rollback'
-const RESOURCE_TIERS = { small: [100, 134217728], medium: [250, 268435456], large: [500, 536870912], xl: [1000, 1073741824] } as const
 
 function slugify(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 63) || 'service'

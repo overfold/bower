@@ -1,14 +1,13 @@
 'use client'
 
-import { useState, useMemo, useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { addOrganizationMemberAction } from '@/lib/actions/operations'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogBody, DialogFooter, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Plus, User } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Plus } from 'lucide-react'
 
 export function AddMemberDialog({ canManage }: { canManage: boolean }) {
   const [open, setOpen] = useState(false)

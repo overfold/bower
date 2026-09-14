@@ -12,9 +12,8 @@ import {
 } from '@/lib/queries'
 import { getTrellisClient } from '@/lib/trellis-instance'
 import { PageHeading } from '@/components/page-heading'
-import { Panel, PanelHeader, KeyValue } from '@/components/ui/panel'
+import { Panel, PanelHeader } from '@/components/ui/panel'
 import { StatusDot, Chip, Dot, Meter, Mono } from '@/components/status'
-import { Badge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
 import {
   Table,
@@ -28,8 +27,6 @@ import { DeploymentPoller } from '@/components/deployment-poller'
 import {
   FolderKanban,
   Rocket,
-  ArrowUpRight,
-  TriangleAlert,
   UserIcon,
   WebhookIcon,
   GitBranch,

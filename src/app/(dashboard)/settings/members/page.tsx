@@ -5,7 +5,7 @@ import { PageHeading } from '@/components/page-heading'
 import { InviteTokensSection } from '@/components/invite-tokens-section'
 import { AddMemberDialog } from './add-member-dialog'
 import { MembersTable } from './members-table'
-import { AddInstanceAdminDialog, RemoveInstanceAdminButton } from '../instance/instance-admin-actions'
+import { AddInstanceAdminDialog } from '../instance/instance-admin-actions'
 import { InstanceTokensSection } from '../instance/instance-tokens-section'
 
 export default async function MembersSettingsPage() {
@@ -83,7 +83,16 @@ export default async function MembersSettingsPage() {
       />
 
       {showInstanceAdmin && (
-        <InstanceTokensSection tokens={instanceTokens as any} />
+        <InstanceTokensSection tokens={instanceTokens.map((row) => ({
+          token: {
+            id: row.token.id,
+            tokenPrefix: row.token.tokenPrefix,
+            note: row.token.note,
+            usedAt: row.token.usedAt?.toISOString() ?? null,
+            createdAt: row.token.createdAt.toISOString(),
+          },
+          createdByName: row.createdByName,
+        }))} />
       )}
     </div>
   )

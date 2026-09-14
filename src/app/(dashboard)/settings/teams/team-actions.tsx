@@ -11,7 +11,6 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { Plus, Trash2, User } from 'lucide-react'
-import { cn } from '@/lib/utils'
 
 type Props =
   | { mode: 'create' }
