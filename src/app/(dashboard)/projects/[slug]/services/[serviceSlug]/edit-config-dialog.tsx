@@ -18,10 +18,8 @@ import { Pencil, ChevronDown } from 'lucide-react'
 
 interface EditConfigDialogProps {
   serviceId: string
-  environmentId: string
   config: {
     image: string
-    replicas: number
     port: number | null
     cpu: number
     memory: number
@@ -36,10 +34,8 @@ interface EditConfigDialogProps {
     command: string | null
     cronSchedule: string | null
     autoRollbackSeconds: number
-    envVars: unknown
     labels: unknown
     volumes: unknown
-    secretBindings: unknown
     rawConfig: unknown
     canarySteps: unknown
   }
@@ -50,7 +46,7 @@ function recordToLines(value: unknown) {
   return Object.entries(value as Record<string, unknown>).map(([key, entry]) => `${key}=${String(entry)}`).join('\n')
 }
 
-export function EditConfigDialog({ serviceId, environmentId, config }: EditConfigDialogProps) {
+export function EditConfigDialog({ serviceId, config }: EditConfigDialogProps) {
   const [open, setOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -63,7 +59,7 @@ export function EditConfigDialog({ serviceId, environmentId, config }: EditConfi
     setLoading(true)
     try {
       const formData = new FormData(e.currentTarget)
-      await updateServiceConfigAction(serviceId, environmentId, formData)
+      await updateServiceConfigAction(serviceId, formData)
       setOpen(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.')
@@ -75,20 +71,18 @@ export function EditConfigDialog({ serviceId, environmentId, config }: EditConfi
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm">
+        <Button variant="default" size="sm">
           <Pencil className="h-4 w-4" />
-          Edit
+          Edit service
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Edit Configuration</DialogTitle>
+          <DialogTitle>Edit service definition</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
-          <input type="hidden" name="envVars" value={recordToLines(config.envVars)} />
           <input type="hidden" name="labels" value={recordToLines(config.labels)} />
           <input type="hidden" name="volumes" value={JSON.stringify(config.volumes ?? [])} />
-          <input type="hidden" name="secretBindings" value={JSON.stringify(config.secretBindings ?? [])} />
           <input type="hidden" name="rawConfig" value={config.rawConfig ? JSON.stringify(config.rawConfig) : ''} />
           <input type="hidden" name="canarySteps" value={JSON.stringify(config.canarySteps ?? [10, 25, 50, 100])} />
           <input type="hidden" name="healthCommand" value={Array.isArray(config.healthCheckCommand) ? config.healthCheckCommand.join(' ') : ''} />
@@ -104,13 +98,10 @@ export function EditConfigDialog({ serviceId, environmentId, config }: EditConfi
               <div className="space-y-2">
                 <Label htmlFor="image">Container image</Label>
                 <Input id="image" name="image" defaultValue={config.image} required mono />
+                <p className="text-2xs leading-relaxed text-ink-muted">This is the desired service definition. Environments keep their currently deployed revision until you deploy to them.</p>
               </div>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="replicas">Replicas</Label>
-                  <Input id="replicas" name="replicas" type="number" defaultValue={config.replicas} required min={0} />
-                </div>
                 <div className="space-y-2">
                   <Label htmlFor="strategy">Deployment strategy</Label>
                   <div className="relative">
@@ -128,32 +119,30 @@ export function EditConfigDialog({ serviceId, environmentId, config }: EditConfi
                     <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-muted" aria-hidden="true" />
                   </div>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="resourceTier">Resource tier</Label>
-                  <div className="relative">
-                    <select
-                      id="resourceTier"
-                      name="resourceTier"
-                      defaultValue={config.resourceTier}
-                      onChange={(e) => setTier(e.target.value)}
-                      className="flex h-9 w-full appearance-none rounded-lg border border-line bg-surface px-3 pr-9 text-[13px] text-ink shadow-card transition-[border-color,box-shadow] duration-150 ease-enter focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
-                    >
-                      <option value="small">small</option>
-                      <option value="medium">medium</option>
-                      <option value="large">large</option>
-                      <option value="xl">xl</option>
-                      <option value="custom">custom</option>
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-muted" aria-hidden="true" />
-                  </div>
-                </div>
                 <div className="space-y-2">
                   <Label htmlFor="port">Application port</Label>
                   <Input id="port" name="port" type="number" defaultValue={config.port ?? ''} />
                   <p className="text-2xs leading-relaxed text-ink-muted">Used by health checks and Bower routing; workloads stay on namespace networking.</p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="resourceTier">Resource tier</Label>
+                <div className="relative">
+                  <select
+                    id="resourceTier"
+                    name="resourceTier"
+                    defaultValue={config.resourceTier}
+                    onChange={(e) => setTier(e.target.value)}
+                    className="flex h-9 w-full appearance-none rounded-lg border border-line bg-surface px-3 pr-9 text-[13px] text-ink shadow-card transition-[border-color,box-shadow] duration-150 ease-enter focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                  >
+                    <option value="small">small</option>
+                    <option value="medium">medium</option>
+                    <option value="large">large</option>
+                    <option value="xl">xl</option>
+                    <option value="custom">custom</option>
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-muted" aria-hidden="true" />
                 </div>
               </div>
 
@@ -215,7 +204,7 @@ export function EditConfigDialog({ serviceId, environmentId, config }: EditConfi
           </DialogBody>
           <DialogFooter>
             <Button variant="default" type="button" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button variant="primary" type="submit" disabled={loading}>{loading ? 'Saving…' : 'Save changes'}</Button>
+            <Button variant="primary" type="submit" disabled={loading}>{loading ? 'Saving…' : 'Save service'}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
