@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { and, eq } from 'drizzle-orm'
 import { db } from '@/db'
-import { environments, managedProxies, projects, routes, services, serviceConfigs } from '@/db/schema'
+import { environments, managedProxies, projects, routes, services, serviceConfigs, serviceDeployments } from '@/db/schema'
 import { getTrellisClient } from '@/lib/trellis-instance'
 import type { TrellisJobSpec } from '@/types/trellis'
 
@@ -16,11 +16,16 @@ export async function syncManagedProxy(projectId: string, environmentId: string,
   const [project] = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1)
   if (!environment || !project) throw new Error('Proxy environment was not found.')
 
-  const definitions = await db.select({ route: routes, service: services, config: serviceConfigs })
+  const definitions = await db.select({ route: routes, service: services, config: serviceConfigs, target: serviceDeployments })
     .from(routes)
     .innerJoin(services, eq(services.id, routes.serviceId))
-    .innerJoin(serviceConfigs, and(eq(serviceConfigs.serviceId, services.id), eq(serviceConfigs.environmentId, environmentId)))
+    .innerJoin(serviceConfigs, eq(serviceConfigs.serviceId, services.id))
+    .innerJoin(serviceDeployments, and(
+      eq(serviceDeployments.serviceId, services.id),
+      eq(serviceDeployments.environmentId, environmentId),
+    ))
     .where(and(eq(routes.projectId, projectId), eq(routes.environmentId, environmentId)))
+
   const client = await getTrellisClient(orgId)
   if (definitions.length === 0) {
     await client.deleteJob('bower-proxy', environment.trellisNamespace).catch(() => undefined)
@@ -28,13 +33,27 @@ export async function syncManagedProxy(projectId: string, environmentId: string,
     await db.delete(managedProxies).where(eq(managedProxies.environmentId, environmentId))
     return
   }
-  const controllerRoutes: Array<Record<string, unknown>> = []
 
+  const controllerRoutes: Array<Record<string, unknown>> = []
   for (const definition of definitions) {
     const requestHeaders = definition.route.headers as Record<string, string>
     const responseHeaders = definition.route.responseHeaders as Record<string, string>
     const redirects = definition.route.redirects as Array<{ from: string; to: string; code?: number }>
-    controllerRoutes.push({ domain: definition.route.domain, pathPrefix: definition.route.pathPrefix, port: definition.route.port, tlsMode: definition.route.tlsMode, tlsCertSecret: definition.route.tlsCertSecret, tlsKeySecret: definition.route.tlsKeySecret, requestHeaders, responseHeaders, redirects, rateLimit: definition.route.rateLimit, service: definition.service.slug, activeJob: definition.config.activeJobName || definition.service.slug, strategy: definition.config.deploymentStrategy })
+    controllerRoutes.push({
+      domain: definition.route.domain,
+      pathPrefix: definition.route.pathPrefix,
+      port: definition.route.port,
+      tlsMode: definition.route.tlsMode,
+      tlsCertSecret: definition.route.tlsCertSecret,
+      tlsKeySecret: definition.route.tlsKeySecret,
+      requestHeaders,
+      responseHeaders,
+      redirects,
+      rateLimit: definition.route.rateLimit,
+      service: definition.service.slug,
+      activeJob: definition.target.activeJobName || definition.service.slug,
+      strategy: definition.config.deploymentStrategy,
+    })
   }
 
   const httpPort = proxyPort('BOWER_PROXY_HTTP_PORT', 80)
@@ -46,7 +65,10 @@ export async function syncManagedProxy(projectId: string, environmentId: string,
   await client.setSecret(environment.trellisNamespace, secretName, caddyfile)
 
   const customTls = definitions.flatMap(({ route }) => route.tlsMode === 'custom' && route.tlsCertSecret && route.tlsKeySecret
-    ? [{ name: route.tlsCertSecret, target: 'file' as const, path: `/run/trellis-secrets/${route.tlsCertSecret}` }, { name: route.tlsKeySecret, target: 'file' as const, path: `/run/trellis-secrets/${route.tlsKeySecret}` }]
+    ? [
+        { name: route.tlsCertSecret, target: 'file' as const, path: `/run/trellis-secrets/${route.tlsCertSecret}` },
+        { name: route.tlsKeySecret, target: 'file' as const, path: `/run/trellis-secrets/${route.tlsKeySecret}` },
+      ]
     : [])
   const spec: TrellisJobSpec = {
     name: 'bower-proxy',
@@ -64,7 +86,14 @@ export async function syncManagedProxy(projectId: string, environmentId: string,
       }, {
         name: 'route-sync', image: process.env.BOWER_PROXY_SYNC_IMAGE || 'ghcr.io/clofour/bower-proxy-sync:latest',
         resources: { cpu: 50, memory: 67108864 }, networking: { mode: 'host' },
-        env: { BOWER_ROUTES: JSON.stringify(controllerRoutes), CADDY_ADMIN_URL: `http://127.0.0.1:${adminPort}/load`, CADDY_ADMIN_PORT: String(adminPort), CADDY_HTTP_PORT: String(httpPort), CADDY_HTTPS_PORT: String(httpsPort), BOWER_SYNC_INTERVAL: '5' },
+        env: {
+          BOWER_ROUTES: JSON.stringify(controllerRoutes),
+          CADDY_ADMIN_URL: `http://127.0.0.1:${adminPort}/load`,
+          CADDY_ADMIN_PORT: String(adminPort),
+          CADDY_HTTP_PORT: String(httpPort),
+          CADDY_HTTPS_PORT: String(httpsPort),
+          BOWER_SYNC_INTERVAL: '5',
+        },
       }],
     }],
   }
