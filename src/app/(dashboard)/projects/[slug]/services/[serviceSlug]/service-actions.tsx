@@ -14,6 +14,7 @@ interface ServiceActionsProps {
   serviceId: string
   environmentId: string
   isLocked: boolean
+  replicas?: number
   canPromote?: boolean
   promotionTargets?: { id: string; name: string }[]
   hasDeployments?: boolean
