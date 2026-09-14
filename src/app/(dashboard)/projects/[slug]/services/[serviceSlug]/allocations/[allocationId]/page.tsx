@@ -39,14 +39,14 @@ export default async function AllocationDetailPage({
   const service = await getServiceBySlug(project.id, serviceSlug)
   if (!service) notFound()
 
-  const configs = await getServiceConfigsWithEnvironments(service.id)
+  const targets = await getServiceConfigsWithEnvironments(service.id)
   const client = await getTrellisClient(orgCtx.org.id)
   let allocation: TrellisAllocation | null = null
 
   try {
     const allocs = await client.listAllocations()
-    const knownJobs = new Set([service.slug, ...configs.map(({ config }) => config.activeJobName).filter((value): value is string => Boolean(value))])
-    const namespaces = new Set(configs.map(({ environment }) => environment.trellisNamespace))
+    const knownJobs = new Set([service.slug, ...targets.map(({ deployment }) => deployment.activeJobName).filter((value): value is string => Boolean(value))])
+    const namespaces = new Set(targets.map(({ environment }) => environment.trellisNamespace))
     allocation = allocs.find((item) => {
       if (item.id !== allocationId || !namespaces.has(item.namespace)) return false
       return item.labels?.['bower/service'] === service.slug || knownJobs.has(item.job)
@@ -56,7 +56,7 @@ export default async function AllocationDetailPage({
   }
   if (!allocation) notFound()
 
-  const matchingConfig = configs.find(({ environment }) => environment.trellisNamespace === allocation?.namespace)
+  const matchingTarget = targets.find(({ environment }) => environment.trellisNamespace === allocation?.namespace)
   const [stdout, stderr, events, metrics] = await Promise.all([
     client.getAllocationLogs(allocationId, 'stdout').catch(() => ''),
     client.getAllocationLogs(allocationId, 'stderr').catch(() => ''),
@@ -85,7 +85,7 @@ export default async function AllocationDetailPage({
             }
             actions={
               <>
-                {matchingConfig && <ExecDialog allocationId={allocationId} serviceConfigId={matchingConfig.config.id} />}
+                {matchingTarget && <ExecDialog allocationId={allocationId} serviceConfigId={matchingTarget.config.id} />}
                 <AllocationStopButton serviceId={service.id} allocationId={allocationId} disabled={!stoppable} />
               </>
             }
