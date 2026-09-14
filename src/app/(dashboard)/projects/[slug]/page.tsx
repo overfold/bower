@@ -68,9 +68,6 @@ export default async function ProjectOverviewPage({
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           {environments.map((env) => {
-            const envDeploys = deployments.filter(
-              (d) => d.environmentName === env.name
-            )
             return (
               <Panel key={env.id}>
                 <PanelHeader

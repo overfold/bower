@@ -7,9 +7,9 @@ import { cn } from '@/lib/utils'
 
 const orgTabs = [
   { label: 'Organization', href: '/settings/organization' },
-  { label: 'Domains', href: '/settings/domains' },
   { label: 'Members', href: '/settings/members' },
   { label: 'Teams', href: '/settings/teams' },
+  { label: 'Domains', href: '/settings/domains' },
   { label: 'Cluster', href: '/settings/cluster' },
 ]
 

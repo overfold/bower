@@ -1,28 +1,12 @@
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
 import { getUserOrganization, getProjectsForUser, getServicesByProject } from '@/lib/queries'
 import { PageHeading } from '@/components/page-heading'
 import { Panel } from '@/components/ui/panel'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { CreateProjectDialog } from '@/components/create-project-dialog'
-import { BoxesIcon, SearchIcon } from 'lucide-react'
+import { BoxesIcon } from 'lucide-react'
 import { ProjectSearch } from './project-search'
-
-function relTime(date: Date | string): string {
-  const d = typeof date === 'string' ? new Date(date) : date
-  const diff = Date.now() - d.getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  if (days < 30) return `${days}d ago`
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
 
 export default async function ProjectsPage() {
   const user = await getCurrentUser()

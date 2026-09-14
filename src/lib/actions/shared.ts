@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import { cookies } from 'next/headers'
 import { db } from '@/db'
-import { auditLog, projects, services, teamMemberships, teamProjectAccess } from '@/db/schema'
+import { auditLog, projects, projectUserAccess, services, teamMemberships, teamProjectAccess } from '@/db/schema'
 import { getCurrentUser } from '@/lib/auth'
 import { getUserOrganization } from '@/lib/queries'
 import { ORG_COOKIE_NAME } from '@/lib/constants'
@@ -40,9 +40,12 @@ export async function requireService(serviceId: string) {
 
 async function getProjectRole(userId: string, orgRole: 'owner' | 'admin' | 'member', projectId: string) {
   if (orgRole === 'owner' || orgRole === 'admin') return 'admin' as const
-  const grants = await db.select({ role: teamProjectAccess.role }).from(teamMemberships)
+  const teamGrants = await db.select({ role: teamProjectAccess.role }).from(teamMemberships)
     .innerJoin(teamProjectAccess, eq(teamProjectAccess.teamId, teamMemberships.teamId))
     .where(and(eq(teamMemberships.userId, userId), eq(teamProjectAccess.projectId, projectId)))
+  const userGrants = await db.select({ role: projectUserAccess.role }).from(projectUserAccess)
+    .where(and(eq(projectUserAccess.userId, userId), eq(projectUserAccess.projectId, projectId)))
+  const grants = [...teamGrants, ...userGrants]
   if (grants.some((grant) => grant.role === 'admin')) return 'admin' as const
   if (grants.some((grant) => grant.role === 'deployer')) return 'deployer' as const
   if (grants.some((grant) => grant.role === 'viewer')) return 'viewer' as const

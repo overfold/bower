@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { getUserOrganization, getDeploymentsForOrg } from '@/lib/queries'
 import { PageHeading } from '@/components/page-heading'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { DeploymentFilters } from './deployment-filters'
 
 export default async function DeploymentsPage() {

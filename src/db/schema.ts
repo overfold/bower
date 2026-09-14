@@ -649,3 +649,26 @@ export const teamProjectAccess = pgTable(
     ),
   ]
 );
+
+export const projectUserAccess = pgTable(
+  "project_user_access",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    role: teamProjectRoleEnum("role").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("project_user_access_project_user_idx").on(
+      table.projectId,
+      table.userId
+    ),
+  ]
+);

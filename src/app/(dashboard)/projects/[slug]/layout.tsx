@@ -12,7 +12,7 @@ import { PageHeading, MetaItem } from '@/components/page-heading'
 import { ProjectTabs } from '@/components/project-tabs'
 import { Chip } from '@/components/status'
 import { Button } from '@/components/ui/button'
-import { Settings, Rocket } from 'lucide-react'
+import { Settings } from 'lucide-react'
 
 export default async function ProjectLayout({
   children,
@@ -52,6 +52,7 @@ export default async function ProjectLayout({
     { label: 'Secrets', href: '/secrets' },
     { label: 'Routes', href: '/routes' },
     { label: 'Integrations', href: '/integrations' },
+    { label: 'Access', href: '/access' },
     { label: 'Settings', href: '/settings' },
   ]
 

@@ -111,7 +111,7 @@ export function buildJobSpec(config: BowerServiceConfig): TrellisJobSpec {
     tasks,
   }
 
-  const restart = buildRestartPolicy(config)
+  const restart = buildRestartPolicy()
   if (restart) {
     taskGroup.restart = restart
   }
@@ -262,9 +262,7 @@ function buildHealthCheck(config: BowerServiceConfig): TrellisHealthCheck | null
   return check
 }
 
-function buildRestartPolicy(
-  _config: BowerServiceConfig,
-): TrellisRestartPolicy | null {
+function buildRestartPolicy(): TrellisRestartPolicy | null {
   return {
     max_restarts: WORKER_MAX_RESTARTS,
     window: WORKER_RESTART_WINDOW,

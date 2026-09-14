@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Bot, ChevronDown, User, Webhook } from 'lucide-react'
+import { Bot, ChevronDown, User } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 

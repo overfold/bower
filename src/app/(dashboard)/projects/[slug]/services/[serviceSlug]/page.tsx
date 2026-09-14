@@ -1,10 +1,9 @@
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
-import { getUserOrganization, getProjectBySlug, getServiceBySlug, getServiceConfigsWithEnvironments, getDeploymentsByService, getSidecars } from '@/lib/queries'
+import { getUserOrganization, getProjectBySlug, getServiceBySlug, getServiceConfigsWithEnvironments, getDeploymentsByService } from '@/lib/queries'
 import { PageHeading } from '@/components/page-heading'
 import { Panel, PanelHeader, SectionTitle, KeyValue } from '@/components/ui/panel'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -81,6 +80,11 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
                       environmentId={environment.id}
                       isLocked={environment.isLocked}
                       replicas={config.replicas}
+                      canPromote={configs.length > 1}
+                      promotionTargets={configs
+                        .filter((c) => c.environment.id !== environment.id)
+                        .map((c) => ({ id: c.environment.id, name: c.environment.name }))}
+                      hasDeployments={deployments.some((d) => d.environmentId === environment.id)}
                     />
                   </div>
                 }
