@@ -95,7 +95,12 @@ export function VolumeEditor({
     setError(null)
     try {
       const formData = new FormData()
-      formData.set('volumes', JSON.stringify(volumes.map(({ storage: _storage, ...volume }) => volume)))
+      formData.set('volumes', JSON.stringify(volumes.map((volume) => ({
+        name: volume.name,
+        host_path: volume.host_path,
+        container_path: volume.container_path,
+        read_only: Boolean(volume.read_only),
+      }))))
       await updateServiceVolumesAction(serviceId, environmentId, formData)
       setOpen(false)
       router.refresh()
