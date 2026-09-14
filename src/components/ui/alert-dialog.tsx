@@ -70,7 +70,7 @@ const AlertDialogContent = React.forwardRef<
           >
             <motion.div
               className={cn(
-                'fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border border-line bg-surface shadow-pop',
+                'fixed left-1/2 top-1/2 z-50 grid max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-line bg-surface shadow-pop',
                 className,
               )}
               initial={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: 8 }}
@@ -89,11 +89,11 @@ const AlertDialogContent = React.forwardRef<
 AlertDialogContent.displayName = AlertDialogPrimitive.Content.displayName
 
 const AlertDialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn('border-b border-line px-5 py-4', className)} {...props} />
+  <div className={cn('border-b border-line px-4 py-4 sm:px-5', className)} {...props} />
 )
 
 const AlertDialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn('flex items-center justify-end gap-2 border-t border-line bg-sunken px-5 py-3', className)} {...props} />
+  <div className={cn('flex flex-col-reverse items-stretch justify-end gap-2 border-t border-line bg-sunken px-4 py-3 sm:flex-row sm:items-center sm:px-5', className)} {...props} />
 )
 
 const AlertDialogTitle = React.forwardRef<
