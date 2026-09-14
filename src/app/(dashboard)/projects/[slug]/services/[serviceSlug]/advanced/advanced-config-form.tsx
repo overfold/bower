@@ -9,13 +9,11 @@ import { Label } from '@/components/ui/label'
 
 export function AdvancedConfigForm({
   serviceId,
-  environmentId,
   runtime: initialRuntime,
   apiAccessScope,
   apiAccessLevel,
 }: {
   serviceId: string
-  environmentId: string
   runtime: string | null | undefined
   apiAccessScope: string | null | undefined
   apiAccessLevel: string | null | undefined
@@ -34,7 +32,7 @@ export function AdvancedConfigForm({
     setError(null)
     try {
       const formData = new FormData(event.currentTarget)
-      await updateServiceAdvancedAction(serviceId, environmentId, formData)
+      await updateServiceAdvancedAction(serviceId, formData)
       router.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not update advanced settings.')
@@ -48,9 +46,9 @@ export function AdvancedConfigForm({
       {error && <div className="rounded-lg border border-danger-200 bg-danger-50 p-3 text-[13px] text-danger-500">{error}</div>}
       <div className="grid gap-5 md:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor={`runtime-${environmentId}`}>Runtime</Label>
+          <Label htmlFor="runtime">Runtime</Label>
           <select
-            id={`runtime-${environmentId}`}
+            id="runtime"
             name="runtime"
             value={runtime}
             onChange={(event) => setRuntime(event.target.value)}
@@ -60,13 +58,13 @@ export function AdvancedConfigForm({
             <option value="runsc">runsc — gVisor sandbox</option>
           </select>
           <p className="text-2xs leading-relaxed text-ink-muted">
-            Runtime selection applies to the whole Trellis task group, including sidecars.
+            Runtime selection applies to the whole Trellis task group, including sidecars, in every environment.
           </p>
         </div>
         <div className="space-y-2">
-          <Label htmlFor={`api-access-${environmentId}`}>Workload API access</Label>
+          <Label htmlFor="api-access">Workload API access</Label>
           <select
-            id={`api-access-${environmentId}`}
+            id="api-access"
             name="apiAccess"
             value={apiAccess}
             onChange={(event) => setApiAccess(event.target.value)}
@@ -87,7 +85,7 @@ export function AdvancedConfigForm({
         <div className="flex gap-2 rounded-lg border border-warn-200 bg-warn-50 p-3 text-[12px] leading-relaxed text-warn-500">
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
-            This grants a workload elevated control-plane access. Prefer namespace read access unless the workload genuinely needs broader or mutating permissions.
+            This grants the workload elevated control-plane access in every environment. Prefer namespace read access unless the workload genuinely needs broader or mutating permissions.
           </span>
         </div>
       )}
