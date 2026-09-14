@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { Menu, X } from 'lucide-react'
@@ -19,15 +19,29 @@ function DrawerInner({ user }: MobileDrawerProps) {
   const reduced = useReducedMotion()
   const close = useCallback(() => setOpen(false), [])
 
+  useEffect(() => {
+    if (!open) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') close()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [close, open])
+
   return (
     <>
       <button
         type="button"
         aria-label="Open navigation"
-        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-muted transition-colors duration-150 hover:bg-black/[0.04] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 lg:hidden"
+        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-ink-muted transition-colors duration-150 hover:bg-black/[0.04] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 lg:hidden"
         onClick={() => setOpen(true)}
       >
-        <Menu className="h-4 w-4" />
+        <Menu className="h-5 w-5" />
       </button>
 
       <AnimatePresence>
@@ -42,7 +56,10 @@ function DrawerInner({ user }: MobileDrawerProps) {
               onClick={close}
             />
             <motion.div
-              className="absolute inset-y-0 left-0 w-[268px] border-r border-line shadow-pop"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Navigation"
+              className="absolute inset-y-0 left-0 w-[min(84vw,300px)] overflow-y-auto border-r border-line bg-surface shadow-pop scroll-thin"
               initial={reduced ? { opacity: 0 } : { x: '-100%' }}
               animate={reduced ? { opacity: 1 } : { x: 0 }}
               exit={reduced ? { opacity: 0 } : { x: '-100%' }}
@@ -52,10 +69,10 @@ function DrawerInner({ user }: MobileDrawerProps) {
                 <button
                   type="button"
                   aria-label="Close navigation"
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-muted transition-colors duration-150 hover:bg-black/[0.04] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-ink-muted transition-colors duration-150 hover:bg-black/[0.04] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
                   onClick={close}
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-5 w-5" />
                 </button>
               </div>
               <SidebarContent user={user} onNavigate={close} />
