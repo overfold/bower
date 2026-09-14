@@ -3,6 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import type {
+  TrellisApiAccess,
   TrellisJobSpec,
   TrellisTaskGroup,
   TrellisTask,
@@ -11,6 +12,7 @@ import type {
   TrellisRestartPolicy,
   TrellisUpdateStrategy,
   TrellisNetworking,
+  TrellisRuntime,
   TrellisVolume,
 } from '@/types/trellis'
 
@@ -57,6 +59,8 @@ export interface BowerServiceConfig {
   command?: string
   sidecars: BowerSidecar[]
   volumes: TrellisVolume[]
+  runtime?: TrellisRuntime
+  apiAccess?: TrellisApiAccess
   rawConfig?: TrellisJobSpec
 }
 
@@ -92,8 +96,24 @@ const WORKER_RESTART_WINDOW = 5 * NS_PER_MINUTE
  */
 export function buildJobSpec(config: BowerServiceConfig): TrellisJobSpec {
   if (config.rawConfig) {
-    return { ...config.rawConfig, name: config.name, namespace: config.namespace, task_groups: config.rawConfig.task_groups.map((group) => ({ ...group, labels: { ...group.labels, 'bower/managed': 'true', 'bower/service': config.serviceLabel ?? config.name } })) }
+    return {
+      ...config.rawConfig,
+      name: config.name,
+      namespace: config.namespace,
+      task_groups: config.rawConfig.task_groups.map((group) => ({
+        ...group,
+        runtime: config.runtime ?? 'runc',
+        api_access: config.apiAccess,
+        labels: {
+          ...group.labels,
+          'bower/managed': 'true',
+          'bower/service': config.serviceLabel ?? config.name,
+        },
+        tasks: group.tasks.map(enforceBowerNetworking),
+      })),
+    }
   }
+
   const primaryTask = buildPrimaryTask(config)
   const sidecarTasks = config.sidecars.map((s) => buildSidecarTask(s))
   const tasks = [primaryTask, ...sidecarTasks]
@@ -107,8 +127,13 @@ export function buildJobSpec(config: BowerServiceConfig): TrellisJobSpec {
   const taskGroup: TrellisTaskGroup = {
     name: config.name,
     count: config.replicas,
+    runtime: config.runtime ?? 'runc',
     labels,
     tasks,
+  }
+
+  if (config.apiAccess) {
+    taskGroup.api_access = config.apiAccess
   }
 
   const restart = buildRestartPolicy()
@@ -141,6 +166,7 @@ function buildPrimaryTask(config: BowerServiceConfig): TrellisTask {
       cpu: config.cpu,
       memory: config.memory,
     },
+    networking: buildNetworking(),
   }
 
   if (config.command) {
@@ -157,11 +183,6 @@ function buildPrimaryTask(config: BowerServiceConfig): TrellisTask {
   // Secrets
   if (config.secrets.length > 0) {
     task.secrets = config.secrets.map(buildSecretRef)
-  }
-
-  const networking = buildNetworking(config)
-  if (networking) {
-    task.networking = networking
   }
 
   // Health check
@@ -181,6 +202,7 @@ function buildSidecarTask(sidecar: BowerSidecar): TrellisTask {
       cpu: sidecar.cpu,
       memory: sidecar.memory,
     },
+    networking: buildNetworking(),
   }
 
   if (sidecar.command) {
@@ -189,13 +211,6 @@ function buildSidecarTask(sidecar: BowerSidecar): TrellisTask {
 
   if (Object.keys(sidecar.envVars).length > 0) {
     task.env = { ...sidecar.envVars }
-  }
-
-  if (sidecar.port !== undefined) {
-    task.networking = {
-      mode: 'host',
-      ports: [{ port: sidecar.port }],
-    }
   }
 
   return task
@@ -219,14 +234,19 @@ function buildSecretRef(binding: BowerSecretBinding): TrellisSecretRef {
   return ref
 }
 
-function buildNetworking(config: BowerServiceConfig): TrellisNetworking | null {
-  if (config.port === undefined) {
-    return null
-  }
+function buildNetworking(): TrellisNetworking {
+  // Bower intentionally does not expose Trellis networking modes. Application
+  // workloads always join their environment's Trellis namespace network; Bower
+  // owns public exposure and routing as a higher-level product concept.
+  return { mode: 'namespace' }
+}
 
+function enforceBowerNetworking(task: TrellisTask): TrellisTask {
   return {
-    mode: 'host',
-    ports: [{ port: config.port }],
+    ...task,
+    // Namespace mode does not use Trellis host-port reservations. The service's
+    // configured application port remains a Bower routing/health-check concern.
+    networking: buildNetworking(),
   }
 }
 
