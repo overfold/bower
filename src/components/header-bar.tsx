@@ -94,7 +94,7 @@ export function HeaderBar({ orgs, currentOrg, teams, searchData, user }: HeaderB
 
   return (
     <>
-      <header className="sticky inset-x-0 top-0 z-20 flex h-14 w-full max-w-none self-stretch items-center max-lg:w-screen max-lg:min-w-screen gap-2 border-b border-line bg-canvas/85 px-3 backdrop-blur-md sm:gap-3 sm:px-6">
+      <header className="fixed inset-x-0 top-0 z-20 flex h-14 items-center lg:left-[236px] gap-2 border-b border-line bg-canvas/85 px-3 backdrop-blur-md sm:gap-3 sm:px-6">
         <MobileDrawer user={user} />
         <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
           <OrgTeamPicker orgs={orgs} currentOrg={currentOrg} teams={teams} />
@@ -125,6 +125,7 @@ export function HeaderBar({ orgs, currentOrg, teams, searchData, user }: HeaderB
           <kbd className="ml-3 hidden rounded border border-line bg-sunken px-1.5 py-px font-sans text-2xs md:inline">⌘K</kbd>
         </button>
       </header>
+      <div className="h-14 shrink-0" aria-hidden="true" />
 
       <CommandPalette
         open={paletteOpen}
