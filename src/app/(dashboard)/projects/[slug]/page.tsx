@@ -56,99 +56,85 @@ export default async function ProjectOverviewPage({
 
   return (
     <div className="space-y-5">
-      {/* Environment ladder */}
       {environments.length === 0 ? (
         <Panel>
           <EmptyState
             icon={<Layers className="h-4 w-4" />}
             title="No environments"
-            body="Create an environment to begin configuring deployments."
+            body="Create an environment to begin deploying services."
           />
         </Panel>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
-          {environments.map((env) => {
-            return (
-              <Panel key={env.id}>
-                <PanelHeader
-                  title={env.name}
-                  action={
-                    <div className="flex items-center gap-2">
-                      {env.isLocked && (
-                        <Chip tone="warn">
-                          <Lock className="h-3 w-3" />
-                          locked
-                        </Chip>
-                      )}
-                      <Chip tone="neutral">promotion #{env.promotionOrder}</Chip>
-                    </div>
-                  }
-                />
-                <ul className="divide-y divide-line">
-                  {services.length === 0 ? (
-                    <li className="px-4 py-3 text-xs text-ink-muted">
-                      No services configured
-                    </li>
-                  ) : (
-                    services.map((svc) => {
-                      const lastDeploy = deployments.find(
-                        (d) =>
-                          d.serviceName === svc.name &&
-                          d.environmentName === env.name
-                      )
-                      return (
-                        <li key={svc.id} className="px-4 py-3">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="min-w-0">
-                              <Link
-                                href={`/projects/${slug}/services/${svc.slug}`}
-                                className="rounded text-[13px] font-medium text-ink underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
-                              >
-                                {svc.name}
-                              </Link>
-                              {lastDeploy && (
-                                <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-2xs text-ink-muted">
-                                  <span className="font-mono text-[11px]">
-                                    {imageTag(lastDeploy.deployment.imageAfter)}
-                                  </span>
-                                </p>
-                              )}
-                            </div>
-                            <div className="flex shrink-0 flex-col items-end gap-1.5">
-                              {lastDeploy && (
-                                <>
-                                  <StatusDot status={lastDeploy.deployment.status} />
-                                  <span className="text-2xs text-ink-faint">
-                                    {relTime(lastDeploy.deployment.createdAt)}
-                                  </span>
-                                </>
-                              )}
-                            </div>
+          {environments.map((env) => (
+            <Panel key={env.id}>
+              <PanelHeader
+                title={env.name}
+                action={
+                  <div className="flex items-center gap-2">
+                    {env.isLocked && (
+                      <Chip tone="warn">
+                        <Lock className="h-3 w-3" />
+                        locked
+                      </Chip>
+                    )}
+                    <Chip tone="neutral">promotion #{env.promotionOrder}</Chip>
+                  </div>
+                }
+              />
+              <ul className="divide-y divide-line">
+                {services.length === 0 ? (
+                  <li className="px-4 py-3 text-xs text-ink-muted">No services configured</li>
+                ) : (
+                  services.map((svc) => {
+                    const lastDeploy = deployments.find(
+                      (deployment) => deployment.serviceName === svc.name && deployment.environmentName === env.name
+                    )
+                    return (
+                      <li key={svc.id} className="px-4 py-3">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0">
+                            <Link
+                              href={`/projects/${slug}/services/${svc.slug}`}
+                              className="rounded text-[13px] font-medium text-ink underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+                            >
+                              {svc.name}
+                            </Link>
+                            {lastDeploy && (
+                              <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-2xs text-ink-muted">
+                                <span className="font-mono text-[11px]">{imageTag(lastDeploy.deployment.imageAfter)}</span>
+                              </p>
+                            )}
                           </div>
-                        </li>
-                      )
-                    })
-                  )}
-                </ul>
-                <div className="flex items-center justify-between gap-3 border-t border-line px-4 py-3">
-                  <span className="text-xs text-ink-muted">
-                    {env.defaultReplicas} default replica{env.defaultReplicas !== 1 ? 's' : ''} · {env.resourceTier}
-                  </span>
-                  <Link
-                    href={`/projects/${slug}/environments`}
-                    className="rounded text-[12.5px] font-medium text-brand-600 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
-                  >
-                    Environment settings
-                  </Link>
-                </div>
-              </Panel>
-            )
-          })}
+                          <div className="flex shrink-0 flex-col items-end gap-1.5">
+                            {lastDeploy && (
+                              <>
+                                <StatusDot status={lastDeploy.deployment.status} />
+                                <span className="text-2xs text-ink-faint">{relTime(lastDeploy.deployment.createdAt)}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </li>
+                    )
+                  })
+                )}
+              </ul>
+              <div className="flex items-center justify-between gap-3 border-t border-line px-4 py-3">
+                <span className="truncate font-mono text-xs text-ink-muted">{env.trellisNamespace}</span>
+                <Link
+                  href={`/projects/${slug}/environments/${env.slug}`}
+                  className="shrink-0 rounded text-[12.5px] font-medium text-brand-600 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+                >
+                  Environment details
+                </Link>
+              </div>
+            </Panel>
+          ))}
         </div>
       )}
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
-        {/* Deployment history */}
         <Panel>
           <PanelHeader
             title="Deployment history"
@@ -172,35 +158,25 @@ export default async function ProjectOverviewPage({
           ) : (
             <ul className="divide-y divide-line">
               {deployments.map((row) => (
-                <li
-                  key={row.deployment.id}
-                  className="flex items-center justify-between gap-4 px-4 py-3"
-                >
+                <li key={row.deployment.id} className="flex items-center justify-between gap-4 px-4 py-3">
                   <div className="flex min-w-0 items-center gap-3">
                     <StatusDot status={row.deployment.status} />
                     <div className="min-w-0">
                       <p className="truncate text-[13px] text-ink">
                         {row.serviceName}
                         <span className="ml-2 text-ink-muted">→</span>
-                        <Badge variant="secondary" className="ml-2">
-                          {row.environmentName}
-                        </Badge>
+                        <Badge variant="secondary" className="ml-2">{row.environmentName}</Badge>
                       </p>
-                      <p className="mt-0.5 truncate font-mono text-[11px] text-ink-muted">
-                        {imageTag(row.deployment.imageAfter)}
-                      </p>
+                      <p className="mt-0.5 truncate font-mono text-[11px] text-ink-muted">{imageTag(row.deployment.imageAfter)}</p>
                     </div>
                   </div>
-                  <span className="shrink-0 text-2xs text-ink-faint">
-                    {relTime(row.deployment.createdAt)}
-                  </span>
+                  <span className="shrink-0 text-2xs text-ink-faint">{relTime(row.deployment.createdAt)}</span>
                 </li>
               ))}
             </ul>
           )}
         </Panel>
 
-        {/* Routes */}
         <Panel>
           <PanelHeader title="Routes" />
           {routeRows.length === 0 ? (
@@ -217,16 +193,10 @@ export default async function ProjectOverviewPage({
                 {routeRows.slice(0, 4).map((row) => (
                   <li key={row.route.id} className="px-4 py-3">
                     <div className="flex items-center justify-between gap-3">
-                      <span className="min-w-0 truncate font-mono text-[13px] text-ink">
-                        {row.route.domain}
-                      </span>
-                      <Badge variant={row.route.tlsMode === 'auto' ? 'success' : 'outline'}>
-                        TLS {row.route.tlsMode}
-                      </Badge>
+                      <span className="min-w-0 truncate font-mono text-[13px] text-ink">{row.route.domain}</span>
+                      <Badge variant={row.route.tlsMode === 'auto' ? 'success' : 'outline'}>TLS {row.route.tlsMode}</Badge>
                     </div>
-                    <p className="mt-1 text-2xs text-ink-muted">
-                      {row.route.pathPrefix} → {row.serviceName}:{row.route.port}
-                    </p>
+                    <p className="mt-1 text-2xs text-ink-muted">{row.route.pathPrefix} → {row.serviceName}:{row.route.port}</p>
                   </li>
                 ))}
               </ul>
