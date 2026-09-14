@@ -60,11 +60,11 @@ export function MembersTable({ members, teamNames, canManageRoles, showInstanceA
           <p className="mt-0.5 text-xs text-ink-muted">{members.length} {members.length === 1 ? 'member' : 'members'}</p>
         </div>
       </CardHeader>
-      <div className="flex flex-wrap items-center gap-3 border-b border-line px-4 pb-3">
+      <div className="grid grid-cols-1 gap-3 border-b border-line px-4 pb-3 sm:flex sm:flex-wrap sm:items-center">
         <div className="relative">
           <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-faint" />
           <input
-            className="h-9 w-56 rounded-lg border border-line bg-surface pl-8 pr-3 text-[13px] text-ink placeholder:text-ink-faint shadow-card transition-[border-color,box-shadow] duration-150 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
+            className="h-10 w-full rounded-lg sm:h-9 sm:w-56 border border-line bg-surface pl-8 pr-3 text-[13px] text-ink placeholder:text-ink-faint shadow-card transition-[border-color,box-shadow] duration-150 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
             placeholder="Search members..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
