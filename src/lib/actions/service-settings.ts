@@ -3,7 +3,7 @@
 import { and, eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/db'
-import { environments, secretsMetadata, serviceConfigs } from '@/db/schema'
+import { environments, secretsMetadata, serviceConfigs, serviceDeployments } from '@/db/schema'
 import { serviceAdvancedSettings } from '@/db/service-advanced-schema'
 import { recordAudit, requireService } from '@/lib/actions/shared'
 import type { BowerSecretBinding } from '@/lib/job-builder'
@@ -31,13 +31,19 @@ function parseJson<T>(formData: FormData, key: string, fallback: T): T {
   }
 }
 
-async function getOwnedConfig(serviceId: string, environmentId: string) {
-  const [config] = await db.select().from(serviceConfigs).where(and(
-    eq(serviceConfigs.serviceId, serviceId),
-    eq(serviceConfigs.environmentId, environmentId),
-  )).limit(1)
+async function getOwnedConfig(serviceId: string) {
+  const [config] = await db.select().from(serviceConfigs).where(eq(serviceConfigs.serviceId, serviceId)).limit(1)
   if (!config) throw new Error('Service configuration not found.')
   return config
+}
+
+async function getOwnedDeployment(serviceId: string, environmentId: string) {
+  const [target] = await db.select().from(serviceDeployments).where(and(
+    eq(serviceDeployments.serviceId, serviceId),
+    eq(serviceDeployments.environmentId, environmentId),
+  )).limit(1)
+  if (!target) throw new Error('Service deployment target not found.')
+  return target
 }
 
 function validateVolumePath(path: string, label: string) {
@@ -79,10 +85,10 @@ function normalizeVolumes(input: unknown): TrellisVolume[] {
   })
 }
 
-export async function updateServiceVolumesAction(serviceId: string, environmentId: string, formData: FormData) {
+export async function updateServiceVolumesAction(serviceId: string, formData: FormData) {
   const access = await requireService(serviceId)
   if (access.projectRole !== 'admin') throw new Error('Insufficient permissions.')
-  const before = await getOwnedConfig(serviceId, environmentId)
+  const before = await getOwnedConfig(serviceId)
   const volumes = normalizeVolumes(parseJson<unknown[]>(formData, 'volumes', []))
 
   await db.update(serviceConfigs).set({ volumes, updatedAt: new Date() }).where(eq(serviceConfigs.id, before.id))
@@ -93,7 +99,6 @@ export async function updateServiceVolumesAction(serviceId: string, environmentI
     resourceType: 'service',
     resourceId: serviceId,
     details: {
-      environmentId,
       before: (before.volumes as Array<{ name?: string }>).map((item) => item.name).filter(Boolean),
       after: volumes.map((item) => item.name),
     },
@@ -110,10 +115,10 @@ function parseApiAccess(value: string): TrellisApiAccess | undefined {
   return { scope, access }
 }
 
-export async function updateServiceAdvancedAction(serviceId: string, environmentId: string, formData: FormData) {
+export async function updateServiceAdvancedAction(serviceId: string, formData: FormData) {
   const access = await requireService(serviceId)
   if (access.projectRole !== 'admin') throw new Error('Insufficient permissions.')
-  const config = await getOwnedConfig(serviceId, environmentId)
+  const config = await getOwnedConfig(serviceId)
   const runtimeValue = String(formData.get('runtime') ?? 'runc')
   if (runtimeValue !== 'runc' && runtimeValue !== 'runsc') throw new Error('Runtime must be runc or runsc.')
   const runtime = runtimeValue as Exclude<TrellisRuntime, ''>
@@ -139,7 +144,6 @@ export async function updateServiceAdvancedAction(serviceId: string, environment
     resourceType: 'service',
     resourceId: serviceId,
     details: {
-      environmentId,
       before: before ? { runtime: before.runtime, scope: before.apiAccessScope, access: before.apiAccessLevel } : null,
       after: { runtime, scope: apiAccess?.scope ?? null, access: apiAccess?.access ?? null },
     },
@@ -182,7 +186,7 @@ function normalizeSecretBindings(input: unknown): BowerSecretBinding[] {
 export async function updateServiceEnvironmentOverridesAction(serviceId: string, environmentId: string, formData: FormData) {
   const access = await requireService(serviceId)
   if (access.projectRole !== 'admin') throw new Error('Insufficient permissions.')
-  const before = await getOwnedConfig(serviceId, environmentId)
+  const before = await getOwnedDeployment(serviceId, environmentId)
   const [environment] = await db.select().from(environments).where(and(
     eq(environments.id, environmentId),
     eq(environments.projectId, access.project.id),
@@ -197,12 +201,12 @@ export async function updateServiceEnvironmentOverridesAction(serviceId: string,
   const missing = secretBindings.find((binding) => !allowed.has(binding.name))
   if (missing) throw new Error(`Secret ${missing.name} does not exist in ${environment.name}.`)
 
-  await db.update(serviceConfigs).set({ envVars, secretBindings, updatedAt: new Date() })
-    .where(eq(serviceConfigs.id, before.id))
+  await db.update(serviceDeployments).set({ envVars, secretBindings, updatedAt: new Date() })
+    .where(eq(serviceDeployments.id, before.id))
   await recordAudit({
     orgId: access.org.id,
     userId: access.user.id,
-    action: 'service.environment_configuration.updated',
+    action: 'service.environment_context.updated',
     resourceType: 'service',
     resourceId: serviceId,
     details: {
