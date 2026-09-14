@@ -92,7 +92,7 @@ export function ServiceEnvironmentDialog({
       setOpen(false)
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not update environment configuration.')
+      setError(err instanceof Error ? err.message : 'Could not update deployment context.')
     } finally {
       setSaving(false)
     }
@@ -101,10 +101,10 @@ export function ServiceEnvironmentDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="default" size="sm">Edit configuration</Button>
+        <Button variant="default" size="sm">Edit environment values</Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
-        <DialogHeader><DialogTitle>{serviceName} · environment configuration</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{serviceName} · environment values</DialogTitle></DialogHeader>
         <form onSubmit={submit}>
           <DialogBody>
             <div className="space-y-6">
@@ -119,7 +119,7 @@ export function ServiceEnvironmentDialog({
                   placeholder={'LOG_LEVEL=info\nFEATURE_FLAG=true'}
                   className="font-mono text-xs"
                 />
-                <p className="text-2xs leading-relaxed text-ink-muted">Plain, environment-specific values for this service. Use secret bindings below for sensitive values.</p>
+                <p className="text-2xs leading-relaxed text-ink-muted">Plain values supplied only when this service is deployed to this environment. These do not duplicate the service definition.</p>
               </div>
 
               <div className="space-y-3">
@@ -135,7 +135,7 @@ export function ServiceEnvironmentDialog({
                 {secretNames.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-line-strong bg-sunken p-4 text-[12px] text-ink-muted">Create an environment secret before adding a binding.</div>
                 ) : bindings.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-line-strong bg-sunken p-4 text-[12px] text-ink-muted">No secrets are bound to this service.</div>
+                  <div className="rounded-lg border border-dashed border-line-strong bg-sunken p-4 text-[12px] text-ink-muted">No secrets are bound to this deployment.</div>
                 ) : (
                   <div className="space-y-3">
                     {bindings.map((binding, index) => (
@@ -189,7 +189,7 @@ export function ServiceEnvironmentDialog({
           </DialogBody>
           <DialogFooter>
             <Button variant="default" type="button" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button variant="primary" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save configuration'}</Button>
+            <Button variant="primary" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save environment values'}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
