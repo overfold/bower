@@ -94,22 +94,20 @@ export function HeaderBar({ orgs, currentOrg, teams, searchData, user }: HeaderB
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-20 flex h-14 items-center lg:left-[236px] gap-2 border-b border-line bg-canvas/85 px-3 backdrop-blur-md sm:gap-3 sm:px-6">
+      <header className="sticky top-0 z-20 flex h-14 w-full shrink-0 items-center gap-2 border-b border-line bg-canvas/85 px-3 backdrop-blur-md sm:gap-3 sm:px-6">
         <MobileDrawer user={user} />
         <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
           <OrgTeamPicker orgs={orgs} currentOrg={currentOrg} teams={teams} />
           {crumbs.map((crumb, i) => (
             <Fragment key={crumb.href}>
-              <span className={i === crumbs.length - 1 ? "contents" : "contents max-sm:hidden"}>
-              <ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-faint" />
+              <ChevronRight className={`h-3.5 w-3.5 shrink-0 text-ink-faint ${i < crumbs.length - 1 ? "max-sm:hidden" : ""}`} />
               {i === crumbs.length - 1 ? (
                 <span className="min-w-0 truncate text-[13px] font-semibold text-ink">{crumb.label}</span>
               ) : (
-                <Link href={crumb.href} className="min-w-0 truncate text-[13px] font-medium text-ink-muted transition-colors hover:text-ink">
+                <Link href={crumb.href} className="min-w-0 truncate text-[13px] font-medium text-ink-muted transition-colors hover:text-ink max-sm:hidden">
                   {crumb.label}
                 </Link>
               )}
-            </span>
             </Fragment>
           ))}
         </div>
@@ -125,7 +123,6 @@ export function HeaderBar({ orgs, currentOrg, teams, searchData, user }: HeaderB
           <kbd className="ml-3 hidden rounded border border-line bg-sunken px-1.5 py-px font-sans text-2xs md:inline">⌘K</kbd>
         </button>
       </header>
-      <div className="h-14 shrink-0" aria-hidden="true" />
 
       <CommandPalette
         open={paletteOpen}
