@@ -130,10 +130,7 @@ export default async function ProjectOverviewPage({
                     })
                   )}
                 </ul>
-                <div className="flex items-center justify-between gap-3 border-t border-line px-4 py-3">
-                  <span className="text-xs text-ink-muted">
-                    {env.defaultReplicas} default replica{env.defaultReplicas !== 1 ? 's' : ''} · {env.resourceTier}
-                  </span>
+                <div className="flex items-center justify-end gap-3 border-t border-line px-4 py-3">
                   <Link
                     href={`/projects/${slug}/environments`}
                     className="rounded text-[12.5px] font-medium text-brand-600 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"

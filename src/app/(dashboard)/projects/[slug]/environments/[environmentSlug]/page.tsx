@@ -92,9 +92,7 @@ export default async function EnvironmentDetailPage({ params }: { params: Promis
                   projectId={project.id}
                   environment={{
                     id: environment.id,
-                    defaultReplicas: environment.defaultReplicas,
                     promotionOrder: environment.promotionOrder,
-                    resourceTier: environment.resourceTier,
                     envVarNames: sharedVariables.map(([name]) => name),
                   }}
                 />
@@ -115,8 +113,6 @@ export default async function EnvironmentDetailPage({ params }: { params: Promis
         <div className="p-4">
           <dl className="grid grid-cols-2 gap-x-8 gap-y-1 md:grid-cols-4">
             <KeyValue label="Namespace" mono>{environment.trellisNamespace}</KeyValue>
-            <KeyValue label="Resource tier"><span className="capitalize">{environment.resourceTier}</span></KeyValue>
-            <KeyValue label="Default replicas">{environment.defaultReplicas}</KeyValue>
             <KeyValue label="Promotion order">{environment.promotionOrder}</KeyValue>
           </dl>
         </div>
