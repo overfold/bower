@@ -80,30 +80,13 @@ export default async function ServiceDetailPage({
       <ServiceHeader slug={slug} serviceSlug={serviceSlug} serviceName={service.name} />
 
       <div className="space-y-4">
-        {!mergedConfig ? (
+        {!mergedConfig && environmentId ? (
           <Panel>
-            {environmentId ? (
-              <EmptyState
-                icon={<Box className="h-4 w-4" />}
-                title="Environment not configured"
-                body="No configuration found for this environment."
-              />
-            ) : (
-              <EmptyState
-                icon={<Box className="h-4 w-4" />}
-                title="No base configuration"
-                body="Set a base configuration to define defaults for all environments."
-                action={
-                  <EditConfigDialog
-                    serviceId={service.id}
-                    environmentId={null}
-                    config={null}
-                    mode="base"
-                    overriddenFields={[]}
-                  />
-                }
-              />
-            )}
+            <EmptyState
+              icon={<Box className="h-4 w-4" />}
+              title="Environment not configured"
+              body="No configuration found for this environment."
+            />
           </Panel>
         ) : (
           <Panel>
@@ -120,9 +103,9 @@ export default async function ServiceDetailPage({
                     environmentId={environmentId}
                     config={mergedConfig}
                     mode={environmentId ? 'env' : 'base'}
-                    overriddenFields={mergedConfig.overriddenFields}
+                    overriddenFields={mergedConfig?.overriddenFields ?? []}
                   />
-                  {selectedEnv && (
+                  {selectedEnv && mergedConfig && (
                     <ServiceActions
                       serviceId={service.id}
                       environmentId={selectedEnv.id}
@@ -143,46 +126,50 @@ export default async function ServiceDetailPage({
                 Changes to the base configuration propagate to all environments that haven&apos;t overridden the field.
               </div>
             )}
-            <div className="p-4">
-              <dl className="grid grid-cols-2 gap-x-8 gap-y-1 md:grid-cols-4">
-                <KeyValue label="Image" mono>
-                  {mergedConfig.image}{overridden.has('image') && <OverrideBadge />}
-                </KeyValue>
-                <KeyValue label="Replicas">
-                  {mergedConfig.replicas}{overridden.has('replicas') && <OverrideBadge />}
-                </KeyValue>
-                <KeyValue label="CPU">
-                  {mergedConfig.cpu} mCPU{overridden.has('cpu') && <OverrideBadge />}
-                </KeyValue>
-                <KeyValue label="Memory">
-                  {Math.round(mergedConfig.memory / 1024 / 1024)} MB{overridden.has('memory') && <OverrideBadge />}
-                </KeyValue>
-                {mergedConfig.port && (
-                  <KeyValue label="Application port">
-                    {mergedConfig.port}{overridden.has('port') && <OverrideBadge />}
+            {mergedConfig ? (
+              <div className="p-4">
+                <dl className="grid grid-cols-2 gap-x-8 gap-y-1 md:grid-cols-4">
+                  <KeyValue label="Image" mono>
+                    {mergedConfig.image}{overridden.has('image') && <OverrideBadge />}
                   </KeyValue>
-                )}
-                <KeyValue label="Strategy">
-                  <span className="capitalize">{mergedConfig.deploymentStrategy.replace(/_/g, ' ')}</span>
-                  {overridden.has('deploymentStrategy') && <OverrideBadge />}
-                </KeyValue>
-                {mergedConfig.healthCheckPath && (
-                  <KeyValue label="Health check" mono>
-                    {mergedConfig.healthCheckPath}{overridden.has('healthCheckPath') && <OverrideBadge />}
+                  <KeyValue label="Replicas">
+                    {mergedConfig.replicas}{overridden.has('replicas') && <OverrideBadge />}
                   </KeyValue>
-                )}
-                {mergedConfig.command && (
-                  <KeyValue label="Command" mono>
-                    {mergedConfig.command}{overridden.has('command') && <OverrideBadge />}
+                  <KeyValue label="CPU">
+                    {mergedConfig.cpu} mCPU{overridden.has('cpu') && <OverrideBadge />}
                   </KeyValue>
-                )}
-                {mergedConfig.cronSchedule && (
-                  <KeyValue label="Schedule" mono>
-                    {mergedConfig.cronSchedule}{overridden.has('cronSchedule') && <OverrideBadge />}
+                  <KeyValue label="Memory">
+                    {Math.round(mergedConfig.memory / 1024 / 1024)} MB{overridden.has('memory') && <OverrideBadge />}
                   </KeyValue>
-                )}
-              </dl>
-            </div>
+                  {mergedConfig.port && (
+                    <KeyValue label="Application port">
+                      {mergedConfig.port}{overridden.has('port') && <OverrideBadge />}
+                    </KeyValue>
+                  )}
+                  <KeyValue label="Strategy">
+                    <span className="capitalize">{mergedConfig.deploymentStrategy.replace(/_/g, ' ')}</span>
+                    {overridden.has('deploymentStrategy') && <OverrideBadge />}
+                  </KeyValue>
+                  {mergedConfig.healthCheckPath && (
+                    <KeyValue label="Health check" mono>
+                      {mergedConfig.healthCheckPath}{overridden.has('healthCheckPath') && <OverrideBadge />}
+                    </KeyValue>
+                  )}
+                  {mergedConfig.command && (
+                    <KeyValue label="Command" mono>
+                      {mergedConfig.command}{overridden.has('command') && <OverrideBadge />}
+                    </KeyValue>
+                  )}
+                  {mergedConfig.cronSchedule && (
+                    <KeyValue label="Schedule" mono>
+                      {mergedConfig.cronSchedule}{overridden.has('cronSchedule') && <OverrideBadge />}
+                    </KeyValue>
+                  )}
+                </dl>
+              </div>
+            ) : (
+              <div className="p-4 text-[13px] text-ink-muted">No configuration set yet.</div>
+            )}
           </Panel>
         )}
       </div>
