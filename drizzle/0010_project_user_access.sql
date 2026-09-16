@@ -5,4 +5,4 @@ CREATE TABLE IF NOT EXISTS "project_user_access" (
   "role" "team_project_role" NOT NULL,
   "created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
-CREATE UNIQUE INDEX "project_user_access_project_user_idx" ON "project_user_access" USING btree ("project_id", "user_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "project_user_access_project_user_idx" ON "project_user_access" USING btree ("project_id", "user_id");
