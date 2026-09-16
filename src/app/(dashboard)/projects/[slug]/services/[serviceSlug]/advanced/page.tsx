@@ -1,19 +1,31 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
-import { inArray } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { Network } from 'lucide-react'
 import { db } from '@/db'
 import { serviceAdvancedSettings } from '@/db/service-advanced-schema'
 import { getCurrentUser } from '@/lib/auth'
-import { getProjectBySlug, getServiceBySlug, getServiceConfigsWithEnvironments, getUserOrganization } from '@/lib/queries'
+import { getProjectBySlug, getServiceBySlug, getEnvironmentsByProject, getUserOrganization } from '@/lib/queries'
+import { getServiceConfigsWithEnvironments } from '@/lib/queries'
 import { Button } from '@/components/ui/button'
 import { Panel, PanelHeader, SectionTitle } from '@/components/ui/panel'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Chip } from '@/components/status'
 import { ServiceHeader } from '../service-header'
 import { AdvancedConfigForm } from './advanced-config-form'
+import { Box } from 'lucide-react'
 
-export default async function AdvancedPage({ params }: { params: Promise<{ slug: string; serviceSlug: string }> }) {
+export default async function AdvancedPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string; serviceSlug: string }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
   const { slug, serviceSlug } = await params
+  const { env: envParam } = await searchParams
+  const environmentId = typeof envParam === 'string' ? envParam : null
+
   const user = await getCurrentUser()
   if (!user) redirect('/login')
   const orgCtx = await getUserOrganization(user.id)
@@ -22,11 +34,22 @@ export default async function AdvancedPage({ params }: { params: Promise<{ slug:
   if (!project) notFound()
   const service = await getServiceBySlug(project.id, serviceSlug)
   if (!service) notFound()
-  const configs = await getServiceConfigsWithEnvironments(service.id)
-  const advancedRows = configs.length
-    ? await db.select().from(serviceAdvancedSettings).where(inArray(serviceAdvancedSettings.serviceConfigId, configs.map(({ config }) => config.id)))
-    : []
-  const advancedByConfig = new Map(advancedRows.map((row) => [row.serviceConfigId, row]))
+
+  const environments = await getEnvironmentsByProject(project.id)
+  const selectedEnv = environmentId ? environments.find((e) => e.id === environmentId) ?? null : null
+
+  let advancedRow: { id: string; runtime: string; apiAccessScope: string | null; apiAccessLevel: string | null } | null = null
+  let configId: string | null = null
+
+  if (selectedEnv) {
+    const configs = await getServiceConfigsWithEnvironments(service.id)
+    const envConfigRow = configs.find(({ environment }) => environment.id === selectedEnv.id)
+    if (envConfigRow) {
+      configId = envConfigRow.config.id
+      const [adv] = await db.select().from(serviceAdvancedSettings).where(eq(serviceAdvancedSettings.serviceConfigId, envConfigRow.config.id)).limit(1)
+      advancedRow = adv ?? null
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -40,24 +63,33 @@ export default async function AdvancedPage({ params }: { params: Promise<{ slug:
       </div>
 
       <div className="space-y-4">
-        {configs.map(({ config, environment }) => {
-          const advanced = advancedByConfig.get(config.id)
-          return (
-            <Panel key={config.id}>
-              <PanelHeader
-                title={environment.name}
-                hint="Task-group execution settings"
-              />
+        {!selectedEnv ? (
+          <Panel>
+            <EmptyState
+              icon={<Box className="h-4 w-4" />}
+              title="Select an environment"
+              body="Advanced execution settings are per-environment. Select an environment from the picker above."
+            />
+          </Panel>
+        ) : (
+          <Panel>
+            <PanelHeader
+              title={selectedEnv.name}
+              hint="Task-group execution settings"
+            />
+            {configId ? (
               <AdvancedConfigForm
                 serviceId={service.id}
-                environmentId={environment.id}
-                runtime={advanced?.runtime}
-                apiAccessScope={advanced?.apiAccessScope}
-                apiAccessLevel={advanced?.apiAccessLevel}
+                environmentId={selectedEnv.id}
+                runtime={advancedRow?.runtime}
+                apiAccessScope={advancedRow?.apiAccessScope}
+                apiAccessLevel={advancedRow?.apiAccessLevel}
               />
-            </Panel>
-          )
-        })}
+            ) : (
+              <div className="p-4 text-[13px] text-ink-muted">No service configuration found for this environment.</div>
+            )}
+          </Panel>
+        )}
       </div>
 
       <Panel>

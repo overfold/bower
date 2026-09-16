@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { and, desc, eq } from 'drizzle-orm'
 import { db } from '@/db'
-import { deployments, environments, secretsMetadata, serviceConfigs, services, sidecars } from '@/db/schema'
+import { baseServiceConfigs, deployments, environments, secretsMetadata, serviceConfigs, services, sidecars } from '@/db/schema'
 import { getCurrentUser } from '@/lib/auth'
 import { getProjectBySlug, getUserOrganization } from '@/lib/queries'
 import { getTrellisClient } from '@/lib/trellis-instance'
@@ -99,6 +99,14 @@ export async function createServiceAction(projectSlug: string, formData: FormDat
   const replicas = Number(formData.get('replicas'))
   const [service] = await db.insert(services).values({ projectId: project.id, name, slug }).returning()
   const envs = await db.select().from(environments).where(eq(environments.projectId, project.id))
+  const baseReplicas = Number.isInteger(replicas) && replicas >= 0 ? replicas : 1
+  await db.insert(baseServiceConfigs).values({
+    serviceId: service.id, image, port, replicas: baseReplicas, cpu, memory,
+    resourceTier: (envs[0]?.resourceTier ?? 'small') as 'small' | 'medium' | 'large' | 'xl' | 'custom',
+    deploymentStrategy: strategy,
+    healthCheckType: (port ? 'http' : undefined) as 'http' | 'tcp' | 'script' | undefined,
+    healthCheckPath: port ? '/health' : null,
+  })
   if (envs.length) await db.insert(serviceConfigs).values(envs.map((env) => ({
     serviceId: service.id, environmentId: env.id, image, port,
     replicas: Number.isInteger(replicas) && replicas >= 0 ? replicas : env.defaultReplicas,

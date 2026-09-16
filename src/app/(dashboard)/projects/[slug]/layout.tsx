@@ -1,5 +1,5 @@
 import { redirect, notFound } from 'next/navigation'
-import Link from 'next/link'
+import { Suspense } from 'react'
 import { getCurrentUser } from '@/lib/auth'
 import {
   getUserOrganization,
@@ -10,9 +10,8 @@ import {
 } from '@/lib/queries'
 import { PageHeading, MetaItem } from '@/components/page-heading'
 import { ProjectTabs } from '@/components/project-tabs'
+import { EnvironmentPicker } from '@/components/environment-picker'
 import { Chip } from '@/components/status'
-import { Button } from '@/components/ui/button'
-import { Settings } from 'lucide-react'
 
 export default async function ProjectLayout({
   children,
@@ -77,14 +76,11 @@ export default async function ProjectLayout({
           </>
         }
         actions={
-          <>
-            <Link href={`/projects/${slug}/settings`}>
-              <Button variant="default" size="sm">
-                <Settings className="h-4 w-4" />
-                Settings
-              </Button>
-            </Link>
-          </>
+          <Suspense>
+            <EnvironmentPicker
+              environments={environments.map((env) => ({ id: env.id, name: env.name }))}
+            />
+          </Suspense>
         }
       />
       <div className="mt-6 border-b border-line">
