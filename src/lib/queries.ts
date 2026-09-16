@@ -7,6 +7,7 @@ import {
   environments,
   services,
   serviceConfigs,
+  baseServiceConfigs,
   deployments,
   routes,
   teams,
@@ -312,3 +313,133 @@ export async function getOrganizationTokens(orgId: string) {
     .where(eq(organizationTokens.orgId, orgId)).orderBy(desc(organizationTokens.createdAt))
 }
 
+export async function getBaseServiceConfig(serviceId: string) {
+  const [row] = await db.select().from(baseServiceConfigs).where(eq(baseServiceConfigs.serviceId, serviceId)).limit(1)
+  return row ?? null
+}
+
+export type MergedServiceConfig = {
+  image: string
+  port: number | null
+  replicas: number
+  cpu: number
+  memory: number
+  healthCheckPath: string | null
+  healthCheckType: 'http' | 'tcp' | 'script' | null
+  healthCheckCommand: unknown
+  healthCheckInterval: number
+  healthCheckTimeout: number
+  healthCheckThreshold: number
+  deploymentStrategy: 'rolling' | 'recreate' | 'blue_green' | 'canary'
+  resourceTier: 'small' | 'medium' | 'large' | 'xl' | 'custom'
+  envVars: unknown
+  labels: unknown
+  command: string | null
+  volumes: unknown
+  secretBindings: unknown
+  rawConfig: unknown
+  cronSchedule: string | null
+  autoRollbackSeconds: number
+  canarySteps: unknown
+  overriddenFields: string[]
+  isBase: boolean
+}
+
+export async function getMergedServiceConfig(serviceId: string, environmentId: string | null): Promise<MergedServiceConfig | null> {
+  const base = await getBaseServiceConfig(serviceId)
+
+  if (environmentId === null) {
+    if (!base) return null
+    return {
+      image: base.image,
+      port: base.port,
+      replicas: base.replicas,
+      cpu: base.cpu,
+      memory: base.memory,
+      healthCheckPath: base.healthCheckPath,
+      healthCheckType: base.healthCheckType,
+      healthCheckCommand: base.healthCheckCommand,
+      healthCheckInterval: base.healthCheckInterval,
+      healthCheckTimeout: base.healthCheckTimeout,
+      healthCheckThreshold: base.healthCheckThreshold,
+      deploymentStrategy: base.deploymentStrategy,
+      resourceTier: base.resourceTier,
+      envVars: base.envVars,
+      labels: base.labels,
+      command: base.command,
+      volumes: base.volumes,
+      secretBindings: base.secretBindings,
+      rawConfig: base.rawConfig,
+      cronSchedule: base.cronSchedule,
+      autoRollbackSeconds: base.autoRollbackSeconds,
+      canarySteps: base.canarySteps,
+      overriddenFields: [],
+      isBase: true,
+    }
+  }
+
+  const [envConfig] = await db.select().from(serviceConfigs)
+    .where(and(eq(serviceConfigs.serviceId, serviceId), eq(serviceConfigs.environmentId, environmentId)))
+    .limit(1)
+
+  if (!envConfig) return null
+
+  if (!base) {
+    return {
+      image: envConfig.image,
+      port: envConfig.port,
+      replicas: envConfig.replicas,
+      cpu: envConfig.cpu,
+      memory: envConfig.memory,
+      healthCheckPath: envConfig.healthCheckPath,
+      healthCheckType: envConfig.healthCheckType,
+      healthCheckCommand: envConfig.healthCheckCommand,
+      healthCheckInterval: envConfig.healthCheckInterval,
+      healthCheckTimeout: envConfig.healthCheckTimeout,
+      healthCheckThreshold: envConfig.healthCheckThreshold,
+      deploymentStrategy: envConfig.deploymentStrategy,
+      resourceTier: envConfig.resourceTier,
+      envVars: envConfig.envVars,
+      labels: envConfig.labels,
+      command: envConfig.command,
+      volumes: envConfig.volumes,
+      secretBindings: envConfig.secretBindings,
+      rawConfig: envConfig.rawConfig,
+      cronSchedule: envConfig.cronSchedule,
+      autoRollbackSeconds: envConfig.autoRollbackSeconds,
+      canarySteps: envConfig.canarySteps,
+      overriddenFields: [],
+      isBase: false,
+    }
+  }
+
+  const overrides = (envConfig.overrides ?? {}) as Record<string, unknown>
+  const overriddenFields = Object.keys(overrides)
+
+  return {
+    image: (overrides.image as string) ?? base.image,
+    port: ('port' in overrides ? overrides.port as number | null : base.port),
+    replicas: (overrides.replicas as number) ?? base.replicas,
+    cpu: (overrides.cpu as number) ?? base.cpu,
+    memory: (overrides.memory as number) ?? base.memory,
+    healthCheckPath: ('healthCheckPath' in overrides ? overrides.healthCheckPath as string | null : base.healthCheckPath),
+    healthCheckType: ('healthCheckType' in overrides ? overrides.healthCheckType as 'http' | 'tcp' | 'script' | null : base.healthCheckType),
+    healthCheckCommand: overrides.healthCheckCommand ?? base.healthCheckCommand,
+    healthCheckInterval: (overrides.healthCheckInterval as number) ?? base.healthCheckInterval,
+    healthCheckTimeout: (overrides.healthCheckTimeout as number) ?? base.healthCheckTimeout,
+    healthCheckThreshold: (overrides.healthCheckThreshold as number) ?? base.healthCheckThreshold,
+    deploymentStrategy: (overrides.deploymentStrategy as 'rolling' | 'recreate' | 'blue_green' | 'canary') ?? base.deploymentStrategy,
+    resourceTier: (overrides.resourceTier as 'small' | 'medium' | 'large' | 'xl' | 'custom') ?? base.resourceTier,
+    envVars: overrides.envVars ?? base.envVars,
+    labels: overrides.labels ?? base.labels,
+    command: ('command' in overrides ? overrides.command as string | null : base.command),
+    volumes: overrides.volumes ?? base.volumes,
+    secretBindings: overrides.secretBindings ?? base.secretBindings,
+    rawConfig: ('rawConfig' in overrides ? overrides.rawConfig : base.rawConfig),
+    cronSchedule: ('cronSchedule' in overrides ? overrides.cronSchedule as string | null : base.cronSchedule),
+    autoRollbackSeconds: (overrides.autoRollbackSeconds as number) ?? base.autoRollbackSeconds,
+    canarySteps: overrides.canarySteps ?? base.canarySteps,
+    overriddenFields,
+    isBase: false,
+  }
+}

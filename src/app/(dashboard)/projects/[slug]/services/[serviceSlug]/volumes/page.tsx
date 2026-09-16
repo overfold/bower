@@ -1,7 +1,7 @@
 import { notFound, redirect } from 'next/navigation'
-import { HardDrive } from 'lucide-react'
+import { HardDrive, Box } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth'
-import { getProjectBySlug, getServiceBySlug, getServiceConfigsWithEnvironments, getUserOrganization } from '@/lib/queries'
+import { getProjectBySlug, getServiceBySlug, getEnvironmentsByProject, getMergedServiceConfig, getUserOrganization } from '@/lib/queries'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Panel, PanelHeader, SectionTitle } from '@/components/ui/panel'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -27,8 +27,17 @@ function normalizeVolumes(value: unknown): TrellisVolume[] {
   })
 }
 
-export default async function VolumesPage({ params }: { params: Promise<{ slug: string; serviceSlug: string }> }) {
+export default async function VolumesPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string; serviceSlug: string }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
   const { slug, serviceSlug } = await params
+  const { env: envParam } = await searchParams
+  const environmentId = typeof envParam === 'string' ? envParam : null
+
   const user = await getCurrentUser()
   if (!user) redirect('/login')
   const orgCtx = await getUserOrganization(user.id)
@@ -37,7 +46,10 @@ export default async function VolumesPage({ params }: { params: Promise<{ slug: 
   if (!project) notFound()
   const service = await getServiceBySlug(project.id, serviceSlug)
   if (!service) notFound()
-  const configs = await getServiceConfigsWithEnvironments(service.id)
+
+  const environments = await getEnvironmentsByProject(project.id)
+  const selectedEnv = environmentId ? environments.find((e) => e.id === environmentId) ?? null : null
+  const mergedConfig = await getMergedServiceConfig(service.id, environmentId)
 
   return (
     <div className="space-y-6">
@@ -51,20 +63,46 @@ export default async function VolumesPage({ params }: { params: Promise<{ slug: 
       </div>
 
       <div className="space-y-4">
-        {configs.map(({ config, environment }) => {
-          const volumes = normalizeVolumes(config.volumes)
-          return (
-            <Panel key={config.id}>
-              <PanelHeader
-                title={environment.name}
-                hint={`${volumes.length} ${volumes.length === 1 ? 'volume' : 'volumes'}`}
-                action={<VolumeEditor serviceId={service.id} environmentId={environment.id} volumes={config.volumes} />}
+        {!mergedConfig ? (
+          <Panel>
+            {environmentId ? (
+              <EmptyState
+                icon={<Box className="h-4 w-4" />}
+                title="Environment not configured"
+                body="No configuration found for this environment."
               />
-              {volumes.length === 0 ? (
+            ) : (
+              <EmptyState
+                icon={<Box className="h-4 w-4" />}
+                title="No base configuration"
+                body="Set a base configuration on the Overview tab first."
+              />
+            )}
+          </Panel>
+        ) : (
+          <Panel>
+            <PanelHeader
+              title={selectedEnv ? selectedEnv.name : 'Base configuration'}
+              hint={(() => {
+                const volumes = normalizeVolumes(mergedConfig.volumes)
+                return `${volumes.length} ${volumes.length === 1 ? 'volume' : 'volumes'}`
+              })()}
+              action={
+                <VolumeEditor
+                  serviceId={service.id}
+                  environmentId={environmentId}
+                  volumes={mergedConfig.volumes}
+                  isBase={!environmentId}
+                />
+              }
+            />
+            {(() => {
+              const volumes = normalizeVolumes(mergedConfig.volumes)
+              return volumes.length === 0 ? (
                 <EmptyState
                   icon={<HardDrive className="h-4 w-4" />}
                   title="No volumes"
-                  body="This service is stateless in this environment."
+                  body={selectedEnv ? "This service is stateless in this environment." : "No volumes defined in base configuration."}
                 />
               ) : (
                 <div className="overflow-x-auto">
@@ -95,10 +133,10 @@ export default async function VolumesPage({ params }: { params: Promise<{ slug: 
                     </TableBody>
                   </Table>
                 </div>
-              )}
-            </Panel>
-          )
-        })}
+              )
+            })()}
+          </Panel>
+        )}
       </div>
     </div>
   )

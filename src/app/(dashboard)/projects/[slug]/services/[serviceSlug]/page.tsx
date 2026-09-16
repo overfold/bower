@@ -1,11 +1,12 @@
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
-import { getUserOrganization, getProjectBySlug, getServiceBySlug, getServiceConfigsWithEnvironments, getDeploymentsByService } from '@/lib/queries'
+import { getUserOrganization, getProjectBySlug, getServiceBySlug, getServiceConfigsWithEnvironments, getDeploymentsByService, getEnvironmentsByProject, getMergedServiceConfig } from '@/lib/queries'
 import { getTrellisClient } from '@/lib/trellis-instance'
 import { Panel, PanelHeader, SectionTitle, KeyValue } from '@/components/ui/panel'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { EmptyState } from '@/components/ui/empty-state'
+import { Badge } from '@/components/ui/badge'
 import { StatusDot, Chip } from '@/components/status'
 import { DeploymentPoller } from '@/components/deployment-poller'
 import { ServiceActions } from './service-actions'
@@ -14,8 +15,23 @@ import { ServiceHeader } from './service-header'
 import { Box, Boxes, Rocket } from 'lucide-react'
 import type { TrellisAllocation } from '@/types/trellis'
 
-export default async function ServiceDetailPage({ params }: { params: Promise<{ slug: string; serviceSlug: string }> }) {
+function OverrideBadge() {
+  return (
+    <Badge variant="info" className="ml-1.5 align-middle leading-none">override</Badge>
+  )
+}
+
+export default async function ServiceDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string; serviceSlug: string }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
   const { slug, serviceSlug } = await params
+  const { env: envParam } = await searchParams
+  const environmentId = typeof envParam === 'string' ? envParam : null
+
   const user = await getCurrentUser()
   if (!user) redirect('/login')
   const orgCtx = await getUserOrganization(user.id)
@@ -25,15 +41,22 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
   const service = await getServiceBySlug(project.id, serviceSlug)
   if (!service) notFound()
 
-  const [configs, deployments] = await Promise.all([
+  const [environments, configs, deployments] = await Promise.all([
+    getEnvironmentsByProject(project.id),
     getServiceConfigsWithEnvironments(service.id),
     getDeploymentsByService(service.id, 10),
   ])
 
+  const selectedEnv = environmentId ? environments.find((e) => e.id === environmentId) ?? null : null
+  const mergedConfig = await getMergedServiceConfig(service.id, environmentId)
+
   const allocationRows: Array<{ allocation: TrellisAllocation; environmentName: string }> = []
   try {
     const client = await getTrellisClient(orgCtx.org.id)
-    const byEnvironment = await Promise.all(configs.map(async ({ environment }) => {
+    const relevantConfigs = selectedEnv
+      ? configs.filter(({ environment }) => environment.id === selectedEnv.id)
+      : configs
+    const byEnvironment = await Promise.all(relevantConfigs.map(async ({ environment }) => {
       const allocations = await client.listAllocations({ namespace: environment.trellisNamespace }).catch(() => [])
       return allocations
         .filter((allocation) => allocation.phase !== 'stopped' && allocation.labels?.['bower/service'] === service.slug)
@@ -49,75 +72,122 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
     ['pending', 'planning', 'deploying'].includes(d.status)
   )
 
+  const overridden = new Set(mergedConfig?.overriddenFields ?? [])
+
   return (
     <div className="space-y-6">
       <DeploymentPoller active={hasActiveDeployment} />
       <ServiceHeader slug={slug} serviceSlug={serviceSlug} serviceName={service.name} />
 
       <div className="space-y-4">
-        {configs.length === 0 ? (
+        {!mergedConfig ? (
           <Panel>
-            <EmptyState
-              icon={<Box className="h-4 w-4" />}
-              title="No configurations"
-              body="No environment configurations found."
-            />
-          </Panel>
-        ) : (
-          configs.map(({ config, environment }) => (
-            <Panel key={config.id}>
-              <PanelHeader
-                title={environment.name}
+            {environmentId ? (
+              <EmptyState
+                icon={<Box className="h-4 w-4" />}
+                title="Environment not configured"
+                body="No configuration found for this environment."
+              />
+            ) : (
+              <EmptyState
+                icon={<Box className="h-4 w-4" />}
+                title="No base configuration"
+                body="Set a base configuration to define defaults for all environments."
                 action={
-                  <div className="flex items-center gap-2">
-                    {environment.isLocked && (
-                      <Chip tone="warn">Locked</Chip>
-                    )}
-                    <EditConfigDialog
-                      serviceId={service.id}
-                      environmentId={environment.id}
-                      config={config}
-                    />
-                    <ServiceActions
-                      serviceId={service.id}
-                      environmentId={environment.id}
-                      isLocked={environment.isLocked}
-                      replicas={config.replicas}
-                      canPromote={configs.length > 1}
-                      promotionTargets={configs
-                        .filter((c) => c.environment.id !== environment.id)
-                        .map((c) => ({ id: c.environment.id, name: c.environment.name }))}
-                      hasDeployments={deployments.some((d) => d.environmentId === environment.id)}
-                    />
-                  </div>
+                  <EditConfigDialog
+                    serviceId={service.id}
+                    environmentId={null}
+                    config={null}
+                    mode="base"
+                    overriddenFields={[]}
+                  />
                 }
               />
-              <div className="p-4">
-                <dl className="grid grid-cols-2 gap-x-8 gap-y-1 md:grid-cols-4">
-                  <KeyValue label="Image" mono>{config.image}</KeyValue>
-                  <KeyValue label="Replicas">{config.replicas}</KeyValue>
-                  <KeyValue label="CPU">{config.cpu} mCPU</KeyValue>
-                  <KeyValue label="Memory">{Math.round(config.memory / 1024 / 1024)} MB</KeyValue>
-                  {config.port && <KeyValue label="Application port">{config.port}</KeyValue>}
-                  <KeyValue label="Strategy">
-                    <span className="capitalize">{config.deploymentStrategy.replace(/_/g, ' ')}</span>
-                  </KeyValue>
-                  <KeyValue label="Tier">
-                    <span className="capitalize">{config.resourceTier}</span>
-                  </KeyValue>
-                  {config.healthCheckPath && (
-                    <KeyValue label="Health check" mono>{config.healthCheckPath}</KeyValue>
+            )}
+          </Panel>
+        ) : (
+          <Panel>
+            <PanelHeader
+              title={selectedEnv ? selectedEnv.name : 'Base configuration'}
+              hint={selectedEnv ? undefined : 'Defaults inherited by all environments'}
+              action={
+                <div className="flex items-center gap-2">
+                  {selectedEnv?.isLocked && (
+                    <Chip tone="warn">Locked</Chip>
                   )}
-                  {config.command && (
-                    <KeyValue label="Command" mono>{config.command}</KeyValue>
+                  <EditConfigDialog
+                    serviceId={service.id}
+                    environmentId={environmentId}
+                    config={mergedConfig}
+                    mode={environmentId ? 'env' : 'base'}
+                    overriddenFields={mergedConfig.overriddenFields}
+                  />
+                  {selectedEnv && (
+                    <ServiceActions
+                      serviceId={service.id}
+                      environmentId={selectedEnv.id}
+                      isLocked={selectedEnv.isLocked}
+                      replicas={mergedConfig.replicas}
+                      canPromote={configs.length > 1}
+                      promotionTargets={configs
+                        .filter((c) => c.environment.id !== selectedEnv.id)
+                        .map((c) => ({ id: c.environment.id, name: c.environment.name }))}
+                      hasDeployments={deployments.some((d) => d.environmentId === selectedEnv.id)}
+                    />
                   )}
-                  {config.cronSchedule && (
-                    <KeyValue label="Schedule" mono>{config.cronSchedule}</KeyValue>
-                  )}
-                </dl>
+                </div>
+              }
+            />
+            {!environmentId && (
+              <div className="border-b border-line bg-info-50 px-4 py-2.5 text-[12.5px] text-info-500">
+                Changes to the base configuration propagate to all environments that haven&apos;t overridden the field.
               </div>
-            </Panel>
-          ))
+            )}
+            <div className="p-4">
+              <dl className="grid grid-cols-2 gap-x-8 gap-y-1 md:grid-cols-4">
+                <KeyValue label="Image" mono>
+                  {mergedConfig.image}{overridden.has('image') && <OverrideBadge />}
+                </KeyValue>
+                <KeyValue label="Replicas">
+                  {mergedConfig.replicas}{overridden.has('replicas') && <OverrideBadge />}
+                </KeyValue>
+                <KeyValue label="CPU">
+                  {mergedConfig.cpu} mCPU{overridden.has('cpu') && <OverrideBadge />}
+                </KeyValue>
+                <KeyValue label="Memory">
+                  {Math.round(mergedConfig.memory / 1024 / 1024)} MB{overridden.has('memory') && <OverrideBadge />}
+                </KeyValue>
+                {mergedConfig.port && (
+                  <KeyValue label="Application port">
+                    {mergedConfig.port}{overridden.has('port') && <OverrideBadge />}
+                  </KeyValue>
+                )}
+                <KeyValue label="Strategy">
+                  <span className="capitalize">{mergedConfig.deploymentStrategy.replace(/_/g, ' ')}</span>
+                  {overridden.has('deploymentStrategy') && <OverrideBadge />}
+                </KeyValue>
+                <KeyValue label="Tier">
+                  <span className="capitalize">{mergedConfig.resourceTier}</span>
+                  {overridden.has('resourceTier') && <OverrideBadge />}
+                </KeyValue>
+                {mergedConfig.healthCheckPath && (
+                  <KeyValue label="Health check" mono>
+                    {mergedConfig.healthCheckPath}{overridden.has('healthCheckPath') && <OverrideBadge />}
+                  </KeyValue>
+                )}
+                {mergedConfig.command && (
+                  <KeyValue label="Command" mono>
+                    {mergedConfig.command}{overridden.has('command') && <OverrideBadge />}
+                  </KeyValue>
+                )}
+                {mergedConfig.cronSchedule && (
+                  <KeyValue label="Schedule" mono>
+                    {mergedConfig.cronSchedule}{overridden.has('cronSchedule') && <OverrideBadge />}
+                  </KeyValue>
+                )}
+              </dl>
+            </div>
+          </Panel>
         )}
       </div>
 

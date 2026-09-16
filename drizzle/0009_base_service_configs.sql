@@ -1,0 +1,30 @@
+CREATE TABLE IF NOT EXISTS "base_service_configs" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+  "service_id" uuid NOT NULL UNIQUE REFERENCES "services"("id") ON DELETE CASCADE,
+  "image" text NOT NULL,
+  "port" integer,
+  "replicas" integer NOT NULL DEFAULT 1,
+  "cpu" integer NOT NULL,
+  "memory" integer NOT NULL,
+  "health_check_path" text,
+  "health_check_type" "health_check_type",
+  "health_check_command" jsonb NOT NULL DEFAULT '[]',
+  "health_check_interval" integer NOT NULL DEFAULT 10,
+  "health_check_timeout" integer NOT NULL DEFAULT 2,
+  "health_check_threshold" integer NOT NULL DEFAULT 3,
+  "deployment_strategy" "deployment_strategy" NOT NULL DEFAULT 'rolling',
+  "resource_tier" "resource_tier" NOT NULL DEFAULT 'small',
+  "env_vars" jsonb NOT NULL DEFAULT '{}',
+  "labels" jsonb NOT NULL DEFAULT '{}',
+  "command" text,
+  "volumes" jsonb NOT NULL DEFAULT '[]',
+  "secret_bindings" jsonb NOT NULL DEFAULT '[]',
+  "raw_config" jsonb,
+  "cron_schedule" text,
+  "auto_rollback_seconds" integer NOT NULL DEFAULT 300,
+  "canary_steps" jsonb NOT NULL DEFAULT '[10, 25, 50, 100]',
+  "created_at" timestamp with time zone DEFAULT now() NOT NULL,
+  "updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+
+ALTER TABLE "service_configs" ADD COLUMN IF NOT EXISTS "overrides" jsonb;

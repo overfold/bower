@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Trash2 } from 'lucide-react'
 import { updateServiceVolumesAction } from '@/lib/actions/service-settings'
+import { updateBaseServiceVolumesAction } from '@/lib/actions/base-service-config'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -52,10 +53,12 @@ export function VolumeEditor({
   serviceId,
   environmentId,
   volumes: initialVolumes,
+  isBase,
 }: {
   serviceId: string
-  environmentId: string
+  environmentId: string | null
   volumes: unknown
+  isBase?: boolean
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -101,7 +104,11 @@ export function VolumeEditor({
         container_path: volume.container_path,
         read_only: Boolean(volume.read_only),
       }))))
-      await updateServiceVolumesAction(serviceId, environmentId, formData)
+      if (isBase || !environmentId) {
+        await updateBaseServiceVolumesAction(serviceId, formData)
+      } else {
+        await updateServiceVolumesAction(serviceId, environmentId, formData)
+      }
       setOpen(false)
       router.refresh()
     } catch (err) {

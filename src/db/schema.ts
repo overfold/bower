@@ -298,6 +298,44 @@ export const services = pgTable(
   ]
 );
 
+export const baseServiceConfigs = pgTable("base_service_configs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  serviceId: uuid("service_id")
+    .notNull()
+    .unique()
+    .references(() => services.id, { onDelete: "cascade" }),
+  image: text("image").notNull(),
+  port: integer("port"),
+  replicas: integer("replicas").notNull().default(1),
+  cpu: integer("cpu").notNull(),
+  memory: integer("memory").notNull(),
+  healthCheckPath: text("health_check_path"),
+  healthCheckType: healthCheckTypeEnum("health_check_type"),
+  healthCheckCommand: jsonb("health_check_command").notNull().default([]),
+  healthCheckInterval: integer("health_check_interval").notNull().default(10),
+  healthCheckTimeout: integer("health_check_timeout").notNull().default(2),
+  healthCheckThreshold: integer("health_check_threshold").notNull().default(3),
+  deploymentStrategy: deploymentStrategyEnum("deployment_strategy")
+    .notNull()
+    .default("rolling"),
+  resourceTier: resourceTierEnum("resource_tier").notNull().default("small"),
+  envVars: jsonb("env_vars").notNull().default({}),
+  labels: jsonb("labels").notNull().default({}),
+  command: text("command"),
+  volumes: jsonb("volumes").notNull().default([]),
+  secretBindings: jsonb("secret_bindings").notNull().default([]),
+  rawConfig: jsonb("raw_config"),
+  cronSchedule: text("cron_schedule"),
+  autoRollbackSeconds: integer("auto_rollback_seconds").notNull().default(300),
+  canarySteps: jsonb("canary_steps").notNull().default([10, 25, 50, 100]),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export const serviceConfigs = pgTable(
   "service_configs",
   {
@@ -334,6 +372,7 @@ export const serviceConfigs = pgTable(
     activeJobName: text("active_job_name"),
     autoRollbackSeconds: integer("auto_rollback_seconds").notNull().default(300),
     canarySteps: jsonb("canary_steps").notNull().default([10, 25, 50, 100]),
+    overrides: jsonb("overrides"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
