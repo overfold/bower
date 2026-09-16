@@ -124,14 +124,12 @@ export function EditConfigDialog({ serviceId, environmentId, config, mode, overr
       <DialogTrigger asChild>
         <Button variant="ghost" size="sm">
           <Pencil className="h-4 w-4" />
-          {config ? 'Edit' : 'Set base config'}
+          Edit
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>
-            {mode === 'base' ? 'Edit base configuration' : 'Edit configuration'}
-          </DialogTitle>
+          <DialogTitle>Edit configuration</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <input type="hidden" name="envVars" value={recordToLines(config?.envVars)} />

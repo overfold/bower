@@ -91,8 +91,7 @@ export default async function ServiceDetailPage({
         ) : (
           <Panel>
             <PanelHeader
-              title={selectedEnv ? selectedEnv.name : 'Base configuration'}
-              hint={selectedEnv ? undefined : 'Defaults inherited by all environments'}
+              title={selectedEnv ? selectedEnv.name : 'Base'}
               action={
                 <div className="flex items-center gap-2">
                   {selectedEnv?.isLocked && (
@@ -121,11 +120,6 @@ export default async function ServiceDetailPage({
                 </div>
               }
             />
-            {!environmentId && (
-              <div className="border-b border-line bg-info-50 px-4 py-2.5 text-[12.5px] text-info-500">
-                Changes to the base configuration propagate to all environments that haven&apos;t overridden the field.
-              </div>
-            )}
             {mergedConfig ? (
               <div className="p-4">
                 <dl className="grid grid-cols-2 gap-x-8 gap-y-1 md:grid-cols-4">
