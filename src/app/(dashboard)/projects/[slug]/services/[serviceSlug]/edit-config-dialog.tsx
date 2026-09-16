@@ -29,7 +29,6 @@ interface EditConfigDialogProps {
     cpu: number
     memory: number
     deploymentStrategy: string
-    resourceTier: string
     healthCheckPath: string | null
     healthCheckType: string | null
     healthCheckCommand: unknown
@@ -65,7 +64,6 @@ export function EditConfigDialog({ serviceId, environmentId, config, mode, overr
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [resetting, startReset] = useTransition()
-  const [tier, setTier] = useState(config?.resourceTier ?? 'small')
   const [healthType, setHealthType] = useState(config?.healthCheckType ?? '')
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -108,7 +106,6 @@ export function EditConfigDialog({ serviceId, environmentId, config, mode, overr
     cpu: config?.cpu ?? 100,
     memory: config ? Math.round(config.memory / 1048576) : 128,
     deploymentStrategy: config?.deploymentStrategy ?? 'rolling',
-    resourceTier: config?.resourceTier ?? 'small',
     healthCheckPath: config?.healthCheckPath ?? '',
     healthCheckType: config?.healthCheckType ?? '',
     healthCheckCommand: Array.isArray(config?.healthCheckCommand) ? (config.healthCheckCommand as string[]).join(' ') : '',
@@ -197,29 +194,24 @@ export function EditConfigDialog({ serviceId, environmentId, config, mode, overr
                 </div>
               </div>
 
+              <input type="hidden" name="resourceTier" value="custom" />
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="resourceTier">
-                    Resource tier
-                    <FieldOverrideBadge fieldName="resourceTier" overriddenFields={overriddenFields} />
+                  <Label htmlFor="cpu">
+                    CPU (millicores)
+                    <FieldOverrideBadge fieldName="cpu" overriddenFields={overriddenFields} />
                   </Label>
-                  <div className="relative">
-                    <select
-                      id="resourceTier"
-                      name="resourceTier"
-                      defaultValue={defaults.resourceTier}
-                      onChange={(e) => setTier(e.target.value)}
-                      className="flex h-9 w-full appearance-none rounded-lg border border-line bg-surface px-3 pr-9 text-[13px] text-ink shadow-card transition-[border-color,box-shadow] duration-150 ease-enter focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
-                    >
-                      <option value="small">small</option>
-                      <option value="medium">medium</option>
-                      <option value="large">large</option>
-                      <option value="xl">xl</option>
-                      <option value="custom">custom</option>
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-muted" aria-hidden="true" />
-                  </div>
+                  <Input id="cpu" name="cpu" type="number" defaultValue={defaults.cpu} />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="memory">
+                    Memory (MB)
+                    <FieldOverrideBadge fieldName="memory" overriddenFields={overriddenFields} />
+                  </Label>
+                  <Input id="memory" name="memory" type="number" defaultValue={defaults.memory} />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="port">
                     Application port
@@ -229,25 +221,6 @@ export function EditConfigDialog({ serviceId, environmentId, config, mode, overr
                   <p className="text-2xs leading-relaxed text-ink-muted">Used by health checks and Bower routing; workloads stay on namespace networking.</p>
                 </div>
               </div>
-
-              {tier === 'custom' && (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="cpu">
-                      CPU (millicores)
-                      <FieldOverrideBadge fieldName="cpu" overriddenFields={overriddenFields} />
-                    </Label>
-                    <Input id="cpu" name="cpu" type="number" defaultValue={defaults.cpu} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="memory">
-                      Memory (MB)
-                      <FieldOverrideBadge fieldName="memory" overriddenFields={overriddenFields} />
-                    </Label>
-                    <Input id="memory" name="memory" type="number" defaultValue={defaults.memory} />
-                  </div>
-                </div>
-              )}
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">

@@ -65,8 +65,6 @@ export default async function EnvironmentsPage({
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Namespace</TableHead>
-                  <TableHead>Resource tier</TableHead>
-                  <TableHead>Default replicas</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -82,10 +80,6 @@ export default async function EnvironmentsPage({
                     <TableCell className="font-mono text-xs text-ink-muted">
                       {env.trellisNamespace}
                     </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{env.resourceTier}</Badge>
-                    </TableCell>
-                    <TableCell>{env.defaultReplicas}</TableCell>
                     <TableCell>
                       {env.isLocked ? (
                         <Badge variant="warning">

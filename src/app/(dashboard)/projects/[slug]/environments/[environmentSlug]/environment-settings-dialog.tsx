@@ -25,9 +25,7 @@ export function EnvironmentSettingsDialog({
   projectId: string
   environment: {
     id: string
-    defaultReplicas: number
     promotionOrder: number
-    resourceTier: string
     envVarNames: string[]
   }
 }) {
@@ -62,30 +60,9 @@ export function EnvironmentSettingsDialog({
           <DialogBody>
             <div className="space-y-4">
               {error && <div className="rounded-lg border border-danger-200 bg-danger-50 p-3 text-[13px] text-danger-500">{error}</div>}
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="replicas">Default replicas</Label>
-                  <Input id="replicas" name="replicas" type="number" min={0} defaultValue={environment.defaultReplicas} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="promotionOrder">Promotion order</Label>
-                  <Input id="promotionOrder" name="promotionOrder" type="number" min={0} defaultValue={environment.promotionOrder} />
-                </div>
-              </div>
               <div className="space-y-2">
-                <Label htmlFor="resourceTier">Default resource tier</Label>
-                <select
-                  id="resourceTier"
-                  name="resourceTier"
-                  defaultValue={environment.resourceTier}
-                  className="flex h-9 w-full appearance-none rounded-lg border border-line bg-surface px-3 text-[13px] text-ink shadow-card focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
-                >
-                  <option value="small">small</option>
-                  <option value="medium">medium</option>
-                  <option value="large">large</option>
-                  <option value="xl">xl</option>
-                  <option value="custom">custom</option>
-                </select>
+                <Label htmlFor="promotionOrder">Promotion order</Label>
+                <Input id="promotionOrder" name="promotionOrder" type="number" min={0} defaultValue={environment.promotionOrder} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="envVars">Shared environment variables</Label>

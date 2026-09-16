@@ -166,10 +166,6 @@ export default async function ServiceDetailPage({
                   <span className="capitalize">{mergedConfig.deploymentStrategy.replace(/_/g, ' ')}</span>
                   {overridden.has('deploymentStrategy') && <OverrideBadge />}
                 </KeyValue>
-                <KeyValue label="Tier">
-                  <span className="capitalize">{mergedConfig.resourceTier}</span>
-                  {overridden.has('resourceTier') && <OverrideBadge />}
-                </KeyValue>
                 {mergedConfig.healthCheckPath && (
                   <KeyValue label="Health check" mono>
                     {mergedConfig.healthCheckPath}{overridden.has('healthCheckPath') && <OverrideBadge />}
