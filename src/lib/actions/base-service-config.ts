@@ -108,7 +108,7 @@ export async function updateServiceConfigOverridesAction(serviceId: string, envi
   const desired = parseConfig(formData)
   const base = await getBaseServiceConfig(serviceId)
 
-  let newOverrides: Record<string, unknown> = {}
+  const newOverrides: Record<string, unknown> = {}
   if (base) {
     const baseValues = parseConfig(formDataFromBase(base))
     for (const [key, val] of Object.entries(desired) as Array<[string, unknown]>) {
