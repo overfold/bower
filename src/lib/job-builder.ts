@@ -87,6 +87,30 @@ const WORKER_MAX_RESTARTS = 3
 const WORKER_RESTART_WINDOW = 5 * NS_PER_MINUTE
 
 // ---------------------------------------------------------------------------
+// Container image references
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve an image without an explicit registry the same way Docker does.
+ * A first path component containing a dot/colon (or exactly "localhost") is
+ * treated as a registry hostname; everything else is a Docker Hub repository.
+ */
+export function normalizeContainerImage(image: string): string {
+  const value = image.trim()
+  if (!value) return value
+
+  const slash = value.indexOf('/')
+  if (slash === -1) return `docker.io/library/${value}`
+
+  const firstComponent = value.slice(0, slash)
+  if (firstComponent.includes('.') || firstComponent.includes(':') || firstComponent === 'localhost') {
+    return value
+  }
+
+  return `docker.io/${value}`
+}
+
+// ---------------------------------------------------------------------------
 // Builder
 // ---------------------------------------------------------------------------
 
@@ -161,7 +185,7 @@ export function buildJobSpec(config: BowerServiceConfig): TrellisJobSpec {
 function buildPrimaryTask(config: BowerServiceConfig): TrellisTask {
   const task: TrellisTask = {
     name: config.name,
-    image: config.image,
+    image: normalizeContainerImage(config.image),
     resources: {
       cpu: config.cpu,
       memory: config.memory,
@@ -197,7 +221,7 @@ function buildPrimaryTask(config: BowerServiceConfig): TrellisTask {
 function buildSidecarTask(sidecar: BowerSidecar): TrellisTask {
   const task: TrellisTask = {
     name: sidecar.name,
-    image: sidecar.image,
+    image: normalizeContainerImage(sidecar.image),
     resources: {
       cpu: sidecar.cpu,
       memory: sidecar.memory,
@@ -244,6 +268,7 @@ function buildNetworking(): TrellisNetworking {
 function enforceBowerNetworking(task: TrellisTask): TrellisTask {
   return {
     ...task,
+    image: normalizeContainerImage(task.image),
     // Namespace mode does not use Trellis host-port reservations. The service's
     // configured application port remains a Bower routing/health-check concern.
     networking: buildNetworking(),
