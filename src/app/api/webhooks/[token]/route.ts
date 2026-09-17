@@ -34,6 +34,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     return Response.json({ accepted: true, deploymentId: result.deployment.id }, { status: 202 })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Deployment failed.'
-    return Response.json({ error: message }, { status: message.includes('locked') ? 403 : 502 })
+    return Response.json({ error: message }, { status: 502 })
   }
 }
