@@ -8,7 +8,7 @@ import {
   Search,
   FolderKanban,
   Server,
-  Activity,
+  PanelsTopLeft,
   CornerDownLeft,
   Users,
 } from 'lucide-react'
@@ -51,7 +51,7 @@ const pages: SearchEntry[] = [
 const kindIcon = {
   project: FolderKanban,
   service: Server,
-  page: Activity,
+  page: PanelsTopLeft,
 } as const
 
 export function CommandPalette({ open, onOpenChange, projects, services, orgName, instanceAdmin }: CommandPaletteProps) {
