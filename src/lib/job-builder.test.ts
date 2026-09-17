@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildJobSpec, type BowerServiceConfig } from './job-builder'
+import { buildJobSpec, normalizeContainerImage, type BowerServiceConfig } from './job-builder'
 
 const base: BowerServiceConfig = {
   name: 'api-green', serviceLabel: 'api', namespace: 'shop-production', image: 'ghcr.io/acme/api:v2',
@@ -21,6 +21,15 @@ test('builds a complete workload with Bower-owned networking and advanced settin
   assert.deepEqual(primary.networking, { mode: 'namespace' }); assert.deepEqual(group.tasks[1].networking, { mode: 'namespace' })
   assert.equal(primary.health_check?.interval, 7_000_000_000); assert.equal(primary.secrets?.[0].env, 'DATABASE_URL')
   assert.equal(primary.volumes?.[0].container_path, '/cache'); assert.equal(primary.volumes?.[0].host_path, '@/cache')
+  assert.equal(primary.image, 'ghcr.io/acme/api:v2')
+  assert.equal(group.tasks[1].image, 'docker.io/otel/opentelemetry-collector:latest')
+})
+
+test('defaults unqualified container images to Docker Hub', () => {
+  assert.equal(normalizeContainerImage('nginx:alpine'), 'docker.io/library/nginx:alpine')
+  assert.equal(normalizeContainerImage('acme/api:v2'), 'docker.io/acme/api:v2')
+  assert.equal(normalizeContainerImage('ghcr.io/acme/api:v2'), 'ghcr.io/acme/api:v2')
+  assert.equal(normalizeContainerImage('localhost:5000/acme/api:v2'), 'localhost:5000/acme/api:v2')
 })
 
 test('custom raw specs keep Bower identity and cannot opt out of managed networking', () => {
@@ -35,7 +44,7 @@ test('custom raw specs keep Bower identity and cannot opt out of managed network
   const spec = buildJobSpec({ ...base, rawConfig: raw })
   const group = spec.task_groups[0]
   assert.equal(spec.name, base.name); assert.equal(spec.namespace, base.namespace)
-  assert.equal(group.tasks[0].image, 'busybox'); assert.equal(group.labels?.['bower/service'], 'api')
+  assert.equal(group.tasks[0].image, 'docker.io/library/busybox'); assert.equal(group.labels?.['bower/service'], 'api')
   assert.equal(group.runtime, 'runsc'); assert.deepEqual(group.api_access, { scope: 'namespace', access: 'read' })
   assert.deepEqual(group.tasks[0].networking, { mode: 'namespace' })
 })
