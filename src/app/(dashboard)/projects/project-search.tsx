@@ -3,7 +3,6 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Panel } from '@/components/ui/panel'
-import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { CreateProjectDialog } from '@/components/create-project-dialog'
 import { BoxesIcon, SearchIcon } from 'lucide-react'
@@ -76,7 +75,7 @@ export function ProjectSearch({
           {filtered.map((project) => (
             <li key={project.id}>
               <Panel className="transition-[border-color,box-shadow] duration-150 hover:border-line-strong hover:shadow-raised">
-                <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4 p-4">
+                <div className="flex flex-wrap items-start gap-x-8 gap-y-4 p-4">
                   <div className="min-w-0 max-w-xl">
                     <div className="flex items-center gap-2.5">
                       <Link
@@ -99,13 +98,6 @@ export function ProjectSearch({
                     </div>
                   </div>
 
-                  <div className="flex shrink-0 items-center gap-2">
-                    <Link href={`/projects/${project.slug}`}>
-                      <Button variant="default" size="sm">
-                        Open project
-                      </Button>
-                    </Link>
-                  </div>
                 </div>
               </Panel>
             </li>
