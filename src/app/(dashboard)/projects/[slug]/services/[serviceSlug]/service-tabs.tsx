@@ -18,7 +18,7 @@ export function ServiceTabs({ slug, serviceSlug }: { slug: string; serviceSlug: 
   const base = `/projects/${slug}/services/${serviceSlug}`
 
   return (
-    <nav className="flex items-center gap-1 overflow-x-auto scroll-thin" aria-label="Service configuration">
+    <nav className="flex items-center gap-1 overflow-x-auto overflow-y-hidden scroll-thin" aria-label="Service configuration">
       {items.map((item) => {
         const href = `${base}${item.suffix}`
         const isActive = item.suffix === '' ? pathname === base : pathname.startsWith(href)
