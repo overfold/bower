@@ -16,6 +16,7 @@ import { StatusDot } from '@/components/status'
 import { Badge } from '@/components/ui/badge'
 import { Server } from 'lucide-react'
 import { DrainToggle } from './drain-toggle'
+import type { TrellisNode } from '@/types/trellis'
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
@@ -30,6 +31,13 @@ function formatBytes(bytes: number) {
 function formatCpu(millicores: number) {
   if (millicores >= 1000) return `${(millicores / 1000).toFixed(1)} cores`
   return `${millicores}m`
+}
+
+function formatNodeAddress(node: TrellisNode): string {
+  const host = node.host.includes(':') && !node.host.startsWith('[')
+    ? `[${node.host}]`
+    : node.host
+  return `${host}:${node.port}`
 }
 
 export default async function ClusterPage() {
@@ -97,7 +105,7 @@ export default async function ClusterPage() {
                     <StatusDot status={node.status} />
                   </TableCell>
                   <TableCell className="font-mono text-xs text-ink-muted">
-                    {node.address}
+                    {formatNodeAddress(node)}
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col">
