@@ -62,22 +62,13 @@ export async function createProjectAction(
     })
     .returning({ id: projects.id, slug: projects.slug })
 
-  await db.insert(environments).values([
-    {
-      projectId: project.id,
-      name: 'Staging',
-      slug: 'staging',
-      trellisNamespace: `${slug}-staging`,
-      promotionOrder: 0,
-    },
-    {
-      projectId: project.id,
-      name: 'Production',
-      slug: 'production',
-      trellisNamespace: `${slug}-production`,
-      promotionOrder: 1,
-    },
-  ])
+  await db.insert(environments).values({
+    projectId: project.id,
+    name: 'Production',
+    slug: 'production',
+    trellisNamespace: `${slug}-production`,
+    promotionOrder: 0,
+  })
   if (owningTeamId) await db.insert(teamProjectAccess).values({ teamId: owningTeamId, projectId: project.id, role: 'admin' }).onConflictDoUpdate({ target: [teamProjectAccess.teamId, teamProjectAccess.projectId], set: { role: 'admin' } })
 
   await recordAudit({ orgId: ctx.org.id, userId: user.id, action: 'project.created', resourceType: 'project', resourceId: project.id, details: { name: name.trim(), slug, owningTeamId } })
