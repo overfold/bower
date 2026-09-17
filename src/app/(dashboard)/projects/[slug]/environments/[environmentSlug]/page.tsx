@@ -21,6 +21,7 @@ import { Chip, StatusDot } from '@/components/status'
 import { CreateSecretDialog } from '../../secrets/create-secret-dialog'
 import { SecretActions } from '../../secrets/secret-actions'
 import { EnvironmentSettingsDialog } from './environment-settings-dialog'
+import { CreateEnvironmentVariableDialog, DeleteEnvironmentVariableButton } from './environment-variable-controls'
 import { ServiceEnvironmentDialog } from './service-environment-dialog'
 import type { BowerSecretBinding } from '@/lib/job-builder'
 
@@ -68,7 +69,7 @@ export default async function EnvironmentDetailPage({ params }: { params: Promis
   const secrets = allSecrets.filter((row) => row.secret.environmentId === environment.id)
   const secretNames = secrets.map((row) => row.secret.trellisSecretName)
   const deployments = allDeployments.filter((row) => row.deployment.environmentId === environment.id).slice(0, 10)
-  const sharedVariables = recordEntries(environment.envVars)
+  const environmentVariables = recordEntries(environment.envVars)
 
   return (
     <div className="space-y-6">
@@ -93,7 +94,7 @@ export default async function EnvironmentDetailPage({ params }: { params: Promis
                   environment={{
                     id: environment.id,
                     promotionOrder: environment.promotionOrder,
-                    envVarNames: sharedVariables.map(([name]) => name),
+                    envVarNames: environmentVariables.map(([name]) => name),
                   }}
                 />
                 <form action={toggleEnvironmentLockAction.bind(null, project.id, environment.id, !environment.isLocked)}>
@@ -120,15 +121,22 @@ export default async function EnvironmentDetailPage({ params }: { params: Promis
 
       <div className="grid gap-5 xl:grid-cols-2">
         <Panel>
-          <PanelHeader title="Shared environment variables" hint="Secret-backed values injected into every service" />
-          {sharedVariables.length === 0 ? (
-            <div className="p-4 text-[13px] text-ink-muted">No shared variables are configured.</div>
+          <PanelHeader
+            title="Environment variables"
+            hint="Secret-backed values injected into every service"
+            action={<CreateEnvironmentVariableDialog projectId={project.id} environmentId={environment.id} />}
+          />
+          {environmentVariables.length === 0 ? (
+            <div className="p-4 text-[13px] text-ink-muted">No environment variables are configured.</div>
           ) : (
             <div className="divide-y divide-line">
-              {sharedVariables.map(([name]) => (
+              {environmentVariables.map(([name]) => (
                 <div key={name} className="flex items-center justify-between gap-4 px-4 py-3">
                   <span className="font-mono text-[12.5px] font-medium text-ink">{name}</span>
-                  <Chip tone="neutral">Secret-backed</Chip>
+                  <div className="flex items-center gap-2">
+                    <Chip tone="neutral">Secret-backed</Chip>
+                    <DeleteEnvironmentVariableButton projectId={project.id} environmentId={environment.id} name={name} />
+                  </div>
                 </div>
               ))}
             </div>
@@ -173,7 +181,7 @@ export default async function EnvironmentDetailPage({ params }: { params: Promis
       <div className="space-y-4">
         <div className="space-y-1">
           <SectionTitle>Service configuration</SectionTitle>
-          <p className="text-[13px] text-ink-muted">Environment-specific service values and secret bindings live here; service-wide execution settings stay with the service.</p>
+          <p className="text-[13px] text-ink-muted">Configure environment variables and secret bindings for each service in this environment.</p>
         </div>
         {serviceRows.length === 0 ? (
           <Panel>
