@@ -70,6 +70,7 @@ interface HeaderBarProps {
     projects: { id: string; name: string; slug: string; teamName?: string }[]
     services: { id: string; name: string; slug: string; projectName: string; projectSlug: string }[]
     orgName: string
+    instanceAdmin: boolean
   }
   user: {
     name: string
@@ -132,6 +133,7 @@ export function HeaderBar({ orgs, currentOrg, teams, searchData, user }: HeaderB
         projects={searchData.projects}
         services={searchData.services}
         orgName={searchData.orgName}
+        instanceAdmin={searchData.instanceAdmin}
       />
     </>
   )
