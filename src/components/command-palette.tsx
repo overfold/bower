@@ -28,6 +28,7 @@ interface CommandPaletteProps {
   projects: { id: string; name: string; slug: string; teamName?: string }[]
   services: { id: string; name: string; slug: string; projectName: string; projectSlug: string }[]
   orgName: string
+  instanceAdmin: boolean
 }
 
 const pages: SearchEntry[] = [
@@ -35,7 +36,16 @@ const pages: SearchEntry[] = [
   { id: 'pg-projects', label: 'Projects', hint: 'Page', href: '/projects', kind: 'page' },
   { id: 'pg-deploys', label: 'Deployments', hint: 'Page', href: '/deployments', kind: 'page' },
   { id: 'pg-status', label: 'Status', hint: 'Page', href: '/status', kind: 'page' },
+  { id: 'pg-cluster', label: 'Cluster', hint: 'Page', href: '/cluster', kind: 'page' },
+  { id: 'pg-audit', label: 'Audit log', hint: 'Page', href: '/audit', kind: 'page' },
   { id: 'pg-settings', label: 'Settings', hint: 'Page', href: '/settings', kind: 'page' },
+  { id: 'pg-settings-account', label: 'Account Settings', hint: 'Page', href: '/settings/account', kind: 'page' },
+  { id: 'pg-settings-instance', label: 'Instance Settings', hint: 'Page', href: '/settings/instance', kind: 'page' },
+  { id: 'pg-settings-cluster', label: 'Cluster Settings', hint: 'Page', href: '/settings/cluster', kind: 'page' },
+  { id: 'pg-settings-organization', label: 'Organization Settings', hint: 'Page', href: '/settings/organization', kind: 'page' },
+  { id: 'pg-settings-teams', label: 'Teams Settings', hint: 'Page', href: '/settings/teams', kind: 'page' },
+  { id: 'pg-settings-members', label: 'Members Settings', hint: 'Page', href: '/settings/members', kind: 'page' },
+  { id: 'pg-settings-domains', label: 'Domains Settings', hint: 'Page', href: '/settings/domains', kind: 'page' },
 ]
 
 const kindIcon = {
@@ -44,7 +54,7 @@ const kindIcon = {
   page: Activity,
 } as const
 
-export function CommandPalette({ open, onOpenChange, projects, services, orgName }: CommandPaletteProps) {
+export function CommandPalette({ open, onOpenChange, projects, services, orgName, instanceAdmin }: CommandPaletteProps) {
   const router = useRouter()
   const [query, setQuery] = useState('')
   const [cursor, setCursor] = useState(0)
@@ -66,8 +76,9 @@ export function CommandPalette({ open, onOpenChange, projects, services, orgName
       href: `/projects/${s.projectSlug}/services/${s.slug}`,
       kind: 'service',
     }))
-    return [...projectEntries, ...serviceEntries, ...pages]
-  }, [projects, services])
+    const pageEntries = pages.filter((page) => page.id !== 'pg-settings-instance' || instanceAdmin)
+    return [...projectEntries, ...serviceEntries, ...pageEntries]
+  }, [projects, services, instanceAdmin])
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase()
