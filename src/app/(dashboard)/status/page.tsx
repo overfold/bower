@@ -35,6 +35,13 @@ function relTime(date: Date): string {
   return `${days}d ago`
 }
 
+function formatNodeAddress(node: TrellisNode): string {
+  const host = node.host.includes(':') && !node.host.startsWith('[')
+    ? `[${node.host}]`
+    : node.host
+  return `${host}:${node.port}`
+}
+
 export default async function StatusPage() {
   const user = await getCurrentUser()
   if (!user) redirect('/login')
@@ -45,7 +52,6 @@ export default async function StatusPage() {
   let nodes: TrellisNode[] = []
   let allocatedByNode = new Map<string, { cpu: number; memory: number }>()
   let clusterError: string | null = null
-  let clusterUrl: string | null = null
 
   try {
     const client = await getTrellisClient(orgCtx.org.id)
@@ -55,7 +61,6 @@ export default async function StatusPage() {
     ])
     nodes = listedNodes
     allocatedByNode = parseNodeAllocatedResources(metrics)
-    clusterUrl = orgCtx.org.trellisApiUrl?.replace(/^https?:\/\//, '').replace(/\/+$/, '') ?? null
   } catch (err) {
     clusterError = err instanceof Error ? err.message : 'Failed to connect to cluster.'
   }
@@ -67,7 +72,6 @@ export default async function StatusPage() {
 
   const routeCountMap = new Map(routeCounts.map((r) => [r.environmentId, r.count]))
 
-  const healthyNodes = nodes.filter((n) => n.status === 'healthy').length
   const totalCpu = nodes.reduce((sum, n) => sum + n.cpu, 0)
   const allocatedCpu = nodes.reduce((sum, n) => sum + (allocatedByNode.get(n.id)?.cpu ?? 0), 0)
   const totalMem = nodes.reduce((sum, n) => sum + n.memory, 0)
@@ -94,32 +98,31 @@ export default async function StatusPage() {
   return (
     <div className="space-y-6">
       <PageHeading
-        eyebrow={
-          <Chip tone="brand">
-            <Dot tone="brand" />
-            connected
-          </Chip>
-        }
         title="Cluster"
         description="Bower talks to one Trellis cluster. Scheduling, placement, and container lifecycle stay entirely with Trellis."
       />
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <Panel>
-          <PanelHeader title="Connection" hint={clusterUrl ?? undefined} />
-          <dl className="divide-y divide-line px-4">
+          <PanelHeader
+            title="Connection"
+            action={
+              <span className="flex items-center gap-1.5 text-xs font-medium text-ink-soft">
+                <Dot tone="brand" />
+                Connected
+              </span>
+            }
+          />
+          <dl className="px-4">
             <KeyValue label="Control-plane API" mono>
               {orgCtx.org.trellisApiUrl ?? '—'}
-            </KeyValue>
-            <KeyValue label="Nodes online">
-              {healthyNodes} / {nodes.length}
             </KeyValue>
           </dl>
         </Panel>
 
         <Panel>
           <PanelHeader title="Capacity" hint={`${nodes.length} node${nodes.length === 1 ? '' : 's'}`} />
-          <div className="space-y-4 p-4">
+          <div className="grid gap-5 p-4 sm:grid-cols-2">
             <div>
               <span className="text-[13px] text-ink-soft">CPU allocated</span>
               <div className="mt-2">
@@ -132,26 +135,12 @@ export default async function StatusPage() {
                 <Meter value={memPct} label="Cluster memory allocated" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4 border-t border-line pt-4">
-              <div>
-                <p className="text-xs text-ink-muted">Managed proxies</p>
-                <p className="nums mt-1 text-xl font-semibold tracking-tight text-ink">
-                  {proxies.length}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-ink-muted">Healthy nodes</p>
-                <p className="nums mt-1 text-xl font-semibold tracking-tight text-ink">
-                  {healthyNodes}
-                </p>
-              </div>
-            </div>
           </div>
         </Panel>
       </div>
 
       <Panel>
-        <PanelHeader title="Nodes" hint="Raft consensus elects one leader to serve the control-plane API" />
+        <PanelHeader title="Nodes" />
         {nodes.length === 0 ? (
           <EmptyState
             icon={<Server className="h-4 w-4" />}
@@ -163,8 +152,8 @@ export default async function StatusPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Node</TableHead>
-                <TableHead>Address</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Address</TableHead>
                 <TableHead>CPU</TableHead>
                 <TableHead>Memory</TableHead>
                 <TableHead>Arch</TableHead>
@@ -181,9 +170,6 @@ export default async function StatusPage() {
                   <TableRow key={node.id}>
                     <TableCell className="font-medium text-ink">{node.id}</TableCell>
                     <TableCell>
-                      <Mono>{node.address}</Mono>
-                    </TableCell>
-                    <TableCell>
                       <span className="flex items-center gap-1.5 capitalize">
                         <Dot
                           tone={
@@ -196,6 +182,9 @@ export default async function StatusPage() {
                         />
                         {node.status}
                       </span>
+                    </TableCell>
+                    <TableCell>
+                      <Mono>{formatNodeAddress(node)}</Mono>
                     </TableCell>
                     <TableCell>
                       <Meter value={nodeCpuPct} label={`${node.id} CPU allocated`} />
