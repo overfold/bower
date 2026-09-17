@@ -6,16 +6,16 @@ import { motion } from 'motion/react'
 import { cn } from '@/lib/utils'
 
 const orgTabs = [
-  { label: 'Organization', href: '/settings/organization' },
-  { label: 'Members', href: '/settings/members' },
-  { label: 'Teams', href: '/settings/teams' },
-  { label: 'Domains', href: '/settings/domains' },
   { label: 'Cluster', href: '/settings/cluster' },
+  { label: 'Organization', href: '/settings/organization' },
+  { label: 'Teams', href: '/settings/teams' },
+  { label: 'Members', href: '/settings/members' },
+  { label: 'Domains', href: '/settings/domains' },
 ]
 
 export function SettingsNav({ showInstance }: { showInstance: boolean }) {
   const pathname = usePathname()
-  const tabs = showInstance ? [...orgTabs, { label: 'Instance', href: '/settings/instance' }] : orgTabs
+  const tabs = showInstance ? [{ label: 'Instance', href: '/settings/instance' }, ...orgTabs] : orgTabs
   return (
     <nav className="flex items-center gap-1 overflow-x-auto border-b border-line scroll-thin" aria-label="Settings">
       {tabs.map((tab) => {
