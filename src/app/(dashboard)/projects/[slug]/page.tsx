@@ -13,7 +13,7 @@ import { Panel, PanelHeader } from '@/components/ui/panel'
 import { Badge } from '@/components/ui/badge'
 import { StatusDot, Chip } from '@/components/status'
 import { EmptyState } from '@/components/ui/empty-state'
-import { Layers, Rocket, Globe, Lock } from 'lucide-react'
+import { Layers, Rocket, Globe } from 'lucide-react'
 
 function relTime(date: Date | string): string {
   const ms = Date.now() - new Date(date).getTime()
@@ -74,12 +74,6 @@ export default async function ProjectOverviewPage({
                   title={env.name}
                   action={
                     <div className="flex items-center gap-2">
-                      {env.isLocked && (
-                        <Chip tone="warn">
-                          <Lock className="h-3 w-3" />
-                          locked
-                        </Chip>
-                      )}
                       <Chip tone="neutral">promotion #{env.promotionOrder}</Chip>
                     </div>
                   }
