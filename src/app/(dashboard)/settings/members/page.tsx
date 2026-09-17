@@ -46,7 +46,7 @@ export default async function MembersSettingsPage() {
   const teamNames = teams.map((t) => t.name)
 
   return (
-    <div className="mx-auto max-w-[1180px] space-y-6">
+    <div className="space-y-6">
       <PageHeading
         title="Members"
         description="Manage who belongs to this organization and invite new members."
