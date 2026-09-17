@@ -1,6 +1,7 @@
 import { redirect, notFound } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { getUserOrganization, getProjectBySlug, getServiceBySlug, getMergedServiceConfig } from '@/lib/queries'
+import { ServiceHeader } from '../service-header'
 import { ConfigurationForm } from './configuration-form'
 
 export default async function ServiceConfigurationPage({
@@ -26,11 +27,14 @@ export default async function ServiceConfigurationPage({
   const mergedConfig = await getMergedServiceConfig(service.id, environmentId)
 
   return (
-    <ConfigurationForm
-      serviceId={service.id}
-      environmentId={environmentId}
-      config={mergedConfig}
-      overriddenFields={mergedConfig?.overriddenFields ?? []}
-    />
+    <div className="space-y-6">
+      <ServiceHeader slug={slug} serviceSlug={serviceSlug} serviceName={service.name} />
+      <ConfigurationForm
+        serviceId={service.id}
+        environmentId={environmentId}
+        config={mergedConfig}
+        overriddenFields={mergedConfig?.overriddenFields ?? []}
+      />
+    </div>
   )
 }
