@@ -6,8 +6,6 @@ import {
   getProjectsForUser,
   getDeploymentsForOrg,
   getServicesForOrg,
-  getEnvironmentsByProject,
-  getRoutesByProject,
   getAuditLog,
 } from '@/lib/queries'
 import { getTrellisClient } from '@/lib/trellis-instance'
@@ -24,6 +22,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { DeploymentPoller } from '@/components/deployment-poller'
+import { DashboardStatsBar } from '@/components/dashboard-stats-bar'
 import {
   FolderKanban,
   Rocket,
@@ -34,7 +33,7 @@ import {
   ShieldAlert,
   BotIcon,
 } from 'lucide-react'
-import type { TrellisNode } from '@/types/trellis'
+import type { TrellisAllocation, TrellisNode } from '@/types/trellis'
 
 const triggerMeta: Record<string, { icon: React.ComponentType<{ className?: string }>; label: string }> = {
   manual: { icon: UserIcon, label: 'Manual' },
@@ -81,19 +80,9 @@ export default async function DashboardPage() {
   const [projectList, orgServices, allDeployments, auditEntries] = await Promise.all([
     getProjectsForUser(orgCtx.org.id, user.id, orgCtx.role),
     getServicesForOrg(orgCtx.org.id),
-    getDeploymentsForOrg(orgCtx.org.id, 50),
+    getDeploymentsForOrg(orgCtx.org.id, 250),
     getAuditLog(orgCtx.org.id, 8),
   ])
-
-  const envCounts = await Promise.all(
-    projectList.map((p) => getEnvironmentsByProject(p.id).then((e) => e.length))
-  )
-  const totalEnvironments = envCounts.reduce((sum, c) => sum + c, 0)
-
-  const routeCounts = await Promise.all(
-    projectList.map((p) => getRoutesByProject(p.id).then((r) => r.length))
-  )
-  const totalRoutes = routeCounts.reduce((sum, c) => sum + c, 0)
 
   // Deployment stats
   const recentDeployments = allDeployments.slice(0, 8)
@@ -102,20 +91,16 @@ export default async function DashboardPage() {
   )
   const hasActive = activeDeployments.length > 0
 
-  const completedDeployments = allDeployments.filter(
-    (d) => d.deployment.status === 'healthy' || d.deployment.status === 'failed' || d.deployment.status === 'rolled_back'
-  )
-  const healthyCount = completedDeployments.filter((d) => d.deployment.status === 'healthy').length
-  const successRate = completedDeployments.length > 0
-    ? Math.round((healthyCount / completedDeployments.length) * 100)
-    : 100
-
   // Trellis cluster data
   let nodes: TrellisNode[] = []
+  let allocations: TrellisAllocation[] = []
   let clusterError: string | null = null
   try {
     const client = await getTrellisClient(orgCtx.org.id)
-    nodes = await client.listNodes()
+    ;[nodes, allocations] = await Promise.all([
+      client.listNodes(),
+      client.listAllocations(),
+    ])
   } catch {
     clusterError = 'Not configured'
   }
@@ -147,6 +132,16 @@ export default async function DashboardPage() {
       <PageHeading
         title={`${greeting}, ${firstName}.`}
         description={`${parts.join('. ')}.`}
+      />
+
+      <DashboardStatsBar
+        nodes={nodes}
+        allocations={allocations}
+        clusterAvailable={!clusterError}
+        deployments={allDeployments.map((row) => ({
+          createdAt: row.deployment.createdAt,
+          status: row.deployment.status,
+        }))}
       />
 
       {/* Active deployments alert */}
@@ -200,34 +195,6 @@ export default async function DashboardPage() {
       <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
         {/* Left column */}
         <div className="min-w-0 space-y-5">
-          {/* Stats grid */}
-          <div className="grid grid-cols-2 gap-4">
-            <Panel>
-              <div className="p-4">
-                <p className="text-xs text-ink-muted">Services</p>
-                <p className="nums mt-1 text-xl font-semibold tracking-tight text-ink">{orgServices.length}</p>
-              </div>
-            </Panel>
-            <Panel>
-              <div className="p-4">
-                <p className="text-xs text-ink-muted">Success rate</p>
-                <p className="nums mt-1 text-xl font-semibold tracking-tight text-ink">{successRate}%</p>
-              </div>
-            </Panel>
-            <Panel>
-              <div className="p-4">
-                <p className="text-xs text-ink-muted">Environments</p>
-                <p className="nums mt-1 text-xl font-semibold tracking-tight text-ink">{totalEnvironments}</p>
-              </div>
-            </Panel>
-            <Panel>
-              <div className="p-4">
-                <p className="text-xs text-ink-muted">Routes</p>
-                <p className="nums mt-1 text-xl font-semibold tracking-tight text-ink">{totalRoutes}</p>
-              </div>
-            </Panel>
-          </div>
-
           {/* Recent deployments */}
           <Panel className="min-w-0 overflow-hidden">
             <PanelHeader
