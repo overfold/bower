@@ -15,9 +15,8 @@ import {
   TableHead,
   TableCell,
 } from '@/components/ui/table'
-import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
-import { Layers, ArrowRight } from 'lucide-react'
+import { Layers } from 'lucide-react'
 import { CreateEnvironmentDialog } from './create-environment-dialog'
 
 export default async function EnvironmentsPage({
@@ -63,7 +62,6 @@ export default async function EnvironmentsPage({
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Namespace</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -76,16 +74,6 @@ export default async function EnvironmentsPage({
                     </TableCell>
                     <TableCell className="font-mono text-xs text-ink-muted">
                       {env.trellisNamespace}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Link href={`/projects/${slug}/environments/${env.slug}`}>
-                          <Button variant="ghost" size="sm">
-                            Configure
-                            <ArrowRight className="h-3.5 w-3.5" />
-                          </Button>
-                        </Link>
-                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
