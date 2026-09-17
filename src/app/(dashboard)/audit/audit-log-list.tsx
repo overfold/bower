@@ -114,7 +114,7 @@ export function AuditLogList({ entries }: { entries: AuditEntry[] }) {
               />
             </button>
             {expanded ? (
-              <div className="px-4 pb-4">
+              <div className="px-4 pb-4 pt-2">
                 <DiffColumns details={entry.details as Record<string, unknown>} />
               </div>
             ) : null}
