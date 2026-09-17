@@ -16,9 +16,8 @@ export interface TrellisWhoAmI {
 
 export interface TrellisNode {
   id: string
-  host?: string
-  port?: number
-  address: string
+  host: string
+  port: number
   status: 'healthy' | 'unhealthy' | 'draining'
   cpu: number // millicores capacity
   memory: number // bytes capacity
