@@ -6,11 +6,10 @@ import {
   getProjectsForUser,
   getDeploymentsForOrg,
   getServicesForOrg,
-  getEnvironmentsByProject,
-  getRoutesByProject,
   getAuditLog,
 } from '@/lib/queries'
 import { getTrellisClient } from '@/lib/trellis-instance'
+import { parseNodeAllocatedResources } from '@/lib/trellis-resource-metrics'
 import { PageHeading } from '@/components/page-heading'
 import { Panel, PanelHeader } from '@/components/ui/panel'
 import { StatusDot, Chip, Dot, Meter, Mono } from '@/components/status'
@@ -24,6 +23,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { DeploymentPoller } from '@/components/deployment-poller'
+import { DashboardStatsBar } from '@/components/dashboard-stats-bar'
 import {
   FolderKanban,
   Rocket,
@@ -34,7 +34,7 @@ import {
   ShieldAlert,
   BotIcon,
 } from 'lucide-react'
-import type { TrellisNode } from '@/types/trellis'
+import type { TrellisAllocation, TrellisNode } from '@/types/trellis'
 
 const triggerMeta: Record<string, { icon: React.ComponentType<{ className?: string }>; label: string }> = {
   manual: { icon: UserIcon, label: 'Manual' },
@@ -81,19 +81,9 @@ export default async function DashboardPage() {
   const [projectList, orgServices, allDeployments, auditEntries] = await Promise.all([
     getProjectsForUser(orgCtx.org.id, user.id, orgCtx.role),
     getServicesForOrg(orgCtx.org.id),
-    getDeploymentsForOrg(orgCtx.org.id, 50),
+    getDeploymentsForOrg(orgCtx.org.id, 250),
     getAuditLog(orgCtx.org.id, 8),
   ])
-
-  const envCounts = await Promise.all(
-    projectList.map((p) => getEnvironmentsByProject(p.id).then((e) => e.length))
-  )
-  const totalEnvironments = envCounts.reduce((sum, c) => sum + c, 0)
-
-  const routeCounts = await Promise.all(
-    projectList.map((p) => getRoutesByProject(p.id).then((r) => r.length))
-  )
-  const totalRoutes = routeCounts.reduce((sum, c) => sum + c, 0)
 
   // Deployment stats
   const recentDeployments = allDeployments.slice(0, 8)
@@ -102,31 +92,32 @@ export default async function DashboardPage() {
   )
   const hasActive = activeDeployments.length > 0
 
-  const completedDeployments = allDeployments.filter(
-    (d) => d.deployment.status === 'healthy' || d.deployment.status === 'failed' || d.deployment.status === 'rolled_back'
-  )
-  const healthyCount = completedDeployments.filter((d) => d.deployment.status === 'healthy').length
-  const successRate = completedDeployments.length > 0
-    ? Math.round((healthyCount / completedDeployments.length) * 100)
-    : 100
-
   // Trellis cluster data
   let nodes: TrellisNode[] = []
+  let allocations: TrellisAllocation[] = []
+  let allocatedByNode = new Map<string, { cpu: number; memory: number }>()
   let clusterError: string | null = null
   try {
     const client = await getTrellisClient(orgCtx.org.id)
-    nodes = await client.listNodes()
+    const [listedNodes, listedAllocations, metrics] = await Promise.all([
+      client.listNodes(),
+      client.listAllocations(),
+      client.getMetrics(),
+    ])
+    nodes = listedNodes
+    allocations = listedAllocations
+    allocatedByNode = parseNodeAllocatedResources(metrics)
   } catch {
     clusterError = 'Not configured'
   }
 
   const healthyNodes = nodes.filter((n) => n.status === 'healthy').length
   const totalCpu = nodes.reduce((sum, n) => sum + n.cpu, 0)
-  const usedCpu = nodes.reduce((sum, n) => sum + (n.cpu_used ?? 0), 0)
+  const allocatedCpu = nodes.reduce((sum, n) => sum + (allocatedByNode.get(n.id)?.cpu ?? 0), 0)
   const totalMem = nodes.reduce((sum, n) => sum + n.memory, 0)
-  const usedMem = nodes.reduce((sum, n) => sum + (n.memory_used ?? 0), 0)
-  const cpuPct = totalCpu > 0 ? Math.round((usedCpu / totalCpu) * 100) : 0
-  const memPct = totalMem > 0 ? Math.round((usedMem / totalMem) * 100) : 0
+  const allocatedMem = nodes.reduce((sum, n) => sum + (allocatedByNode.get(n.id)?.memory ?? 0), 0)
+  const cpuPct = totalCpu > 0 ? Math.round((allocatedCpu / totalCpu) * 100) : 0
+  const memPct = totalMem > 0 ? Math.round((allocatedMem / totalMem) * 100) : 0
 
   // Greeting based on time
   const hour = new Date().getUTCHours()
@@ -147,6 +138,21 @@ export default async function DashboardPage() {
       <PageHeading
         title={`${greeting}, ${firstName}.`}
         description={`${parts.join('. ')}.`}
+      />
+
+      <DashboardStatsBar
+        allocations={allocations}
+        clusterAvailable={!clusterError}
+        capacity={{
+          cpuAllocated: allocatedCpu,
+          cpuTotal: totalCpu,
+          memoryAllocated: allocatedMem,
+          memoryTotal: totalMem,
+        }}
+        deployments={allDeployments.map((row) => ({
+          createdAt: row.deployment.createdAt,
+          status: row.deployment.status,
+        }))}
       />
 
       {/* Active deployments alert */}
@@ -200,34 +206,6 @@ export default async function DashboardPage() {
       <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
         {/* Left column */}
         <div className="min-w-0 space-y-5">
-          {/* Stats grid */}
-          <div className="grid grid-cols-2 gap-4">
-            <Panel>
-              <div className="p-4">
-                <p className="text-xs text-ink-muted">Services</p>
-                <p className="nums mt-1 text-xl font-semibold tracking-tight text-ink">{orgServices.length}</p>
-              </div>
-            </Panel>
-            <Panel>
-              <div className="p-4">
-                <p className="text-xs text-ink-muted">Success rate</p>
-                <p className="nums mt-1 text-xl font-semibold tracking-tight text-ink">{successRate}%</p>
-              </div>
-            </Panel>
-            <Panel>
-              <div className="p-4">
-                <p className="text-xs text-ink-muted">Environments</p>
-                <p className="nums mt-1 text-xl font-semibold tracking-tight text-ink">{totalEnvironments}</p>
-              </div>
-            </Panel>
-            <Panel>
-              <div className="p-4">
-                <p className="text-xs text-ink-muted">Routes</p>
-                <p className="nums mt-1 text-xl font-semibold tracking-tight text-ink">{totalRoutes}</p>
-              </div>
-            </Panel>
-          </div>
-
           {/* Recent deployments */}
           <Panel className="min-w-0 overflow-hidden">
             <PanelHeader
@@ -316,21 +294,21 @@ export default async function DashboardPage() {
               />
               <div className="space-y-3 px-4 py-3.5">
                 <div className="flex items-center justify-between gap-4">
-                  <span className="text-[13px] text-ink-soft">CPU</span>
+                  <span className="text-[13px] text-ink-soft">CPU allocated</span>
                   <span className="flex items-center gap-3">
                     <span className="nums text-xs text-ink-muted">
-                      {formatCpu(usedCpu)} / {formatCpu(totalCpu)} cores
+                      {formatCpu(allocatedCpu)} / {formatCpu(totalCpu)} cores
                     </span>
-                    <Meter value={cpuPct} label="Cluster CPU" />
+                    <Meter value={cpuPct} label="Cluster CPU allocated" />
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-4">
-                  <span className="text-[13px] text-ink-soft">Memory</span>
+                  <span className="text-[13px] text-ink-soft">Memory allocated</span>
                   <span className="flex items-center gap-3">
                     <span className="nums text-xs text-ink-muted">
-                      {formatMemGiB(usedMem)} / {formatMemGiB(totalMem)} GiB
+                      {formatMemGiB(allocatedMem)} / {formatMemGiB(totalMem)} GiB
                     </span>
-                    <Meter value={memPct} label="Cluster memory" />
+                    <Meter value={memPct} label="Cluster memory allocated" />
                   </span>
                 </div>
               </div>
