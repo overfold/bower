@@ -11,7 +11,7 @@ export default async function ClusterSettingsPage() {
   if (!orgCtx) redirect('/login')
 
   return (
-    <div className="mx-auto max-w-[820px] space-y-6">
+    <div className="space-y-6">
       <PageHeading title="Cluster" description="Configure the connection to your Trellis cluster." />
 
       <ClusterSettingsForm
