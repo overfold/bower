@@ -58,7 +58,6 @@ export async function createProjectAction(
       slug,
       description: typeof description === 'string' ? description.trim() || null : null,
       owningTeamId,
-      registryUrl: String(formData.get('registryUrl') ?? '').trim() || null,
     })
     .returning({ id: projects.id, slug: projects.slug })
 
@@ -82,7 +81,7 @@ export async function updateProjectAction(projectId: string, formData: FormData)
   if (owningTeamId) {
     const [team] = await db.select().from(teams).where(and(eq(teams.id, owningTeamId), eq(teams.orgId, ctx.org.id))).limit(1); if (!team) throw new Error('Owning team not found.')
   }
-  const after = { name: String(formData.get('name') ?? '').trim() || ctx.project.name, description: String(formData.get('description') ?? '').trim() || null, owningTeamId, registryUrl: String(formData.get('registryUrl') ?? '').trim() || null, updatedAt: new Date() }
+  const after = { name: String(formData.get('name') ?? '').trim() || ctx.project.name, description: String(formData.get('description') ?? '').trim() || null, owningTeamId, updatedAt: new Date() }
   await db.update(projects).set(after).where(eq(projects.id, projectId)); await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'project.updated', resourceType: 'project', resourceId: projectId, details: { before: ctx.project, after } })
   if (owningTeamId) await db.insert(teamProjectAccess).values({ teamId: owningTeamId, projectId, role: 'admin' }).onConflictDoUpdate({ target: [teamProjectAccess.teamId, teamProjectAccess.projectId], set: { role: 'admin' } })
   redirect(`/projects/${ctx.project.slug}/settings`)

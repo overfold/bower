@@ -20,7 +20,6 @@ interface Props {
     name: string
     slug: string
     description: string | null
-    registryUrl: string | null
     createdAt: string
   }
 }
@@ -72,10 +71,6 @@ export function ProjectSettingsForm({ project }: Props) {
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
               <Textarea id="description" name="description" defaultValue={project.description ?? ''} rows={3} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="registryUrl">Registry URL</Label>
-              <Input id="registryUrl" name="registryUrl" defaultValue={project.registryUrl ?? ''} />
             </div>
             <div className="text-xs text-ink-muted">
               Created {new Date(project.createdAt).toLocaleDateString()}

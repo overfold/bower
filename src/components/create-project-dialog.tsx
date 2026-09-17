@@ -51,10 +51,6 @@ export function CreateProjectDialog() {
               <Label htmlFor="description">Description</Label>
               <Textarea id="description" name="description" placeholder="Optional description" rows={3} />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="registryUrl">Registry URL</Label>
-              <Input id="registryUrl" name="registryUrl" placeholder="registry.example.com" />
-            </div>
             <Button variant="primary" type="submit" className="w-full" disabled={loading}>
               {loading ? 'Creating...' : 'Create project'}
             </Button>

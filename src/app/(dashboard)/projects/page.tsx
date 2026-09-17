@@ -31,7 +31,6 @@ export default async function ProjectsPage() {
     name: p.name,
     slug: p.slug,
     description: p.description,
-    registryUrl: p.registryUrl,
     updatedAt: p.updatedAt.toISOString(),
     serviceCount: serviceCountMap.get(p.id) ?? 0,
   }))

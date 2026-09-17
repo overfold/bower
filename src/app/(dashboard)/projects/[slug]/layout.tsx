@@ -64,12 +64,6 @@ export default async function ProjectLayout({
         description={project.description ?? undefined}
         meta={
           <>
-            {project.registryUrl && (
-              <MetaItem
-                label="Registry"
-                value={<span className="font-mono text-[11.5px]">{project.registryUrl}</span>}
-              />
-            )}
             <MetaItem label="Services" value={services.length} />
             <MetaItem label="Environments" value={environments.length} />
             <MetaItem label="Last deploy" value={lastDeploy} />

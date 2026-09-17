@@ -234,7 +234,6 @@ export const projects = pgTable(
     slug: text("slug").notNull(),
     description: text("description"),
     owningTeamId: uuid("owning_team_id"),
-    registryUrl: text("registry_url"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
