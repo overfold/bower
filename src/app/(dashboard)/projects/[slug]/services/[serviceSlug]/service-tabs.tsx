@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 
 const items = [
   { label: 'Overview', suffix: '' },
+  { label: 'Configuration', suffix: '/configuration' },
   { label: 'Volumes', suffix: '/volumes' },
   { label: 'Advanced', suffix: '/advanced' },
   { label: 'Revisions', suffix: '/revisions' },
