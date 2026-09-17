@@ -19,7 +19,6 @@ export default async function ProjectSettingsPage({ params }: { params: Promise<
         name: project.name,
         slug: project.slug,
         description: project.description,
-        registryUrl: project.registryUrl,
         createdAt: project.createdAt.toISOString(),
       }}
     />
