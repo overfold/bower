@@ -257,7 +257,6 @@ export const environments = pgTable(
     slug: text("slug").notNull(),
     trellisNamespace: text("trellis_namespace").notNull(),
     promotionOrder: integer("promotion_order").notNull(),
-    isLocked: boolean("is_locked").notNull().default(false),
     defaultReplicas: integer("default_replicas").notNull().default(1),
     resourceTier: resourceTierEnum("resource_tier").notNull().default("small"),
     envVars: jsonb("env_vars").notNull().default({}),
