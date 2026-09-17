@@ -39,7 +39,6 @@ function jsonField<T>(formData: FormData, key: string, fallback: T): T {
 
 async function executeDeployment(serviceId: string, environmentId: string, triggerType: Trigger, userId?: string | null) {
   const row = await createDeploymentSpec(serviceId, environmentId)
-  if (row.environment.isLocked && triggerType === 'webhook') throw new Error('This environment is locked and requires an administrator.')
   const [previous] = await db.select().from(deployments).where(and(eq(deployments.serviceId, serviceId), eq(deployments.environmentId, environmentId), eq(deployments.status, 'healthy'))).orderBy(desc(deployments.createdAt)).limit(1)
   let jobName = row.service.slug
   let spec = row.spec
@@ -122,8 +121,6 @@ export async function createServiceAction(projectSlug: string, formData: FormDat
 
 export async function deployServiceAction(serviceId: string, environmentId: string) {
   const access = await requireService(serviceId); if (access.projectRole === 'viewer') throw new Error('Insufficient permissions.')
-  const [env] = await db.select().from(environments).where(eq(environments.id, environmentId)).limit(1)
-  if (env?.isLocked && access.projectRole !== 'admin') throw new Error('This environment is locked. An administrator must deploy it.')
   const { deployment } = await executeDeployment(serviceId, environmentId, 'manual', access.user.id)
   await recordAudit({ orgId: access.org.id, userId: access.user.id, action: 'service.deployed', resourceType: 'deployment', resourceId: deployment.id, details: { serviceId, environmentId } })
   revalidatePath(`/projects/${access.project.slug}`)
@@ -132,7 +129,6 @@ export async function deployServiceAction(serviceId: string, environmentId: stri
 export async function deployServiceFromAutomation(serviceId: string, environmentId: string, image: string, trigger: 'webhook' | 'manual', userId?: string | null) {
   const [row] = await db.select({ environment: environments }).from(serviceConfigs).innerJoin(environments, eq(environments.id, serviceConfigs.environmentId)).where(and(eq(serviceConfigs.serviceId, serviceId), eq(serviceConfigs.environmentId, environmentId))).limit(1)
   if (!row) throw new Error('Service environment not found.')
-  if (trigger === 'webhook' && row.environment.isLocked) throw new Error('This environment is locked and requires an administrator.')
   await db.update(serviceConfigs).set({ image, updatedAt: new Date() }).where(and(eq(serviceConfigs.serviceId, serviceId), eq(serviceConfigs.environmentId, environmentId)))
   return executeDeployment(serviceId, environmentId, trigger, userId)
 }

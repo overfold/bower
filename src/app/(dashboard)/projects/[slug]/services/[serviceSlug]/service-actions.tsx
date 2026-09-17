@@ -13,14 +13,13 @@ import { Rocket, RefreshCw, ArrowUpCircle, RotateCcw } from 'lucide-react'
 interface ServiceActionsProps {
   serviceId: string
   environmentId: string
-  isLocked: boolean
   replicas: number
   canPromote?: boolean
   promotionTargets?: { id: string; name: string }[]
   hasDeployments?: boolean
 }
 
-export function ServiceActions({ serviceId, environmentId, isLocked, canPromote, promotionTargets, hasDeployments }: ServiceActionsProps) {
+export function ServiceActions({ serviceId, environmentId, canPromote, promotionTargets, hasDeployments }: ServiceActionsProps) {
   const [deploying, startDeploy] = useTransition()
   const [restarting, startRestart] = useTransition()
   const [promoting, startPromote] = useTransition()
@@ -32,7 +31,7 @@ export function ServiceActions({ serviceId, environmentId, isLocked, canPromote,
       {hasDeployments && (
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="ghost" size="sm" disabled={isLocked || rollingBack}>
+            <Button variant="ghost" size="sm" disabled={rollingBack}>
               <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
               Rollback
             </Button>
@@ -56,7 +55,7 @@ export function ServiceActions({ serviceId, environmentId, isLocked, canPromote,
       {canPromote && promotionTargets && promotionTargets.length > 0 && (
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="ghost" size="sm" disabled={isLocked || promoting}>
+            <Button variant="ghost" size="sm" disabled={promoting}>
               <ArrowUpCircle className="mr-1.5 h-3.5 w-3.5" />
               Promote
             </Button>
@@ -93,7 +92,7 @@ export function ServiceActions({ serviceId, environmentId, isLocked, canPromote,
       <Button
         variant="default"
         size="sm"
-        disabled={isLocked || restarting}
+        disabled={restarting}
         onClick={() => startRestart(() => restartServiceAction(serviceId, environmentId))}
       >
         <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${restarting ? 'animate-spin' : ''}`} />
@@ -102,7 +101,7 @@ export function ServiceActions({ serviceId, environmentId, isLocked, canPromote,
       <Button
         variant="primary"
         size="sm"
-        disabled={isLocked || deploying}
+        disabled={deploying}
         onClick={() => startDeploy(() => deployServiceAction(serviceId, environmentId))}
       >
         <Rocket className="mr-1.5 h-3.5 w-3.5" />

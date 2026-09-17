@@ -10,7 +10,6 @@ export async function POST(request: Request) {
   const auth = await authenticateApiKey(request.headers.get('authorization'), body.serviceId); if (!auth) return Response.json({ error: 'Unauthorized.' }, { status: 401 })
   const [environment] = await db.select().from(environments).where(and(eq(environments.id, body.environmentId), eq(environments.projectId, auth.project.id))).limit(1)
   if (!environment) return Response.json({ error: 'Environment not found.' }, { status: 404 })
-  if (environment.isLocked && !auth.canDeployLocked) return Response.json({ error: 'This environment requires an administrator.' }, { status: 403 })
   try {
     const result = await deployServiceFromAutomation(body.serviceId, body.environmentId, body.image, 'manual', auth.key.userId)
     return Response.json({ accepted: true, deploymentId: result.deployment.id }, { status: 202 })

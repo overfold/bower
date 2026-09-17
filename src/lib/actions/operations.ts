@@ -74,17 +74,6 @@ export async function updateEnvironmentAction(projectId: string, environmentId: 
   revalidatePath(`/projects/${ctx.project.slug}/environments`)
 }
 
-export async function toggleEnvironmentLockAction(projectId: string, environmentId: string, locked: boolean) {
-  const ctx = await requireProject(projectId)
-  if (ctx.projectRole !== 'admin') throw new Error('Insufficient permissions.')
-  await db.update(environments).set({ isLocked: locked, updatedAt: new Date() })
-    .where(and(eq(environments.id, environmentId), eq(environments.projectId, projectId)))
-  await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id,
-    action: locked ? 'environment.locked' : 'environment.unlocked',
-    resourceType: 'environment', resourceId: environmentId })
-  revalidatePath(`/projects/${ctx.project.slug}/environments`)
-}
-
 export async function deleteEnvironmentAction(projectId: string, environmentId: string) {
   const ctx = await requireProject(projectId)
   if (ctx.projectRole !== 'admin') throw new Error('Insufficient permissions.')

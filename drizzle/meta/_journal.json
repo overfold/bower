@@ -12,6 +12,7 @@
     { "idx": 7, "version": "7", "when": 1789430402000, "tag": "0008_service_advanced_settings", "breakpoints": true },
     { "idx": 8, "version": "7", "when": 1789430403000, "tag": "0009_base_service_configs", "breakpoints": true },
     { "idx": 9, "version": "7", "when": 1789593300000, "tag": "0010_project_user_access", "breakpoints": true },
-    { "idx": 10, "version": "7", "when": 1789681800000, "tag": "0011_remove_project_registry_url", "breakpoints": true }
+    { "idx": 10, "version": "7", "when": 1789681800000, "tag": "0011_remove_project_registry_url", "breakpoints": true },
+    { "idx": 11, "version": "7", "when": 1789682580000, "tag": "0012_remove_environment_locking", "breakpoints": true }
   ]
 }

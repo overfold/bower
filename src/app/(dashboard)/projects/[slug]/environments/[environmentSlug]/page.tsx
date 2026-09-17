@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
-import { ArrowLeft, Box, KeyRound, Lock, Unlock } from 'lucide-react'
+import { ArrowLeft, Box, KeyRound } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth'
 import {
   getDeploymentsByProject,
@@ -11,7 +11,6 @@ import {
   getServicesByProject,
   getUserOrganization,
 } from '@/lib/queries'
-import { toggleEnvironmentLockAction } from '@/lib/actions/operations'
 import { PageHeading } from '@/components/page-heading'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -81,12 +80,7 @@ export default async function EnvironmentDetailPage({ params }: { params: Promis
           <PageHeading
             eyebrow={<Chip tone="neutral">Environment</Chip>}
             title={environment.name}
-            meta={
-              <>
-                <span className="font-mono text-[11.5px] text-ink-muted">{environment.trellisNamespace}</span>
-                {environment.isLocked ? <Chip tone="warn">Locked</Chip> : <Chip tone="neutral">Unlocked</Chip>}
-              </>
-            }
+            meta={<span className="font-mono text-[11.5px] text-ink-muted">{environment.trellisNamespace}</span>}
             actions={
               <div className="flex flex-wrap items-center gap-2">
                 <EnvironmentSettingsDialog
@@ -97,12 +91,6 @@ export default async function EnvironmentDetailPage({ params }: { params: Promis
                     envVarNames: environmentVariables.map(([name]) => name),
                   }}
                 />
-                <form action={toggleEnvironmentLockAction.bind(null, project.id, environment.id, !environment.isLocked)}>
-                  <Button variant="default" size="sm" type="submit">
-                    {environment.isLocked ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
-                    {environment.isLocked ? 'Unlock' : 'Lock'}
-                  </Button>
-                </form>
               </div>
             }
           />
