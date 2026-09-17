@@ -1,16 +1,12 @@
-import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { eq } from 'drizzle-orm'
-import { Network } from 'lucide-react'
 import { db } from '@/db'
 import { serviceAdvancedSettings } from '@/db/service-advanced-schema'
 import { getCurrentUser } from '@/lib/auth'
 import { getProjectBySlug, getServiceBySlug, getEnvironmentsByProject, getUserOrganization } from '@/lib/queries'
 import { getServiceConfigsWithEnvironments } from '@/lib/queries'
-import { Button } from '@/components/ui/button'
 import { Panel, PanelHeader, SectionTitle } from '@/components/ui/panel'
 import { EmptyState } from '@/components/ui/empty-state'
-import { Chip } from '@/components/status'
 import { ServiceHeader } from '../service-header'
 import { AdvancedConfigForm } from './advanced-config-form'
 import { Box } from 'lucide-react'
@@ -91,26 +87,6 @@ export default async function AdvancedPage({
           </Panel>
         )}
       </div>
-
-      <Panel>
-        <PanelHeader title="Networking" hint="Managed by Bower" action={<Chip tone="neutral">namespace</Chip>} />
-        <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 gap-3">
-            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-line bg-sunken text-ink-muted">
-              <Network className="h-4 w-4" />
-            </div>
-            <div>
-              <p className="text-[13px] font-medium text-ink">Application workloads always use Trellis namespace networking.</p>
-              <p className="mt-1 max-w-2xl text-[12px] leading-relaxed text-ink-muted">
-                Bower does not expose host or isolated workload modes. Public connectivity is configured through project Routes, while services remain on their environment&apos;s private Trellis namespace network.
-              </p>
-            </div>
-          </div>
-          <Link href={`/projects/${slug}/routes`} className="shrink-0">
-            <Button variant="default" size="sm">Manage routes</Button>
-          </Link>
-        </div>
-      </Panel>
     </div>
   )
 }
