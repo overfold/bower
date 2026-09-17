@@ -13,7 +13,6 @@ interface ProjectRow {
   name: string
   slug: string
   description: string | null
-  registryUrl: string | null
   updatedAt: string
   serviceCount: number
 }
@@ -93,9 +92,6 @@ export function ProjectSearch({
                       </p>
                     )}
                     <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12.5px] text-ink-muted">
-                      {project.registryUrl && (
-                        <span className="font-mono text-[11.5px]">{project.registryUrl}</span>
-                      )}
                       <span>
                         {project.serviceCount} {project.serviceCount === 1 ? 'service' : 'services'}
                       </span>
