@@ -16,7 +16,7 @@ export function ProjectTabs({ slug, tabs }: { slug: string; tabs: TabItem[] }) {
   const base = `/projects/${slug}`
 
   return (
-    <nav className="flex items-center gap-1 overflow-x-auto scroll-thin">
+    <nav className="flex items-center gap-1 overflow-x-auto overflow-y-hidden scroll-thin">
       {tabs.map((tab) => {
         const href = tab.href ? `${base}${tab.href}` : base
         const isActive =

@@ -14,7 +14,7 @@ export default async function InstanceSettingsPage() {
   const organizations = await getInstanceOrganizations()
 
   return (
-    <div className="mx-auto max-w-[1180px] space-y-6">
+    <div className="space-y-6">
       <PageHeading
         title="Instance"
         description="Manage this Bower installation. Instance administration is separate from membership or ownership inside an organization."
