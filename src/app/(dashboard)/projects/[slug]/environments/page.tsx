@@ -6,7 +6,6 @@ import {
   getProjectBySlug,
   getEnvironmentsByProject,
 } from '@/lib/queries'
-import { toggleEnvironmentLockAction } from '@/lib/actions/operations'
 import { Panel, SectionTitle } from '@/components/ui/panel'
 import {
   Table,
@@ -16,10 +15,9 @@ import {
   TableHead,
   TableCell,
 } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
-import { Lock, Unlock, Layers, ArrowRight } from 'lucide-react'
+import { Layers, ArrowRight } from 'lucide-react'
 import { CreateEnvironmentDialog } from './create-environment-dialog'
 
 export default async function EnvironmentsPage({
@@ -65,7 +63,6 @@ export default async function EnvironmentsPage({
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Namespace</TableHead>
-                  <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -80,19 +77,6 @@ export default async function EnvironmentsPage({
                     <TableCell className="font-mono text-xs text-ink-muted">
                       {env.trellisNamespace}
                     </TableCell>
-                    <TableCell>
-                      {env.isLocked ? (
-                        <Badge variant="warning">
-                          <Lock className="mr-1 h-3 w-3" />
-                          Locked
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline">
-                          <Unlock className="mr-1 h-3 w-3" />
-                          Unlocked
-                        </Badge>
-                      )}
-                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
                         <Link href={`/projects/${slug}/environments/${env.slug}`}>
@@ -101,28 +85,6 @@ export default async function EnvironmentsPage({
                             <ArrowRight className="h-3.5 w-3.5" />
                           </Button>
                         </Link>
-                        <form
-                          action={toggleEnvironmentLockAction.bind(
-                            null,
-                            project.id,
-                            env.id,
-                            !env.isLocked
-                          )}
-                        >
-                          <Button variant="ghost" size="sm" type="submit">
-                            {env.isLocked ? (
-                              <>
-                                <Unlock className="mr-1 h-3.5 w-3.5" />
-                                Unlock
-                              </>
-                            ) : (
-                              <>
-                                <Lock className="mr-1 h-3.5 w-3.5" />
-                                Lock
-                              </>
-                            )}
-                          </Button>
-                        </form>
                       </div>
                     </TableCell>
                   </TableRow>
