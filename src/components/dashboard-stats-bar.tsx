@@ -143,6 +143,7 @@ export function DashboardStatsBar({
   const successfulCount = series.reduce((sum, day) => sum + day.healthy, 0)
   const successRate = completedCount > 0 ? Math.round((successfulCount / completedCount) * 100) : null
   const maxDailyDeployments = Math.max(1, ...series.map((day) => day.total))
+  const hasActiveDeployments = series.some((day) => day.active > 0)
 
   const allocationDetail = !clusterAvailable
     ? 'Cluster unavailable'
@@ -189,6 +190,7 @@ export function DashboardStatsBar({
             <div className="flex shrink-0 items-center gap-3 pt-0.5 text-2xs text-ink-muted" aria-hidden="true">
               <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-brand-500" />healthy</span>
               <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-danger-500" />failed</span>
+              {hasActiveDeployments ? <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-warn-500" />in flight</span> : null}
             </div>
           </div>
 
@@ -211,7 +213,7 @@ export function DashboardStatsBar({
                   >
                     {day.healthy > 0 ? <span className="min-h-px bg-brand-500" style={{ flexGrow: day.healthy }} /> : null}
                     {day.failed > 0 ? <span className="min-h-px bg-danger-500" style={{ flexGrow: day.failed }} /> : null}
-                    {day.active > 0 ? <span className="min-h-px bg-warn-400" style={{ flexGrow: day.active }} /> : null}
+                    {day.active > 0 ? <span className="min-h-px bg-warn-500" style={{ flexGrow: day.active }} /> : null}
                   </div>
                 </div>
               )
