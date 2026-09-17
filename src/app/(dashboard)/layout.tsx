@@ -2,7 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { ORG_COOKIE_NAME } from '@/lib/constants'
-import { getUserOrganizations, getUserOrganization, getUserTeams, getProjectsForUser, getServicesForOrg } from '@/lib/queries'
+import { getUserOrganizations, getUserOrganization, getUserTeams, getProjectsForUser, getServicesForOrg, isInstanceAdmin } from '@/lib/queries'
 import { Sidebar } from '@/components/sidebar'
 import { HeaderBar } from '@/components/header-bar'
 import { PageTransition } from '@/components/page-transition'
@@ -28,6 +28,7 @@ export default async function DashboardLayout({
   const teams = await getUserTeams(user.id, orgCtx.org.id)
   const userProjects = await getProjectsForUser(orgCtx.org.id, user.id, orgCtx.role as 'owner' | 'admin' | 'member')
   const orgServices = await getServicesForOrg(orgCtx.org.id)
+  const instanceAdmin = await isInstanceAdmin(user.id)
 
   const orgs = allOrgs.map((entry) => ({
     id: entry.org.id,
@@ -77,6 +78,7 @@ export default async function DashboardLayout({
               projectSlug: project.slug,
             })),
             orgName: orgCtx.org.name,
+            instanceAdmin,
           }}
         />
         <main className="min-w-0 flex-1 px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
