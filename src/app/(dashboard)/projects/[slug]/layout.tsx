@@ -11,7 +11,6 @@ import {
 import { PageHeading, MetaItem } from '@/components/page-heading'
 import { ProjectTabs } from '@/components/project-tabs'
 import { EnvironmentPicker } from '@/components/environment-picker'
-import { Chip } from '@/components/status'
 
 export default async function ProjectLayout({
   children,
@@ -57,9 +56,6 @@ export default async function ProjectLayout({
   return (
     <div className="space-y-0">
       <PageHeading
-        eyebrow={
-          <Chip tone="neutral">Project</Chip>
-        }
         title={project.name}
         description={project.description ?? undefined}
         meta={
