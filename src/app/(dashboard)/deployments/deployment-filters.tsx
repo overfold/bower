@@ -109,7 +109,7 @@ export function DeploymentFilters({ items, projects, environments }: DeploymentF
           className="h-auto flex-col items-stretch py-3 sm:min-h-[52px] sm:flex-row sm:items-center sm:py-0"
           title={`${filtered.length} deployment${filtered.length === 1 ? '' : 's'}`}
           action={
-            <div className="grid w-full grid-cols-1 gap-2 sm:w-auto sm:grid-cols-2">
+            <div className="grid w-full grid-cols-1 gap-1 sm:w-auto sm:grid-cols-2">
               <select
                 aria-label="Filter by project"
                 className="h-10 w-full appearance-none rounded-lg sm:h-8 sm:w-[150px] border border-line bg-surface px-2.5 pr-8 text-[12.5px] text-ink shadow-card transition-[border-color,box-shadow] duration-150 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
