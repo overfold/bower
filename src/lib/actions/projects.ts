@@ -66,7 +66,6 @@ export async function createProjectAction(
     name: 'Production',
     slug: 'production',
     trellisNamespace: `${slug}-production`,
-    promotionOrder: 0,
   })
   if (owningTeamId) await db.insert(teamProjectAccess).values({ teamId: owningTeamId, projectId: project.id, role: 'admin' }).onConflictDoUpdate({ target: [teamProjectAccess.teamId, teamProjectAccess.projectId], set: { role: 'admin' } })
 
