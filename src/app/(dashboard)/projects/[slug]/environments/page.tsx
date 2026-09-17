@@ -44,7 +44,7 @@ export default async function EnvironmentsPage({
       <div className="flex items-center justify-between gap-4">
         <div>
           <SectionTitle>Environments</SectionTitle>
-          <p className="mt-1 text-[13px] text-ink-muted">Own shared variables, secrets, and environment-specific service configuration.</p>
+          <p className="mt-1 text-[13px] text-ink-muted">Own environment variables, secrets, and environment-specific service configuration.</p>
         </div>
         <CreateEnvironmentDialog projectId={project.id} />
       </div>
