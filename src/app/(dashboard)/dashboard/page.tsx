@@ -9,6 +9,7 @@ import {
   getAuditLog,
 } from '@/lib/queries'
 import { getTrellisClient } from '@/lib/trellis-instance'
+import { parseNodeAllocatedResources } from '@/lib/trellis-resource-metrics'
 import { PageHeading } from '@/components/page-heading'
 import { Panel, PanelHeader } from '@/components/ui/panel'
 import { StatusDot, Chip, Dot, Meter, Mono } from '@/components/status'
@@ -94,24 +95,29 @@ export default async function DashboardPage() {
   // Trellis cluster data
   let nodes: TrellisNode[] = []
   let allocations: TrellisAllocation[] = []
+  let allocatedByNode = new Map<string, { cpu: number; memory: number }>()
   let clusterError: string | null = null
   try {
     const client = await getTrellisClient(orgCtx.org.id)
-    ;[nodes, allocations] = await Promise.all([
+    const [listedNodes, listedAllocations, metrics] = await Promise.all([
       client.listNodes(),
       client.listAllocations(),
+      client.getMetrics(),
     ])
+    nodes = listedNodes
+    allocations = listedAllocations
+    allocatedByNode = parseNodeAllocatedResources(metrics)
   } catch {
     clusterError = 'Not configured'
   }
 
   const healthyNodes = nodes.filter((n) => n.status === 'healthy').length
   const totalCpu = nodes.reduce((sum, n) => sum + n.cpu, 0)
-  const usedCpu = nodes.reduce((sum, n) => sum + (n.cpu_used ?? 0), 0)
+  const allocatedCpu = nodes.reduce((sum, n) => sum + (allocatedByNode.get(n.id)?.cpu ?? 0), 0)
   const totalMem = nodes.reduce((sum, n) => sum + n.memory, 0)
-  const usedMem = nodes.reduce((sum, n) => sum + (n.memory_used ?? 0), 0)
-  const cpuPct = totalCpu > 0 ? Math.round((usedCpu / totalCpu) * 100) : 0
-  const memPct = totalMem > 0 ? Math.round((usedMem / totalMem) * 100) : 0
+  const allocatedMem = nodes.reduce((sum, n) => sum + (allocatedByNode.get(n.id)?.memory ?? 0), 0)
+  const cpuPct = totalCpu > 0 ? Math.round((allocatedCpu / totalCpu) * 100) : 0
+  const memPct = totalMem > 0 ? Math.round((allocatedMem / totalMem) * 100) : 0
 
   // Greeting based on time
   const hour = new Date().getUTCHours()
@@ -135,9 +141,14 @@ export default async function DashboardPage() {
       />
 
       <DashboardStatsBar
-        nodes={nodes}
         allocations={allocations}
         clusterAvailable={!clusterError}
+        capacity={{
+          cpuAllocated: allocatedCpu,
+          cpuTotal: totalCpu,
+          memoryAllocated: allocatedMem,
+          memoryTotal: totalMem,
+        }}
         deployments={allDeployments.map((row) => ({
           createdAt: row.deployment.createdAt,
           status: row.deployment.status,
@@ -283,21 +294,21 @@ export default async function DashboardPage() {
               />
               <div className="space-y-3 px-4 py-3.5">
                 <div className="flex items-center justify-between gap-4">
-                  <span className="text-[13px] text-ink-soft">CPU</span>
+                  <span className="text-[13px] text-ink-soft">CPU allocated</span>
                   <span className="flex items-center gap-3">
                     <span className="nums text-xs text-ink-muted">
-                      {formatCpu(usedCpu)} / {formatCpu(totalCpu)} cores
+                      {formatCpu(allocatedCpu)} / {formatCpu(totalCpu)} cores
                     </span>
-                    <Meter value={cpuPct} label="Cluster CPU" />
+                    <Meter value={cpuPct} label="Cluster CPU allocated" />
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-4">
-                  <span className="text-[13px] text-ink-soft">Memory</span>
+                  <span className="text-[13px] text-ink-soft">Memory allocated</span>
                   <span className="flex items-center gap-3">
                     <span className="nums text-xs text-ink-muted">
-                      {formatMemGiB(usedMem)} / {formatMemGiB(totalMem)} GiB
+                      {formatMemGiB(allocatedMem)} / {formatMemGiB(totalMem)} GiB
                     </span>
-                    <Meter value={memPct} label="Cluster memory" />
+                    <Meter value={memPct} label="Cluster memory allocated" />
                   </span>
                 </div>
               </div>
