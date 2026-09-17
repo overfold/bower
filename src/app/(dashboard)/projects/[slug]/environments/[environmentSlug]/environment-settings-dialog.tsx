@@ -16,7 +16,6 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 
 export function EnvironmentSettingsDialog({
   projectId,
@@ -60,23 +59,14 @@ export function EnvironmentSettingsDialog({
           <DialogBody>
             <div className="space-y-4">
               {error && <div className="rounded-lg border border-danger-200 bg-danger-50 p-3 text-[13px] text-danger-500">{error}</div>}
+              <input
+                type="hidden"
+                name="envVars"
+                value={environment.envVarNames.map((name) => `${name}=`).join('\n')}
+              />
               <div className="space-y-2">
                 <Label htmlFor="promotionOrder">Promotion order</Label>
                 <Input id="promotionOrder" name="promotionOrder" type="number" min={0} defaultValue={environment.promotionOrder} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="envVars">Shared environment variables</Label>
-                <Textarea
-                  id="envVars"
-                  name="envVars"
-                  rows={Math.max(5, environment.envVarNames.length + 1)}
-                  defaultValue={environment.envVarNames.map((name) => `${name}=`).join('\n')}
-                  placeholder={'DATABASE_URL=…\nLOG_LEVEL=info'}
-                  className="font-mono text-xs"
-                />
-                <p className="text-2xs leading-relaxed text-ink-muted">
-                  These values are stored as Trellis secrets and injected into every service in this environment. Leave an existing value blank to keep it unchanged; remove its line to delete it.
-                </p>
               </div>
             </div>
           </DialogBody>
