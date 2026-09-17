@@ -35,7 +35,7 @@ export default async function TeamsPage() {
   )
 
   return (
-    <div className="mx-auto max-w-[1180px] space-y-6">
+    <div className="space-y-6">
       <PageHeading
         title="Teams"
         description="Manage teams and their members."
