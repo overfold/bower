@@ -17,7 +17,7 @@ export default async function InstanceSettingsPage() {
     <div className="space-y-6">
       <PageHeading
         title="Instance"
-        description="Manage this Bower installation. Instance administration is separate from membership or ownership inside an organization."
+        description="Manage organizations and instance-wide administration."
       />
 
       <Card>
