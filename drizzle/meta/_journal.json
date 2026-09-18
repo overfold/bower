@@ -2,18 +2,110 @@
   "version": "7",
   "dialect": "postgresql",
   "entries": [
-    { "idx": 0, "version": "7", "when": 1788432203162, "tag": "0000_round_mojo", "breakpoints": true },
-    { "idx": 1, "version": "7", "when": 1788446492931, "tag": "0001_chemical_senator_kelly", "breakpoints": true },
-    { "idx": 2, "version": "7", "when": 1788549587848, "tag": "0002_odd_energizer", "breakpoints": true },
-    { "idx": 3, "version": "7", "when": 1788764834280, "tag": "0003_wild_taskmaster", "breakpoints": true },
-    { "idx": 4, "version": "7", "when": 1788825600000, "tag": "0004_instance_tokens", "breakpoints": true },
-    { "idx": 5, "version": "7", "when": 1789430400000, "tag": "0005_remove_service_types", "breakpoints": true },
-    { "idx": 6, "version": "7", "when": 1789430401000, "tag": "0006_organization_domains", "breakpoints": true },
-    { "idx": 7, "version": "7", "when": 1789430402000, "tag": "0008_service_advanced_settings", "breakpoints": true },
-    { "idx": 8, "version": "7", "when": 1789430403000, "tag": "0009_base_service_configs", "breakpoints": true },
-    { "idx": 9, "version": "7", "when": 1789593300000, "tag": "0010_project_user_access", "breakpoints": true },
-    { "idx": 10, "version": "7", "when": 1789681800000, "tag": "0011_remove_project_registry_url", "breakpoints": true },
-    { "idx": 11, "version": "7", "when": 1789682580000, "tag": "0012_remove_environment_locking", "breakpoints": true },
-    { "idx": 12, "version": "7", "when": 1789683300000, "tag": "0013_remove_environment_promotion_order", "breakpoints": true }
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1788432203162,
+      "tag": "0000_round_mojo",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788446492931,
+      "tag": "0001_chemical_senator_kelly",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788549587848,
+      "tag": "0002_odd_energizer",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788764834280,
+      "tag": "0003_wild_taskmaster",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788825600000,
+      "tag": "0004_instance_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789430400000,
+      "tag": "0005_remove_service_types",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789430401000,
+      "tag": "0006_organization_domains",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789430402000,
+      "tag": "0008_service_advanced_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789430403000,
+      "tag": "0009_base_service_configs",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789593300000,
+      "tag": "0010_project_user_access",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789681800000,
+      "tag": "0011_remove_project_registry_url",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789682580000,
+      "tag": "0012_remove_environment_locking",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1789683300000,
+      "tag": "0013_remove_environment_promotion_order",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1789729500000,
+      "tag": "0014_remove_shared_secret_groups",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1789732800000,
+      "tag": "0015_advanced_config_inheritance",
+      "breakpoints": true
+    }
   ]
 }
