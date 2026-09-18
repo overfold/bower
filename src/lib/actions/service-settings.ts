@@ -143,8 +143,11 @@ export async function updateBaseServiceAdvancedAction(serviceId: string, formDat
   for (const envConfig of envConfigs) {
     const overrides = (envConfig.overrides ?? {}) as Record<string, unknown>
     const patch: Record<string, unknown> = { updatedAt: new Date() }
-    for (const field of ADVANCED_OVERRIDE_FIELDS) {
-      if (!(field in overrides)) patch[field] = values[field]
+    if (!('runtime' in overrides)) patch.runtime = values.runtime
+    const apiAccessOverridden = 'apiAccessScope' in overrides || 'apiAccessLevel' in overrides
+    if (!apiAccessOverridden) {
+      patch.apiAccessScope = values.apiAccessScope
+      patch.apiAccessLevel = values.apiAccessLevel
     }
     if (Object.keys(patch).length > 1) {
       await db.update(serviceConfigs).set(patch).where(eq(serviceConfigs.id, envConfig.id))
@@ -177,8 +180,10 @@ export async function updateServiceAdvancedAction(serviceId: string, environment
   for (const field of ADVANCED_OVERRIDE_FIELDS) delete newOverrides[field]
 
   if (base) {
-    for (const field of ADVANCED_OVERRIDE_FIELDS) {
-      if (desired[field] !== base[field]) newOverrides[field] = desired[field]
+    if (desired.runtime !== base.runtime) newOverrides.runtime = desired.runtime
+    if (desired.apiAccessScope !== base.apiAccessScope || desired.apiAccessLevel !== base.apiAccessLevel) {
+      newOverrides.apiAccessScope = desired.apiAccessScope
+      newOverrides.apiAccessLevel = desired.apiAccessLevel
     }
   }
 
