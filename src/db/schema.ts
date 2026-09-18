@@ -325,6 +325,9 @@ export const baseServiceConfigs = pgTable("base_service_configs", {
   cronSchedule: text("cron_schedule"),
   autoRollbackSeconds: integer("auto_rollback_seconds").notNull().default(300),
   canarySteps: jsonb("canary_steps").notNull().default([10, 25, 50, 100]),
+  runtime: text("runtime").notNull().default("runc"),
+  apiAccessScope: text("api_access_scope"),
+  apiAccessLevel: text("api_access_level"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -369,6 +372,9 @@ export const serviceConfigs = pgTable(
     activeJobName: text("active_job_name"),
     autoRollbackSeconds: integer("auto_rollback_seconds").notNull().default(300),
     canarySteps: jsonb("canary_steps").notNull().default([10, 25, 50, 100]),
+    runtime: text("runtime").notNull().default("runc"),
+    apiAccessScope: text("api_access_scope"),
+    apiAccessLevel: text("api_access_level"),
     overrides: jsonb("overrides"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
