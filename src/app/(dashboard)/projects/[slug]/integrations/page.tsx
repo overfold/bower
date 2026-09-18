@@ -61,7 +61,7 @@ export default async function IntegrationsPage({
             <EmptyState
               icon={<Webhook className="h-4 w-4" />}
               title="No webhooks"
-              body="No webhook endpoints configured."
+              body="Add a webhook to trigger deployments automatically."
             />
           </Panel>
         ) : (
@@ -72,7 +72,7 @@ export default async function IntegrationsPage({
                   <TableHead>Service</TableHead>
                   <TableHead>Environment</TableHead>
                   <TableHead>Provider</TableHead>
-                  <TableHead>Deploy Mode</TableHead>
+                  <TableHead>Deploy mode</TableHead>
                   <TableHead>Status</TableHead>
                   {isAdmin && <TableHead className="w-[56px]" />}
                 </TableRow>
@@ -112,7 +112,7 @@ export default async function IntegrationsPage({
 
       <div className="space-y-5">
         <div className="flex items-center justify-between">
-          <SectionTitle>Notification Channels</SectionTitle>
+          <SectionTitle>Notification channels</SectionTitle>
           {isAdmin && <CreateNotificationDialog projectId={project.id} />}
         </div>
 
@@ -121,7 +121,7 @@ export default async function IntegrationsPage({
             <EmptyState
               icon={<Bell className="h-4 w-4" />}
               title="No notification channels"
-              body="No notification channels configured."
+              body="Add a channel to receive deployment notifications."
             />
           </Panel>
         ) : (
