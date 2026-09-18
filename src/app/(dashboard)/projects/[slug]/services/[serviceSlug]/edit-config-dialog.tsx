@@ -117,7 +117,7 @@ export function EditConfigDialog({ serviceId, environmentId, config, mode, overr
     autoRollbackSeconds: config?.autoRollbackSeconds ?? 300,
   }
 
-  const hasOverrides = overriddenFields.length > 0
+  const hasOverrides = overriddenFields.some((field) => !['runtime', 'apiAccessScope', 'apiAccessLevel'].includes(field))
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
