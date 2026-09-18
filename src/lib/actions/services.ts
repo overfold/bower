@@ -261,18 +261,19 @@ async function getExecSessionContext(serviceConfigId: string, allocationId?: str
 export async function startExecSessionAction(
   serviceConfigId: string,
   allocationId: string,
+  task: string | undefined,
   cols: number,
   rows: number,
 ): Promise<TrellisExecSession> {
   const { access, client, namespace } = await getExecSessionContext(serviceConfigId, allocationId)
-  const session = await client.createExecSession(allocationId, { cols, rows }, namespace)
+  const session = await client.createExecSession(allocationId, { task, cols, rows }, namespace)
   await recordAudit({
     orgId: access.org.id,
     userId: access.user.id,
     action: 'allocation.terminal.opened',
     resourceType: 'service',
     resourceId: access.service.id,
-    details: { allocationId },
+    details: { allocationId, task },
   })
   return session
 }
