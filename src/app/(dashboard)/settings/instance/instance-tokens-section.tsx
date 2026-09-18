@@ -67,25 +67,25 @@ export function InstanceTokensSection({ tokens }: { tokens: TokenRow[] }) {
     <Card>
       <CardHeader>
         <div>
-          <CardTitle>Instance tokens</CardTitle>
-          <p className="mt-0.5 text-xs text-ink-muted">API tokens for instance-level automation</p>
+          <CardTitle>Instance admin invitations</CardTitle>
+          <p className="mt-0.5 text-xs text-ink-muted">One-time invitations that grant instance administrator access</p>
         </div>
         <Dialog open={open} onOpenChange={(value) => { if (!value) handleClose(); else setOpen(true) }}>
           <DialogTrigger asChild>
             <Button variant="primary" size="sm">
               <Plus className="h-4 w-4" />
-              Create token
+              Invite admin
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>Create instance token</DialogTitle>
+              <DialogTitle>Invite instance administrator</DialogTitle>
             </DialogHeader>
             {createdToken ? (
               <>
                 <DialogBody>
                   <div className="space-y-3">
-                    <p className="text-[13px] font-medium text-ink">Copy this token now. It will not be shown again.</p>
+                    <p className="text-[13px] font-medium text-ink">Copy this invitation token now. It will not be shown again.</p>
                     <div className="flex items-center gap-2">
                       <code className="flex-1 break-all rounded-lg border border-line bg-sunken px-3 py-2 font-mono text-[12.5px] text-ink">
                         {createdToken}
@@ -124,14 +124,14 @@ export function InstanceTokensSection({ tokens }: { tokens: TokenRow[] }) {
         {tokens.length === 0 ? (
           <EmptyState
             icon={<Key className="h-5 w-5" />}
-            title="No instance tokens"
-            body="Create a token for instance-level API access."
+            title="No instance admin invitations"
+            body="Create a one-time invitation for a new instance administrator."
           />
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Token</TableHead>
+                <TableHead>Invitation</TableHead>
                 <TableHead>Note</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Created by</TableHead>
