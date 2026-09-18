@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
-import { getUserOrganization, getProjectBySlug, getDeploymentsByProject } from '@/lib/queries'
+import { getUserOrganization, getProjectBySlug, getDeploymentsByProject, getProjectEnvironment } from '@/lib/queries'
 import { Panel, SectionTitle } from '@/components/ui/panel'
 import {
   Table,
@@ -52,7 +52,8 @@ export default async function DeploymentsPage({
   const project = await getProjectBySlug(ctx.org.id, slug)
   if (!project) redirect('/projects')
 
-  const rows = await getDeploymentsByProject(project.id)
+  const environment = await getProjectEnvironment(project.id)
+  const rows = environment ? await getDeploymentsByProject(project.id, 50, environment.id) : []
   const hasActive = rows.some((r) =>
     activeStatuses.includes(r.deployment.status)
   )
@@ -61,7 +62,7 @@ export default async function DeploymentsPage({
     <div className="space-y-5">
       <div>
         <SectionTitle>Deployment history</SectionTitle>
-        <p className="mt-1 text-[13px] text-ink-muted">Review deployments for every service and environment in this project.</p>
+        <p className="mt-1 text-[13px] text-ink-muted">Review deployments for every service in this project.</p>
       </div>
 
       <DeploymentPoller active={hasActive} />
@@ -81,7 +82,6 @@ export default async function DeploymentsPage({
               <TableRow>
                 <TableHead>Status</TableHead>
                 <TableHead>Service</TableHead>
-                <TableHead>Environment</TableHead>
                 <TableHead>Image</TableHead>
                 <TableHead>Triggered by</TableHead>
                 <TableHead>Strategy</TableHead>
@@ -95,9 +95,6 @@ export default async function DeploymentsPage({
                     <StatusDot status={row.deployment.status} />
                   </TableCell>
                   <TableCell className="font-medium">{row.serviceName}</TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">{row.environmentName}</Badge>
-                  </TableCell>
                   <TableCell className="font-mono text-xs">
                     {imageShort(row.deployment.imageAfter)}
                   </TableCell>

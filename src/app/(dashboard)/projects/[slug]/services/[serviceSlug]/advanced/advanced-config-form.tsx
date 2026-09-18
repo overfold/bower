@@ -1,19 +1,11 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { RotateCcw, ShieldAlert } from 'lucide-react'
-import { resetServiceAdvancedOverridesAction, updateBaseServiceAdvancedAction, updateServiceAdvancedAction } from '@/lib/actions/service-settings'
-import { Badge } from '@/components/ui/badge'
+import { ShieldAlert } from 'lucide-react'
+import { updateServiceAdvancedAction } from '@/lib/actions/service-settings'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-
-const ADVANCED_FIELDS = ['runtime', 'apiAccessScope', 'apiAccessLevel'] as const
-
-function OverrideBadge({ fields, overriddenFields }: { fields: readonly string[]; overriddenFields: string[] }) {
-  if (!fields.some((field) => overriddenFields.includes(field))) return null
-  return <Badge variant="info" className="ml-1.5 align-middle leading-none text-[10px]">override</Badge>
-}
 
 export function AdvancedConfigForm({
   serviceId,
@@ -21,24 +13,20 @@ export function AdvancedConfigForm({
   runtime: initialRuntime,
   apiAccessScope,
   apiAccessLevel,
-  overriddenFields,
 }: {
   serviceId: string
-  environmentId: string | null
+  environmentId: string
   runtime: 'runc' | 'runsc'
   apiAccessScope: 'namespace' | 'cluster' | null
   apiAccessLevel: 'read' | 'write' | null
-  overriddenFields: string[]
 }) {
   const router = useRouter()
   const [runtime, setRuntime] = useState(initialRuntime)
   const initialAccess = apiAccessScope && apiAccessLevel ? `${apiAccessScope}:${apiAccessLevel}` : 'none'
   const [apiAccess, setApiAccess] = useState(initialAccess)
   const [saving, setSaving] = useState(false)
-  const [resetting, startReset] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const sensitive = apiAccess.startsWith('cluster:') || apiAccess.endsWith(':write')
-  const hasOverrides = environmentId !== null && ADVANCED_FIELDS.some((field) => overriddenFields.includes(field))
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -46,8 +34,7 @@ export function AdvancedConfigForm({
     setError(null)
     try {
       const formData = new FormData(event.currentTarget)
-      if (environmentId) await updateServiceAdvancedAction(serviceId, environmentId, formData)
-      else await updateBaseServiceAdvancedAction(serviceId, formData)
+      await updateServiceAdvancedAction(serviceId, environmentId, formData)
       router.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not update advanced settings.')
@@ -56,30 +43,14 @@ export function AdvancedConfigForm({
     }
   }
 
-  function resetToBase() {
-    if (!environmentId) return
-    startReset(async () => {
-      setError(null)
-      try {
-        await resetServiceAdvancedOverridesAction(serviceId, environmentId)
-        router.refresh()
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Could not reset advanced settings.')
-      }
-    })
-  }
-
   return (
     <form onSubmit={submit} className="space-y-5 p-4">
       {error && <div className="rounded-lg border border-danger-200 bg-danger-50 p-3 text-[13px] text-danger-500">{error}</div>}
       <div className="grid gap-5 md:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor={`runtime-${environmentId ?? 'base'}`}>
-            Isolation
-            <OverrideBadge fields={['runtime']} overriddenFields={overriddenFields} />
-          </Label>
+          <Label htmlFor={`runtime-${environmentId}`}>Isolation</Label>
           <select
-            id={`runtime-${environmentId ?? 'base'}`}
+            id={`runtime-${environmentId}`}
             name="runtime"
             value={runtime}
             onChange={(event) => setRuntime(event.target.value as 'runc' | 'runsc')}
@@ -93,12 +64,9 @@ export function AdvancedConfigForm({
           </p>
         </div>
         <div className="space-y-2">
-          <Label htmlFor={`api-access-${environmentId ?? 'base'}`}>
-            Workload API access
-            <OverrideBadge fields={['apiAccessScope', 'apiAccessLevel']} overriddenFields={overriddenFields} />
-          </Label>
+          <Label htmlFor={`api-access-${environmentId}`}>Workload API access</Label>
           <select
-            id={`api-access-${environmentId ?? 'base'}`}
+            id={`api-access-${environmentId}`}
             name="apiAccess"
             value={apiAccess}
             onChange={(event) => setApiAccess(event.target.value)}
@@ -123,15 +91,7 @@ export function AdvancedConfigForm({
           </span>
         </div>
       )}
-      <div className="flex items-center justify-between gap-3">
-        {hasOverrides ? (
-          <Button variant="ghost" size="sm" type="button" onClick={resetToBase} disabled={resetting} className="text-ink-muted">
-            <RotateCcw className="h-3.5 w-3.5" />
-            {resetting ? 'Resetting…' : 'Reset to defaults'}
-          </Button>
-        ) : (
-          <div />
-        )}
+      <div className="flex justify-end">
         <Button variant="primary" size="sm" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save advanced settings'}</Button>
       </div>
     </form>

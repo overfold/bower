@@ -1,26 +1,19 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { upsertBaseServiceConfigAction, updateServiceConfigOverridesAction, resetServiceConfigOverridesAction } from '@/lib/actions/base-service-config'
+import { updateServiceConfigOverridesAction } from '@/lib/actions/base-service-config'
 import { Panel, PanelHeader } from '@/components/ui/panel'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { ChevronDown, RotateCcw } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import type { MergedServiceConfig } from '@/lib/queries'
 
 interface ConfigurationFormProps {
   serviceId: string
-  environmentId: string | null
+  environmentId: string
   config: MergedServiceConfig | null
-  overriddenFields: string[]
-}
-
-function OverrideBadge({ field, overriddenFields }: { field: string; overriddenFields: string[] }) {
-  if (!overriddenFields.includes(field)) return null
-  return <Badge variant="info" className="ml-1.5 align-middle leading-none text-[10px]">override</Badge>
 }
 
 function recordToLines(value: unknown) {
@@ -28,13 +21,11 @@ function recordToLines(value: unknown) {
   return Object.entries(value as Record<string, unknown>).map(([k, v]) => `${k}=${String(v)}`).join('\n')
 }
 
-export function ConfigurationForm({ serviceId, environmentId, config, overriddenFields }: ConfigurationFormProps) {
+export function ConfigurationForm({ serviceId, environmentId, config }: ConfigurationFormProps) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
-  const [resetting, startReset] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [healthType, setHealthType] = useState(config?.healthCheckType ?? '')
-  const hasConfigurationOverrides = overriddenFields.some((field) => !['runtime', 'apiAccessScope', 'apiAccessLevel'].includes(field))
 
   const d = {
     image: config?.image ?? '',
@@ -58,29 +49,13 @@ export function ConfigurationForm({ serviceId, environmentId, config, overridden
     setError(null)
     try {
       const formData = new FormData(e.currentTarget)
-      if (environmentId) {
-        await updateServiceConfigOverridesAction(serviceId, environmentId, formData)
-      } else {
-        await upsertBaseServiceConfigAction(serviceId, formData)
-      }
+      await updateServiceConfigOverridesAction(serviceId, environmentId, formData)
       router.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.')
     } finally {
       setSaving(false)
     }
-  }
-
-  function handleReset() {
-    if (!environmentId) return
-    startReset(async () => {
-      try {
-        await resetServiceConfigOverridesAction(serviceId, environmentId)
-        router.refresh()
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Could not reset overrides.')
-      }
-    })
   }
 
   return (
@@ -101,26 +76,17 @@ export function ConfigurationForm({ serviceId, environmentId, config, overridden
         <PanelHeader title="General" hint="Image and deployment behavior" />
         <div className="space-y-4 p-4">
           <div className="space-y-2">
-            <Label htmlFor="image">
-              Container image
-              <OverrideBadge field="image" overriddenFields={overriddenFields} />
-            </Label>
+            <Label htmlFor="image">Container image</Label>
             <Input id="image" name="image" defaultValue={d.image} required mono />
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="replicas">
-                Replicas
-                <OverrideBadge field="replicas" overriddenFields={overriddenFields} />
-              </Label>
+              <Label htmlFor="replicas">Replicas</Label>
               <Input id="replicas" name="replicas" type="number" defaultValue={d.replicas} required min={1} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="strategy">
-                Deployment strategy
-                <OverrideBadge field="deploymentStrategy" overriddenFields={overriddenFields} />
-              </Label>
+              <Label htmlFor="strategy">Deployment strategy</Label>
               <div className="relative">
                 <select
                   id="strategy"
@@ -144,17 +110,11 @@ export function ConfigurationForm({ serviceId, environmentId, config, overridden
         <PanelHeader title="Resources" hint="Compute reserved for each replica" />
         <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="cpu">
-              CPU (millicores)
-              <OverrideBadge field="cpu" overriddenFields={overriddenFields} />
-            </Label>
+            <Label htmlFor="cpu">CPU (millicores)</Label>
             <Input id="cpu" name="cpu" type="number" defaultValue={d.cpu} min={0} required />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="memory">
-              Memory (MB)
-              <OverrideBadge field="memory" overriddenFields={overriddenFields} />
-            </Label>
+            <Label htmlFor="memory">Memory (MB)</Label>
             <Input id="memory" name="memory" type="number" defaultValue={d.memory} min={0} required />
           </div>
         </div>
@@ -165,10 +125,7 @@ export function ConfigurationForm({ serviceId, environmentId, config, overridden
         <div className="space-y-4 p-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="healthType">
-                Health check type
-                <OverrideBadge field="healthCheckType" overriddenFields={overriddenFields} />
-              </Label>
+              <Label htmlFor="healthType">Health check type</Label>
               <div className="relative">
                 <select
                   id="healthType"
@@ -187,13 +144,13 @@ export function ConfigurationForm({ serviceId, environmentId, config, overridden
             </div>
             {healthType === 'http' && (
               <div className="space-y-2">
-                <Label htmlFor="healthPath">Health check path<OverrideBadge field="healthCheckPath" overriddenFields={overriddenFields} /></Label>
+                <Label htmlFor="healthPath">Health check path</Label>
                 <Input id="healthPath" name="healthPath" defaultValue={d.healthCheckPath} mono />
               </div>
             )}
             {(healthType === 'http' || healthType === 'tcp') && (
               <div className="space-y-2">
-                <Label htmlFor="healthPort">Health check port<OverrideBadge field="healthCheckPort" overriddenFields={overriddenFields} /></Label>
+                <Label htmlFor="healthPort">Health check port</Label>
                 <Input id="healthPort" name="healthPort" type="number" min={1} max={65535} defaultValue={d.healthCheckPort} required />
               </div>
             )}
@@ -201,7 +158,7 @@ export function ConfigurationForm({ serviceId, environmentId, config, overridden
 
           {healthType === 'script' && (
             <div className="space-y-2">
-              <Label htmlFor="healthCommand">Health check command<OverrideBadge field="healthCheckCommand" overriddenFields={overriddenFields} /></Label>
+              <Label htmlFor="healthCommand">Health check command</Label>
               <Input id="healthCommand" name="healthCommand" defaultValue={d.healthCheckCommand} required mono />
             </div>
           )}
@@ -223,15 +180,7 @@ export function ConfigurationForm({ serviceId, environmentId, config, overridden
         </div>
       </Panel>
 
-      <div className="flex items-center justify-between gap-3">
-        {environmentId && hasConfigurationOverrides ? (
-          <Button variant="ghost" size="sm" type="button" onClick={handleReset} disabled={resetting} className="text-ink-muted">
-            <RotateCcw className="h-3.5 w-3.5" />
-            Reset to defaults
-          </Button>
-        ) : (
-          <div />
-        )}
+      <div className="flex justify-end">
         <Button variant="primary" type="submit" disabled={saving}>
           {saving ? 'Saving…' : 'Save configuration'}
         </Button>

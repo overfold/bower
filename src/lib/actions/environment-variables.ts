@@ -47,7 +47,7 @@ export async function setEnvironmentVariableAction(projectId: string, environmen
     resourceId: `${environment.id}:${name}`,
     details: { name },
   })
-  revalidatePath(`/projects/${ctx.project.slug}/environments/${environment.slug}`)
+  revalidatePath(`/projects/${ctx.project.slug}/environment`)
 }
 
 export async function deleteEnvironmentVariableAction(projectId: string, environmentId: string, name: string) {
@@ -76,5 +76,5 @@ export async function deleteEnvironmentVariableAction(projectId: string, environ
     resourceId: `${environment.id}:${name}`,
     details: { name },
   })
-  revalidatePath(`/projects/${ctx.project.slug}/environments/${environment.slug}`)
+  revalidatePath(`/projects/${ctx.project.slug}/environment`)
 }

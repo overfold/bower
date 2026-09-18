@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Plus, ChevronDown } from 'lucide-react'
 
-export function CreateServiceDialog({ projectSlug, environmentId }: { projectSlug: string; environmentId?: string }) {
+export function CreateServiceDialog({ projectSlug }: { projectSlug: string }) {
   const [open, setOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -39,7 +39,6 @@ export function CreateServiceDialog({ projectSlug, environmentId }: { projectSlu
         </DialogHeader>
         <DialogBody>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {environmentId && <input type="hidden" name="environmentId" value={environmentId} />}
             {error && (
               <div className="rounded-md bg-danger-50 p-3 text-sm text-danger-500">{error}</div>
             )}

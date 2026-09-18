@@ -2,8 +2,8 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { Globe } from 'lucide-react'
 import {
-  getEnvironmentsByProject,
   getProjectBySlug,
+  getProjectEnvironment,
   getRoutesByProject,
   getServiceConfigs,
   getServicesByProject,
@@ -23,28 +23,24 @@ const tlsBadgeVariant: Record<string, 'success' | 'secondary' | 'outline'> = {
   none: 'outline',
 }
 
-export default async function RoutesPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+export default async function RoutesPage({ params }: { params: Promise<{ slug: string }> }) {
   const ctx = await requireContext()
   const { slug } = await params
   const project = await getProjectBySlug(ctx.org.id, slug)
   if (!project) redirect('/projects')
 
   const access = await requireProject(project.id)
-  const [routeRows, services, environments, managedDomains] = await Promise.all([
+  const [routeRows, services, environment, managedDomains] = await Promise.all([
     getRoutesByProject(project.id),
     getServicesByProject(project.id),
-    getEnvironmentsByProject(project.id),
+    getProjectEnvironment(project.id),
     getVerifiedOrganizationDomains(ctx.org.id),
   ])
-  const { env } = await searchParams
-  const environmentId = typeof env === 'string' ? env : null
-  const selectedEnvironment = environmentId ? environments.find((environment) => environment.id === environmentId) : null
-  if (environmentId && !selectedEnvironment) redirect(`/projects/${slug}/routes`)
-  const serviceConfigs = selectedEnvironment
+  const serviceConfigs = environment
     ? await Promise.all(services.map(async (service) => ({ service, configs: await getServiceConfigs(service.id) })))
     : []
-  const targetServices = serviceConfigs.filter(({ configs }) => configs.some((config) => config.environmentId === environmentId)).map(({ service }) => service)
-  const visibleRoutes = environmentId ? routeRows.filter((row) => row.route.environmentId === environmentId) : []
+  const targetServices = serviceConfigs.filter(({ configs }) => configs.some((config) => config.environmentId === environment?.id)).map(({ service }) => service)
+  const visibleRoutes = environment ? routeRows.filter((row) => row.route.environmentId === environment.id) : []
   const canManage = access.projectRole === 'admin'
 
   return (
@@ -53,13 +49,13 @@ export default async function RoutesPage({ params, searchParams }: { params: Pro
         <div>
           <h2 className="text-lg font-semibold tracking-tight text-ink">Routes</h2>
           <p className="mt-1 text-[13px] text-ink-muted">
-            Route verified hostnames to services in the selected environment.
+            Route verified hostnames to this project’s services.
           </p>
         </div>
-        {canManage && managedDomains.length > 0 && selectedEnvironment ? (
+        {canManage && managedDomains.length > 0 && environment ? (
           <AddRouteDialog
             projectId={project.id}
-            environmentId={selectedEnvironment.id}
+            environmentId={environment.id}
             services={targetServices.map((service) => ({ id: service.id, name: service.name }))}
             domains={managedDomains.map((domain) => ({ id: domain.id, domain: domain.domain }))}
           />
@@ -83,11 +79,9 @@ export default async function RoutesPage({ params, searchParams }: { params: Pro
 
       <Panel>
         <PanelHeader
-          title={selectedEnvironment ? `${visibleRoutes.length} route${visibleRoutes.length === 1 ? '' : 's'}` : 'Routes'}
+          title={`${visibleRoutes.length} route${visibleRoutes.length === 1 ? '' : 's'}`}
         />
-        {!selectedEnvironment ? (
-          <EmptyState icon={<Globe className="h-4 w-4" />} title="Select an environment" body="Choose an environment to view and manage its routes." />
-        ) : visibleRoutes.length === 0 ? (
+        {visibleRoutes.length === 0 ? (
           <EmptyState
             icon={<Globe className="h-4 w-4" />}
             title="No routes configured"
@@ -100,7 +94,6 @@ export default async function RoutesPage({ params, searchParams }: { params: Pro
                 <TableHead>Hostname</TableHead>
                 <TableHead>Path</TableHead>
                 <TableHead>Target</TableHead>
-                <TableHead>Environment</TableHead>
                 <TableHead>TLS</TableHead>
                 <TableHead>Protection</TableHead>
                 <TableHead className="w-[96px] text-right">Actions</TableHead>
@@ -112,7 +105,6 @@ export default async function RoutesPage({ params, searchParams }: { params: Pro
                   <TableCell className="font-mono text-[12.5px] font-medium text-ink">{row.route.domain}</TableCell>
                   <TableCell className="font-mono text-xs text-ink-muted">{row.route.pathPrefix}</TableCell>
                   <TableCell className="text-[13px]">{row.serviceName}:{row.route.port}</TableCell>
-                  <TableCell><Badge variant="secondary">{row.environmentName}</Badge></TableCell>
                   <TableCell>
                     <Badge variant={tlsBadgeVariant[row.route.tlsMode] ?? 'outline'}>{row.route.tlsMode}</Badge>
                   </TableCell>

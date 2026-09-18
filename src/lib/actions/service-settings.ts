@@ -345,6 +345,6 @@ export async function updateServiceEnvironmentOverridesAction(serviceId: string,
       secretBindings: secretBindings.map(({ name, target, env, path }) => ({ name, target, env, path })),
     },
   })
-  revalidatePath(`/projects/${access.project.slug}/environments`)
+  revalidatePath(`/projects/${access.project.slug}/environment`)
   revalidatePath(`/projects/${access.project.slug}/services/${access.service.slug}`)
 }

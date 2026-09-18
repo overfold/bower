@@ -14,28 +14,20 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Plus } from 'lucide-react'
 
 export function CreateSecretDialog({
   projectId,
-  environments,
+  environmentId,
 }: {
   projectId: string
-  environments: { id: string; name: string }[]
+  environmentId: string
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const fixedEnvironment = environments.length === 1 ? environments[0] : null
 
   async function handleSubmit(formData: FormData) {
     setSaving(true)
@@ -70,31 +62,7 @@ export function CreateSecretDialog({
                 {error}
               </div>
             )}
-            {fixedEnvironment ? (
-              <div className="space-y-2">
-                <Label>Environment</Label>
-                <input type="hidden" name="environmentId" value={fixedEnvironment.id} />
-                <div className="flex h-9 items-center rounded-lg border border-line bg-sunken px-3 text-[13px] text-ink-soft">
-                  {fixedEnvironment.name}
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Label htmlFor="environmentId">Environment</Label>
-                <Select name="environmentId" required>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select environment" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {environments.map((env) => (
-                      <SelectItem key={env.id} value={env.id}>
-                        {env.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <input type="hidden" name="environmentId" value={environmentId} />
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
               <Input

@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useSearchParams } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { motion } from 'motion/react'
 import { cn } from '@/lib/utils'
 
@@ -13,15 +13,12 @@ interface TabItem {
 
 export function ProjectTabs({ slug, tabs }: { slug: string; tabs: TabItem[] }) {
   const pathname = usePathname()
-  const searchParams = useSearchParams()
   const base = `/projects/${slug}`
 
   return (
     <nav className="flex items-center gap-1 overflow-x-auto overflow-y-hidden scroll-thin">
       {tabs.map((tab) => {
         const target = tab.href ? `${base}${tab.href}` : base
-        const query = searchParams.toString()
-        const href = query ? `${target}?${query}` : target
         const isActive =
           tab.href === ''
             ? pathname === base
@@ -30,7 +27,7 @@ export function ProjectTabs({ slug, tabs }: { slug: string; tabs: TabItem[] }) {
         return (
           <Link
             key={tab.label}
-            href={href}
+            href={target}
             className={cn(
               'relative flex items-center gap-1.5 whitespace-nowrap px-3 py-2.5 text-[13px] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300',
               isActive ? 'text-ink' : 'text-ink-muted hover:text-ink',

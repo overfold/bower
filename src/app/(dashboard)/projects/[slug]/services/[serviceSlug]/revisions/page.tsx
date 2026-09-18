@@ -1,6 +1,6 @@
 import { redirect, notFound } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
-import { getUserOrganization, getProjectBySlug, getServiceBySlug, getServiceConfigsWithEnvironments } from '@/lib/queries'
+import { getUserOrganization, getProjectBySlug, getProjectEnvironment, getServiceBySlug, getServiceConfigsWithEnvironments } from '@/lib/queries'
 import { getTrellisClient } from '@/lib/trellis-instance'
 import { Panel, SectionTitle } from '@/components/ui/panel'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -9,7 +9,7 @@ import { ServiceHeader } from '../service-header'
 import { History } from 'lucide-react'
 import type { TrellisJobRevision } from '@/types/trellis'
 
-export default async function RevisionsPage({ params, searchParams }: { params: Promise<{ slug: string; serviceSlug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+export default async function RevisionsPage({ params }: { params: Promise<{ slug: string; serviceSlug: string }> }) {
   const { slug, serviceSlug } = await params
   const user = await getCurrentUser()
   if (!user) redirect('/login')
@@ -20,11 +20,12 @@ export default async function RevisionsPage({ params, searchParams }: { params: 
   const service = await getServiceBySlug(project.id, serviceSlug)
   if (!service) notFound()
 
-  const configs = await getServiceConfigsWithEnvironments(service.id)
-  const { env } = await searchParams
-  const environmentId = typeof env === 'string' ? env : null
-  const activeConfig = environmentId ? configs.find((row) => row.environment.id === environmentId) : null
-  if (environmentId && !activeConfig) notFound()
+  const [configs, environment] = await Promise.all([
+    getServiceConfigsWithEnvironments(service.id),
+    getProjectEnvironment(project.id),
+  ])
+  if (!environment) notFound()
+  const activeConfig = configs.find((row) => row.environment.id === environment.id)
 
   let revisions: TrellisJobRevision[] = []
   if (activeConfig) {
@@ -42,15 +43,15 @@ export default async function RevisionsPage({ params, searchParams }: { params: 
 
       <div>
         <SectionTitle>Deployment history</SectionTitle>
-        <p className="mt-1 max-w-3xl text-[13px] text-ink-muted">Review previous versions of this service for the selected environment.</p>
+        <p className="mt-1 max-w-3xl text-[13px] text-ink-muted">Review previous deployed versions of this service.</p>
       </div>
 
       {!activeConfig ? (
         <Panel>
           <EmptyState
             icon={<History className="h-4 w-4" />}
-            title="Select an environment"
-            body="Choose an environment to view its deployment history."
+            title="No service configuration"
+            body="Configure this service before viewing deployment history."
           />
         </Panel>
       ) : revisions.length === 0 ? (

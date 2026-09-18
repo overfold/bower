@@ -14,10 +14,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 type Volume = { id: string; name: string; hostPath: string }
 
-export function VolumeManager({ projectId, environmentId, environmentName, volumes, canManage }: {
+export function VolumeManager({ projectId, environmentId, volumes, canManage }: {
   projectId: string
   environmentId: string
-  environmentName: string
   volumes: Volume[]
   canManage: boolean
 }) {
@@ -61,7 +60,7 @@ export function VolumeManager({ projectId, environmentId, environmentName, volum
 
   return (
     <Panel>
-      <PanelHeader title={environmentName} hint={`${volumes.length} ${volumes.length === 1 ? 'volume' : 'volumes'}`} action={canManage ? <Button size="sm" variant="primary" onClick={() => edit()}><Plus />Add volume</Button> : undefined} />
+      <PanelHeader title="Volumes" hint={`${volumes.length} ${volumes.length === 1 ? 'volume' : 'volumes'}`} action={canManage ? <Button size="sm" variant="primary" onClick={() => edit()}><Plus />Add volume</Button> : undefined} />
       {error && <div className="mx-4 mt-4 rounded-lg border border-danger-200 bg-danger-50 p-3 text-[13px] text-danger-500">{error}</div>}
       {volumes.length === 0 ? (
         <EmptyState icon={<HardDrive className="h-4 w-4" />} title="No volumes" body="Create a namespace-scoped volume, then attach it from a service’s Mounts tab." />

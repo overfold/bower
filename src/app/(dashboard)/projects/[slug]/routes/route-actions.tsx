@@ -354,7 +354,7 @@ export function DeleteRouteButton({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete route?</AlertDialogTitle>
             <AlertDialogDescription>
-              Traffic to <span className="font-mono text-[12px] text-ink">{hostname}</span> will stop being routed by this environment.
+              Traffic to <span className="font-mono text-[12px] text-ink">{hostname}</span> will stop being routed by this project.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

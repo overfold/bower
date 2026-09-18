@@ -5,7 +5,7 @@ import {
   getProjectBySlug,
   getProjectIntegrations,
   getServicesByProject,
-  getEnvironmentsByProject,
+  getProjectEnvironment,
 } from '@/lib/queries'
 import { Panel, SectionTitle } from '@/components/ui/panel'
 import {
@@ -34,11 +34,12 @@ export default async function IntegrationsPage({
   const project = await getProjectBySlug(ctx.org.id, slug)
   if (!project) redirect('/projects')
 
-  const [{ hooks, channels }, services, environments] = await Promise.all([
+  const [{ hooks, channels }, services, environment] = await Promise.all([
     getProjectIntegrations(project.id),
     getServicesByProject(project.id),
-    getEnvironmentsByProject(project.id),
+    getProjectEnvironment(project.id),
   ])
+  const visibleHooks = environment ? hooks.filter((row) => row.hook.environmentId === environment.id) : []
 
   const isAdmin = ctx.role === 'owner' || ctx.role === 'admin'
 
@@ -50,16 +51,16 @@ export default async function IntegrationsPage({
             <SectionTitle>Webhooks</SectionTitle>
             <p className="mt-1 text-[13px] text-ink-muted">Trigger service deployments when your source provider sends an event.</p>
           </div>
-          {isAdmin && (
+          {isAdmin && environment && (
             <CreateWebhookDialog
               projectId={project.id}
               services={services.map((s) => ({ id: s.id, name: s.name }))}
-              environments={environments.map((e) => ({ id: e.id, name: e.name }))}
+              environmentId={environment.id}
             />
           )}
         </div>
 
-        {hooks.length === 0 ? (
+        {visibleHooks.length === 0 ? (
           <Panel>
             <EmptyState
               icon={<Webhook className="h-4 w-4" />}
@@ -73,7 +74,6 @@ export default async function IntegrationsPage({
               <TableHeader>
                 <TableRow>
                   <TableHead>Service</TableHead>
-                  <TableHead>Environment</TableHead>
                   <TableHead>Provider</TableHead>
                   <TableHead>Deploy mode</TableHead>
                   <TableHead>Status</TableHead>
@@ -81,13 +81,10 @@ export default async function IntegrationsPage({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {hooks.map((row) => (
+                {visibleHooks.map((row) => (
                   <TableRow key={row.hook.id}>
                     <TableCell className="font-medium">
                       {row.serviceName}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{row.environmentName}</Badge>
                     </TableCell>
                     <TableCell className="capitalize">
                       {row.hook.provider}

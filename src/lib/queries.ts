@@ -176,8 +176,12 @@ export async function getServicesForOrg(orgId: string) {
     .innerJoin(projects, eq(projects.id, services.projectId)).where(eq(projects.orgId, orgId)).orderBy(services.name)
 }
 
-export async function getEnvironmentsByProject(projectId: string) {
-  return db.select().from(environments).where(eq(environments.projectId, projectId)).orderBy(environments.createdAt)
+export async function getProjectEnvironment(projectId: string) {
+  const rows = await db.select().from(environments)
+    .where(eq(environments.projectId, projectId))
+    .orderBy(environments.createdAt)
+    .limit(1)
+  return rows[0] ?? null
 }
 
 export async function getServiceConfigs(serviceId: string) {
@@ -206,7 +210,7 @@ export async function getDeploymentsByService(serviceId: string, limit = 20) {
   return db.select().from(deployments).where(eq(deployments.serviceId, serviceId)).orderBy(desc(deployments.createdAt)).limit(limit)
 }
 
-export async function getDeploymentsByProject(projectId: string, limit = 50) {
+export async function getDeploymentsByProject(projectId: string, limit = 50, environmentId?: string) {
   const svcIds = await db.select({ id: services.id }).from(services).where(eq(services.projectId, projectId))
   if (svcIds.length === 0) return []
   const { inArray } = await import('drizzle-orm')
@@ -217,7 +221,10 @@ export async function getDeploymentsByProject(projectId: string, limit = 50) {
     .innerJoin(services, eq(services.id, deployments.serviceId))
     .innerJoin(environments, eq(environments.id, deployments.environmentId))
     .leftJoin(users, eq(users.id, deployments.triggeredByUserId))
-    .where(inArray(deployments.serviceId, svcIds.map((s) => s.id)))
+    .where(and(
+      inArray(deployments.serviceId, svcIds.map((s) => s.id)),
+      environmentId ? eq(deployments.environmentId, environmentId) : undefined,
+    ))
     .orderBy(desc(deployments.createdAt)).limit(limit)
 }
 

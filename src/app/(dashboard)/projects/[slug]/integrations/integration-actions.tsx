@@ -23,10 +23,10 @@ import {
 interface CreateWebhookDialogProps {
   projectId: string
   services: { id: string; name: string }[]
-  environments: { id: string; name: string }[]
+  environmentId: string
 }
 
-export function CreateWebhookDialog({ projectId, services, environments }: CreateWebhookDialogProps) {
+export function CreateWebhookDialog({ projectId, services, environmentId }: CreateWebhookDialogProps) {
   const [open, setOpen] = useState(false)
   const boundAction = createWebhookAction.bind(null, projectId)
   const [state, formAction, isPending] = useActionState<WebhookCreationState, FormData>(boundAction, {})
@@ -70,21 +70,13 @@ export function CreateWebhookDialog({ projectId, services, environments }: Creat
           <form action={formAction}>
             <DialogBody className="space-y-4">
               {state.error ? <div className="rounded-md bg-danger-50 p-3 text-sm text-danger-500">{state.error}</div> : null}
+              <input type="hidden" name="environmentId" value={environmentId} />
               <div className="space-y-2">
                 <Label htmlFor="wh-service">Service</Label>
                 <Select name="serviceId">
                   <SelectTrigger id="wh-service"><SelectValue placeholder="Select service" /></SelectTrigger>
                   <SelectContent>
                     {services.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="wh-env">Environment</Label>
-                <Select name="environmentId">
-                  <SelectTrigger id="wh-env"><SelectValue placeholder="Select environment" /></SelectTrigger>
-                  <SelectContent>
-                    {environments.map((e) => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>

@@ -1,20 +1,16 @@
 import { notFound, redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
-import { getProjectBySlug, getServiceBySlug, getEnvironmentsByProject, getMergedServiceConfig, getUserOrganization } from '@/lib/queries'
+import { getProjectBySlug, getProjectEnvironment, getServiceBySlug, getMergedServiceConfig, getUserOrganization } from '@/lib/queries'
 import { Panel, PanelHeader, SectionTitle } from '@/components/ui/panel'
 import { ServiceHeader } from '../service-header'
 import { AdvancedConfigForm } from './advanced-config-form'
 
 export default async function AdvancedPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ slug: string; serviceSlug: string }>
-  searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const { slug, serviceSlug } = await params
-  const { env: envParam } = await searchParams
-  const environmentId = typeof envParam === 'string' ? envParam : null
 
   const user = await getCurrentUser()
   if (!user) redirect('/login')
@@ -25,11 +21,9 @@ export default async function AdvancedPage({
   const service = await getServiceBySlug(project.id, serviceSlug)
   if (!service) notFound()
 
-  const environments = await getEnvironmentsByProject(project.id)
-  const selectedEnv = environmentId ? environments.find((environment) => environment.id === environmentId) : null
-  if (environmentId && !selectedEnv) notFound()
-
-  const mergedConfig = await getMergedServiceConfig(service.id, environmentId)
+  const environment = await getProjectEnvironment(project.id)
+  if (!environment) notFound()
+  const mergedConfig = await getMergedServiceConfig(service.id, environment.id)
 
   return (
     <div className="space-y-6">
@@ -38,24 +32,23 @@ export default async function AdvancedPage({
       <div className="space-y-2">
         <SectionTitle>Advanced execution</SectionTitle>
         <p className="max-w-3xl text-[13px] leading-relaxed text-ink-muted">
-          Runtime and workload API access for the scope selected above.
+          Runtime isolation and workload API access for this service.
         </p>
       </div>
 
       <Panel>
         <PanelHeader
-          title={selectedEnv ? `${selectedEnv.name} execution` : 'Execution defaults'}
-          hint={selectedEnv ? 'Override execution settings for this environment' : 'Runtime and workload API access'}
+          title="Execution"
+          hint="Runtime and workload API access"
         />
         {mergedConfig ? (
           <AdvancedConfigForm
-            key={environmentId ?? 'base'}
+            key={environment.id}
             serviceId={service.id}
-            environmentId={environmentId}
+            environmentId={environment.id}
             runtime={mergedConfig.runtime}
             apiAccessScope={mergedConfig.apiAccessScope}
             apiAccessLevel={mergedConfig.apiAccessLevel}
-            overriddenFields={mergedConfig.overriddenFields}
           />
         ) : (
           <div className="p-4 text-[13px] text-ink-muted">No service configuration found.</div>

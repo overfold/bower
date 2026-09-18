@@ -2,7 +2,7 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Clock3 } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth'
-import { getUserOrganization, getProjectBySlug, getServiceBySlug, getServiceConfigsWithEnvironments } from '@/lib/queries'
+import { getUserOrganization, getProjectBySlug, getProjectEnvironment, getServiceBySlug, getServiceConfigsWithEnvironments } from '@/lib/queries'
 import { getTrellisClient } from '@/lib/trellis-instance'
 import { PageHeading, MetaItem } from '@/components/page-heading'
 import { Panel, PanelHeader, KeyValue, SectionTitle } from '@/components/ui/panel'
@@ -25,10 +25,8 @@ function eventHistory(allocation: TrellisAllocation, events: TrellisEvent[]) {
 
 export default async function AllocationDetailPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ slug: string; serviceSlug: string; allocationId: string }>
-  searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const { slug, serviceSlug, allocationId } = await params
   const user = await getCurrentUser()
@@ -40,10 +38,11 @@ export default async function AllocationDetailPage({
   const service = await getServiceBySlug(project.id, serviceSlug)
   if (!service) notFound()
 
-  const configs = await getServiceConfigsWithEnvironments(service.id)
-  const { env } = await searchParams
-  const environmentId = typeof env === 'string' ? env : null
-  const selectedConfig = environmentId ? configs.find(({ environment }) => environment.id === environmentId) : null
+  const [configs, environment] = await Promise.all([
+    getServiceConfigsWithEnvironments(service.id),
+    getProjectEnvironment(project.id),
+  ])
+  const selectedConfig = environment ? configs.find((row) => row.environment.id === environment.id) : null
   if (!selectedConfig) notFound()
   const client = await getTrellisClient(orgCtx.org.id)
   let allocation: TrellisAllocation | null = null
@@ -77,7 +76,7 @@ export default async function AllocationDetailPage({
   return (
     <div className="space-y-6">
       <div className="flex items-start gap-3">
-        <Link href={`/projects/${slug}/services/${serviceSlug}?env=${encodeURIComponent(selectedConfig.environment.id)}`} className="mt-2 text-ink-muted transition-colors hover:text-ink" aria-label="Back to service">
+        <Link href={`/projects/${slug}/services/${serviceSlug}`} className="mt-2 text-ink-muted transition-colors hover:text-ink" aria-label="Back to service">
           <ArrowLeft className="h-4 w-4" />
         </Link>
         <div className="min-w-0 flex-1">

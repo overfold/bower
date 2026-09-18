@@ -4,7 +4,7 @@ import { getCurrentUser } from '@/lib/auth'
 import {
   getUserOrganization,
   getProjectBySlug,
-  getEnvironmentsByProject,
+  getProjectEnvironment,
   getDeploymentsByProject,
   getRoutesByProject,
   getServicesByProject,
@@ -13,7 +13,7 @@ import { Panel, PanelHeader, SectionTitle } from '@/components/ui/panel'
 import { Badge } from '@/components/ui/badge'
 import { StatusDot } from '@/components/status'
 import { EmptyState } from '@/components/ui/empty-state'
-import { Layers, Rocket, Globe } from 'lucide-react'
+import { Rocket, Globe } from 'lucide-react'
 
 function relTime(date: Date | string): string {
   const ms = Date.now() - new Date(date).getTime()
@@ -47,94 +47,53 @@ export default async function ProjectOverviewPage({
   const project = await getProjectBySlug(ctx.org.id, slug)
   if (!project) redirect('/projects')
 
-  const [environments, deployments, routeRows, services] = await Promise.all([
-    getEnvironmentsByProject(project.id),
-    getDeploymentsByProject(project.id, 5),
+  const [environment, allRoutes, services] = await Promise.all([
+    getProjectEnvironment(project.id),
     getRoutesByProject(project.id),
     getServicesByProject(project.id),
   ])
+  const deployments = environment ? await getDeploymentsByProject(project.id, 5, environment.id) : []
+  const routeRows = environment
+    ? allRoutes.filter((row) => row.route.environmentId === environment.id)
+    : []
 
   return (
     <div className="space-y-5">
       <div>
         <SectionTitle>Overview</SectionTitle>
-        <p className="mt-1 text-[13px] text-ink-muted">See this project’s environments, services, recent deployments, and routes.</p>
+        <p className="mt-1 text-[13px] text-ink-muted">See this project’s services, recent deployments, and routes.</p>
       </div>
 
-      {/* Environment ladder */}
-      {environments.length === 0 ? (
-        <Panel>
-          <EmptyState
-            icon={<Layers className="h-4 w-4" />}
-            title="No environments"
-            body="Create an environment to begin configuring deployments."
-          />
-        </Panel>
-      ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
-          {environments.map((env) => {
-            return (
-              <Panel key={env.id}>
-                <PanelHeader title={env.name} />
-                <ul className="divide-y divide-line">
-                  {services.length === 0 ? (
-                    <li className="px-4 py-3 text-xs text-ink-muted">
-                      No services configured
-                    </li>
-                  ) : (
-                    services.map((svc) => {
-                      const lastDeploy = deployments.find(
-                        (d) =>
-                          d.serviceName === svc.name &&
-                          d.environmentName === env.name
-                      )
-                      return (
-                        <li key={svc.id} className="px-4 py-3">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="min-w-0">
-                              <Link
-                                href={`/projects/${slug}/services/${svc.slug}?env=${encodeURIComponent(env.id)}`}
-                                className="rounded text-[13px] font-medium text-ink underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
-                              >
-                                {svc.name}
-                              </Link>
-                              {lastDeploy && (
-                                <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-2xs text-ink-muted">
-                                  <span className="font-mono text-[11px]">
-                                    {imageTag(lastDeploy.deployment.imageAfter)}
-                                  </span>
-                                </p>
-                              )}
-                            </div>
-                            <div className="flex shrink-0 flex-col items-end gap-1.5">
-                              {lastDeploy && (
-                                <>
-                                  <StatusDot status={lastDeploy.deployment.status} />
-                                  <span className="text-2xs text-ink-faint">
-                                    {relTime(lastDeploy.deployment.createdAt)}
-                                  </span>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </li>
-                      )
-                    })
-                  )}
-                </ul>
-                <div className="flex items-center justify-end gap-3 border-t border-line px-4 py-3">
-                  <Link
-                    href={`/projects/${slug}/environments/${env.slug}`}
-                    className="rounded text-[12.5px] font-medium text-brand-600 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
-                  >
-                    Open environment
-                  </Link>
-                </div>
-              </Panel>
-            )
-          })}
-        </div>
-      )}
+      <Panel>
+        <PanelHeader title="Services" />
+        <ul className="divide-y divide-line">
+          {services.length === 0 ? (
+            <li className="px-4 py-3 text-xs text-ink-muted">No services configured</li>
+          ) : (
+            services.map((service) => {
+              const lastDeploy = deployments.find((row) => row.deployment.serviceId === service.id)
+              return (
+                <li key={service.id} className="px-4 py-3">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <Link href={`/projects/${slug}/services/${service.slug}`} className="rounded text-[13px] font-medium text-ink underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300">
+                        {service.name}
+                      </Link>
+                      {lastDeploy ? <p className="mt-1 font-mono text-[11px] text-ink-muted">{imageTag(lastDeploy.deployment.imageAfter)}</p> : null}
+                    </div>
+                    {lastDeploy ? (
+                      <div className="flex shrink-0 flex-col items-end gap-1.5">
+                        <StatusDot status={lastDeploy.deployment.status} />
+                        <span className="text-2xs text-ink-faint">{relTime(lastDeploy.deployment.createdAt)}</span>
+                      </div>
+                    ) : null}
+                  </div>
+                </li>
+              )
+            })
+          )}
+        </ul>
+      </Panel>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
         {/* Deployment history */}
@@ -170,10 +129,6 @@ export default async function ProjectOverviewPage({
                     <div className="min-w-0">
                       <p className="truncate text-[13px] text-ink">
                         {row.serviceName}
-                        <span className="ml-2 text-ink-muted">→</span>
-                        <Badge variant="secondary" className="ml-2">
-                          {row.environmentName}
-                        </Badge>
                       </p>
                       <p className="mt-0.5 truncate font-mono text-[11px] text-ink-muted">
                         {imageTag(row.deployment.imageAfter)}

@@ -22,7 +22,7 @@ const segmentLabels: Record<string, string> = {
   instance: 'Instance',
   account: 'Account',
   services: 'Services',
-  environments: 'Environments',
+  environment: 'Environment',
   secrets: 'Secrets',
   routes: 'Routes',
   integrations: 'Integrations',

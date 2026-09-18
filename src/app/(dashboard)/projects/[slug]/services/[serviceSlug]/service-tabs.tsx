@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useSearchParams } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { motion } from 'motion/react'
 import { cn } from '@/lib/utils'
 
@@ -15,20 +15,17 @@ const items = [
 
 export function ServiceTabs({ slug, serviceSlug }: { slug: string; serviceSlug: string }) {
   const pathname = usePathname()
-  const searchParams = useSearchParams()
   const base = `/projects/${slug}/services/${serviceSlug}`
 
   return (
     <nav className="flex items-center gap-1 overflow-x-auto overflow-y-hidden scroll-thin" aria-label="Service configuration">
       {items.map((item) => {
         const target = `${base}${item.suffix}`
-        const query = searchParams.toString()
-        const href = query ? `${target}?${query}` : target
         const isActive = item.suffix === '' ? pathname === base : pathname.startsWith(target)
         return (
           <Link
             key={item.label}
-            href={href}
+            href={target}
             className={cn(
               'relative flex items-center whitespace-nowrap px-3 py-2.5 text-[13px] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300',
               isActive ? 'text-ink' : 'text-ink-muted hover:text-ink',

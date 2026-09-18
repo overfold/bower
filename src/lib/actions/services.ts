@@ -6,7 +6,7 @@ import { and, desc, eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { baseServiceConfigs, deployments, environments, serviceConfigs, services } from '@/db/schema'
 import { getCurrentUser } from '@/lib/auth'
-import { getProjectBySlug, getUserOrganization } from '@/lib/queries'
+import { getProjectBySlug, getProjectEnvironment, getUserOrganization } from '@/lib/queries'
 import { getTrellisClient } from '@/lib/trellis-instance'
 import { recordAudit, requireProject, requireService } from '@/lib/actions/shared'
 import { syncManagedProxy } from '@/lib/managed-proxy'
@@ -14,7 +14,7 @@ import { createDeploymentSpec, notifyDeployment, recordDeploymentEvent } from '@
 import { reconcileProjectDeployments } from '@/lib/deployment-reconciler'
 import type { TrellisExecSession, TrellisExecSessionOutput, TrellisJobSpec } from '@/types/trellis'
 
-type Trigger = 'manual' | 'webhook' | 'promotion' | 'rollback' | 'auto_rollback'
+type Trigger = 'manual' | 'webhook' | 'rollback' | 'auto_rollback'
 
 function slugify(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 63) || 'service'
@@ -78,25 +78,23 @@ export async function createServiceAction(projectSlug: string, formData: FormDat
   const strategy = (String(formData.get('strategy') ?? '') || 'recreate') as 'rolling' | 'recreate' | 'blue_green' | 'canary'
   const replicas = Number(formData.get('replicas'))
   const [service] = await db.insert(services).values({ projectId: project.id, name, slug }).returning()
-  const envs = await db.select().from(environments).where(eq(environments.projectId, project.id))
+  const environment = await getProjectEnvironment(project.id)
   const baseReplicas = Number.isInteger(replicas) && replicas >= 1 ? replicas : 1
   await db.insert(baseServiceConfigs).values({
     serviceId: service.id, image, replicas: baseReplicas, cpu, memory,
-    resourceTier: (envs[0]?.resourceTier ?? 'small') as 'small' | 'medium' | 'large' | 'xl' | 'custom',
+    resourceTier: (environment?.resourceTier ?? 'small') as 'small' | 'medium' | 'large' | 'xl' | 'custom',
     deploymentStrategy: strategy,
   })
-  if (envs.length) await db.insert(serviceConfigs).values(envs.map((env) => ({
-    serviceId: service.id, environmentId: env.id, image,
-    replicas: Number.isInteger(replicas) && replicas >= 1 ? replicas : Math.max(1, env.defaultReplicas),
+  if (environment) await db.insert(serviceConfigs).values({
+    serviceId: service.id, environmentId: environment.id, image,
+    replicas: Number.isInteger(replicas) && replicas >= 1 ? replicas : Math.max(1, environment.defaultReplicas),
     cpu, memory,
-    resourceTier: env.resourceTier as 'small' | 'medium' | 'large' | 'xl' | 'custom',
+    resourceTier: environment.resourceTier as 'small' | 'medium' | 'large' | 'xl' | 'custom',
     deploymentStrategy: strategy,
-  }))).returning()
+  }).returning()
   await recordAudit({ orgId: ctx.org.id, userId: user.id, action: 'service.created', resourceType: 'service', resourceId: service.id, details: { before: null, after: { name, image } } })
   revalidatePath(`/projects/${projectSlug}`)
-  const selectedEnvironment = String(formData.get('environmentId') ?? '')
-  const selectedEnvironmentExists = selectedEnvironment && envs.some((environment) => environment.id === selectedEnvironment)
-  redirect(`/projects/${projectSlug}/services/${slug}${selectedEnvironmentExists ? `?env=${encodeURIComponent(selectedEnvironment)}` : ''}`)
+  redirect(`/projects/${projectSlug}/services/${slug}`)
 }
 
 export async function deployServiceAction(serviceId: string, environmentId: string) {
@@ -112,17 +110,6 @@ export async function deployServiceFromAutomation(serviceId: string, environment
   const overrides = { ...((row.config.overrides ?? {}) as Record<string, unknown>), image }
   await db.update(serviceConfigs).set({ image, overrides, updatedAt: new Date() }).where(eq(serviceConfigs.id, row.config.id))
   return executeDeployment(serviceId, environmentId, trigger, userId)
-}
-
-export async function promoteServiceAction(serviceId: string, sourceEnvironmentId: string, targetEnvironmentId: string) {
-  const access = await requireService(serviceId); if (access.projectRole === 'viewer') throw new Error('Insufficient permissions.')
-  const [source] = await db.select().from(serviceConfigs).where(and(eq(serviceConfigs.serviceId, serviceId), eq(serviceConfigs.environmentId, sourceEnvironmentId))).limit(1)
-  const [target] = await db.select().from(serviceConfigs).where(and(eq(serviceConfigs.serviceId, serviceId), eq(serviceConfigs.environmentId, targetEnvironmentId))).limit(1)
-  if (!source || !target) throw new Error('Promotion environments were not found.')
-  const overrides = { ...((target.overrides ?? {}) as Record<string, unknown>), image: source.image }
-  await db.update(serviceConfigs).set({ image: source.image, overrides, updatedAt: new Date() }).where(eq(serviceConfigs.id, target.id))
-  const { deployment } = await executeDeployment(serviceId, targetEnvironmentId, 'promotion', access.user.id)
-  await recordAudit({ orgId: access.org.id, userId: access.user.id, action: 'service.promoted', resourceType: 'deployment', resourceId: deployment.id, details: { sourceEnvironmentId, targetEnvironmentId, image: source.image } })
 }
 
 export async function rollbackServiceAction(serviceId: string, environmentId: string) {
