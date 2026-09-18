@@ -94,7 +94,7 @@ npm install
 npm run dev
 ```
 
-On first startup the dev server prints a single-use instance admin token to the terminal. Open `http://localhost:3000`, use the token to create the first account, then add the Trellis API URL and operator token under **Organization → Cluster**.
+On first startup the dev server prints a single-use instance administrator invitation link. Open the link, create an account if needed, and accept the invitation; then add the Trellis API URL and operator token under **Organization → Cluster**.
 
 ### Migrations
 

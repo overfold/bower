@@ -185,14 +185,14 @@ export const apiKeys = pgTable("api_keys", {
     .defaultNow(),
 });
 
-export const organizationTokens = pgTable("organization_tokens", {
+export const invitations = pgTable("invitations", {
   id: uuid("id").primaryKey().defaultRandom(),
   orgId: uuid("org_id")
-    .notNull()
     .references(() => organizations.id, { onDelete: "cascade" }),
   tokenHash: text("token_hash").notNull().unique(),
-  tokenPrefix: text("token_prefix").notNull(),
-  role: orgMemberRoleEnum("role").notNull(),
+  organizationRole: orgMemberRoleEnum("organization_role"),
+  grantInstanceAdmin: boolean("grant_instance_admin").notNull().default(false),
+  reusable: boolean("reusable").notNull().default(false),
   note: text("note"),
   createdByUserId: uuid("created_by_user_id").references(() => users.id, {
     onDelete: "set null",
@@ -202,28 +202,25 @@ export const organizationTokens = pgTable("organization_tokens", {
   }),
   usedAt: timestamp("used_at", { withTimezone: true }),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
 });
 
-export const instanceTokens = pgTable("instance_tokens", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  tokenHash: text("token_hash").notNull().unique(),
-  tokenPrefix: text("token_prefix").notNull(),
-  note: text("note"),
-  createdByUserId: uuid("created_by_user_id").references(() => users.id, {
-    onDelete: "set null",
-  }),
-  usedByUserId: uuid("used_by_user_id").references(() => users.id, {
-    onDelete: "set null",
-  }),
-  usedAt: timestamp("used_at", { withTimezone: true }),
-  expiresAt: timestamp("expires_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const invitationTeams = pgTable(
+  "invitation_teams",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    invitationId: uuid("invitation_id")
+      .notNull()
+      .references(() => invitations.id, { onDelete: "cascade" }),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+  },
+  (table) => [uniqueIndex("invitation_teams_invitation_team_idx").on(table.invitationId, table.teamId)]
+);
 
 // ---------------------------------------------------------------------------
 // Workload model

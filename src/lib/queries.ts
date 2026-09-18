@@ -22,8 +22,7 @@ import {
   managedProxies,
   deploymentEvents,
   users,
-  organizationTokens,
-  instanceTokens,
+  invitations,
   projectUserAccess,
 } from '@/db/schema'
 
@@ -104,13 +103,6 @@ export async function getInstanceMembers() {
     .orderBy(users.name, organizations.name)
 }
 
-export async function getInstanceTokens() {
-  return db
-    .select({ token: instanceTokens, createdByName: users.name })
-    .from(instanceTokens)
-    .leftJoin(users, eq(users.id, instanceTokens.createdByUserId))
-    .orderBy(desc(instanceTokens.createdAt))
-}
 
 export async function getUserTeams(userId: string, orgId: string) {
   return db
@@ -357,10 +349,10 @@ export async function getTeamMembershipsForOrg(orgId: string) {
     .where(eq(teams.orgId, orgId))
 }
 
-export async function getOrganizationTokens(orgId: string) {
-  return db.select({ token: organizationTokens, createdByName: users.name }).from(organizationTokens)
-    .leftJoin(users, eq(users.id, organizationTokens.createdByUserId))
-    .where(eq(organizationTokens.orgId, orgId)).orderBy(desc(organizationTokens.createdAt))
+export async function getInvitations(orgId: string) {
+  return db.select({ invitation: invitations, createdByName: users.name }).from(invitations)
+    .leftJoin(users, eq(users.id, invitations.createdByUserId))
+    .where(eq(invitations.orgId, orgId)).orderBy(desc(invitations.createdAt))
 }
 
 export async function getBaseServiceConfig(serviceId: string) {

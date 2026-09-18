@@ -19,7 +19,7 @@ export function proxy(request: NextRequest) {
   }
 
   // Allow unauthenticated access to public paths
-  if (PUBLIC_PATHS.includes(pathname)) {
+  if (PUBLIC_PATHS.includes(pathname) || pathname.startsWith('/invite/')) {
     return NextResponse.next()
   }
 

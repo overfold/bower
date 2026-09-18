@@ -78,7 +78,7 @@ export default function LoginPage() {
       <div className="border-t border-line pt-4">
         <p className="text-center text-[12.5px] text-ink-muted">
           Don&apos;t have an account?{' '}
-          <Link href="/register" className="font-medium text-brand-600 hover:underline">
+          <Link href={`/register${typeof window === 'undefined' ? '' : window.location.search}`} className="font-medium text-brand-600 hover:underline">
             Register
           </Link>
         </p>

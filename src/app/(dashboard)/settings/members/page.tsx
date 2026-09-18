@@ -3,10 +3,9 @@ import { getCurrentUser } from '@/lib/auth'
 import {
   getUserOrganization,
   getOrgMembers,
-  getOrganizationTokens,
+  getInvitations,
   getTeamMembershipsForOrg,
   getTeamsByOrg,
-  getInstanceTokens,
   isInstanceAdmin,
 } from '@/lib/queries'
 import { PageHeading } from '@/components/page-heading'
@@ -24,10 +23,7 @@ export default async function MembersSettingsPage() {
   const showInstanceAdmin = await isInstanceAdmin(user.id)
   const canManageRoles = showInstanceAdmin || orgCtx.role === 'owner'
 
-  const [tokens, instanceTokens] = await Promise.all([
-    getOrganizationTokens(orgCtx.org.id),
-    showInstanceAdmin ? getInstanceTokens() : Promise.resolve([]),
-  ])
+  const invitations = await getInvitations(orgCtx.org.id)
 
   const [members, teamMemberships, teams] = await Promise.all([
     getOrgMembers(orgCtx.org.id),
@@ -77,36 +73,21 @@ export default async function MembersSettingsPage() {
       />
 
       <InviteTokensSection
-        tokens={[
-          ...tokens.map((row) => ({
-            kind: 'organization' as const,
-            token: {
-              id: row.token.id,
-              tokenPrefix: row.token.tokenPrefix,
-              role: row.token.role,
-              note: row.token.note,
-              usedAt: row.token.usedAt?.toISOString() ?? null,
-              expiresAt: row.token.expiresAt?.toISOString() ?? null,
-              createdAt: row.token.createdAt.toISOString(),
-            },
-            createdByName: row.createdByName,
-          })),
-          ...instanceTokens.map((row) => ({
-            kind: 'instance' as const,
-            token: {
-              id: row.token.id,
-              tokenPrefix: row.token.tokenPrefix,
-              role: null,
-              note: row.token.note,
-              usedAt: row.token.usedAt?.toISOString() ?? null,
-              expiresAt: row.token.expiresAt?.toISOString() ?? null,
-              createdAt: row.token.createdAt.toISOString(),
-            },
-            createdByName: row.createdByName,
-          })),
-        ].sort((a, b) => new Date(b.token.createdAt).getTime() - new Date(a.token.createdAt).getTime())}
+        invitations={invitations.map((row) => ({
+          id: row.invitation.id,
+          organizationRole: row.invitation.organizationRole,
+          grantInstanceAdmin: row.invitation.grantInstanceAdmin,
+          reusable: row.invitation.reusable,
+          note: row.invitation.note,
+          usedAt: row.invitation.usedAt?.toISOString() ?? null,
+          expiresAt: row.invitation.expiresAt?.toISOString() ?? null,
+          revokedAt: row.invitation.revokedAt?.toISOString() ?? null,
+          createdAt: row.invitation.createdAt.toISOString(),
+          createdByName: row.createdByName,
+        }))}
         role={orgCtx.role}
         showInstanceAdmin={showInstanceAdmin}
+        teams={teamOptions}
       />
     </div>
   )

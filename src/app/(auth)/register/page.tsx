@@ -17,6 +17,8 @@ export default function RegisterPage() {
     setError(null)
     setLoading(true)
     const formData = new FormData(e.currentTarget)
+    const next = new URLSearchParams(window.location.search).get('next')
+    if (next) formData.set('next', next)
     const result = await registerAction(formData)
     if (result?.error) {
       setError(result.error)
@@ -29,7 +31,7 @@ export default function RegisterPage() {
       <div className="space-y-1">
         <h2 className="text-[15px] font-semibold tracking-tight">Create account</h2>
         <p className="text-xs leading-relaxed text-ink-muted">
-          Enter your details and invite token to get started.
+          Create your Bower account.
         </p>
       </div>
 
@@ -66,16 +68,6 @@ export default function RegisterPage() {
             minLength={8}
           />
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="inviteToken">Invite token</Label>
-          <Input
-            id="inviteToken"
-            name="inviteToken"
-            placeholder="Paste your invite token"
-            className="font-mono text-[12.5px]"
-            required
-          />
-        </div>
         <Button variant="primary" type="submit" className="mt-1 w-full" size="lg" disabled={loading}>
           {loading ? (
             <>
@@ -91,7 +83,7 @@ export default function RegisterPage() {
       <div className="border-t border-line pt-4">
         <p className="text-center text-[12.5px] text-ink-muted">
           Already have an account?{' '}
-          <Link href="/login" className="font-medium text-brand-600 hover:underline">
+          <Link href={`/login${typeof window === 'undefined' ? '' : window.location.search}`} className="font-medium text-brand-600 hover:underline">
             Sign in
           </Link>
         </p>

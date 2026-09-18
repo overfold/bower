@@ -6,7 +6,7 @@ declare global {
 
 async function seedDefaultOrg() {
   const { db } = await import('@/db')
-  const { organizations, instanceTokens } = await import('@/db/schema')
+  const { organizations, invitations } = await import('@/db/schema')
   const { sql } = await import('drizzle-orm')
 
   const [{ count }] = await db
@@ -18,22 +18,24 @@ async function seedDefaultOrg() {
   const apiUrl = process.env.TRELLIS_ADDR ?? process.env.TRELLIS_API_URL ?? ''
   const apiToken = process.env.TRELLIS_TOKEN ?? process.env.TRELLIS_API_TOKEN ?? ''
 
-  await db
+  const [organization] = await db
     .insert(organizations)
     .values({
       name: 'Default',
       slug: 'default',
       trellisApiUrl: apiUrl,
       trellisApiToken: apiToken,
-    })
+    }).returning({ id: organizations.id })
 
-  const rawToken = `bi_${randomBytes(24).toString('base64url')}`
+  const rawToken = randomBytes(32).toString('base64url')
   const tokenHash = createHash('sha256').update(rawToken).digest('hex')
-  const tokenPrefix = rawToken.slice(0, 11)
+  const inviteUrl = `${(process.env.BOWER_PUBLIC_URL ?? '').replace(/\/$/, '')}/invite/${rawToken}`
 
-  await db.insert(instanceTokens).values({
+  await db.insert(invitations).values({
+    orgId: organization.id,
     tokenHash,
-    tokenPrefix,
+    organizationRole: 'owner',
+    grantInstanceAdmin: true,
     note: 'Bootstrap instance admin token',
   })
 
@@ -41,10 +43,10 @@ async function seedDefaultOrg() {
   console.log(`\n╔${line}╗`)
   console.log('║           Bower — First Run Setup                         ║')
   console.log(`╠${line}╣`)
-  console.log('║  Use this token to create the first account:              ║')
-  console.log(`║  ${rawToken.padEnd(58)}║`)
+  console.log('║  Open this link to create the first account:              ║')
+  console.log(`║  ${inviteUrl}`.padEnd(60) + '║')
   console.log('║                                                            ║')
-  console.log('║  This token grants instance admin access.                  ║')
+  console.log('║  This invitation grants owner and instance admin access.  ║')
   console.log('║  It is single-use. Keep it safe.                           ║')
   console.log(`╚${line}╝\n`)
 }

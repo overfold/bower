@@ -1,13 +1,14 @@
 'use server'
 
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { db } from '@/db'
-import { organizations, users, organizationTokens, organizationMembers, apiKeys, instanceTokens } from '@/db/schema'
+import { organizations, users, invitations, invitationTeams, organizationMembers, apiKeys, teams } from '@/db/schema'
 import { createHash, randomBytes } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { getCurrentUser, hashPassword, verifyPassword } from '@/lib/auth'
 import { getUserOrganization, isInstanceAdmin } from '@/lib/queries'
 import { recordAudit } from './shared'
+import { acceptInvitation, createInvitationToken, hashInvitationToken } from '@/lib/invitations'
 
 export async function updateOrganizationAction(
   formData: FormData,
@@ -209,49 +210,59 @@ export async function revokeApiKeyAction(id: string) {
   revalidatePath('/settings/account')
 }
 
-export async function createInviteTokenAction(
-  role: 'owner' | 'admin' | 'member',
-  note?: string,
-): Promise<{ error?: string; token?: string }> {
+export async function createInvitationAction(input: {
+  role: 'owner' | 'admin' | 'member' | null
+  grantInstanceAdmin: boolean
+  reusable: boolean
+  teamIds: string[]
+  note?: string
+  expiresAt?: string
+}): Promise<{ error?: string; inviteUrl?: string }> {
   const user = await getCurrentUser()
   if (!user) return { error: 'Not authenticated.' }
   const ctx = await getUserOrganization(user.id)
   if (!ctx) return { error: 'No organization found.' }
   if (ctx.role === 'member') return { error: 'Insufficient permissions.' }
-  if (role === 'owner' && ctx.role !== 'owner') return { error: 'Only owners can create owner-level invitations.' }
+  if (input.role === 'owner' && ctx.role !== 'owner' && !(await isInstanceAdmin(user.id))) return { error: 'Only owners can create owner-level invitations.' }
+  if (!input.role && !input.grantInstanceAdmin) return { error: 'An invitation must grant organization or instance access.' }
+  if (input.reusable && input.role !== 'member') return { error: 'Reusable invitations can only grant the Member role.' }
+  const expiresAt = input.expiresAt ? new Date(input.expiresAt) : null
+  if (expiresAt && Number.isNaN(expiresAt.getTime())) return { error: 'Invalid expiration date.' }
+  if (expiresAt && expiresAt <= new Date()) return { error: 'Expiration must be in the future.' }
+  const validTeams = input.teamIds.length ? await db.select({ id: teams.id }).from(teams)
+    .where(and(eq(teams.orgId, ctx.org.id), inArray(teams.id, input.teamIds))) : []
+  if (validTeams.length !== input.teamIds.length) return { error: 'One or more selected teams do not belong to this organization.' }
 
-  const rawToken = `ci_${randomBytes(24).toString('base64url')}`
-  const tokenHash = createHash('sha256').update(rawToken).digest('hex')
-  const tokenPrefix = rawToken.slice(0, 11)
-
-  await db.insert(organizationTokens).values({
+  const rawToken = createInvitationToken()
+  const [invitation] = await db.insert(invitations).values({
     orgId: ctx.org.id,
-    tokenHash,
-    tokenPrefix,
-    role,
-    note: note?.trim() || null,
+    tokenHash: hashInvitationToken(rawToken),
+    organizationRole: input.role,
+    grantInstanceAdmin: input.grantInstanceAdmin,
+    reusable: input.reusable,
+    note: input.note?.trim() || null,
+    expiresAt,
     createdByUserId: user.id,
-  })
-
-  await recordAudit({ orgId: ctx.org.id, userId: user.id, action: 'invite_token.created', resourceType: 'invite_token', resourceId: tokenPrefix, details: { role, note } })
+  }).returning()
+  if (validTeams.length) await db.insert(invitationTeams).values(validTeams.map(({ id }) => ({ invitationId: invitation.id, teamId: id })))
+  await recordAudit({ orgId: ctx.org.id, userId: user.id, action: 'invitation.created', resourceType: 'invitation', resourceId: invitation.id, details: { role: input.role, reusable: input.reusable, grantInstanceAdmin: input.grantInstanceAdmin } })
   revalidatePath('/settings/members')
-  return { token: rawToken }
+  return { inviteUrl: `/invite/${rawToken}` }
 }
 
-export async function revokeInviteTokenAction(id: string) {
+export async function revokeInvitationAction(id: string) {
   const user = await getCurrentUser()
   if (!user) return { error: 'Not authenticated.' }
   const ctx = await getUserOrganization(user.id)
   if (!ctx) return { error: 'No organization found.' }
   if (ctx.role === 'member') return { error: 'Insufficient permissions.' }
 
-  const [token] = await db.select().from(organizationTokens)
-    .where(and(eq(organizationTokens.id, id), eq(organizationTokens.orgId, ctx.org.id))).limit(1)
-  if (!token) return { error: 'Invitation not found.' }
-  if (token.usedAt) return { error: 'Cannot revoke an invitation that has already been used.' }
-
-  await db.delete(organizationTokens).where(eq(organizationTokens.id, id))
-  await recordAudit({ orgId: ctx.org.id, userId: user.id, action: 'invite_token.revoked', resourceType: 'invite_token', resourceId: id, details: { prefix: token.tokenPrefix } })
+  const [invitation] = await db.select().from(invitations)
+    .where(and(eq(invitations.id, id), eq(invitations.orgId, ctx.org.id))).limit(1)
+  if (!invitation) return { error: 'Invitation not found.' }
+  if (invitation.revokedAt) return { error: 'Invitation is already revoked.' }
+  await db.update(invitations).set({ revokedAt: new Date() }).where(eq(invitations.id, id))
+  await recordAudit({ orgId: ctx.org.id, userId: user.id, action: 'invitation.revoked', resourceType: 'invitation', resourceId: id })
   revalidatePath('/settings/members')
   return { success: true }
 }
@@ -273,38 +284,11 @@ export async function toggleInstanceAdminAction(
   return { success: true }
 }
 
-export async function createInstanceTokenAction(
-  note?: string,
-): Promise<{ error?: string; token?: string }> {
+export async function acceptInvitationAction(token: string): Promise<{ error?: string; success?: boolean }> {
   const user = await getCurrentUser()
   if (!user) return { error: 'Not authenticated.' }
-  if (!(await isInstanceAdmin(user.id))) return { error: 'Instance administrator access required.' }
-
-  const rawToken = `it_${randomBytes(24).toString('base64url')}`
-  const tokenHash = createHash('sha256').update(rawToken).digest('hex')
-  const tokenPrefix = rawToken.slice(0, 11)
-
-  await db.insert(instanceTokens).values({
-    tokenHash,
-    tokenPrefix,
-    note: note?.trim() || null,
-    createdByUserId: user.id,
-  })
-
-  revalidatePath('/settings/members')
-  return { token: rawToken }
-}
-
-export async function revokeInstanceTokenAction(id: string) {
-  const user = await getCurrentUser()
-  if (!user) return { error: 'Not authenticated.' }
-  if (!(await isInstanceAdmin(user.id))) return { error: 'Instance administrator access required.' }
-
-  const [token] = await db.select().from(instanceTokens).where(eq(instanceTokens.id, id)).limit(1)
-  if (!token) return { error: 'Token not found.' }
-  if (token.usedAt) return { error: 'Cannot revoke a token that has already been used.' }
-
-  await db.delete(instanceTokens).where(eq(instanceTokens.id, id))
+  const result = await acceptInvitation(token, user.id)
+  if (result.error) return result
   revalidatePath('/settings/members')
   return { success: true }
 }
