@@ -88,6 +88,24 @@ export async function getInstanceAdmins() {
     .orderBy(users.name)
 }
 
+export async function getInstanceMembers() {
+  return db
+    .select({
+      membership: organizationMembers,
+      organizationId: organizations.id,
+      organizationName: organizations.name,
+      userId: users.id,
+      userName: users.name,
+      userEmail: users.email,
+      userAvatar: users.avatarUrl,
+      isInstanceAdmin: users.isInstanceAdmin,
+    })
+    .from(users)
+    .leftJoin(organizationMembers, eq(organizationMembers.userId, users.id))
+    .leftJoin(organizations, eq(organizations.id, organizationMembers.orgId))
+    .orderBy(users.name, organizations.name)
+}
+
 export async function getInstanceTokens() {
   return db
     .select({ token: instanceTokens, createdByName: users.name })
@@ -251,6 +269,32 @@ export async function getDeploymentEvents(deploymentIds: string[]) {
 
 export async function getTeamsByOrg(orgId: string) {
   return db.select().from(teams).where(eq(teams.orgId, orgId)).orderBy(teams.name)
+}
+
+export async function getInstanceTeams() {
+  return db
+    .select({
+      id: teams.id,
+      name: teams.name,
+      organizationId: organizations.id,
+      organizationName: organizations.name,
+    })
+    .from(teams)
+    .innerJoin(organizations, eq(organizations.id, teams.orgId))
+    .orderBy(organizations.name, teams.name)
+}
+
+export async function getInstanceTeamMemberships() {
+  return db
+    .select({
+      userId: teamMemberships.userId,
+      teamId: teams.id,
+      teamName: teams.name,
+      organizationId: organizations.id,
+    })
+    .from(teamMemberships)
+    .innerJoin(teams, eq(teams.id, teamMemberships.teamId))
+    .innerJoin(organizations, eq(organizations.id, teams.orgId))
 }
 
 export async function getTeamMembers(teamId: string) {

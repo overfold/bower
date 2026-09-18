@@ -1,109 +1,228 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { SearchIcon } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { MemberRoleSelect } from './member-role-select'
 import { RemoveInstanceAdminButton } from '../instance/instance-admin-actions'
-import { SearchIcon } from 'lucide-react'
+
+interface TeamRef {
+  id: string
+  name: string
+}
 
 interface MemberRow {
-  membershipId: string
+  membershipId: string | null
   userId: string
   name: string
   email: string
   avatar: string | null
-  role: 'owner' | 'admin' | 'member'
+  role: 'owner' | 'admin' | 'member' | null
   isInstanceAdmin: boolean
-  teams: string[]
+  organizationId: string | null
+  organizationName: string | null
+  teams: TeamRef[]
+}
+
+interface TeamOption {
+  id: string
+  name: string
+  organizationId: string
+  organizationName: string
+}
+
+interface OrganizationOption {
+  id: string
+  name: string
 }
 
 interface MembersTableProps {
   members: MemberRow[]
-  teamNames: string[]
+  teams: TeamOption[]
+  organizations: OrganizationOption[]
   canManageRoles: boolean
   showInstanceAdmin: boolean
   currentUserId: string
 }
 
-export function MembersTable({ members, teamNames, canManageRoles, showInstanceAdmin, currentUserId }: MembersTableProps) {
-  const [teamFilter, setTeamFilter] = useState('')
-  const [roleFilter, setRoleFilter] = useState('')
+export function MembersTable({
+  members,
+  teams,
+  organizations,
+  canManageRoles,
+  showInstanceAdmin,
+  currentUserId,
+}: MembersTableProps) {
   const [search, setSearch] = useState('')
+  const [instanceRoleFilter, setInstanceRoleFilter] = useState('all')
+  const [organizationFilter, setOrganizationFilter] = useState('all')
+  const [orgRoleFilter, setOrgRoleFilter] = useState('all')
+  const [teamFilter, setTeamFilter] = useState('all')
+
+  const availableTeams = useMemo(() => {
+    if (!showInstanceAdmin || organizationFilter === 'all') return teams
+    if (organizationFilter === 'none') return []
+    return teams.filter((team) => team.organizationId === organizationFilter)
+  }, [teams, showInstanceAdmin, organizationFilter])
 
   const filtered = useMemo(() => {
     let result = members
+
     if (search) {
       const q = search.toLowerCase()
-      result = result.filter((m) => m.name.toLowerCase().includes(q) || m.email.toLowerCase().includes(q))
+      result = result.filter((member) =>
+        member.name.toLowerCase().includes(q) ||
+        member.email.toLowerCase().includes(q) ||
+        member.organizationName?.toLowerCase().includes(q),
+      )
     }
-    if (teamFilter) {
-      result = result.filter((m) => m.teams.includes(teamFilter))
-    }
-    if (roleFilter === 'instance_admin') {
-      result = result.filter((m) => m.isInstanceAdmin)
-    } else if (roleFilter) {
-      result = result.filter((m) => m.role === roleFilter)
-    }
-    return result
-  }, [members, search, teamFilter, roleFilter])
 
-  const selectClass = 'h-10 w-full rounded-lg sm:h-9 sm:w-auto border border-line bg-surface px-3 pr-8 text-[13px] text-ink shadow-card transition-[border-color,box-shadow] duration-150 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100 appearance-none'
+    if (showInstanceAdmin && instanceRoleFilter !== 'all') {
+      result = result.filter((member) =>
+        instanceRoleFilter === 'admin' ? member.isInstanceAdmin : !member.isInstanceAdmin,
+      )
+    }
+
+    if (showInstanceAdmin && organizationFilter !== 'all') {
+      result = result.filter((member) =>
+        organizationFilter === 'none'
+          ? member.organizationId === null
+          : member.organizationId === organizationFilter,
+      )
+    }
+
+    if (orgRoleFilter !== 'all') {
+      result = result.filter((member) =>
+        orgRoleFilter === 'none' ? member.role === null : member.role === orgRoleFilter,
+      )
+    }
+
+    if (teamFilter !== 'all') {
+      result = result.filter((member) => member.teams.some((team) => team.id === teamFilter))
+    }
+
+    return result
+  }, [
+    members,
+    search,
+    showInstanceAdmin,
+    instanceRoleFilter,
+    organizationFilter,
+    orgRoleFilter,
+    teamFilter,
+  ])
+
+  const uniqueMemberCount = useMemo(
+    () => new Set(members.map((member) => member.userId)).size,
+    [members],
+  )
+  const columnCount = 4 + (showInstanceAdmin ? 2 : 0) + (canManageRoles ? 1 : 0)
 
   return (
     <Card>
-      <CardHeader>
-        <div>
-          <CardTitle>Organization members</CardTitle>
-          <p className="mt-0.5 text-xs text-ink-muted">{members.length} {members.length === 1 ? 'member' : 'members'}</p>
+      <CardHeader className="min-h-0 flex-col items-stretch gap-3 py-3 xl:flex-row xl:items-center">
+        <div className="shrink-0">
+          <CardTitle>Members</CardTitle>
+          <p className="mt-0.5 text-xs text-ink-muted">
+            {uniqueMemberCount} {uniqueMemberCount === 1 ? 'member' : 'members'}
+          </p>
+        </div>
+
+        <div className="flex flex-1 flex-wrap items-center gap-2 xl:justify-end">
+          <div className="relative min-w-[190px] flex-1 sm:max-w-[240px]">
+            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 z-10 h-3.5 w-3.5 -translate-y-1/2 text-ink-faint" />
+            <Input
+              className="pl-8"
+              placeholder="Search members..."
+              aria-label="Search members"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </div>
+
+          {showInstanceAdmin ? (
+            <Select value={instanceRoleFilter} onValueChange={setInstanceRoleFilter}>
+              <SelectTrigger className="w-[164px]" aria-label="Filter by instance role">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All instance roles</SelectItem>
+                <SelectItem value="admin">Instance admin</SelectItem>
+                <SelectItem value="user">User</SelectItem>
+              </SelectContent>
+            </Select>
+          ) : null}
+
+          {showInstanceAdmin ? (
+            <Select
+              value={organizationFilter}
+              onValueChange={(value) => {
+                setOrganizationFilter(value)
+                setTeamFilter('all')
+              }}
+            >
+              <SelectTrigger className="w-[178px]" aria-label="Filter by organization">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All organizations</SelectItem>
+                <SelectItem value="none">No organization</SelectItem>
+                {organizations.map((organization) => (
+                  <SelectItem key={organization.id} value={organization.id}>
+                    {organization.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
+
+          <Select value={orgRoleFilter} onValueChange={setOrgRoleFilter}>
+            <SelectTrigger className="w-[172px]" aria-label="Filter by organization role">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">
+                {showInstanceAdmin ? 'All organization roles' : 'All roles'}
+              </SelectItem>
+              <SelectItem value="owner">Owner</SelectItem>
+              <SelectItem value="admin">Admin</SelectItem>
+              <SelectItem value="member">Member</SelectItem>
+              {showInstanceAdmin ? <SelectItem value="none">No organization role</SelectItem> : null}
+            </SelectContent>
+          </Select>
+
+          <Select value={teamFilter} onValueChange={setTeamFilter} disabled={availableTeams.length === 0}>
+            <SelectTrigger className="w-[160px]" aria-label="Filter by team">
+              <SelectValue placeholder="All teams" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All teams</SelectItem>
+              {availableTeams.map((team) => (
+                <SelectItem key={team.id} value={team.id}>
+                  {showInstanceAdmin && organizationFilter === 'all'
+                    ? `${team.name} · ${team.organizationName}`
+                    : team.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </CardHeader>
-      <div className="grid grid-cols-1 gap-3 border-b border-line px-4 pb-3 sm:flex sm:flex-wrap sm:items-center">
-        <div className="relative sm:w-56">
-          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-faint" />
-          <input
-            className="h-10 w-full rounded-lg border border-line bg-surface pl-8 pr-3 text-[13px] text-ink placeholder:text-ink-faint shadow-card transition-[border-color,box-shadow] duration-150 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
-            placeholder="Search members..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        {teamNames.length > 0 && (
-          <select
-            className={selectClass}
-            value={teamFilter}
-            onChange={(e) => setTeamFilter(e.target.value)}
-            aria-label="Filter by team"
-          >
-            <option value="">All teams</option>
-            {teamNames.map((name) => (
-              <option key={name} value={name}>{name}</option>
-            ))}
-          </select>
-        )}
-        <select
-          className={selectClass}
-          value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value)}
-          aria-label="Filter by role"
-        >
-          <option value="">All roles</option>
-          <option value="owner">Owner</option>
-          <option value="admin">Admin</option>
-          <option value="member">Member</option>
-          {showInstanceAdmin && <option value="instance_admin">Instance admin</option>}
-        </select>
-      </div>
+
       <CardContent className="p-0">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Member</TableHead>
               <TableHead>Email</TableHead>
-              <TableHead>Organization role</TableHead>
-              {showInstanceAdmin && <TableHead>Instance</TableHead>}
+              {showInstanceAdmin ? <TableHead>Instance Role</TableHead> : null}
+              {showInstanceAdmin ? <TableHead>Organization</TableHead> : null}
+              <TableHead>{showInstanceAdmin ? 'Organization Role' : 'Role'}</TableHead>
               <TableHead>Teams</TableHead>
               {canManageRoles ? <TableHead className="w-[136px]" /> : null}
             </TableRow>
@@ -111,13 +230,13 @@ export function MembersTable({ members, teamNames, canManageRoles, showInstanceA
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={showInstanceAdmin ? 6 : 5} className="py-8 text-center text-[13px] text-ink-muted">
+                <TableCell colSpan={columnCount} className="py-8 text-center text-[13px] text-ink-muted">
                   No members match the current filters.
                 </TableCell>
               </TableRow>
             ) : (
               filtered.map((member) => (
-                <TableRow key={member.membershipId}>
+                <TableRow key={member.membershipId ?? `user-${member.userId}`}>
                   <TableCell>
                     <div className="flex items-center gap-2.5">
                       <Avatar className="h-7 w-7 rounded-md">
@@ -130,41 +249,61 @@ export function MembersTable({ members, teamNames, canManageRoles, showInstanceA
                     </div>
                   </TableCell>
                   <TableCell className="text-ink-muted">{member.email}</TableCell>
-                  <TableCell>
-                    <Badge variant={member.role === 'owner' ? 'default' : 'secondary'} className="capitalize">
-                      {member.role}
-                    </Badge>
-                  </TableCell>
-                  {showInstanceAdmin && (
+
+                  {showInstanceAdmin ? (
                     <TableCell>
                       {member.isInstanceAdmin ? (
                         <div className="flex items-center gap-2">
                           <Badge variant="default">Admin</Badge>
-                          <RemoveInstanceAdminButton email={member.email} adminId={member.userId} currentUserId={currentUserId} />
+                          <RemoveInstanceAdminButton
+                            email={member.email}
+                            adminId={member.userId}
+                            currentUserId={currentUserId}
+                          />
                         </div>
                       ) : (
-                        <span className="text-ink-muted">—</span>
+                        <Badge variant="secondary">User</Badge>
                       )}
                     </TableCell>
-                  )}
+                  ) : null}
+
+                  {showInstanceAdmin ? (
+                    <TableCell className="text-ink-muted">
+                      {member.organizationName ?? '—'}
+                    </TableCell>
+                  ) : null}
+
+                  <TableCell>
+                    {member.role ? (
+                      <Badge variant={member.role === 'owner' ? 'default' : 'secondary'} className="capitalize">
+                        {member.role}
+                      </Badge>
+                    ) : (
+                      <span className="text-ink-muted">—</span>
+                    )}
+                  </TableCell>
+
                   <TableCell>
                     {member.teams.length > 0 ? (
                       <div className="flex flex-wrap gap-1">
-                        {member.teams.map((name) => (
-                          <Badge key={name} variant="secondary">{name}</Badge>
+                        {member.teams.map((team) => (
+                          <Badge key={team.id} variant="secondary">{team.name}</Badge>
                         ))}
                       </div>
                     ) : (
                       <span className="text-ink-muted">—</span>
                     )}
                   </TableCell>
+
                   {canManageRoles ? (
                     <TableCell>
-                      <MemberRoleSelect
-                        membershipId={member.membershipId}
-                        role={member.role}
-                        canManage={canManageRoles}
-                      />
+                      {member.membershipId && member.role ? (
+                        <MemberRoleSelect
+                          membershipId={member.membershipId}
+                          role={member.role}
+                          canManage={canManageRoles}
+                        />
+                      ) : null}
                     </TableCell>
                   ) : null}
                 </TableRow>
