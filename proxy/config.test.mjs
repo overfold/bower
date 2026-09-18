@@ -44,5 +44,5 @@ test('leaves public routes unprotected', () => {
 
 test('renders the no-route fallback as a multiline Caddy site block', () => {
   const config = renderCaddyfile([], [], { httpPort: '8080' })
-  assert.match(config, /:8080 \\{\\n  respond "Bower proxy ready" 200\\n\\}$/)
+  assert.match(config, /:8080 \{\n  respond "Bower proxy ready" 200\n\}$/)
 })
