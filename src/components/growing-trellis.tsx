@@ -51,14 +51,6 @@ function catmullRom(pts: Pt[]): string {
   return d
 }
 
-interface Leaf {
-  x: number
-  y: number
-  angle: number
-  progress: number
-  size: number
-}
-
 interface Vine {
   id: string
   d: string
@@ -69,7 +61,6 @@ interface Vine {
   tip: Pt
   tipAngle: number
   tipFlip: boolean
-  leaves: Leaf[]
 }
 
 interface Corridor {
@@ -109,22 +100,6 @@ function buildVine(c: Corridor, delay: number, idx: number): Vine {
     ])
   }
 
-  const leaves: Leaf[] = []
-  let next = 2
-  for (let i = 1; i < pts.length - 1; i++) {
-    if (i !== next) continue
-    next = i + (rng() > 0.5 ? 3 : 4)
-    const tan = unit(pts[i - 1], pts[i + 1])
-    const side = rng() > 0.5 ? 1 : -1
-    leaves.push({
-      x: pts[i][0],
-      y: pts[i][1],
-      angle: deg(tan) + side * between(58, 80),
-      progress: i / n,
-      size: between(0.62, 1),
-    })
-  }
-
   let len = 0
   for (let i = 1; i < pts.length; i++)
     len += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])
@@ -142,7 +117,6 @@ function buildVine(c: Corridor, delay: number, idx: number): Vine {
     tip,
     tipAngle: deg(tipTan),
     tipFlip: tipTan[0] > 0,
-    leaves,
   }
 }
 
@@ -161,7 +135,7 @@ const UR = Array.from({ length: RAIL_N }, (_, i) => i * LATTICE_PITCH)
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1]
 const VINE_STROKE = 'hsl(172 33% 57%)'
-const LEAF_FILL = 'hsl(170 33% 74%)'
+const TRELLIS_STROKE = 'hsl(170 33% 74%)'
 
 export function GrowingTrellis({ className }: { className?: string }) {
   const id = useId()
@@ -187,7 +161,7 @@ export function GrowingTrellis({ className }: { className?: string }) {
     <div className={cn('pointer-events-none select-none', className)} aria-hidden="true">
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMax slice" className="h-full w-full">
         {/* Lattice grid */}
-        <g stroke={LEAF_FILL} strokeOpacity="0.14" strokeWidth="1">
+        <g stroke={TRELLIS_STROKE} strokeOpacity="0.14" strokeWidth="1">
           {DR.map((c, i) => (
             <motion.line
               key={`${id}d${i}`}
@@ -231,46 +205,6 @@ export function GrowingTrellis({ className }: { className?: string }) {
               animate={{ pathLength: 1 }}
               transition={grow(v.delay, v.dur)}
             />
-
-            {v.leaves.map((lf, li) => {
-              const at = v.delay + v.dur * lf.progress + 0.1
-              return (
-                <motion.g
-                  key={`${v.id}l${li}`}
-                  initial={off ? { opacity: 0.55 } : { opacity: 0, scale: 0.3 }}
-                  animate={{ opacity: 0.55, scale: 1 }}
-                  transition={off ? { duration: 0 } : { duration: 0.5, delay: at, ease: EASE }}
-                  style={{
-                    transformOrigin: `${lf.x}px ${lf.y}px`,
-                    transformBox: 'view-box',
-                  }}
-                >
-                  <g transform={`translate(${lf.x} ${lf.y}) rotate(${lf.angle}) scale(${lf.size})`}>
-                    <path
-                      d="M-2 0 L 8 0"
-                      stroke={VINE_STROKE}
-                      strokeWidth={2.1 / lf.size}
-                      strokeLinecap="round"
-                      fill="none"
-                    />
-                    <g transform="translate(8 0)">
-                      <path
-                        d="M0 0 C 6.5 -8 18.5 -9 24.5 -1 C 18.5 7 6.5 6 0 0 Z"
-                        fill={LEAF_FILL}
-                        fillOpacity="0.9"
-                      />
-                      <path
-                        d="M3 0 C 10 -1.4 17 -1.8 22.5 -1.4"
-                        stroke={VINE_STROKE}
-                        strokeOpacity="0.6"
-                        strokeWidth={1}
-                        fill="none"
-                      />
-                    </g>
-                  </g>
-                </motion.g>
-              )
-            })}
 
             <g transform={`translate(${v.tip[0]} ${v.tip[1]}) rotate(${v.tipAngle}) scale(1 ${v.tipFlip ? -1 : 1})`}>
               <motion.path
