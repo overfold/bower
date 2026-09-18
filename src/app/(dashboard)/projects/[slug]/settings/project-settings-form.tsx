@@ -28,6 +28,7 @@ export function ProjectSettingsForm({ project }: Props) {
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
   const [deleting, startDelete] = useTransition()
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -44,8 +45,10 @@ export function ProjectSettingsForm({ project }: Props) {
   }
 
   function handleDelete() {
+    setDeleteError(null)
     startDelete(async () => {
-      await deleteProjectAction(project.id)
+      const result = await deleteProjectAction(project.id)
+      if (result?.error) setDeleteError(result.error)
     })
   }
 
@@ -87,6 +90,7 @@ export function ProjectSettingsForm({ project }: Props) {
           <p className="mb-4 text-sm text-ink-muted">
             Deleting a project removes all services, environments, deployments, and configurations permanently.
           </p>
+          {deleteError && <div className="mb-4 rounded-md bg-danger-50 p-3 text-sm text-danger-500">{deleteError}</div>}
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="danger" size="sm" disabled={deleting}>
