@@ -22,85 +22,29 @@ Bower is an opinionated deployment dashboard built on top of [Trellis](https://g
 
 ### On Trellis
 
-The `trellis.yaml` below includes a bundled Postgres container so you can get running without an external database. It uses host networking and assumes both task groups land on the same node, so it works as-is on a single-node cluster. For multi-node clusters, replace the `db` task group with an external database and store the connection string as a Trellis secret instead. For a demo, data persists across container crashes but is lost if the allocation is replaced.
+Bower includes a root [`trellis.yml`](trellis.yml), so a recent `trellisctl` can fetch the manifest directly from this repository and apply it without cloning Bower.
+
+The quick-start manifest includes a bundled Postgres container, uses host networking, and is intended for a single-node Trellis cluster. For a multi-node or production deployment, use an external Postgres instance and adjust `DATABASE_URL` instead. The bundled database persists across container crashes, but its node-local data is not a substitute for a production database backup/HA strategy.
 
 #### 1. Set the encryption key secret
 
 ```bash
-# Generate a stable 32-byte key and store it — must be identical across all Bower instances
+# Generate a stable 32-byte key and store it — it must be identical across all Bower instances.
 openssl rand -hex 32 | trellisctl --namespace platform secrets set encryption-key --stdin
 ```
 
-#### 2. Apply `trellis.yaml`
-
-```yaml
-# trellis.yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/overfold/trellis/main/schemas/trellis-job.schema.json
-name: bower
-namespace: platform
-task_groups:
-  - name: db
-    count: 1
-    tasks:
-      - name: postgres
-        image: docker.io/library/postgres:16-alpine
-        networking:
-          mode: host
-          ports:
-            - port: 5432
-        resources:
-          cpu: 250
-          memory: 256MiB
-        env:
-          POSTGRES_USER: bower
-          POSTGRES_PASSWORD: bower
-          POSTGRES_DB: bower
-        volumes:
-          - name: pgdata
-            host_path: '@/bower-postgres'
-            container_path: /var/lib/postgresql/data
-        health_check:
-          type: script
-          command: ["pg_isready", "-U", "bower"]
-          interval: 5s
-          timeout: 5s
-          threshold: 3
-
-  - name: web
-    count: 1
-    api_access:
-      scope: cluster
-      access: write
-    tasks:
-      - name: bower
-        image: ghcr.io/clofour/bower:latest
-        networking:
-          mode: host
-          ports:
-            - port: 3000
-        resources:
-          cpu: 500
-          memory: 512MiB
-        env:
-          NODE_ENV: production
-          DATABASE_URL: postgres://bower:bower@localhost:5432/bower
-          BOWER_RECONCILE_INTERVAL: "5"
-          AUTO_MIGRATE: "true"
-        secrets:
-          - name: encryption-key
-            target: env
-            env: NEXT_SERVER_ACTIONS_ENCRYPTION_KEY
-        health_check:
-          type: http
-          port: 3000
-          path: /
-          interval: 10s
-          timeout: 5s
-          threshold: 2
-```
+#### 2. Apply Bower from GitHub
 
 ```bash
-trellisctl --namespace platform jobs apply --file trellis.yaml --wait
+trellisctl --namespace platform jobs apply github.com/overfold/bower --wait
+```
+
+`trellisctl` resolves the repository's `trellis.yml`, validates it locally, and applies the resulting Trellis job through the normal plan/apply path. The checked-in quick-start manifest uses the current `latest` Bower and proxy images.
+
+If you already have the repository checked out, the equivalent local command is:
+
+```bash
+trellisctl --namespace platform jobs apply ./trellis.yml --wait
 ```
 
 #### 3. Finish setup
@@ -112,6 +56,8 @@ trellisctl --namespace platform jobs logs bower --tail 50
 ```
 
 Look for the `Bower — First Run Setup` banner containing the token. Open Bower at `http://<node-ip>:3000` and use the token to create the first account. The Trellis connection is already configured — no manual cluster setup required.
+
+For Bower-account-protected application routes, also configure `BOWER_PUBLIC_URL` and `BOWER_ROUTE_AUTH_SECRET`; see the [configuration reference](docs/configuration.md).
 
 ### Local development
 
@@ -178,7 +124,7 @@ npm run db:migrate   # Apply pending migrations
 
 ## Container image
 
-Tagged releases publish `ghcr.io/clofour/bower:<version>` and update `ghcr.io/clofour/bower:latest`. The container listens on port 3000 and runs as a non-root user.
+Tagged releases publish `ghcr.io/overfold/bower:<version>` and update `ghcr.io/overfold/bower:latest`. The container listens on port 3000 and runs as a non-root user.
 
 When `AUTO_MIGRATE=true` is set, the container applies pending migrations on startup. Otherwise, run `npm run db:migrate` before starting the new container.
 
