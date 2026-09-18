@@ -248,7 +248,7 @@ export function EditConfigDialog({ serviceId, environmentId, config, mode, overr
                       Health check path
                       <FieldOverrideBadge fieldName="healthCheckPath" overriddenFields={overriddenFields} />
                     </Label>
-                    <Input id="healthPath" name="healthPath" defaultValue={defaults.healthCheckPath} />
+                    <Input id="healthPath" name="healthPath" defaultValue={defaults.healthCheckPath} mono />
                   </div>
                 )}
               </div>
@@ -258,7 +258,7 @@ export function EditConfigDialog({ serviceId, environmentId, config, mode, overr
                   Command
                   <FieldOverrideBadge fieldName="command" overriddenFields={overriddenFields} />
                 </Label>
-                <Input id="command" name="command" defaultValue={defaults.command} />
+                <Input id="command" name="command" defaultValue={defaults.command} mono />
               </div>
 
               <div className="space-y-2">

@@ -52,7 +52,7 @@ export function ClusterSettingsForm({ org }: ClusterSettingsFormProps) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="trellisApiToken">Trellis API token</Label>
-            <Input id="trellisApiToken" name="trellisApiToken" type="password" defaultValue={org.trellisApiToken} autoComplete="off" />
+            <Input id="trellisApiToken" name="trellisApiToken" type="password" defaultValue={org.trellisApiToken} autoComplete="off" mono />
           </div>
         </CardContent>
         <CardFooter>

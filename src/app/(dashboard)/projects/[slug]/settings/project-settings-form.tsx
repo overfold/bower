@@ -66,7 +66,7 @@ export function ProjectSettingsForm({ project }: Props) {
             </div>
             <div className="space-y-2">
               <Label>Slug</Label>
-              <Input value={project.slug} disabled />
+              <Input value={project.slug} disabled mono />
             </div>
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>

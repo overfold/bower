@@ -70,7 +70,7 @@ export function CreateOrganizationDialog() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="instance-trellis-token">Trellis API token</Label>
-              <Input id="instance-trellis-token" name="trellisApiToken" type="password" autoComplete="off" required />
+              <Input id="instance-trellis-token" name="trellisApiToken" type="password" autoComplete="off" required mono />
             </div>
           </DialogBody>
           <DialogFooter>

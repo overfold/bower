@@ -112,7 +112,7 @@ export function CreateWebhookDialog({ projectId, services, environments }: Creat
               </div>
               <div className="space-y-2">
                 <Label htmlFor="wh-tag">Tag filter <span className="font-normal text-ink-muted">(optional regex)</span></Label>
-                <Input id="wh-tag" name="tagFilter" placeholder="e.g. ^v\\d+\\.\\d+\\.\\d+$" />
+                <Input id="wh-tag" name="tagFilter" placeholder="e.g. ^v\\d+\\.\\d+\\.\\d+$" mono />
               </div>
             </DialogBody>
             <DialogFooter>
@@ -218,7 +218,7 @@ export function CreateNotificationDialog({ projectId }: { projectId: string }) {
             </div>
             <div className="space-y-2">
               <Label htmlFor="nc-url">Endpoint URL</Label>
-              <Input id="nc-url" name="url" type="url" placeholder="https://hooks.slack.com/..." required />
+              <Input id="nc-url" name="url" type="url" placeholder="https://hooks.slack.com/..." required mono />
             </div>
           </DialogBody>
           <DialogFooter>

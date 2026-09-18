@@ -113,6 +113,7 @@ export function CreateSecretDialog({
                 placeholder="Secret value"
                 required
                 rows={3}
+                mono
               />
             </div>
             <div className="space-y-2">
