@@ -38,7 +38,7 @@ export function ChangePasswordForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Change password</CardTitle>
+        <CardTitle>Change password</CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -57,7 +57,7 @@ export function ChangePasswordForm() {
             <Input id="confirmPassword" name="confirmPassword" type="password" required minLength={8} />
           </div>
           <Button variant="primary" type="submit" disabled={loading}>
-            {loading ? 'Updating...' : 'Update password'}
+            {loading ? 'Updating…' : 'Update password'}
           </Button>
         </form>
       </CardContent>
