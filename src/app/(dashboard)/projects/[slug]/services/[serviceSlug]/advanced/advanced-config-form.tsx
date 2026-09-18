@@ -60,7 +60,7 @@ export function AdvancedConfigForm({
             <option value="runsc">runsc — gVisor sandbox</option>
           </select>
           <p className="text-2xs leading-relaxed text-ink-muted">
-            Runtime selection applies to the whole Trellis task group, including sidecars.
+            Runtime selection applies to the whole service group, including sidecars.
           </p>
         </div>
         <div className="space-y-2">
@@ -79,7 +79,7 @@ export function AdvancedConfigForm({
             <option value="cluster:write">Cluster · write</option>
           </select>
           <p className="text-2xs leading-relaxed text-ink-muted">
-            Trellis injects a scoped workload credential only when API access is enabled.
+            Enabling API access gives the workload a scoped credential.
           </p>
         </div>
       </div>
@@ -87,7 +87,7 @@ export function AdvancedConfigForm({
         <div className="flex gap-2 rounded-lg border border-warn-200 bg-warn-50 p-3 text-[12px] leading-relaxed text-warn-500">
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
-            This grants a workload elevated control-plane access. Prefer namespace read access unless the workload genuinely needs broader or mutating permissions.
+            This grants the workload elevated API access. Prefer namespace read access unless it genuinely needs broader or mutating permissions.
           </span>
         </div>
       )}
