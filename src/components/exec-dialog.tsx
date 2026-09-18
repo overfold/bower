@@ -1,73 +1,284 @@
 'use client'
 
-import { useState } from 'react'
-import { execAllocationAction } from '@/lib/actions/services'
-import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogBody, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { useEffect, useRef, useState } from 'react'
+import { FitAddon } from '@xterm/addon-fit'
+import { Terminal as XTerm } from '@xterm/xterm'
 import { Terminal } from 'lucide-react'
+import {
+  closeExecSessionAction,
+  readExecSessionAction,
+  resizeExecSessionAction,
+  startExecSessionAction,
+  writeExecSessionAction,
+} from '@/lib/actions/services'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
-interface ExecResult {
-  exit_code: number
-  stdout: string
-  stderr: string
+type TerminalStatus = 'idle' | 'connecting' | 'connected' | 'exited' | 'error'
+
+function stringToBase64(value: string) {
+  const bytes = new TextEncoder().encode(value)
+  let binary = ''
+  for (const byte of bytes) binary += String.fromCharCode(byte)
+  return btoa(binary)
 }
 
-export function ExecDialog({ allocationId, serviceConfigId }: { allocationId: string; serviceConfigId: string }) {
-  const [open, setOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<ExecResult | null>(null)
+function base64ToBytes(value: string) {
+  const binary = atob(value)
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index)
+  }
+  return bytes
+}
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setLoading(true)
-    setResult(null)
-    const formData = new FormData(e.currentTarget)
-    const command = String(formData.get('command') ?? '').split(/\s+/).filter(Boolean)
-    const res = await execAllocationAction(serviceConfigId, allocationId, command[0], command)
-    setResult(res as ExecResult)
-    setLoading(false)
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+export function ExecDialog({
+  allocationId,
+  serviceConfigId,
+  tasks,
+}: {
+  allocationId: string
+  serviceConfigId: string
+  tasks: string[]
+}) {
+  const [open, setOpen] = useState(false)
+  const [selectedTask, setSelectedTask] = useState(tasks[0] ?? '')
+  const [status, setStatus] = useState<TerminalStatus>('idle')
+  const [error, setError] = useState<string | null>(null)
+  const terminalElementRef = useRef<HTMLDivElement | null>(null)
+  const sessionIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!open || !terminalElementRef.current) return
+
+    let active = true
+    let resizeTimer: ReturnType<typeof setTimeout> | null = null
+    let lastSize = { cols: 0, rows: 0 }
+    const element = terminalElementRef.current
+    const fitAddon = new FitAddon()
+    const terminal = new XTerm({
+      cursorBlink: true,
+      cursorStyle: 'block',
+      fontFamily: 'var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      fontSize: 13,
+      lineHeight: 1.25,
+      scrollback: 5000,
+      allowProposedApi: false,
+      theme: {
+        background: '#0b1113',
+        foreground: '#d6e0df',
+        cursor: '#61b9aa',
+        cursorAccent: '#0b1113',
+        selectionBackground: '#21413d',
+        black: '#0b1113',
+        brightBlack: '#5b6d6d',
+        red: '#e47b74',
+        brightRed: '#f08c84',
+        green: '#66bfae',
+        brightGreen: '#7bd0bf',
+        yellow: '#d7b46a',
+        brightYellow: '#e4c47b',
+        blue: '#79a9d1',
+        brightBlue: '#8ab9df',
+        magenta: '#b99ad9',
+        brightMagenta: '#c8a8e7',
+        cyan: '#69b9c2',
+        brightCyan: '#7ccbd3',
+        white: '#d6e0df',
+        brightWhite: '#f2f6f5',
+      },
+    })
+    terminal.loadAddon(fitAddon)
+    terminal.open(element)
+
+    const fit = () => {
+      try {
+        fitAddon.fit()
+      } catch {
+        // The dialog can be between layout states while opening/closing.
+      }
+    }
+
+    fit()
+    terminal.focus()
+    setStatus('connecting')
+    setError(null)
+
+    let pendingInput = ''
+    let writingInput = false
+
+    async function flushInput() {
+      if (writingInput || !active || !sessionIdRef.current || !pendingInput) return
+      const sessionId = sessionIdRef.current
+      const chunk = pendingInput
+      pendingInput = ''
+      writingInput = true
+      try {
+        await writeExecSessionAction(serviceConfigId, allocationId, sessionId, stringToBase64(chunk))
+      } catch (reason) {
+        if (active) {
+          setStatus('error')
+          setError(reason instanceof Error ? reason.message : 'Failed to send terminal input.')
+        }
+      } finally {
+        writingInput = false
+        if (active && pendingInput) void flushInput()
+      }
+    }
+
+    const dataDisposable = terminal.onData((data) => {
+      if (!sessionIdRef.current || !active) return
+      pendingInput += data
+      void flushInput()
+    })
+
+    const resizeObserver = new ResizeObserver(() => {
+      if (!active) return
+      fit()
+      const sessionId = sessionIdRef.current
+      if (!sessionId || terminal.cols < 1 || terminal.rows < 1) return
+      if (terminal.cols === lastSize.cols && terminal.rows === lastSize.rows) return
+      lastSize = { cols: terminal.cols, rows: terminal.rows }
+      if (resizeTimer) clearTimeout(resizeTimer)
+      resizeTimer = setTimeout(() => {
+        if (!active || !sessionIdRef.current) return
+        void resizeExecSessionAction(
+          serviceConfigId,
+          allocationId,
+          sessionIdRef.current,
+          lastSize.cols,
+          lastSize.rows,
+        ).catch(() => undefined)
+      }, 120)
+    })
+    resizeObserver.observe(element)
+
+    async function start() {
+      try {
+        fit()
+        const session = await startExecSessionAction(
+          serviceConfigId,
+          allocationId,
+          selectedTask || undefined,
+          Math.max(terminal.cols, 1),
+          Math.max(terminal.rows, 1),
+        )
+        if (!active) {
+          await closeExecSessionAction(serviceConfigId, allocationId, session.id).catch(() => undefined)
+          return
+        }
+
+        sessionIdRef.current = session.id
+        lastSize = { cols: terminal.cols, rows: terminal.rows }
+        setStatus('connected')
+        terminal.focus()
+
+        let offset = 0
+        while (active && sessionIdRef.current === session.id) {
+          const output = await readExecSessionAction(serviceConfigId, allocationId, session.id, offset)
+          if (!active || sessionIdRef.current !== session.id) break
+
+          if (output.data_base64) terminal.write(base64ToBytes(output.data_base64))
+          offset = output.next_offset
+
+          if (output.exited) {
+            const code = output.exit_code
+            terminal.write(`\r\n\x1b[90m[process exited${code === undefined ? '' : ` with code ${code}`}]\x1b[0m\r\n`)
+            setStatus('exited')
+            sessionIdRef.current = null
+            await closeExecSessionAction(serviceConfigId, allocationId, session.id).catch(() => undefined)
+            break
+          }
+
+          await wait(output.data_base64 ? 30 : 120)
+        }
+      } catch (reason) {
+        if (!active) return
+        setStatus('error')
+        setError(reason instanceof Error ? reason.message : 'Unable to open an interactive terminal.')
+      }
+    }
+
+    void start()
+
+    return () => {
+      active = false
+      dataDisposable.dispose()
+      resizeObserver.disconnect()
+      if (resizeTimer) clearTimeout(resizeTimer)
+      const sessionId = sessionIdRef.current
+      sessionIdRef.current = null
+      if (sessionId) {
+        void closeExecSessionAction(serviceConfigId, allocationId, sessionId).catch(() => undefined)
+      }
+      terminal.dispose()
+    }
+  }, [allocationId, open, selectedTask, serviceConfigId])
+
+  function handleOpenChange(nextOpen: boolean) {
+    setOpen(nextOpen)
+    if (!nextOpen) {
+      setStatus('idle')
+      setError(null)
+    }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button variant="default" size="sm">
           <Terminal className="mr-1.5 h-3.5 w-3.5" />
-          Exec
+          Terminal
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-4xl overflow-hidden">
         <DialogHeader>
-          <DialogTitle>Execute command</DialogTitle>
+          <DialogTitle>Interactive terminal</DialogTitle>
         </DialogHeader>
-        <DialogBody>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="command">Command</Label>
-              <Input id="command" name="command" placeholder="ls -la" required className="font-mono" />
-            </div>
-            <Button variant="primary" type="submit" disabled={loading}>
-              {loading ? 'Running...' : 'Run'}
-            </Button>
-          </form>
-          {result && (
-            <div className="mt-4 space-y-2">
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-ink-muted">Exit code:</span>
-                <span className={result.exit_code === 0 ? 'text-brand-500' : 'text-danger-500'}>
-                  {result.exit_code}
-                </span>
-              </div>
-              {result.stdout && (
-                <pre className="max-h-64 overflow-auto rounded-md bg-sunken p-3 font-mono text-xs">{result.stdout}</pre>
-              )}
-              {result.stderr && (
-                <pre className="max-h-64 overflow-auto rounded-md bg-danger-50 p-3 font-mono text-xs text-danger-500">{result.stderr}</pre>
-              )}
+        <DialogBody className="space-y-3">
+          {tasks.length > 1 && (
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs font-medium text-ink-soft">Task</span>
+              <Select value={selectedTask} onValueChange={setSelectedTask}>
+                <SelectTrigger className="h-8 w-48 font-mono text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {tasks.map((task) => (
+                    <SelectItem key={task} value={task} className="font-mono text-xs">
+                      {task}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           )}
+          <div
+            className="overflow-hidden rounded-md border border-line-strong bg-[#0b1113] p-2"
+            onMouseDown={() => terminalElementRef.current?.focus()}
+          >
+            <div
+              ref={terminalElementRef}
+              className="h-[420px] min-h-[280px] w-full"
+              aria-label="Interactive allocation terminal"
+            />
+          </div>
+          <div className="flex min-h-5 items-center justify-between gap-4 text-2xs text-ink-muted">
+            <span className="font-mono">
+              {allocationId.slice(0, 8)}{selectedTask ? ` · ${selectedTask}` : ''}
+            </span>
+            <span>
+              {status === 'connecting' && 'Connecting…'}
+              {status === 'connected' && 'Connected'}
+              {status === 'exited' && 'Shell exited'}
+              {status === 'error' && (error || 'Terminal connection failed')}
+            </span>
+          </div>
         </DialogBody>
       </DialogContent>
     </Dialog>

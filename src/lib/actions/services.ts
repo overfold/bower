@@ -13,7 +13,7 @@ import { recordAudit, requireProject, requireService } from '@/lib/actions/share
 import { syncManagedProxy } from '@/lib/managed-proxy'
 import { createDeploymentSpec, notifyDeployment, recordDeploymentEvent } from '@/lib/deployment-runtime'
 import { reconcileProjectDeployments } from '@/lib/deployment-reconciler'
-import type { TrellisExecResponse, TrellisJobSpec, TrellisVolume } from '@/types/trellis'
+import type { TrellisExecSession, TrellisExecSessionOutput, TrellisJobSpec, TrellisVolume } from '@/types/trellis'
 
 type Trigger = 'manual' | 'webhook' | 'promotion' | 'rollback' | 'auto_rollback'
 
@@ -232,10 +232,94 @@ export async function stopAllocationAction(serviceId: string, allocationId: stri
   revalidatePath(`/projects/${access.project.slug}/services/${access.service.slug}`)
 }
 
-export async function execAllocationAction(serviceId: string, allocationId: string, task: string, command: string[]): Promise<TrellisExecResponse> {
-  const access = await requireService(serviceId); if (access.projectRole === 'viewer') throw new Error('Insufficient permissions.')
+async function getExecSessionContext(serviceConfigId: string, allocationId?: string) {
+  const [row] = await db
+    .select({ config: serviceConfigs, environment: environments })
+    .from(serviceConfigs)
+    .innerJoin(environments, eq(environments.id, serviceConfigs.environmentId))
+    .where(eq(serviceConfigs.id, serviceConfigId))
+    .limit(1)
+  if (!row) throw new Error('Service configuration not found.')
+
+  const access = await requireService(row.config.serviceId)
+  if (access.projectRole === 'viewer') throw new Error('Insufficient permissions.')
+
   const client = await getTrellisClient(access.org.id)
-  return client.execAllocation(allocationId, task, command)
+  if (allocationId) {
+    const allocations = await client.listAllocations({ namespace: row.environment.trellisNamespace })
+    const knownJobs = new Set([access.service.slug, row.config.activeJobName].filter(Boolean) as string[])
+    const allocation = allocations.find((item) => (
+      item.id === allocationId
+      && (item.labels?.['bower/service'] === access.service.slug || knownJobs.has(item.job))
+    ))
+    if (!allocation) throw new Error('Allocation does not belong to this service environment.')
+  }
+
+  return { access, client, namespace: row.environment.trellisNamespace }
+}
+
+export async function startExecSessionAction(
+  serviceConfigId: string,
+  allocationId: string,
+  task: string | undefined,
+  cols: number,
+  rows: number,
+): Promise<TrellisExecSession> {
+  const { access, client, namespace } = await getExecSessionContext(serviceConfigId, allocationId)
+  const session = await client.createExecSession(
+    allocationId,
+    { task, command: ['/bin/sh'], term: 'xterm-256color', cols, rows },
+    namespace,
+  )
+  await recordAudit({
+    orgId: access.org.id,
+    userId: access.user.id,
+    action: 'allocation.terminal.opened',
+    resourceType: 'service',
+    resourceId: access.service.id,
+    details: { allocationId, task },
+  })
+  return session
+}
+
+export async function writeExecSessionAction(
+  serviceConfigId: string,
+  allocationId: string,
+  sessionId: string,
+  dataBase64: string,
+): Promise<void> {
+  const { client, namespace } = await getExecSessionContext(serviceConfigId)
+  await client.writeExecSession(allocationId, sessionId, dataBase64, namespace)
+}
+
+export async function readExecSessionAction(
+  serviceConfigId: string,
+  allocationId: string,
+  sessionId: string,
+  offset: number,
+): Promise<TrellisExecSessionOutput> {
+  const { client, namespace } = await getExecSessionContext(serviceConfigId)
+  return client.readExecSession(allocationId, sessionId, offset, namespace)
+}
+
+export async function resizeExecSessionAction(
+  serviceConfigId: string,
+  allocationId: string,
+  sessionId: string,
+  cols: number,
+  rows: number,
+): Promise<void> {
+  const { client, namespace } = await getExecSessionContext(serviceConfigId)
+  await client.resizeExecSession(allocationId, sessionId, cols, rows, namespace)
+}
+
+export async function closeExecSessionAction(
+  serviceConfigId: string,
+  allocationId: string,
+  sessionId: string,
+): Promise<void> {
+  const { client, namespace } = await getExecSessionContext(serviceConfigId)
+  await client.closeExecSession(allocationId, sessionId, namespace)
 }
 
 export async function deleteServiceAction(serviceId: string, projectSlug: string): Promise<{ error?: string }> {

@@ -57,12 +57,17 @@ export default async function AllocationDetailPage({
   if (!allocation) notFound()
 
   const matchingConfig = configs.find(({ environment }) => environment.trellisNamespace === allocation?.namespace)
-  const [stdout, stderr, events, metrics] = await Promise.all([
+  const [stdout, stderr, events, metrics, revisions] = await Promise.all([
     client.getAllocationLogs(allocationId, 'stdout').catch(() => ''),
     client.getAllocationLogs(allocationId, 'stderr').catch(() => ''),
     client.getAllocationEvents(allocationId).catch(() => []),
     client.getAllocationMetrics(allocationId).catch(() => []),
+    client.getJobRevisions(allocation.job, allocation.namespace).catch(() => []),
   ])
+  const allocationSpec = revisions.find((revision) => revision.revision === allocation.job_revision)?.spec
+  const terminalTasks = allocationSpec?.task_groups
+    .find((group) => group.name === allocation.group)
+    ?.tasks.map((task) => task.name) ?? []
   const history = eventHistory(allocation, events)
   const stoppable = !['stopping', 'stopped', 'lost'].includes(allocation.phase)
 
@@ -85,7 +90,7 @@ export default async function AllocationDetailPage({
             }
             actions={
               <>
-                {matchingConfig && <ExecDialog allocationId={allocationId} serviceConfigId={matchingConfig.config.id} />}
+                {matchingConfig && <ExecDialog allocationId={allocationId} serviceConfigId={matchingConfig.config.id} tasks={terminalTasks} />}
                 <AllocationStopButton serviceId={service.id} allocationId={allocationId} disabled={!stoppable} />
               </>
             }

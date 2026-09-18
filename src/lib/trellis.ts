@@ -15,6 +15,9 @@ import type {
   TrellisJobRevision,
   TrellisAllocationMetrics,
   TrellisExecResponse,
+  TrellisExecSession,
+  TrellisExecSessionCreateRequest,
+  TrellisExecSessionOutput,
 } from '@/types/trellis'
 
 // ---------------------------------------------------------------------------
@@ -244,6 +247,46 @@ export class TrellisClient {
     return this.request<TrellisExecResponse>('POST', `/v1/allocations/${encodeURIComponent(id)}/exec`, {
       body: { task, command },
     })
+  }
+
+  async createExecSession(id: string, request: TrellisExecSessionCreateRequest, namespace: string): Promise<TrellisExecSession> {
+    return this.request<TrellisExecSession>('POST', `/v1/allocations/${encodeURIComponent(id)}/exec/sessions`, {
+      body: request,
+      namespace,
+    })
+  }
+
+  async writeExecSession(id: string, sessionId: string, dataBase64: string, namespace: string): Promise<void> {
+    await this.request<void>(
+      'POST',
+      `/v1/allocations/${encodeURIComponent(id)}/exec/sessions/${encodeURIComponent(sessionId)}/input`,
+      { body: { data_base64: dataBase64 }, namespace },
+    )
+  }
+
+  async readExecSession(id: string, sessionId: string, offset: number, namespace: string): Promise<TrellisExecSessionOutput> {
+    const params = new URLSearchParams({ offset: String(offset) })
+    return this.request<TrellisExecSessionOutput>(
+      'GET',
+      `/v1/allocations/${encodeURIComponent(id)}/exec/sessions/${encodeURIComponent(sessionId)}/output?${params.toString()}`,
+      { namespace },
+    )
+  }
+
+  async resizeExecSession(id: string, sessionId: string, cols: number, rows: number, namespace: string): Promise<void> {
+    await this.request<void>(
+      'POST',
+      `/v1/allocations/${encodeURIComponent(id)}/exec/sessions/${encodeURIComponent(sessionId)}/resize`,
+      { body: { cols, rows }, namespace },
+    )
+  }
+
+  async closeExecSession(id: string, sessionId: string, namespace: string): Promise<void> {
+    await this.request<void>(
+      'DELETE',
+      `/v1/allocations/${encodeURIComponent(id)}/exec/sessions/${encodeURIComponent(sessionId)}`,
+      { namespace },
+    )
   }
 
   async getAllocationMetrics(id: string): Promise<TrellisAllocationMetrics[]> {
