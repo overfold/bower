@@ -1,15 +1,9 @@
 import { notFound, redirect } from 'next/navigation'
-import { eq } from 'drizzle-orm'
-import { db } from '@/db'
-import { serviceAdvancedSettings } from '@/db/service-advanced-schema'
 import { getCurrentUser } from '@/lib/auth'
-import { getProjectBySlug, getServiceBySlug, getEnvironmentsByProject, getUserOrganization } from '@/lib/queries'
-import { getServiceConfigsWithEnvironments } from '@/lib/queries'
+import { getProjectBySlug, getServiceBySlug, getEnvironmentsByProject, getMergedServiceConfig, getUserOrganization } from '@/lib/queries'
 import { Panel, PanelHeader, SectionTitle } from '@/components/ui/panel'
-import { EmptyState } from '@/components/ui/empty-state'
 import { ServiceHeader } from '../service-header'
 import { AdvancedConfigForm } from './advanced-config-form'
-import { Box } from 'lucide-react'
 
 export default async function AdvancedPage({
   params,
@@ -32,20 +26,10 @@ export default async function AdvancedPage({
   if (!service) notFound()
 
   const environments = await getEnvironmentsByProject(project.id)
-  const selectedEnv = environmentId ? environments.find((e) => e.id === environmentId) ?? null : null
+  const selectedEnv = environmentId ? environments.find((environment) => environment.id === environmentId) : null
+  if (environmentId && !selectedEnv) notFound()
 
-  let advancedRow: { id: string; runtime: string; apiAccessScope: string | null; apiAccessLevel: string | null } | null = null
-  let configId: string | null = null
-
-  if (selectedEnv) {
-    const configs = await getServiceConfigsWithEnvironments(service.id)
-    const envConfigRow = configs.find(({ environment }) => environment.id === selectedEnv.id)
-    if (envConfigRow) {
-      configId = envConfigRow.config.id
-      const [adv] = await db.select().from(serviceAdvancedSettings).where(eq(serviceAdvancedSettings.serviceConfigId, envConfigRow.config.id)).limit(1)
-      advancedRow = adv ?? null
-    }
-  }
+  const mergedConfig = await getMergedServiceConfig(service.id, environmentId)
 
   return (
     <div className="space-y-6">
@@ -54,39 +38,29 @@ export default async function AdvancedPage({
       <div className="space-y-2">
         <SectionTitle>Advanced execution</SectionTitle>
         <p className="max-w-3xl text-[13px] leading-relaxed text-ink-muted">
-          Runtime and workload API credentials are lower-frequency execution controls. They are configured per environment and applied on the next deployment.
+          Configure the base runtime and workload API access once, then override either setting only where an environment needs to differ.
         </p>
       </div>
 
-      <div className="space-y-4">
-        {!selectedEnv ? (
-          <Panel>
-            <EmptyState
-              icon={<Box className="h-4 w-4" />}
-              title="Select an environment"
-              body="Advanced execution settings are per-environment. Select an environment from the picker above."
-            />
-          </Panel>
+      <Panel>
+        <PanelHeader
+          title={selectedEnv?.name ?? 'Base'}
+          hint={selectedEnv ? 'Inherits from Base unless a value is overridden' : 'Inherited by environments unless they override a value'}
+        />
+        {mergedConfig ? (
+          <AdvancedConfigForm
+            key={environmentId ?? 'base'}
+            serviceId={service.id}
+            environmentId={environmentId}
+            runtime={mergedConfig.runtime}
+            apiAccessScope={mergedConfig.apiAccessScope}
+            apiAccessLevel={mergedConfig.apiAccessLevel}
+            overriddenFields={mergedConfig.overriddenFields}
+          />
         ) : (
-          <Panel>
-            <PanelHeader
-              title={selectedEnv.name}
-              hint="Task-group execution settings"
-            />
-            {configId ? (
-              <AdvancedConfigForm
-                serviceId={service.id}
-                environmentId={selectedEnv.id}
-                runtime={advancedRow?.runtime}
-                apiAccessScope={advancedRow?.apiAccessScope}
-                apiAccessLevel={advancedRow?.apiAccessLevel}
-              />
-            ) : (
-              <div className="p-4 text-[13px] text-ink-muted">No service configuration found for this environment.</div>
-            )}
-          </Panel>
+          <div className="p-4 text-[13px] text-ink-muted">No service configuration found.</div>
         )}
-      </div>
+      </Panel>
     </div>
   )
 }
