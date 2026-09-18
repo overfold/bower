@@ -61,6 +61,17 @@ function deepEqual(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b)
 }
 
+const ADVANCED_OVERRIDE_FIELDS = ['runtime', 'apiAccessScope', 'apiAccessLevel'] as const
+
+function preserveAdvancedOverrides(overrides: unknown) {
+  const existing = (overrides ?? {}) as Record<string, unknown>
+  const preserved: Record<string, unknown> = {}
+  for (const field of ADVANCED_OVERRIDE_FIELDS) {
+    if (field in existing) preserved[field] = existing[field]
+  }
+  return preserved
+}
+
 export async function upsertBaseServiceConfigAction(serviceId: string, formData: FormData) {
   const access = await requireService(serviceId)
   if (access.projectRole !== 'admin') throw new Error('Insufficient permissions.')
@@ -108,7 +119,7 @@ export async function updateServiceConfigOverridesAction(serviceId: string, envi
   const desired = parseConfig(formData)
   const base = await getBaseServiceConfig(serviceId)
 
-  const newOverrides: Record<string, unknown> = {}
+  const newOverrides: Record<string, unknown> = preserveAdvancedOverrides(envConfig.overrides)
   if (base) {
     const baseValues = parseConfig(formDataFromBase(base))
     for (const [key, val] of Object.entries(desired) as Array<[string, unknown]>) {
@@ -145,6 +156,8 @@ export async function resetServiceConfigOverridesAction(serviceId: string, envir
     .limit(1)
   if (!envConfig) throw new Error('Configuration not found.')
 
+  const preservedOverrides = preserveAdvancedOverrides(envConfig.overrides)
+
   await db.update(serviceConfigs).set({
     image: base.image,
     port: base.port,
@@ -168,7 +181,7 @@ export async function resetServiceConfigOverridesAction(serviceId: string, envir
     cronSchedule: base.cronSchedule,
     autoRollbackSeconds: base.autoRollbackSeconds,
     canarySteps: base.canarySteps,
-    overrides: null,
+    overrides: Object.keys(preservedOverrides).length > 0 ? preservedOverrides : null,
     updatedAt: new Date(),
   }).where(eq(serviceConfigs.id, envConfig.id))
 
