@@ -266,8 +266,10 @@ export function GrowingTrellis({ className }: { className?: string }) {
     }
 
     growthMsRef.current = storedGrowth
-    setGrowthMs(storedGrowth)
-    setRaining(false)
+    const initialStateFrame = window.requestAnimationFrame(() => {
+      setGrowthMs(storedGrowth)
+      setRaining(false)
+    })
     rainingRef.current = false
     engagedMsRef.current = 0
     nextRainAtRef.current = RAIN_FIRST_AFTER_MS
@@ -343,6 +345,7 @@ export function GrowingTrellis({ className }: { className?: string }) {
     const interval = window.setInterval(tick, GROWTH_TICK_MS)
 
     return () => {
+      window.cancelAnimationFrame(initialStateFrame)
       window.clearInterval(interval)
       window.removeEventListener('pointermove', markInteraction)
       window.removeEventListener('pointerdown', markInteraction)
