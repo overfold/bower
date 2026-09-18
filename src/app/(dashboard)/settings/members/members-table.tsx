@@ -17,26 +17,17 @@ interface TeamRef {
 }
 
 interface MemberRow {
-  membershipId: string | null
+  membershipId: string
   userId: string
   name: string
   email: string
   avatar: string | null
-  role: 'owner' | 'admin' | 'member' | null
+  role: 'owner' | 'admin' | 'member'
   isInstanceAdmin: boolean
-  organizationId: string | null
-  organizationName: string | null
   teams: TeamRef[]
 }
 
 interface TeamOption {
-  id: string
-  name: string
-  organizationId: string
-  organizationName: string
-}
-
-interface OrganizationOption {
   id: string
   name: string
 }
@@ -44,7 +35,6 @@ interface OrganizationOption {
 interface MembersTableProps {
   members: MemberRow[]
   teams: TeamOption[]
-  organizations: OrganizationOption[]
   canManageRoles: boolean
   showInstanceAdmin: boolean
   currentUserId: string
@@ -53,22 +43,14 @@ interface MembersTableProps {
 export function MembersTable({
   members,
   teams,
-  organizations,
   canManageRoles,
   showInstanceAdmin,
   currentUserId,
 }: MembersTableProps) {
   const [search, setSearch] = useState('')
   const [instanceRoleFilter, setInstanceRoleFilter] = useState('all')
-  const [organizationFilter, setOrganizationFilter] = useState('all')
   const [orgRoleFilter, setOrgRoleFilter] = useState('all')
   const [teamFilter, setTeamFilter] = useState('all')
-
-  const availableTeams = useMemo(() => {
-    if (!showInstanceAdmin || organizationFilter === 'all') return teams
-    if (organizationFilter === 'none') return []
-    return teams.filter((team) => team.organizationId === organizationFilter)
-  }, [teams, showInstanceAdmin, organizationFilter])
 
   const filtered = useMemo(() => {
     let result = members
@@ -77,8 +59,7 @@ export function MembersTable({
       const q = search.toLowerCase()
       result = result.filter((member) =>
         member.name.toLowerCase().includes(q) ||
-        member.email.toLowerCase().includes(q) ||
-        member.organizationName?.toLowerCase().includes(q),
+        member.email.toLowerCase().includes(q),
       )
     }
 
@@ -88,18 +69,8 @@ export function MembersTable({
       )
     }
 
-    if (showInstanceAdmin && organizationFilter !== 'all') {
-      result = result.filter((member) =>
-        organizationFilter === 'none'
-          ? member.organizationId === null
-          : member.organizationId === organizationFilter,
-      )
-    }
-
     if (orgRoleFilter !== 'all') {
-      result = result.filter((member) =>
-        orgRoleFilter === 'none' ? member.role === null : member.role === orgRoleFilter,
-      )
+      result = result.filter((member) => member.role === orgRoleFilter)
     }
 
     if (teamFilter !== 'all') {
@@ -112,7 +83,6 @@ export function MembersTable({
     search,
     showInstanceAdmin,
     instanceRoleFilter,
-    organizationFilter,
     orgRoleFilter,
     teamFilter,
   ])
@@ -121,7 +91,7 @@ export function MembersTable({
     () => new Set(members.map((member) => member.userId)).size,
     [members],
   )
-  const columnCount = 4 + (showInstanceAdmin ? 2 : 0) + (canManageRoles ? 1 : 0)
+  const columnCount = 4 + (showInstanceAdmin ? 1 : 0) + (canManageRoles ? 1 : 0)
 
   return (
     <Card>
@@ -145,72 +115,48 @@ export function MembersTable({
             />
           </div>
 
-          {showInstanceAdmin ? (
-            <Select value={instanceRoleFilter} onValueChange={setInstanceRoleFilter}>
-              <SelectTrigger className="w-[164px]" aria-label="Filter by instance role">
+          <div className="flex flex-wrap items-center gap-0.5">
+            {showInstanceAdmin ? (
+              <Select value={instanceRoleFilter} onValueChange={setInstanceRoleFilter}>
+                <SelectTrigger className="w-[164px]" aria-label="Filter by instance role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All instance roles</SelectItem>
+                  <SelectItem value="admin">Instance admin</SelectItem>
+                  <SelectItem value="user">User</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : null}
+
+            <Select value={orgRoleFilter} onValueChange={setOrgRoleFilter}>
+              <SelectTrigger className="w-[172px]" aria-label="Filter by organization role">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All instance roles</SelectItem>
-                <SelectItem value="admin">Instance admin</SelectItem>
-                <SelectItem value="user">User</SelectItem>
+                <SelectItem value="all">
+                  {showInstanceAdmin ? 'All organization roles' : 'All roles'}
+                </SelectItem>
+                <SelectItem value="owner">Owner</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="member">Member</SelectItem>
               </SelectContent>
             </Select>
-          ) : null}
 
-          {showInstanceAdmin ? (
-            <Select
-              value={organizationFilter}
-              onValueChange={(value) => {
-                setOrganizationFilter(value)
-                setTeamFilter('all')
-              }}
-            >
-              <SelectTrigger className="w-[178px]" aria-label="Filter by organization">
-                <SelectValue />
+            <Select value={teamFilter} onValueChange={setTeamFilter} disabled={teams.length === 0}>
+              <SelectTrigger className="w-[160px]" aria-label="Filter by team">
+                <SelectValue placeholder="All teams" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All organizations</SelectItem>
-                <SelectItem value="none">No organization</SelectItem>
-                {organizations.map((organization) => (
-                  <SelectItem key={organization.id} value={organization.id}>
-                    {organization.name}
+                <SelectItem value="all">All teams</SelectItem>
+                {teams.map((team) => (
+                  <SelectItem key={team.id} value={team.id}>
+                    {team.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          ) : null}
-
-          <Select value={orgRoleFilter} onValueChange={setOrgRoleFilter}>
-            <SelectTrigger className="w-[172px]" aria-label="Filter by organization role">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">
-                {showInstanceAdmin ? 'All organization roles' : 'All roles'}
-              </SelectItem>
-              <SelectItem value="owner">Owner</SelectItem>
-              <SelectItem value="admin">Admin</SelectItem>
-              <SelectItem value="member">Member</SelectItem>
-              {showInstanceAdmin ? <SelectItem value="none">No organization role</SelectItem> : null}
-            </SelectContent>
-          </Select>
-
-          <Select value={teamFilter} onValueChange={setTeamFilter} disabled={availableTeams.length === 0}>
-            <SelectTrigger className="w-[160px]" aria-label="Filter by team">
-              <SelectValue placeholder="All teams" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All teams</SelectItem>
-              {availableTeams.map((team) => (
-                <SelectItem key={team.id} value={team.id}>
-                  {showInstanceAdmin && organizationFilter === 'all'
-                    ? `${team.name} · ${team.organizationName}`
-                    : team.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          </div>
         </div>
       </CardHeader>
 
@@ -221,7 +167,6 @@ export function MembersTable({
               <TableHead>Member</TableHead>
               <TableHead>Email</TableHead>
               {showInstanceAdmin ? <TableHead>Instance Role</TableHead> : null}
-              {showInstanceAdmin ? <TableHead>Organization</TableHead> : null}
               <TableHead>{showInstanceAdmin ? 'Organization Role' : 'Role'}</TableHead>
               <TableHead>Teams</TableHead>
               {canManageRoles ? <TableHead className="w-[136px]" /> : null}
@@ -267,20 +212,10 @@ export function MembersTable({
                     </TableCell>
                   ) : null}
 
-                  {showInstanceAdmin ? (
-                    <TableCell className="text-ink-muted">
-                      {member.organizationName ?? '—'}
-                    </TableCell>
-                  ) : null}
-
                   <TableCell>
-                    {member.role ? (
-                      <Badge variant={member.role === 'owner' ? 'default' : 'secondary'} className="capitalize">
-                        {member.role}
-                      </Badge>
-                    ) : (
-                      <span className="text-ink-muted">—</span>
-                    )}
+                    <Badge variant={member.role === 'owner' ? 'default' : 'secondary'} className="capitalize">
+                      {member.role}
+                    </Badge>
                   </TableCell>
 
                   <TableCell>
@@ -297,13 +232,11 @@ export function MembersTable({
 
                   {canManageRoles ? (
                     <TableCell>
-                      {member.membershipId && member.role ? (
-                        <MemberRoleSelect
-                          membershipId={member.membershipId}
-                          role={member.role}
-                          canManage={canManageRoles}
-                        />
-                      ) : null}
+                      <MemberRoleSelect
+                        membershipId={member.membershipId}
+                        role={member.role}
+                        canManage={canManageRoles}
+                      />
                     </TableCell>
                   ) : null}
                 </TableRow>

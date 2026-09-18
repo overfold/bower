@@ -15,10 +15,12 @@ export function CreateOrganizationDialog() {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [name, setName] = useState('')
 
   function handleClose() {
     setOpen(false)
     setError(null)
+    setName('')
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -54,23 +56,24 @@ export function CreateOrganizationDialog() {
         <form onSubmit={handleSubmit}>
           <DialogBody className="space-y-4">
             {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="instance-org-name">Name</Label>
-                <Input id="instance-org-name" name="name" placeholder="Acme" required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="instance-org-slug">Slug</Label>
-                <Input id="instance-org-slug" name="slug" placeholder="acme" className="font-mono text-[12.5px]" required />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="instance-org-name">Name</Label>
+              <Input
+                id="instance-org-name"
+                name="name"
+                placeholder="Acme"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                required
+              />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="instance-trellis-url">Trellis API URL</Label>
-              <Input id="instance-trellis-url" name="trellisApiUrl" type="url" placeholder="https://trellis.example.com" className="font-mono text-[12.5px]" required />
+              <Label htmlFor="instance-trellis-url">Trellis API URL <span className="font-normal text-ink-muted">(optional)</span></Label>
+              <Input id="instance-trellis-url" name="trellisApiUrl" type="url" placeholder="https://trellis.example.com" className="font-mono text-[12.5px]" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="instance-trellis-token">Trellis API token</Label>
-              <Input id="instance-trellis-token" name="trellisApiToken" type="password" autoComplete="off" required mono />
+              <Label htmlFor="instance-trellis-token">Trellis API token <span className="font-normal text-ink-muted">(optional)</span></Label>
+              <Input id="instance-trellis-token" name="trellisApiToken" type="password" autoComplete="off" mono />
             </div>
           </DialogBody>
           <DialogFooter>

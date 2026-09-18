@@ -36,7 +36,7 @@ export default async function ProjectVolumesPage({ params, searchParams }: {
       </div>
       {!environment ? (
         <Panel>
-          <EmptyState icon={<HardDrive className="h-4 w-4" />} title="Select an environment" body="Volume definitions are namespace-scoped, so Base has no volume definitions." />
+          <EmptyState icon={<HardDrive className="h-4 w-4" />} title="Select an environment" body="Choose an environment to view and manage its volumes." />
         </Panel>
       ) : (
         <VolumeManager projectId={project.id} environmentId={environment.id} environmentName={environment.name} volumes={volumes} canManage={access.projectRole === 'admin'} />

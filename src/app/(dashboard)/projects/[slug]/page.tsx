@@ -9,7 +9,7 @@ import {
   getRoutesByProject,
   getServicesByProject,
 } from '@/lib/queries'
-import { Panel, PanelHeader } from '@/components/ui/panel'
+import { Panel, PanelHeader, SectionTitle } from '@/components/ui/panel'
 import { Badge } from '@/components/ui/badge'
 import { StatusDot } from '@/components/status'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -56,6 +56,11 @@ export default async function ProjectOverviewPage({
 
   return (
     <div className="space-y-5">
+      <div>
+        <SectionTitle>Overview</SectionTitle>
+        <p className="mt-1 text-[13px] text-ink-muted">See this project’s environments, services, recent deployments, and routes.</p>
+      </div>
+
       {/* Environment ladder */}
       {environments.length === 0 ? (
         <Panel>

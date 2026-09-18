@@ -43,7 +43,7 @@ export default async function ServiceMountsPage({ params, searchParams }: {
       <ServiceHeader slug={slug} serviceSlug={serviceSlug} serviceName={service.name} />
       <div><SectionTitle>Volume mounts</SectionTitle><p className="mt-1 max-w-3xl text-[13px] text-ink-muted">Attach project volumes to this service and configure only the container mount path and access mode.</p></div>
       <Panel>
-        <PanelHeader title={selected?.name ?? 'Base'} hint={`${attached.length} attached`} action={config ? <VolumeMountEditor serviceId={service.id} environmentId={environmentId} mounts={attached} volumes={available.map((volume) => volume.name)} /> : undefined} />
+        <PanelHeader title={selected ? `${selected.name} mounts` : 'Mount defaults'} hint={`${attached.length} attached`} action={config ? <VolumeMountEditor serviceId={service.id} environmentId={environmentId} mounts={attached} volumes={available.map((volume) => volume.name)} /> : undefined} />
         {!config ? (
           <EmptyState icon={<HardDrive className="h-4 w-4" />} title="No configuration" body="This service has no configuration in the selected scope." />
         ) : attached.length === 0 ? (

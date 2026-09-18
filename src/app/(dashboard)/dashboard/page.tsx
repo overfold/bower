@@ -25,7 +25,6 @@ import {
 import { DeploymentPoller } from '@/components/deployment-poller'
 import { DashboardStatsBar } from '@/components/dashboard-stats-bar'
 import {
-  FolderKanban,
   Rocket,
   UserIcon,
   WebhookIcon,
@@ -381,24 +380,6 @@ export default async function DashboardPage() {
           </Panel>
         </div>
       </div>
-
-      {/* Empty state when no projects */}
-      {projectList.length === 0 && (
-        <EmptyState
-          icon={<FolderKanban className="h-4 w-4" />}
-          title="No projects yet"
-          body="Create your first project to get started with deployments."
-          action={
-            <Link
-              href="/projects"
-              className="inline-flex h-9 items-center gap-2 rounded-lg bg-brand-500 px-3.5 text-sm font-medium text-white shadow-card transition-colors hover:bg-brand-600"
-            >
-              <Rocket className="h-4 w-4" />
-              Create project
-            </Link>
-          }
-        />
-      )}
     </div>
   )
 }

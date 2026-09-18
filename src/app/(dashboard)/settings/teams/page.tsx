@@ -62,7 +62,10 @@ export default async function TeamsPage() {
                     <CardTitle>{team.name}</CardTitle>
                     <Badge variant="secondary">{members.length} {members.length === 1 ? 'member' : 'members'}</Badge>
                   </CollapsibleTrigger>
-                  <TeamActions mode="delete" teamId={team.id} teamName={team.name} />
+                  <div className="flex items-center gap-1">
+                    <TeamActions mode="edit" teamId={team.id} teamName={team.name} />
+                    <TeamActions mode="delete" teamId={team.id} teamName={team.name} />
+                  </div>
                 </CardHeader>
                 <CollapsibleContent>
                   <CardContent className="p-0">

@@ -30,7 +30,6 @@ export default async function InstanceSettingsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Organization</TableHead>
-                <TableHead>Slug</TableHead>
                 <TableHead>Members</TableHead>
                 <TableHead>Trellis API</TableHead>
               </TableRow>
@@ -39,7 +38,6 @@ export default async function InstanceSettingsPage() {
               {organizations.map(({ org, memberCount }) => (
                 <TableRow key={org.id}>
                   <TableCell className="font-medium text-ink">{org.name}</TableCell>
-                  <TableCell className="font-mono text-[12.5px] text-ink-muted">{org.slug}</TableCell>
                   <TableCell className="nums text-ink-muted">{memberCount}</TableCell>
                   <TableCell className="max-w-[360px] truncate font-mono text-[12.5px] text-ink-muted">{org.trellisApiUrl}</TableCell>
                 </TableRow>

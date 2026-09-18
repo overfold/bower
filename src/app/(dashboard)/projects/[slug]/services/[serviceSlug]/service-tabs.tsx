@@ -10,7 +10,7 @@ const items = [
   { label: 'Configuration', suffix: '/configuration' },
   { label: 'Mounts', suffix: '/mounts' },
   { label: 'Advanced', suffix: '/advanced' },
-  { label: 'Revisions', suffix: '/revisions' },
+  { label: 'History', suffix: '/revisions' },
 ]
 
 export function ServiceTabs({ slug, serviceSlug }: { slug: string; serviceSlug: string }) {

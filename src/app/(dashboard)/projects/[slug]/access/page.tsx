@@ -32,7 +32,7 @@ export default async function AccessPage({ params }: { params: Promise<{ slug: s
         <div>
           <SectionTitle>Project access</SectionTitle>
           <p className="mt-1 text-[13px] text-ink-muted">
-            Control who can view, deploy to, or administer this project. Organization owners and admins always have full access.
+            Each person receives the combined permissions granted by their organization role, team memberships, and individual project access.
           </p>
         </div>
         {isAdmin && (

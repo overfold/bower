@@ -33,7 +33,7 @@ export function EnvironmentPicker({ environments }: { environments: Environment[
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="base">Base</SelectItem>
+        <SelectItem value="base">Defaults</SelectItem>
         {environments.map((env) => (
           <SelectItem key={env.id} value={env.id}>{env.name}</SelectItem>
         ))}

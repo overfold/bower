@@ -119,11 +119,11 @@ export function HeaderBar({ orgs, currentOrg, teams, searchData, user }: HeaderB
           type="button"
           onClick={() => setPaletteOpen(true)}
           aria-label="Search"
-          className="flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-line bg-surface text-[12.5px] text-ink-muted shadow-card transition-colors duration-150 hover:border-line-strong hover:text-ink sm:h-8 sm:w-auto sm:px-2.5"
+          className="flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-line bg-surface text-[12.5px] text-ink-muted shadow-card transition-colors duration-150 hover:border-line-strong hover:text-ink sm:h-8 sm:w-48 sm:justify-start sm:px-2.5"
         >
           <Search className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
           <span className="hidden sm:inline">Search</span>
-          <kbd className="ml-3 hidden rounded border border-line bg-sunken px-1.5 py-px font-sans text-2xs md:inline">⌘K</kbd>
+          <kbd className="ml-auto hidden rounded border border-line bg-sunken px-1.5 py-px font-sans text-2xs md:inline">⌘K</kbd>
         </button>
       </header>
 

@@ -7,10 +7,6 @@ import {
   getTeamMembershipsForOrg,
   getTeamsByOrg,
   getInstanceTokens,
-  getInstanceMembers,
-  getInstanceTeamMemberships,
-  getInstanceTeams,
-  getInstanceOrganizations,
   isInstanceAdmin,
 } from '@/lib/queries'
 import { PageHeading } from '@/components/page-heading'
@@ -33,108 +29,37 @@ export default async function MembersSettingsPage() {
     showInstanceAdmin ? getInstanceTokens() : Promise.resolve([]),
   ])
 
-  let serializedMembers: Array<{
-    membershipId: string | null
-    userId: string
-    name: string
-    email: string
-    avatar: string | null
-    role: 'owner' | 'admin' | 'member' | null
-    isInstanceAdmin: boolean
-    organizationId: string | null
-    organizationName: string | null
-    teams: Array<{ id: string; name: string }>
-  }> = []
-  let teamOptions: Array<{
-    id: string
-    name: string
-    organizationId: string
-    organizationName: string
-  }> = []
-  let organizationOptions: Array<{ id: string; name: string }> = []
+  const [members, teamMemberships, teams] = await Promise.all([
+    getOrgMembers(orgCtx.org.id),
+    getTeamMembershipsForOrg(orgCtx.org.id),
+    getTeamsByOrg(orgCtx.org.id),
+  ])
 
-  if (showInstanceAdmin) {
-    const [members, teamMemberships, teams, organizations] = await Promise.all([
-      getInstanceMembers(),
-      getInstanceTeamMemberships(),
-      getInstanceTeams(),
-      getInstanceOrganizations(),
-    ])
-
-    const teamsByMembership = new Map<string, Array<{ id: string; name: string }>>()
-    for (const tm of teamMemberships) {
-      const key = `${tm.userId}:${tm.organizationId}`
-      const existing = teamsByMembership.get(key) ?? []
-      existing.push({ id: tm.teamId, name: tm.teamName })
-      teamsByMembership.set(key, existing)
-    }
-
-    serializedMembers = members.map((member) => ({
-      membershipId: member.membership?.id ?? null,
-      userId: member.userId,
-      name: member.userName,
-      email: member.userEmail,
-      avatar: member.userAvatar,
-      role: (member.membership?.role as 'owner' | 'admin' | 'member' | undefined) ?? null,
-      isInstanceAdmin: member.isInstanceAdmin,
-      organizationId: member.organizationId,
-      organizationName: member.organizationName,
-      teams: member.organizationId
-        ? teamsByMembership.get(`${member.userId}:${member.organizationId}`) ?? []
-        : [],
-    }))
-
-    teamOptions = teams.map((team) => ({
-      id: team.id,
-      name: team.name,
-      organizationId: team.organizationId,
-      organizationName: team.organizationName,
-    }))
-    organizationOptions = organizations.map(({ org }) => ({ id: org.id, name: org.name }))
-  } else {
-    const [members, teamMemberships, teams] = await Promise.all([
-      getOrgMembers(orgCtx.org.id),
-      getTeamMembershipsForOrg(orgCtx.org.id),
-      getTeamsByOrg(orgCtx.org.id),
-    ])
-
-    const teamsByUser = new Map<string, Array<{ id: string; name: string }>>()
-    for (const tm of teamMemberships) {
-      const existing = teamsByUser.get(tm.userId) ?? []
-      existing.push({ id: tm.teamId, name: tm.teamName })
-      teamsByUser.set(tm.userId, existing)
-    }
-
-    serializedMembers = members.map((member) => ({
-      membershipId: member.membership.id,
-      userId: member.membership.userId,
-      name: member.userName,
-      email: member.userEmail,
-      avatar: member.userAvatar,
-      role: member.membership.role as 'owner' | 'admin' | 'member',
-      isInstanceAdmin: member.isInstanceAdmin,
-      organizationId: orgCtx.org.id,
-      organizationName: orgCtx.org.name,
-      teams: teamsByUser.get(member.membership.userId) ?? [],
-    }))
-
-    teamOptions = teams.map((team) => ({
-      id: team.id,
-      name: team.name,
-      organizationId: orgCtx.org.id,
-      organizationName: orgCtx.org.name,
-    }))
+  const teamsByUser = new Map<string, Array<{ id: string; name: string }>>()
+  for (const tm of teamMemberships) {
+    const existing = teamsByUser.get(tm.userId) ?? []
+    existing.push({ id: tm.teamId, name: tm.teamName })
+    teamsByUser.set(tm.userId, existing)
   }
+
+  const serializedMembers = members.map((member) => ({
+    membershipId: member.membership.id,
+    userId: member.membership.userId,
+    name: member.userName,
+    email: member.userEmail,
+    avatar: member.userAvatar,
+    role: member.membership.role as 'owner' | 'admin' | 'member',
+    isInstanceAdmin: member.isInstanceAdmin,
+    teams: teamsByUser.get(member.membership.userId) ?? [],
+  }))
+
+  const teamOptions = teams.map((team) => ({ id: team.id, name: team.name }))
 
   return (
     <div className="space-y-6">
       <PageHeading
         title="Members"
-        description={
-          showInstanceAdmin
-            ? 'Manage users, organization memberships, and invitations across this Bower instance.'
-            : 'Manage who belongs to this organization and invite new members.'
-        }
+        description={`Manage members, teams, and invitations for ${orgCtx.org.name}.`}
         actions={
           <div className="flex items-center gap-2">
             {showInstanceAdmin && <AddInstanceAdminDialog />}
@@ -146,7 +71,6 @@ export default async function MembersSettingsPage() {
       <MembersTable
         members={serializedMembers}
         teams={teamOptions}
-        organizations={organizationOptions}
         canManageRoles={canManageRoles}
         showInstanceAdmin={showInstanceAdmin}
         currentUserId={user.id}
