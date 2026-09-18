@@ -7,7 +7,6 @@ import type {
   TrellisNode,
   TrellisJob,
   TrellisJobSpec,
-  TrellisApplyJobResponse,
   TrellisPlan,
   TrellisAllocation,
   TrellisEvent,
@@ -174,8 +173,8 @@ export class TrellisClient {
   async applyJob(
     spec: TrellisJobSpec,
     namespace?: string,
-  ): Promise<TrellisApplyJobResponse> {
-    return this.request<TrellisApplyJobResponse>('POST', '/v1/jobs', {
+  ): Promise<void> {
+    await this.request<void>('POST', '/v1/jobs', {
       body: { spec },
       namespace,
     })

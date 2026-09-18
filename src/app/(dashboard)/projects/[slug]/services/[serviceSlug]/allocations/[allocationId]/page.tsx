@@ -14,8 +14,7 @@ import { AllocationStopButton } from './allocation-stop-button'
 import type { TrellisAllocation, TrellisEvent } from '@/types/trellis'
 
 function eventHistory(allocation: TrellisAllocation, events: TrellisEvent[]) {
-  const source = events.length ? events : allocation.events ?? []
-  const result = [...source]
+  const result = [...events]
   const createdAt = Date.parse(allocation.created_at)
   const hasCreatedEvent = result.some((event) => Math.abs(Date.parse(event.at) - createdAt) < 1000)
   if (!hasCreatedEvent) {
@@ -26,8 +25,10 @@ function eventHistory(allocation: TrellisAllocation, events: TrellisEvent[]) {
 
 export default async function AllocationDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string; serviceSlug: string; allocationId: string }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const { slug, serviceSlug, allocationId } = await params
   const user = await getCurrentUser()
@@ -40,15 +41,18 @@ export default async function AllocationDetailPage({
   if (!service) notFound()
 
   const configs = await getServiceConfigsWithEnvironments(service.id)
+  const { env } = await searchParams
+  const environmentId = typeof env === 'string' ? env : null
+  const selectedConfig = environmentId ? configs.find(({ environment }) => environment.id === environmentId) : null
+  if (!selectedConfig) notFound()
   const client = await getTrellisClient(orgCtx.org.id)
   let allocation: TrellisAllocation | null = null
 
   try {
-    const allocs = await client.listAllocations()
-    const knownJobs = new Set([service.slug, ...configs.map(({ config }) => config.activeJobName).filter((value): value is string => Boolean(value))])
-    const namespaces = new Set(configs.map(({ environment }) => environment.trellisNamespace))
+    const allocs = await client.listAllocations({ namespace: selectedConfig.environment.trellisNamespace })
+    const knownJobs = new Set([service.slug, selectedConfig.config.activeJobName].filter((value): value is string => Boolean(value)))
     allocation = allocs.find((item) => {
-      if (item.id !== allocationId || !namespaces.has(item.namespace)) return false
+      if (item.id !== allocationId) return false
       return item.labels?.['bower/service'] === service.slug || knownJobs.has(item.job)
     }) ?? null
   } catch {
@@ -57,9 +61,7 @@ export default async function AllocationDetailPage({
   if (!allocation) notFound()
 
   const matchingConfig = configs.find(({ environment }) => environment.trellisNamespace === allocation?.namespace)
-  const [stdout, stderr, events, metrics, revisions] = await Promise.all([
-    client.getAllocationLogs(allocationId, 'stdout').catch(() => ''),
-    client.getAllocationLogs(allocationId, 'stderr').catch(() => ''),
+  const [events, metrics, revisions] = await Promise.all([
     client.getAllocationEvents(allocationId).catch(() => []),
     client.getAllocationMetrics(allocationId).catch(() => []),
     client.getJobRevisions(allocation.job, allocation.namespace).catch(() => []),
@@ -68,13 +70,14 @@ export default async function AllocationDetailPage({
   const terminalTasks = allocationSpec?.task_groups
     .find((group) => group.name === allocation.group)
     ?.tasks.map((task) => task.name) ?? []
+  const logs = await Promise.all(terminalTasks.map(async (task) => ({ task, output: await client.getAllocationLogs(allocationId, task).catch(() => '') })))
   const history = eventHistory(allocation, events)
   const stoppable = !['stopping', 'stopped', 'lost'].includes(allocation.phase)
 
   return (
     <div className="space-y-6">
       <div className="flex items-start gap-3">
-        <Link href={`/projects/${slug}/services/${serviceSlug}`} className="mt-2 text-ink-muted transition-colors hover:text-ink" aria-label="Back to service">
+        <Link href={`/projects/${slug}/services/${serviceSlug}?env=${encodeURIComponent(selectedConfig.environment.id)}`} className="mt-2 text-ink-muted transition-colors hover:text-ink" aria-label="Back to service">
           <ArrowLeft className="h-4 w-4" />
         </Link>
         <div className="min-w-0 flex-1">
@@ -154,16 +157,12 @@ export default async function AllocationDetailPage({
 
       <div className="space-y-4">
         <SectionTitle>Logs</SectionTitle>
-        <Panel>
-          <PanelHeader title="stdout" />
-          <pre className="max-h-96 overflow-auto p-4 font-mono text-xs leading-relaxed text-ink-soft">{stdout || 'No output'}</pre>
-        </Panel>
-        {stderr && (
-          <Panel className="border-danger-200">
-            <PanelHeader title="stderr" />
-            <pre className="max-h-96 overflow-auto bg-danger-50/60 p-4 font-mono text-xs leading-relaxed text-danger-500">{stderr}</pre>
+        {logs.length ? logs.map(({ task, output }) => (
+          <Panel key={task}>
+            <PanelHeader title={task} />
+            <pre className="max-h-96 overflow-auto p-4 font-mono text-xs leading-relaxed text-ink-soft">{output || 'No output'}</pre>
           </Panel>
-        )}
+        )) : <Panel><div className="p-4 text-[13px] text-ink-muted">Task metadata is unavailable for this revision.</div></Panel>}
       </div>
     </div>
   )

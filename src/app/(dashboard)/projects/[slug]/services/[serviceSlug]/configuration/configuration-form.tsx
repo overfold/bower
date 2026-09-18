@@ -39,18 +39,16 @@ export function ConfigurationForm({ serviceId, environmentId, config, overridden
   const d = {
     image: config?.image ?? '',
     replicas: config?.replicas ?? 1,
-    port: config?.port ?? '',
     cpu: config?.cpu ?? 100,
     memory: config ? Math.round(config.memory / 1048576) : 128,
     deploymentStrategy: config?.deploymentStrategy ?? 'rolling',
     healthCheckPath: config?.healthCheckPath ?? '',
     healthCheckType: config?.healthCheckType ?? '',
+    healthCheckPort: config?.healthCheckPort ?? '',
     healthCheckCommand: Array.isArray(config?.healthCheckCommand) ? (config.healthCheckCommand as string[]).join(' ') : '',
     healthCheckInterval: config?.healthCheckInterval ?? 10,
     healthCheckTimeout: config?.healthCheckTimeout ?? 2,
     healthCheckThreshold: config?.healthCheckThreshold ?? 3,
-    command: config?.command ?? '',
-    cronSchedule: config?.cronSchedule ?? '',
     autoRollbackSeconds: config?.autoRollbackSeconds ?? 300,
   }
 
@@ -94,12 +92,7 @@ export function ConfigurationForm({ serviceId, environmentId, config, overridden
         <input type="hidden" name="labels" value={recordToLines(config?.labels)} />
         <input type="hidden" name="volumes" value={JSON.stringify(config?.volumes ?? [])} />
         <input type="hidden" name="secretBindings" value={JSON.stringify(config?.secretBindings ?? [])} />
-        <input type="hidden" name="rawConfig" value={config?.rawConfig ? JSON.stringify(config.rawConfig) : ''} />
         <input type="hidden" name="canarySteps" value={JSON.stringify(config?.canarySteps ?? [10, 25, 50, 100])} />
-        <input type="hidden" name="healthCommand" value={d.healthCheckCommand} />
-        <input type="hidden" name="healthInterval" value={d.healthCheckInterval} />
-        <input type="hidden" name="healthTimeout" value={d.healthCheckTimeout} />
-        <input type="hidden" name="healthThreshold" value={d.healthCheckThreshold} />
 
         <div className="divide-y divide-line">
           <div className="space-y-4 p-4">
@@ -121,7 +114,7 @@ export function ConfigurationForm({ serviceId, environmentId, config, overridden
                   Replicas
                   <OverrideBadge field="replicas" overriddenFields={overriddenFields} />
                 </Label>
-                <Input id="replicas" name="replicas" type="number" defaultValue={d.replicas} required min={0} />
+                <Input id="replicas" name="replicas" type="number" defaultValue={d.replicas} required min={1} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="strategy">
@@ -145,27 +138,20 @@ export function ConfigurationForm({ serviceId, environmentId, config, overridden
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="cpu">
                   CPU (millicores)
                   <OverrideBadge field="cpu" overriddenFields={overriddenFields} />
                 </Label>
-                <Input id="cpu" name="cpu" type="number" defaultValue={d.cpu} />
+                <Input id="cpu" name="cpu" type="number" defaultValue={d.cpu} min={0} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="memory">
                   Memory (MB)
                   <OverrideBadge field="memory" overriddenFields={overriddenFields} />
                 </Label>
-                <Input id="memory" name="memory" type="number" defaultValue={d.memory} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="port">
-                  Application port
-                  <OverrideBadge field="port" overriddenFields={overriddenFields} />
-                </Label>
-                <Input id="port" name="port" type="number" defaultValue={d.port} />
+                <Input id="memory" name="memory" type="number" defaultValue={d.memory} min={0} required />
               </div>
             </div>
 
@@ -200,28 +186,30 @@ export function ConfigurationForm({ serviceId, environmentId, config, overridden
                   <Input id="healthPath" name="healthPath" defaultValue={d.healthCheckPath} mono />
                 </div>
               )}
+              {(healthType === 'http' || healthType === 'tcp') && (
+                <div className="space-y-2">
+                  <Label htmlFor="healthPort">Health check port<OverrideBadge field="healthCheckPort" overriddenFields={overriddenFields} /></Label>
+                  <Input id="healthPort" name="healthPort" type="number" min={1} max={65535} defaultValue={d.healthCheckPort} required />
+                </div>
+              )}
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {healthType === 'script' && (
               <div className="space-y-2">
-                <Label htmlFor="command">
-                  Command
-                  <OverrideBadge field="command" overriddenFields={overriddenFields} />
-                </Label>
-                <Input id="command" name="command" defaultValue={d.command} mono />
+                <Label htmlFor="healthCommand">Health check command<OverrideBadge field="healthCheckCommand" overriddenFields={overriddenFields} /></Label>
+                <Input id="healthCommand" name="healthCommand" defaultValue={d.healthCheckCommand} required mono />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="cronSchedule">
-                  Cron schedule
-                  <OverrideBadge field="cronSchedule" overriddenFields={overriddenFields} />
-                </Label>
-                <Input id="cronSchedule" name="cronSchedule" defaultValue={d.cronSchedule} mono />
-              </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="space-y-2"><Label htmlFor="healthInterval">Check interval (seconds)</Label><Input id="healthInterval" name="healthInterval" type="number" min={0} defaultValue={d.healthCheckInterval} /></div>
+              <div className="space-y-2"><Label htmlFor="healthTimeout">Check timeout (seconds)</Label><Input id="healthTimeout" name="healthTimeout" type="number" min={0} defaultValue={d.healthCheckTimeout} /></div>
+              <div className="space-y-2"><Label htmlFor="healthThreshold">Failure threshold</Label><Input id="healthThreshold" name="healthThreshold" type="number" min={0} defaultValue={d.healthCheckThreshold} /></div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="autoRollbackSeconds">Auto-rollback timeout (seconds)</Label>
-              <Input id="autoRollbackSeconds" name="autoRollbackSeconds" type="number" defaultValue={d.autoRollbackSeconds} className="max-w-48" />
+              <Label htmlFor="autoRollbackSeconds">Failure grace period (seconds)</Label>
+              <Input id="autoRollbackSeconds" name="autoRollbackSeconds" type="number" min={30} defaultValue={d.autoRollbackSeconds} className="max-w-48" />
             </div>
           </div>
 

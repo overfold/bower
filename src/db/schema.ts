@@ -308,12 +308,12 @@ export const baseServiceConfigs = pgTable("base_service_configs", {
     .unique()
     .references(() => services.id, { onDelete: "cascade" }),
   image: text("image").notNull(),
-  port: integer("port"),
   replicas: integer("replicas").notNull().default(1),
   cpu: integer("cpu").notNull(),
   memory: integer("memory").notNull(),
   healthCheckPath: text("health_check_path"),
   healthCheckType: healthCheckTypeEnum("health_check_type"),
+  healthCheckPort: integer("health_check_port"),
   healthCheckCommand: jsonb("health_check_command").notNull().default([]),
   healthCheckInterval: integer("health_check_interval").notNull().default(10),
   healthCheckTimeout: integer("health_check_timeout").notNull().default(2),
@@ -324,11 +324,8 @@ export const baseServiceConfigs = pgTable("base_service_configs", {
   resourceTier: resourceTierEnum("resource_tier").notNull().default("small"),
   envVars: jsonb("env_vars").notNull().default({}),
   labels: jsonb("labels").notNull().default({}),
-  command: text("command"),
   volumes: jsonb("volumes").notNull().default([]),
   secretBindings: jsonb("secret_bindings").notNull().default([]),
-  rawConfig: jsonb("raw_config"),
-  cronSchedule: text("cron_schedule"),
   autoRollbackSeconds: integer("auto_rollback_seconds").notNull().default(300),
   canarySteps: jsonb("canary_steps").notNull().default([10, 25, 50, 100]),
   runtime: text("runtime").notNull().default("runc"),
@@ -353,12 +350,12 @@ export const serviceConfigs = pgTable(
       .notNull()
       .references(() => environments.id, { onDelete: "cascade" }),
     image: text("image").notNull(),
-    port: integer("port"),
     replicas: integer("replicas").notNull().default(1),
     cpu: integer("cpu").notNull(),
     memory: integer("memory").notNull(),
     healthCheckPath: text("health_check_path"),
     healthCheckType: healthCheckTypeEnum("health_check_type"),
+    healthCheckPort: integer("health_check_port"),
     healthCheckCommand: jsonb("health_check_command").notNull().default([]),
     healthCheckInterval: integer("health_check_interval").notNull().default(10),
     healthCheckTimeout: integer("health_check_timeout").notNull().default(2),
@@ -369,12 +366,8 @@ export const serviceConfigs = pgTable(
     resourceTier: resourceTierEnum("resource_tier").notNull(),
     envVars: jsonb("env_vars").notNull().default({}),
     labels: jsonb("labels").notNull().default({}),
-    command: text("command"),
     volumes: jsonb("volumes").notNull().default([]),
     secretBindings: jsonb("secret_bindings").notNull().default([]),
-    rawConfig: jsonb("raw_config"),
-    cronSchedule: text("cron_schedule"),
-    pausedReplicas: integer("paused_replicas"),
     activeJobName: text("active_job_name"),
     autoRollbackSeconds: integer("auto_rollback_seconds").notNull().default(300),
     canarySteps: jsonb("canary_steps").notNull().default([10, 25, 50, 100]),
@@ -397,22 +390,26 @@ export const serviceConfigs = pgTable(
   ]
 );
 
-export const sidecars = pgTable("sidecars", {
+export const projectVolumes = pgTable("project_volumes", {
   id: uuid("id").primaryKey().defaultRandom(),
-  serviceConfigId: uuid("service_config_id")
+  projectId: uuid("project_id")
     .notNull()
-    .references(() => serviceConfigs.id, { onDelete: "cascade" }),
+    .references(() => projects.id, { onDelete: "cascade" }),
+  environmentId: uuid("environment_id")
+    .notNull()
+    .references(() => environments.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
-  image: text("image").notNull(),
-  cpu: integer("cpu").notNull(),
-  memory: integer("memory").notNull(),
-  port: integer("port"),
-  envVars: jsonb("env_vars").notNull().default({}),
-  command: text("command"),
+  hostPath: text("host_path").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+}, (table) => [
+  uniqueIndex("project_volumes_environment_name_idx").on(table.environmentId, table.name),
+  index("project_volumes_project_environment_idx").on(table.projectId, table.environmentId),
+]);
 
 // ---------------------------------------------------------------------------
 // Deployment history

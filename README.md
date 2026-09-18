@@ -1,11 +1,11 @@
 # Bower
 
-Bower is an opinionated deployment dashboard built on top of [Trellis](https://github.com/clofour/trellis-experimental). It adds application-platform abstractions — projects, environments, services, deployments, routes, secrets, teams, and an audit trail — while leaving scheduling, placement, and container lifecycle entirely to Trellis.
+Bower is an opinionated deployment dashboard built on top of [Trellis](https://github.com/overfold/trellis). It adds application-platform abstractions — projects, environments, services, deployments, routes, volumes, secrets, teams, and an audit trail — while leaving scheduling, placement, and container lifecycle entirely to Trellis.
 
 ## Features
 
-- **Projects & environments** — logical groupings with configurable promotion order (staging → production)
-- **Services** — Web, Worker, Cron, and Custom types mapped to Trellis jobs
+- **Projects & environments** — logical grouping and inheritance scopes mapped to isolated Trellis namespaces
+- **Services** — opinionated application workloads mapped to Trellis jobs and task groups
 - **Deployments** — auditable history with plan diffs, canary step advancement, and automatic rollback on health failures
 - **Managed ingress** — per-namespace Caddy proxy; adding a route writes the config and reloads automatically
 - **Secrets** — backed by Trellis namespace secrets; Bower tracks metadata and rotation without storing values
@@ -35,7 +35,7 @@ openssl rand -hex 32 | trellisctl --namespace platform secrets set encryption-ke
 
 ```yaml
 # trellis.yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/clofour/trellis-experimental/main/schemas/trellis-job.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/overfold/trellis/main/schemas/trellis-job.schema.json
 name: bower
 namespace: platform
 task_groups:
@@ -57,7 +57,8 @@ task_groups:
           POSTGRES_DB: bower
         volumes:
           - name: pgdata
-            path: /var/lib/postgresql/data
+            host_path: '@/bower-postgres'
+            container_path: /var/lib/postgresql/data
         health_check:
           type: script
           command: ["pg_isready", "-U", "bower"]
@@ -187,4 +188,3 @@ When `AUTO_MIGRATE=true` is set, the container applies pending migrations on sta
 - [Deployment strategies](docs/deployment-strategies.md) — rolling, recreate, blue-green, canary, and auto-rollback
 - [Managed ingress](docs/managed-ingress.md) — how the per-namespace Caddy proxy works
 - [CI/CD automation](docs/automation.md) — deploy API and registry webhooks
-- [PLAN.md](PLAN.md) — full product model, responsibility boundary, and pending Trellis API additions

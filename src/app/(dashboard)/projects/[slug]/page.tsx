@@ -88,7 +88,7 @@ export default async function ProjectOverviewPage({
                           <div className="flex items-start justify-between gap-4">
                             <div className="min-w-0">
                               <Link
-                                href={`/projects/${slug}/services/${svc.slug}`}
+                                href={`/projects/${slug}/services/${svc.slug}?env=${encodeURIComponent(env.id)}`}
                                 className="rounded text-[13px] font-medium text-ink underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
                               >
                                 {svc.name}

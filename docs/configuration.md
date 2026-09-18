@@ -16,7 +16,7 @@ All configuration is via environment variables. Copy `.env.example` at the repo 
 | Variable | Default | Description |
 |---|---|---|
 | `BOWER_CADDY_IMAGE` | `ghcr.io/clofour/bower-caddy:latest` | Caddy image used for the per-namespace proxy job. Override when pulling from a private registry. |
-| `BOWER_PROXY_SYNC_IMAGE` | `ghcr.io/clofour/bower-proxy-sync:latest` | Route-sync sidecar image. Override when pulling from a private registry. |
+| `BOWER_PROXY_SYNC_IMAGE` | `ghcr.io/clofour/bower-proxy-sync:latest` | Route-sync task image. Override when pulling from a private registry. |
 | `BOWER_PROXY_HTTP_PORT` | `80` | Host port for the managed ingress HTTP listener. |
 | `BOWER_PROXY_HTTPS_PORT` | `443` | Host port for the managed ingress HTTPS listener. |
 

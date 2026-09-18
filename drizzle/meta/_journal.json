@@ -17,6 +17,7 @@
     { "idx": 12, "version": "7", "when": 1789683300000, "tag": "0013_remove_environment_promotion_order", "breakpoints": true },
     { "idx": 13, "version": "7", "when": 1789729500000, "tag": "0014_remove_shared_secret_groups", "breakpoints": true },
     { "idx": 14, "version": "7", "when": 1789732800000, "tag": "0015_advanced_config_inheritance", "breakpoints": true },
-    { "idx": 15, "version": "7", "when": 1789740000000, "tag": "0016_route_protection", "breakpoints": true }
+    { "idx": 15, "version": "7", "when": 1789740000000, "tag": "0016_route_protection", "breakpoints": true },
+    { "idx": 16, "version": "7", "when": 1790251200000, "tag": "0017_align_trellis_model", "breakpoints": true }
   ]
 }

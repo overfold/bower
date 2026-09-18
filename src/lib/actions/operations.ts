@@ -1,10 +1,11 @@
 'use server'
 
+import { createHash } from 'node:crypto'
 import { and, eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/db'
 import {
-  environments, routes, secretsMetadata, services, teams, teamMemberships,
+  baseServiceConfigs, environments, routes, secretsMetadata, services, teams, teamMemberships,
   teamProjectAccess, users, projects, serviceConfigs,
   organizationMembers,
   projectUserAccess,
@@ -20,11 +21,12 @@ export async function createEnvironmentAction(projectId: string, formData: FormD
   const name = text(formData, 'name')
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
   if (!slug) throw new Error('Environment name is required.')
+  const namespaceHash = createHash('sha256').update(`${projectId}:${slug}`).digest('hex').slice(0, 12)
   let env: typeof environments.$inferSelect
   try {
     ;[env] = await db.insert(environments).values({
-      projectId, name, slug, trellisNamespace: `${ctx.project.slug}-${slug}`,
-      defaultReplicas: Math.max(0, integer(formData, 'replicas', 1)),
+      projectId, name, slug, trellisNamespace: `${slug.slice(0, 50)}-${namespaceHash}`,
+      defaultReplicas: Math.max(1, integer(formData, 'replicas', 1)),
       resourceTier: (text(formData, 'resourceTier') || 'small') as 'small' | 'medium' | 'large' | 'xl' | 'custom',
       envVars: {},
     }).returning()
@@ -33,6 +35,38 @@ export async function createEnvironmentAction(projectId: string, formData: FormD
   if (Object.keys(submitted).length) {
     const envVars = await storeEnvironmentVariables(ctx.org.id, env, submitted)
     await db.update(environments).set({ envVars }).where(eq(environments.id, env.id))
+  }
+  const bases = await db.select({ service: services, config: baseServiceConfigs })
+    .from(services)
+    .innerJoin(baseServiceConfigs, eq(baseServiceConfigs.serviceId, services.id))
+    .where(eq(services.projectId, projectId))
+  if (bases.length) {
+    await db.insert(serviceConfigs).values(bases.map(({ service, config }) => ({
+      serviceId: service.id,
+      environmentId: env.id,
+      image: config.image,
+      replicas: Math.max(1, env.defaultReplicas),
+      cpu: config.cpu,
+      memory: config.memory,
+      healthCheckPath: config.healthCheckPath,
+      healthCheckType: config.healthCheckType,
+      healthCheckPort: config.healthCheckPort,
+      healthCheckCommand: config.healthCheckCommand,
+      healthCheckInterval: config.healthCheckInterval,
+      healthCheckTimeout: config.healthCheckTimeout,
+      healthCheckThreshold: config.healthCheckThreshold,
+      deploymentStrategy: config.deploymentStrategy,
+      resourceTier: config.resourceTier,
+      envVars: config.envVars,
+      labels: config.labels,
+      volumes: config.volumes,
+      secretBindings: config.secretBindings,
+      autoRollbackSeconds: config.autoRollbackSeconds,
+      canarySteps: config.canarySteps,
+      runtime: config.runtime,
+      apiAccessScope: config.apiAccessScope,
+      apiAccessLevel: config.apiAccessLevel,
+    })))
   }
   await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'environment.created', resourceType: 'environment', resourceId: env.id, details: { name } })
   revalidatePath(`/projects/${ctx.project.slug}/environments`)
@@ -64,10 +98,21 @@ export async function updateEnvironmentAction(projectId: string, environmentId: 
   const [before] = await db.select().from(environments).where(and(eq(environments.id, environmentId), eq(environments.projectId, projectId))).limit(1)
   if (!before) throw new Error('Environment not found.')
   const envVars = await storeEnvironmentVariables(ctx.org.id, before, parseLines(text(formData, 'envVars')))
-  const after = { defaultReplicas: Math.max(0, integer(formData, 'replicas', 1)), resourceTier: (text(formData, 'resourceTier') || 'small') as 'small' | 'medium' | 'large' | 'xl' | 'custom', envVars, updatedAt: new Date() }
+  const after = { defaultReplicas: Math.max(1, integer(formData, 'replicas', 1)), resourceTier: (text(formData, 'resourceTier') || 'small') as 'small' | 'medium' | 'large' | 'xl' | 'custom', envVars, updatedAt: new Date() }
   await db.update(environments).set(after).where(eq(environments.id, environmentId))
   const tierResources = { small: [100, 134217728], medium: [250, 268435456], large: [500, 536870912], xl: [1000, 1073741824] } as const
-  if (after.resourceTier !== 'custom') await db.update(serviceConfigs).set({ resourceTier: after.resourceTier, cpu: tierResources[after.resourceTier][0], memory: tierResources[after.resourceTier][1], updatedAt: new Date() }).where(eq(serviceConfigs.environmentId, environmentId))
+  const configs = await db.select().from(serviceConfigs).where(eq(serviceConfigs.environmentId, environmentId))
+  for (const config of configs) {
+    const overrides = (config.overrides ?? {}) as Record<string, unknown>
+    const patch: Partial<typeof serviceConfigs.$inferInsert> = { updatedAt: new Date() }
+    if (!('replicas' in overrides)) patch.replicas = after.defaultReplicas
+    if (after.resourceTier !== 'custom' && !['resourceTier', 'cpu', 'memory'].some((field) => field in overrides)) {
+      patch.resourceTier = after.resourceTier
+      patch.cpu = tierResources[after.resourceTier][0]
+      patch.memory = tierResources[after.resourceTier][1]
+    }
+    if (Object.keys(patch).length > 1) await db.update(serviceConfigs).set(patch).where(eq(serviceConfigs.id, config.id))
+  }
   await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'environment.updated', resourceType: 'environment', resourceId: environmentId, details: { before, after } })
   revalidatePath(`/projects/${ctx.project.slug}/environments`)
 }
@@ -75,11 +120,17 @@ export async function updateEnvironmentAction(projectId: string, environmentId: 
 export async function deleteEnvironmentAction(projectId: string, environmentId: string) {
   const ctx = await requireProject(projectId)
   if (ctx.projectRole !== 'admin') throw new Error('Insufficient permissions.')
-  const [service] = await db.select({ id: services.id }).from(services).where(eq(services.projectId, projectId)).limit(1)
-  if (service) throw new Error('Delete project services before removing environments.')
   const [environment] = await db.select().from(environments).where(and(eq(environments.id, environmentId), eq(environments.projectId, projectId))).limit(1)
   if (!environment) return
   const client = await getTrellisClient(ctx.org.id)
+  const configs = await db.select({ config: serviceConfigs, service: services })
+    .from(serviceConfigs)
+    .innerJoin(services, eq(services.id, serviceConfigs.serviceId))
+    .where(eq(serviceConfigs.environmentId, environmentId))
+  for (const { config, service } of configs) {
+    const names = new Set([service.slug, config.activeJobName, `${service.slug}-blue`, `${service.slug}-green`, `${service.slug}-canary-a`, `${service.slug}-canary-b`].filter(Boolean) as string[])
+    await Promise.allSettled([...names].map((job) => client.deleteJob(job, environment.trellisNamespace)))
+  }
   await client.deleteJob('bower-proxy', environment.trellisNamespace).catch(() => undefined)
   const secrets = await client.listSecrets(environment.trellisNamespace).catch(() => [])
   await Promise.allSettled(secrets.map((secret) => client.deleteSecret(environment.trellisNamespace, secret.name)))
@@ -98,6 +149,7 @@ export async function createRouteAction(projectId: string, formData: FormData) {
   const protectionMode = (text(formData, 'protectionMode') || 'none') as 'none' | 'password' | 'bower_auth'
   const password = text(formData, 'routePassword')
   if (!domain || !serviceId || !environmentId) throw new Error('Domain, service, and environment are required.')
+  if (port < 1 || port > 65_535) throw new Error('Route port must be between 1 and 65535.')
   if (!/^(?:\*\.)?[a-z0-9.-]+$/i.test(domain)) throw new Error('Enter a valid domain name.')
   if (!['none', 'password', 'bower_auth'].includes(protectionMode)) throw new Error('Invalid route protection mode.')
   if (protectionMode === 'password' && password.length < 8) throw new Error('Route passwords must be at least 8 characters.')
@@ -110,6 +162,11 @@ export async function createRouteAction(projectId: string, formData: FormData) {
   const [environment] = await db.select().from(environments)
     .where(and(eq(environments.id, environmentId), eq(environments.projectId, projectId))).limit(1)
   if (!service || !environment) throw new Error('Invalid route target.')
+  const [targetConfig] = await db.select({ id: serviceConfigs.id }).from(serviceConfigs).where(and(
+    eq(serviceConfigs.serviceId, serviceId),
+    eq(serviceConfigs.environmentId, environmentId),
+  )).limit(1)
+  if (!targetConfig) throw new Error('The target service is not configured in this environment.')
   if (text(formData, 'tlsMode') === 'custom') {
     const secretRows = await db.select({ name: secretsMetadata.trellisSecretName }).from(secretsMetadata).where(eq(secretsMetadata.environmentId, environmentId)); const available = new Set(secretRows.map((item) => item.name))
     if (!available.has(text(formData, 'tlsCertSecret')) || !available.has(text(formData, 'tlsKeySecret'))) throw new Error('Custom TLS secrets must exist in the selected environment.')
@@ -143,12 +200,16 @@ function parseRedirects(value: string) {
 export async function updateRouteAction(projectId: string, routeId: string, formData: FormData) {
   const ctx = await requireProject(projectId); if (ctx.projectRole !== 'admin') throw new Error('Insufficient permissions.')
   const [before] = await db.select().from(routes).where(and(eq(routes.id, routeId), eq(routes.projectId, projectId))).limit(1); if (!before) throw new Error('Route not found.')
+  const domain = text(formData, 'domain').toLowerCase()
+  const port = integer(formData, 'port', 8080)
+  if (!/^(?:\*\.)?[a-z0-9.-]+$/i.test(domain)) throw new Error('Enter a valid domain name.')
+  if (port < 1 || port > 65_535) throw new Error('Route port must be between 1 and 65535.')
   if (text(formData, 'tlsMode') === 'custom' && (!text(formData, 'tlsCertSecret') || !text(formData, 'tlsKeySecret'))) throw new Error('Custom TLS requires certificate and key secret names.')
   if (text(formData, 'tlsMode') === 'custom') {
     const secretRows = await db.select({ name: secretsMetadata.trellisSecretName }).from(secretsMetadata).where(eq(secretsMetadata.environmentId, before.environmentId)); const available = new Set(secretRows.map((item) => item.name))
     if (!available.has(text(formData, 'tlsCertSecret')) || !available.has(text(formData, 'tlsKeySecret'))) throw new Error('Custom TLS secrets must exist in this environment.')
   }
-  const after = { domain: text(formData, 'domain').toLowerCase(), pathPrefix: text(formData, 'pathPrefix') || '/', port: integer(formData, 'port', 8080), tlsMode: text(formData, 'tlsMode') as 'auto' | 'custom' | 'none', headers: parseLines(text(formData, 'requestHeaders')), responseHeaders: parseLines(text(formData, 'responseHeaders')), rateLimit: integer(formData, 'rateLimit', 0) || null, redirects: parseRedirects(text(formData, 'redirects')), tlsCertSecret: text(formData, 'tlsCertSecret') || null, tlsKeySecret: text(formData, 'tlsKeySecret') || null, updatedAt: new Date() }
+  const after = { domain, pathPrefix: text(formData, 'pathPrefix') || '/', port, tlsMode: text(formData, 'tlsMode') as 'auto' | 'custom' | 'none', headers: parseLines(text(formData, 'requestHeaders')), responseHeaders: parseLines(text(formData, 'responseHeaders')), rateLimit: integer(formData, 'rateLimit', 0) || null, redirects: parseRedirects(text(formData, 'redirects')), tlsCertSecret: text(formData, 'tlsCertSecret') || null, tlsKeySecret: text(formData, 'tlsKeySecret') || null, updatedAt: new Date() }
   await db.update(routes).set(after).where(eq(routes.id, routeId)); await syncManagedProxy(projectId, before.environmentId, ctx.org.id)
   await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'route.updated', resourceType: 'route', resourceId: routeId, details: { before, after } }); revalidatePath(`/projects/${ctx.project.slug}/routes`)
 }

@@ -1,7 +1,7 @@
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
-import { getUserOrganization, getProjectBySlug, getServiceBySlug, getServiceConfigsWithEnvironments, getDeploymentsByService } from '@/lib/queries'
+import { getUserOrganization, getProjectBySlug, getServiceBySlug, getServiceConfigsWithEnvironments, getDeploymentsByService, getEnvironmentsByProject } from '@/lib/queries'
 import { getTrellisClient } from '@/lib/trellis-instance'
 import { Panel, SectionTitle } from '@/components/ui/panel'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -9,13 +9,16 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { StatusDot } from '@/components/status'
 import { DeploymentPoller } from '@/components/deployment-poller'
 import { ServiceHeader } from './service-header'
+import { ServiceActions } from './service-actions'
 import { Boxes, Rocket } from 'lucide-react'
 import type { TrellisAllocation } from '@/types/trellis'
 
 export default async function ServiceDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string; serviceSlug: string }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const { slug, serviceSlug } = await params
 
@@ -28,15 +31,22 @@ export default async function ServiceDetailPage({
   const service = await getServiceBySlug(project.id, serviceSlug)
   if (!service) notFound()
 
-  const [configs, deployments] = await Promise.all([
+  const { env } = await searchParams
+  const environmentId = typeof env === 'string' ? env : null
+  const [configs, deployments, environments] = await Promise.all([
     getServiceConfigsWithEnvironments(service.id),
     getDeploymentsByService(service.id, 10),
+    getEnvironmentsByProject(project.id),
   ])
+  const selectedEnvironment = environmentId ? environments.find((environment) => environment.id === environmentId) : null
+  if (environmentId && !selectedEnvironment) notFound()
+  const selectedConfigs = environmentId ? configs.filter(({ environment }) => environment.id === environmentId) : []
+  const selectedDeployments = environmentId ? deployments.filter((deployment) => deployment.environmentId === environmentId) : []
 
   const allocationRows: Array<{ allocation: TrellisAllocation; environmentName: string }> = []
   try {
     const client = await getTrellisClient(orgCtx.org.id)
-    const byEnvironment = await Promise.all(configs.map(async ({ environment }) => {
+    const byEnvironment = await Promise.all(selectedConfigs.map(async ({ environment }) => {
       const allocations = await client.listAllocations({ namespace: environment.trellisNamespace }).catch(() => [])
       return allocations
         .filter((allocation) => allocation.phase !== 'stopped' && allocation.labels?.['bower/service'] === service.slug)
@@ -48,7 +58,7 @@ export default async function ServiceDetailPage({
   }
   allocationRows.sort((a, b) => Date.parse(b.allocation.created_at) - Date.parse(a.allocation.created_at))
 
-  const hasActiveDeployment = deployments.some((d) =>
+  const hasActiveDeployment = selectedDeployments.some((d) =>
     ['pending', 'planning', 'deploying'].includes(d.status)
   )
 
@@ -56,6 +66,12 @@ export default async function ServiceDetailPage({
     <div className="space-y-6">
       <DeploymentPoller active={hasActiveDeployment} />
       <ServiceHeader slug={slug} serviceSlug={serviceSlug} serviceName={service.name} />
+      {selectedEnvironment && selectedConfigs[0] ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-[13px] text-ink-muted">Runtime for <span className="font-medium text-ink">{selectedEnvironment.name}</span>.</p>
+          <ServiceActions serviceId={service.id} environmentId={selectedEnvironment.id} canPromote promotionTargets={environments.filter((environment) => environment.id !== selectedEnvironment.id).map((environment) => ({ id: environment.id, name: environment.name }))} hasDeployments={selectedDeployments.some((deployment) => Boolean(deployment.previousJobSpec))} />
+        </div>
+      ) : null}
 
       <div className="space-y-5">
         <SectionTitle>Current allocations</SectionTitle>
@@ -64,7 +80,7 @@ export default async function ServiceDetailPage({
             <EmptyState
               icon={<Boxes className="h-4 w-4" />}
               title="No current allocations"
-              body="Deploy this service to see its runtime allocations and diagnostics."
+              body={selectedEnvironment ? 'Deploy this service to see its runtime allocations and diagnostics.' : 'Select an environment to view runtime allocations.'}
             />
           </Panel>
         ) : (
@@ -85,7 +101,7 @@ export default async function ServiceDetailPage({
                   {allocationRows.map(({ allocation, environmentName }) => (
                     <TableRow key={allocation.id}>
                       <TableCell>
-                        <Link href={`/projects/${slug}/services/${serviceSlug}/allocations/${allocation.id}`} className="font-mono text-xs font-medium text-ink transition-colors hover:text-brand-500">
+                        <Link href={`/projects/${slug}/services/${serviceSlug}/allocations/${allocation.id}?env=${encodeURIComponent(environmentId!)}`} className="font-mono text-xs font-medium text-ink transition-colors hover:text-brand-500">
                           {allocation.id.slice(0, 8)}
                         </Link>
                       </TableCell>
@@ -105,12 +121,12 @@ export default async function ServiceDetailPage({
 
       <div className="space-y-5">
         <SectionTitle>Recent deployments</SectionTitle>
-        {deployments.length === 0 ? (
+        {selectedDeployments.length === 0 ? (
           <Panel>
             <EmptyState
               icon={<Rocket className="h-4 w-4" />}
               title="No deployments yet"
-              body="Deploy this service to see its history here."
+              body={selectedEnvironment ? 'Deploy this service to see its history here.' : 'Select an environment to view deployment history.'}
             />
           </Panel>
         ) : (
@@ -127,7 +143,7 @@ export default async function ServiceDetailPage({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {deployments.map((d) => (
+                  {selectedDeployments.map((d) => (
                     <TableRow key={d.id}>
                       <TableCell><StatusDot status={d.status} /></TableCell>
                       <TableCell className="max-w-48 truncate font-mono text-xs">{d.imageAfter}</TableCell>

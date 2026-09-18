@@ -47,6 +47,7 @@ export default async function ProjectLayout({
     { label: 'Services', href: '/services', count: services.length },
     { label: 'Deployments', href: '/deployments', count: undefined },
     { label: 'Environments', href: '/environments', count: environments.length },
+    { label: 'Volumes', href: '/volumes' },
     { label: 'Routes', href: '/routes' },
     { label: 'Integrations', href: '/integrations' },
     { label: 'Access', href: '/access' },

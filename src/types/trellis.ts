@@ -8,8 +8,13 @@ export interface TrellisWhoAmI {
   kind: string
   scope: 'cluster' | 'namespace'
   access: 'read' | 'write'
-  namespace: string | null
-  created_at: string // ISO 8601
+  namespace?: string
+  subject?: {
+    namespace: string
+    job: string
+    task_group: string
+  }
+  created_at?: string // ISO 8601
 }
 
 // -- Nodes ------------------------------------------------------------------
@@ -21,14 +26,11 @@ export interface TrellisNode {
   status: 'healthy' | 'unhealthy' | 'draining'
   cpu: number // millicores capacity
   memory: number // bytes capacity
-  cpu_used?: number
-  memory_used?: number
-  os: string
-  arch: string
-  labels: Record<string, string>
-  host_volumes?: string[]
+  os?: string
+  arch?: string
+  labels?: Record<string, string>
   volumes?: string[]
-  version: string
+  version?: string
   last_heartbeat: string // ISO 8601
 }
 
@@ -75,7 +77,6 @@ export interface TrellisHealthCheck {
 export interface TrellisTask {
   name: string
   image: string
-  command?: string
   env?: Record<string, string>
   networking?: TrellisNetworking
   resources?: TrellisResources
@@ -151,9 +152,8 @@ export type TrellisAllocationPhase =
 export type TrellisHealthStatus = 'healthy' | 'unhealthy' | 'unknown'
 
 export interface TrellisAllocationPort {
-  label: string
-  port: number
   host_port: number
+  container_port: number
 }
 
 export interface TrellisAllocation {
@@ -176,7 +176,6 @@ export interface TrellisAllocation {
   next_retry_at?: string
   ports: TrellisAllocationPort[]
   labels: Record<string, string>
-  events: TrellisEvent[]
 }
 
 // -- Events -----------------------------------------------------------------
@@ -190,38 +189,32 @@ export interface TrellisEvent {
 
 // -- Jobs (full response from GET /v1/jobs/{name}) --------------------------
 
-export type TrellisJobStatus =
-  | 'pending'
-  | 'running'
-  | 'completed'
-  | 'failed'
-  | 'dead'
-
 export interface TrellisJob {
   name: string
-  namespace: string
-  status?: TrellisJobStatus
   revision: number
-  spec: TrellisJobSpec
-  allocations?: TrellisAllocation[]
+  desired: number
+  running: number
+  healthy: number
+  allocations: TrellisAllocation[]
+  spec?: TrellisJobSpec
 }
 
 // -- Plan (response from POST /v1/jobs/plan) --------------------------------
 
 export interface TrellisPlanDiff {
-  type: 'added' | 'removed' | 'modified' | 'unchanged'
-  field: string
-  old_value?: unknown
-  new_value?: unknown
+  operation: 'add' | 'remove' | 'change'
+  path: string
+  before?: unknown
+  after?: unknown
 }
 
 export interface TrellisPlan {
-  job_name: string
+  action: 'create' | 'none' | 'update'
   namespace: string
-  diff: TrellisPlanDiff[]
-  annotations: string[]
-  created: boolean
-  warnings: string[]
+  job: string
+  base_revision?: number
+  desired_allocations: number
+  changes: TrellisPlanDiff[]
 }
 
 // -- Secrets (metadata only) ------------------------------------------------
@@ -232,6 +225,8 @@ export interface TrellisSecret {
   version: number
   created_at: string // ISO 8601
   updated_at: string // ISO 8601
+  ciphertext_size: number
+  key_id: string
 }
 
 // -- Request payloads -------------------------------------------------------
@@ -247,13 +242,6 @@ export interface TrellisApplyJobRequest {
 
 export interface TrellisPlanJobRequest {
   spec: TrellisJobSpec
-}
-
-// -- API response wrappers (for apply) --------------------------------------
-
-export interface TrellisApplyJobResponse {
-  created: boolean
-  revision?: number
 }
 
 // -- Job revisions ----------------------------------------------------------

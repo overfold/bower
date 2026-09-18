@@ -5,6 +5,7 @@ import {
   getEnvironmentsByProject,
   getProjectBySlug,
   getRoutesByProject,
+  getServiceConfigs,
   getServicesByProject,
 } from '@/lib/queries'
 import { getVerifiedOrganizationDomains } from '@/lib/domain-queries'
@@ -22,7 +23,7 @@ const tlsBadgeVariant: Record<string, 'success' | 'secondary' | 'outline'> = {
   none: 'outline',
 }
 
-export default async function RoutesPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function RoutesPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const ctx = await requireContext()
   const { slug } = await params
   const project = await getProjectBySlug(ctx.org.id, slug)
@@ -35,6 +36,15 @@ export default async function RoutesPage({ params }: { params: Promise<{ slug: s
     getEnvironmentsByProject(project.id),
     getVerifiedOrganizationDomains(ctx.org.id),
   ])
+  const { env } = await searchParams
+  const environmentId = typeof env === 'string' ? env : null
+  const selectedEnvironment = environmentId ? environments.find((environment) => environment.id === environmentId) : null
+  if (environmentId && !selectedEnvironment) redirect(`/projects/${slug}/routes`)
+  const serviceConfigs = selectedEnvironment
+    ? await Promise.all(services.map(async (service) => ({ service, configs: await getServiceConfigs(service.id) })))
+    : []
+  const targetServices = serviceConfigs.filter(({ configs }) => configs.some((config) => config.environmentId === environmentId)).map(({ service }) => service)
+  const visibleRoutes = environmentId ? routeRows.filter((row) => row.route.environmentId === environmentId) : []
   const canManage = access.projectRole === 'admin'
 
   return (
@@ -43,14 +53,14 @@ export default async function RoutesPage({ params }: { params: Promise<{ slug: s
         <div>
           <h2 className="text-lg font-semibold tracking-tight text-ink">Routes</h2>
           <p className="mt-1 text-[13px] text-ink-muted">
-            Route verified hostnames to services in this project.
+            Route verified hostnames to services in the selected environment.
           </p>
         </div>
-        {canManage && managedDomains.length > 0 ? (
+        {canManage && managedDomains.length > 0 && selectedEnvironment ? (
           <AddRouteDialog
             projectId={project.id}
-            services={services.map((service) => ({ id: service.id, name: service.name }))}
-            environments={environments.map((environment) => ({ id: environment.id, name: environment.name }))}
+            environmentId={selectedEnvironment.id}
+            services={targetServices.map((service) => ({ id: service.id, name: service.name }))}
             domains={managedDomains.map((domain) => ({ id: domain.id, domain: domain.domain }))}
           />
         ) : null}
@@ -73,9 +83,11 @@ export default async function RoutesPage({ params }: { params: Promise<{ slug: s
 
       <Panel>
         <PanelHeader
-          title={`${routeRows.length} route${routeRows.length === 1 ? '' : 's'}`}
+          title={selectedEnvironment ? `${visibleRoutes.length} route${visibleRoutes.length === 1 ? '' : 's'}` : 'Routes'}
         />
-        {routeRows.length === 0 ? (
+        {!selectedEnvironment ? (
+          <EmptyState icon={<Globe className="h-4 w-4" />} title="Select an environment" body="Routes target one environment namespace; Base has no routes." />
+        ) : visibleRoutes.length === 0 ? (
           <EmptyState
             icon={<Globe className="h-4 w-4" />}
             title="No routes configured"
@@ -95,7 +107,7 @@ export default async function RoutesPage({ params }: { params: Promise<{ slug: s
               </TableRow>
             </TableHeader>
             <TableBody>
-              {routeRows.map((row) => (
+              {visibleRoutes.map((row) => (
                 <TableRow key={row.route.id}>
                   <TableCell className="font-mono text-[12.5px] font-medium text-ink">{row.route.domain}</TableCell>
                   <TableCell className="font-mono text-xs text-ink-muted">{row.route.pathPrefix}</TableCell>

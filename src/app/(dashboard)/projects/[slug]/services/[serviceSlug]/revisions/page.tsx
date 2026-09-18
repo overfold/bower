@@ -9,7 +9,7 @@ import { ServiceHeader } from '../service-header'
 import { History } from 'lucide-react'
 import type { TrellisJobRevision } from '@/types/trellis'
 
-export default async function RevisionsPage({ params }: { params: Promise<{ slug: string; serviceSlug: string }> }) {
+export default async function RevisionsPage({ params, searchParams }: { params: Promise<{ slug: string; serviceSlug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { slug, serviceSlug } = await params
   const user = await getCurrentUser()
   if (!user) redirect('/login')
@@ -21,13 +21,16 @@ export default async function RevisionsPage({ params }: { params: Promise<{ slug
   if (!service) notFound()
 
   const configs = await getServiceConfigsWithEnvironments(service.id)
-  const activeConfig = configs.find((c) => c.config.activeJobName)
+  const { env } = await searchParams
+  const environmentId = typeof env === 'string' ? env : null
+  const activeConfig = environmentId ? configs.find((row) => row.environment.id === environmentId) : null
+  if (environmentId && !activeConfig) notFound()
 
   let revisions: TrellisJobRevision[] = []
   if (activeConfig) {
     try {
       const client = await getTrellisClient(orgCtx.org.id)
-      revisions = await client.getJobRevisions(activeConfig.config.activeJobName!)
+      revisions = await client.getJobRevisions(activeConfig.config.activeJobName || service.slug, activeConfig.environment.trellisNamespace)
     } catch {
       // Trellis may be unreachable
     }
@@ -41,8 +44,8 @@ export default async function RevisionsPage({ params }: { params: Promise<{ slug
         <Panel>
           <EmptyState
             icon={<History className="h-4 w-4" />}
-            title="No active deployment"
-            body="Deploy this service before viewing revision history."
+            title="Select an environment"
+            body="Revision history belongs to a deployed Trellis job, not Base configuration."
           />
         </Panel>
       ) : revisions.length === 0 ? (

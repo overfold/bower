@@ -38,13 +38,13 @@ const selectClass = 'flex h-9 w-full appearance-none rounded-lg border border-li
 
 export function AddRouteDialog({
   projectId,
+  environmentId,
   services,
-  environments,
   domains,
 }: {
   projectId: string
+  environmentId: string
   services: Option[]
-  environments: Option[]
   domains: ManagedDomain[]
 }) {
   const router = useRouter()
@@ -95,7 +95,7 @@ export function AddRouteDialog({
         variant="primary"
         size="sm"
         onClick={() => setOpen(true)}
-        disabled={!services.length || !environments.length}
+        disabled={!services.length}
       >
         <Plus />
         Add route
@@ -145,18 +145,8 @@ export function AddRouteDialog({
                 </div>
               </div>
 
+              <input type="hidden" name="environmentId" value={environmentId} />
               <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="environmentId">Environment</Label>
-                  <div className="relative">
-                    <select id="environmentId" name="environmentId" className={selectClass} required>
-                      {environments.map((environment) => (
-                        <option key={environment.id} value={environment.id}>{environment.name}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
-                  </div>
-                </div>
                 <div className="space-y-2">
                   <Label htmlFor="serviceId">Target service</Label>
                   <div className="relative">
@@ -194,7 +184,7 @@ export function AddRouteDialog({
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="rateLimit">Rate limit</Label>
-                  <Input id="rateLimit" name="rateLimit" type="number" min={0} placeholder="Requests / second" />
+                  <Input id="rateLimit" name="rateLimit" type="number" min={1} placeholder="Requests / second" />
                 </div>
               </div>
 

@@ -38,14 +38,14 @@ export default async function AdvancedPage({
       <div className="space-y-2">
         <SectionTitle>Advanced execution</SectionTitle>
         <p className="max-w-3xl text-[13px] leading-relaxed text-ink-muted">
-          Configure the base runtime and workload API access once, then override either setting only where an environment needs to differ.
+          Runtime and workload API access for the scope selected above.
         </p>
       </div>
 
       <Panel>
         <PanelHeader
           title={selectedEnv?.name ?? 'Base'}
-          hint={selectedEnv ? 'Inherits from Base unless a value is overridden' : 'Inherited by environments unless they override a value'}
+          hint={selectedEnv ? 'Inherited values can be overridden here' : 'Defaults inherited by environments'}
         />
         {mergedConfig ? (
           <AdvancedConfigForm

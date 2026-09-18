@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Plus, ChevronDown } from 'lucide-react'
 
-export function CreateServiceDialog({ projectSlug }: { projectSlug: string }) {
+export function CreateServiceDialog({ projectSlug, environmentId }: { projectSlug: string; environmentId?: string }) {
   const [open, setOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -39,6 +39,7 @@ export function CreateServiceDialog({ projectSlug }: { projectSlug: string }) {
         </DialogHeader>
         <DialogBody>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {environmentId && <input type="hidden" name="environmentId" value={environmentId} />}
             {error && (
               <div className="rounded-md bg-danger-50 p-3 text-sm text-danger-500">{error}</div>
             )}
@@ -50,14 +51,10 @@ export function CreateServiceDialog({ projectSlug }: { projectSlug: string }) {
               <Label htmlFor="image">Image</Label>
               <Input id="image" name="image" placeholder="nginx:latest" required mono />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="port">Port</Label>
-                <Input id="port" name="port" type="number" placeholder="8080" />
-              </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="replicas">Replicas</Label>
-                <Input id="replicas" name="replicas" type="number" defaultValue={1} min={0} required />
+                <Input id="replicas" name="replicas" type="number" defaultValue={1} min={1} required />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -79,13 +76,13 @@ export function CreateServiceDialog({ projectSlug }: { projectSlug: string }) {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="cpu">CPU (MHz)</Label>
-                <Input id="cpu" name="cpu" type="number" defaultValue={100} required />
+                <Label htmlFor="cpu">CPU (millicores)</Label>
+                <Input id="cpu" name="cpu" type="number" defaultValue={100} min={0} required />
               </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="memory">Memory (MB)</Label>
-              <Input id="memory" name="memory" type="number" defaultValue={128} required />
+              <Input id="memory" name="memory" type="number" defaultValue={128} min={0} required />
             </div>
             <Button variant="primary" type="submit" className="w-full" disabled={loading}>
               {loading ? 'Creating...' : 'Create service'}

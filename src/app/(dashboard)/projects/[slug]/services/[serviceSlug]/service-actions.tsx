@@ -13,7 +13,6 @@ import { Rocket, RefreshCw, ArrowUpCircle, RotateCcw } from 'lucide-react'
 interface ServiceActionsProps {
   serviceId: string
   environmentId: string
-  replicas: number
   canPromote?: boolean
   promotionTargets?: { id: string; name: string }[]
   hasDeployments?: boolean
@@ -40,7 +39,7 @@ export function ServiceActions({ serviceId, environmentId, canPromote, promotion
             <AlertDialogHeader>
               <AlertDialogTitle>Rollback service?</AlertDialogTitle>
               <AlertDialogDescription>
-                This will re-apply the previous deployment spec for this environment. The current configuration will be replaced.
+                This re-applies the exact previous runtime spec and records its image as this environment&apos;s selected release.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -64,7 +63,7 @@ export function ServiceActions({ serviceId, environmentId, canPromote, promotion
             <AlertDialogHeader>
               <AlertDialogTitle>Promote to another environment?</AlertDialogTitle>
               <AlertDialogDescription>
-                This will copy the current configuration and deploy it to the target environment.
+                This copies the selected environment&apos;s image and deploys it using the target environment&apos;s own configuration.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <div className="px-6 pb-2">

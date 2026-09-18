@@ -53,13 +53,14 @@ export async function syncManagedProxy(projectId: string, environmentId: string,
   const customTls = definitions.flatMap(({ route }) => route.tlsMode === 'custom' && route.tlsCertSecret && route.tlsKeySecret
     ? [{ name: route.tlsCertSecret, target: 'file' as const, path: `/run/trellis-secrets/${route.tlsCertSecret}` }, { name: route.tlsKeySecret, target: 'file' as const, path: `/run/trellis-secrets/${route.tlsKeySecret}` }]
     : [])
+    .filter((secret, index, all) => all.findIndex((candidate) => candidate.name === secret.name) === index)
   const spec: TrellisJobSpec = {
     name: 'bower-proxy',
     namespace: environment.trellisNamespace,
     task_groups: [{
       name: 'proxy', count: 1, api_access: { scope: 'namespace', access: 'read' },
       labels: { 'bower/managed': 'true', 'bower/infrastructure': 'proxy' },
-      update: { strategy: 'rolling', max_parallel: 1 },
+      update: { strategy: 'recreate' },
       tasks: [{
         name: 'caddy', image: process.env.BOWER_CADDY_IMAGE || 'ghcr.io/clofour/bower-caddy:latest',
         resources: { cpu: 100, memory: 134217728 },

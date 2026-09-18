@@ -16,16 +16,16 @@ Best for: services that cannot run two versions simultaneously (e.g., a worker t
 
 ## Blue-green
 
-Bower creates a second job (`{service}-green`), waits for all its allocations to pass health checks, switches the managed route to the new job, then deletes the old job. Traffic switches atomically.
+Bower alternates between `{service}-blue` and `{service}-green`, waits for all new allocations to pass health checks, switches the managed route to the new job, then deletes the old job. Traffic switches atomically.
 
 Best for: services where zero mixed-version traffic is required and a brief capacity increase is acceptable.
 
 ## Canary
 
-Bower creates a canary job (`{service}-canary`) alongside the stable job. The canary starts with a low replica count and a `trellis/weight` label. Over configurable steps, Bower increases the weight and replica count while monitoring allocation health. Once the canary reaches 100% weight the stable job is replaced and the canary job is removed.
+Bower creates an alternating canary job (`{service}-canary-a` or `{service}-canary-b`) alongside the active job. The canary starts with a low replica count and a `trellis/weight` label. Over configurable steps, Bower increases the weight and replica count while monitoring allocation health. Once the canary reaches 100%, managed routes switch to it and the previous job is removed.
 
 Best for: high-traffic services where gradual traffic shifting and automatic rollback is needed.
 
 ## Automatic rollback
 
-Regardless of strategy, Bower's background reconciler monitors allocation health throughout a rollout. If allocations remain unhealthy beyond the configured threshold (default: 5 minutes, controlled by `BOWER_RECONCILE_INTERVAL`), Bower re-applies the previous known-good job spec and records the event as a `rolled-back` deployment in the audit history.
+Regardless of strategy, Bower's background reconciler monitors allocation health throughout a rollout. If allocations remain unhealthy beyond the service's failure grace period (default: 5 minutes), Bower re-applies the previous known-good job spec and records the event as a `rolled-back` deployment in the audit history. `BOWER_RECONCILE_INTERVAL` controls how often Bower checks, not the grace period.

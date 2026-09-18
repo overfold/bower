@@ -20,16 +20,6 @@ import type {
 // Bower service configuration (the Bower-level abstraction)
 // ---------------------------------------------------------------------------
 
-export interface BowerSidecar {
-  name: string
-  image: string
-  cpu: number // millicores
-  memory: number // bytes
-  port?: number
-  envVars: Record<string, string>
-  command?: string
-}
-
 export interface BowerSecretBinding {
   name: string
   target: 'env' | 'file'
@@ -42,12 +32,12 @@ export interface BowerServiceConfig {
   serviceLabel?: string
   namespace: string
   image: string
-  port?: number
   replicas: number
   cpu: number // millicores
   memory: number // bytes
   healthCheckPath?: string
   healthCheckType?: 'http' | 'tcp' | 'script'
+  healthCheckPort?: number
   healthCheckCommand?: string[]
   healthCheckInterval?: number
   healthCheckTimeout?: number
@@ -56,12 +46,9 @@ export interface BowerServiceConfig {
   envVars: Record<string, string>
   secrets: BowerSecretBinding[]
   labels: Record<string, string>
-  command?: string
-  sidecars: BowerSidecar[]
   volumes: TrellisVolume[]
   runtime?: TrellisRuntime
   apiAccess?: TrellisApiAccess
-  rawConfig?: TrellisJobSpec
 }
 
 // ---------------------------------------------------------------------------
@@ -119,28 +106,7 @@ export function normalizeContainerImage(image: string): string {
  * submitted to `POST /v1/jobs` (or `/v1/jobs/plan`).
  */
 export function buildJobSpec(config: BowerServiceConfig): TrellisJobSpec {
-  if (config.rawConfig) {
-    return {
-      ...config.rawConfig,
-      name: config.name,
-      namespace: config.namespace,
-      task_groups: config.rawConfig.task_groups.map((group) => ({
-        ...group,
-        runtime: config.runtime ?? 'runc',
-        api_access: config.apiAccess,
-        labels: {
-          ...group.labels,
-          'bower/managed': 'true',
-          'bower/service': config.serviceLabel ?? config.name,
-        },
-        tasks: group.tasks.map(enforceBowerNetworking),
-      })),
-    }
-  }
-
   const primaryTask = buildPrimaryTask(config)
-  const sidecarTasks = config.sidecars.map((s) => buildSidecarTask(s))
-  const tasks = [primaryTask, ...sidecarTasks]
 
   const labels: Record<string, string> = {
     ...config.labels,
@@ -153,7 +119,7 @@ export function buildJobSpec(config: BowerServiceConfig): TrellisJobSpec {
     count: config.replicas,
     runtime: config.runtime ?? 'runc',
     labels,
-    tasks,
+    tasks: [primaryTask],
   }
 
   if (config.apiAccess) {
@@ -193,10 +159,6 @@ function buildPrimaryTask(config: BowerServiceConfig): TrellisTask {
     networking: buildNetworking(),
   }
 
-  if (config.command) {
-    task.command = config.command
-  }
-
   if (config.volumes.length > 0) task.volumes = config.volumes
 
   // Environment variables
@@ -213,28 +175,6 @@ function buildPrimaryTask(config: BowerServiceConfig): TrellisTask {
   const healthCheck = buildHealthCheck(config)
   if (healthCheck) {
     task.health_check = healthCheck
-  }
-
-  return task
-}
-
-function buildSidecarTask(sidecar: BowerSidecar): TrellisTask {
-  const task: TrellisTask = {
-    name: sidecar.name,
-    image: normalizeContainerImage(sidecar.image),
-    resources: {
-      cpu: sidecar.cpu,
-      memory: sidecar.memory,
-    },
-    networking: buildNetworking(),
-  }
-
-  if (sidecar.command) {
-    task.command = sidecar.command
-  }
-
-  if (Object.keys(sidecar.envVars).length > 0) {
-    task.env = { ...sidecar.envVars }
   }
 
   return task
@@ -265,16 +205,6 @@ function buildNetworking(): TrellisNetworking {
   return { mode: 'namespace' }
 }
 
-function enforceBowerNetworking(task: TrellisTask): TrellisTask {
-  return {
-    ...task,
-    image: normalizeContainerImage(task.image),
-    // Namespace mode does not use Trellis host-port reservations. The service's
-    // configured application port remains a Bower routing/health-check concern.
-    networking: buildNetworking(),
-  }
-}
-
 function buildHealthCheck(config: BowerServiceConfig): TrellisHealthCheck | null {
   if (!config.healthCheckType) {
     return null
@@ -291,14 +221,14 @@ function buildHealthCheck(config: BowerServiceConfig): TrellisHealthCheck | null
 
   if (checkType === 'http') {
     check.path = config.healthCheckPath ?? '/'
-    if (config.port !== undefined) {
-      check.port = config.port
+    if (config.healthCheckPort !== undefined) {
+      check.port = config.healthCheckPort
     }
   }
 
   if (checkType === 'tcp') {
-    if (config.port !== undefined) {
-      check.port = config.port
+    if (config.healthCheckPort !== undefined) {
+      check.port = config.healthCheckPort
     }
   }
 
@@ -319,14 +249,19 @@ function buildUpdateStrategy(
 ): TrellisUpdateStrategy | null {
   switch (config.deploymentStrategy) {
     case 'rolling':
-      return { strategy: 'rolling', max_parallel: 1 }
+      return config.replicas >= 2
+        ? { strategy: 'rolling', max_parallel: 1 }
+        : { strategy: 'recreate' }
     case 'recreate':
       return { strategy: 'recreate' }
     case 'blue_green':
     case 'canary':
       // blue-green and canary are orchestrated at the Bower level;
-      // the underlying Trellis job uses a rolling strategy.
-      return { strategy: 'rolling', max_parallel: 1 }
+      // the underlying Trellis job still has to satisfy Trellis's rule that
+      // rolling updates require at least two desired allocations.
+      return config.replicas >= 2
+        ? { strategy: 'rolling', max_parallel: 1 }
+        : { strategy: 'recreate' }
     default:
       return null
   }

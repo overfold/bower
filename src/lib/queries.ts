@@ -17,7 +17,7 @@ import {
   secretsMetadata,
   webhookEndpoints,
   notificationChannels,
-  sidecars,
+  projectVolumes,
   apiKeys,
   managedProxies,
   deploymentEvents,
@@ -195,8 +195,11 @@ export async function getServiceConfigsWithEnvironments(serviceId: string) {
     .where(eq(serviceConfigs.serviceId, serviceId)).orderBy(environments.createdAt)
 }
 
-export async function getSidecars(serviceConfigId: string) {
-  return db.select().from(sidecars).where(eq(sidecars.serviceConfigId, serviceConfigId))
+export async function getProjectVolumes(projectId: string, environmentId: string) {
+  return db.select().from(projectVolumes).where(and(
+    eq(projectVolumes.projectId, projectId),
+    eq(projectVolumes.environmentId, environmentId),
+  )).orderBy(projectVolumes.name)
 }
 
 export async function getDeploymentsByService(serviceId: string, limit = 20) {
@@ -360,12 +363,12 @@ export async function getBaseServiceConfig(serviceId: string) {
 
 export type MergedServiceConfig = {
   image: string
-  port: number | null
   replicas: number
   cpu: number
   memory: number
   healthCheckPath: string | null
   healthCheckType: 'http' | 'tcp' | 'script' | null
+  healthCheckPort: number | null
   healthCheckCommand: unknown
   healthCheckInterval: number
   healthCheckTimeout: number
@@ -374,11 +377,8 @@ export type MergedServiceConfig = {
   resourceTier: 'small' | 'medium' | 'large' | 'xl' | 'custom'
   envVars: unknown
   labels: unknown
-  command: string | null
   volumes: unknown
   secretBindings: unknown
-  rawConfig: unknown
-  cronSchedule: string | null
   autoRollbackSeconds: number
   canarySteps: unknown
   runtime: 'runc' | 'runsc'
@@ -395,12 +395,12 @@ export async function getMergedServiceConfig(serviceId: string, environmentId: s
     if (!base) return null
     return {
       image: base.image,
-      port: base.port,
       replicas: base.replicas,
       cpu: base.cpu,
       memory: base.memory,
       healthCheckPath: base.healthCheckPath,
       healthCheckType: base.healthCheckType,
+      healthCheckPort: base.healthCheckPort,
       healthCheckCommand: base.healthCheckCommand,
       healthCheckInterval: base.healthCheckInterval,
       healthCheckTimeout: base.healthCheckTimeout,
@@ -409,11 +409,8 @@ export async function getMergedServiceConfig(serviceId: string, environmentId: s
       resourceTier: base.resourceTier,
       envVars: base.envVars,
       labels: base.labels,
-      command: base.command,
       volumes: base.volumes,
       secretBindings: base.secretBindings,
-      rawConfig: base.rawConfig,
-      cronSchedule: base.cronSchedule,
       autoRollbackSeconds: base.autoRollbackSeconds,
       canarySteps: base.canarySteps,
       runtime: base.runtime as 'runc' | 'runsc',
@@ -433,12 +430,12 @@ export async function getMergedServiceConfig(serviceId: string, environmentId: s
   if (!base) {
     return {
       image: envConfig.image,
-      port: envConfig.port,
       replicas: envConfig.replicas,
       cpu: envConfig.cpu,
       memory: envConfig.memory,
       healthCheckPath: envConfig.healthCheckPath,
       healthCheckType: envConfig.healthCheckType,
+      healthCheckPort: envConfig.healthCheckPort,
       healthCheckCommand: envConfig.healthCheckCommand,
       healthCheckInterval: envConfig.healthCheckInterval,
       healthCheckTimeout: envConfig.healthCheckTimeout,
@@ -447,11 +444,8 @@ export async function getMergedServiceConfig(serviceId: string, environmentId: s
       resourceTier: envConfig.resourceTier,
       envVars: envConfig.envVars,
       labels: envConfig.labels,
-      command: envConfig.command,
       volumes: envConfig.volumes,
       secretBindings: envConfig.secretBindings,
-      rawConfig: envConfig.rawConfig,
-      cronSchedule: envConfig.cronSchedule,
       autoRollbackSeconds: envConfig.autoRollbackSeconds,
       canarySteps: envConfig.canarySteps,
       runtime: envConfig.runtime as 'runc' | 'runsc',
@@ -467,12 +461,12 @@ export async function getMergedServiceConfig(serviceId: string, environmentId: s
 
   return {
     image: (overrides.image as string) ?? base.image,
-    port: ('port' in overrides ? overrides.port as number | null : base.port),
     replicas: (overrides.replicas as number) ?? base.replicas,
     cpu: (overrides.cpu as number) ?? base.cpu,
     memory: (overrides.memory as number) ?? base.memory,
     healthCheckPath: ('healthCheckPath' in overrides ? overrides.healthCheckPath as string | null : base.healthCheckPath),
     healthCheckType: ('healthCheckType' in overrides ? overrides.healthCheckType as 'http' | 'tcp' | 'script' | null : base.healthCheckType),
+    healthCheckPort: ('healthCheckPort' in overrides ? overrides.healthCheckPort as number | null : base.healthCheckPort),
     healthCheckCommand: overrides.healthCheckCommand ?? base.healthCheckCommand,
     healthCheckInterval: (overrides.healthCheckInterval as number) ?? base.healthCheckInterval,
     healthCheckTimeout: (overrides.healthCheckTimeout as number) ?? base.healthCheckTimeout,
@@ -481,11 +475,8 @@ export async function getMergedServiceConfig(serviceId: string, environmentId: s
     resourceTier: (overrides.resourceTier as 'small' | 'medium' | 'large' | 'xl' | 'custom') ?? base.resourceTier,
     envVars: overrides.envVars ?? base.envVars,
     labels: overrides.labels ?? base.labels,
-    command: ('command' in overrides ? overrides.command as string | null : base.command),
     volumes: overrides.volumes ?? base.volumes,
     secretBindings: overrides.secretBindings ?? base.secretBindings,
-    rawConfig: ('rawConfig' in overrides ? overrides.rawConfig : base.rawConfig),
-    cronSchedule: ('cronSchedule' in overrides ? overrides.cronSchedule as string | null : base.cronSchedule),
     autoRollbackSeconds: (overrides.autoRollbackSeconds as number) ?? base.autoRollbackSeconds,
     canarySteps: overrides.canarySteps ?? base.canarySteps,
     runtime: (('runtime' in overrides ? overrides.runtime : base.runtime) as 'runc' | 'runsc'),

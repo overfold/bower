@@ -86,10 +86,10 @@ export function AdvancedConfigForm({
             className="flex h-9 w-full appearance-none rounded-lg border border-line bg-surface px-3 text-[13px] text-ink shadow-card focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
           >
             <option value="runc">None</option>
-            <option value="runsc">Standard</option>
+            <option value="runsc">Sandboxed</option>
           </select>
           <p className="text-2xs leading-relaxed text-ink-muted">
-            Isolation mode applies to the whole service group, including sidecars.
+            Sandboxed workloads use stronger process isolation for the whole service.
           </p>
         </div>
         <div className="space-y-2">

@@ -1,15 +1,16 @@
 import { and, eq } from 'drizzle-orm'
 import { db } from '@/db'
-import { deploymentEvents, environments, projects, serviceConfigs, services, sidecars, users } from '@/db/schema'
-import { buildJobSpec, type BowerSecretBinding, type BowerSidecar } from '@/lib/job-builder'
+import { deploymentEvents, environments, projects, projectVolumes, serviceConfigs, services, users } from '@/db/schema'
+import { buildJobSpec, type BowerSecretBinding } from '@/lib/job-builder'
 import { sendDeploymentNotifications } from '@/lib/notifications'
-import type { TrellisApiAccess, TrellisJobSpec, TrellisRuntime, TrellisVolume } from '@/types/trellis'
+import type { TrellisApiAccess, TrellisRuntime, TrellisVolume } from '@/types/trellis'
 
-function normalizeStoredVolumes(value: unknown): TrellisVolume[] {
+function buildAttachedVolumes(value: unknown, definitions: Array<{ name: string; hostPath: string }>): TrellisVolume[] {
   if (!Array.isArray(value)) return []
+  const byName = new Map(definitions.map((definition) => [definition.name, definition.hostPath]))
 
-  return value.flatMap((entry) => {
-    if (!entry || typeof entry !== 'object') return []
+  return value.map((entry) => {
+    if (!entry || typeof entry !== 'object') throw new Error('A stored volume mount is invalid.')
     const item = entry as Record<string, unknown>
     const name = typeof item.name === 'string' ? item.name.trim() : ''
     const containerPath = typeof item.container_path === 'string'
@@ -18,20 +19,16 @@ function normalizeStoredVolumes(value: unknown): TrellisVolume[] {
         ? item.path.trim()
         : ''
 
-    let hostPath = typeof item.host_path === 'string' ? item.host_path.trim() : ''
-    if (!hostPath && typeof item.host_volume === 'string' && item.host_volume.trim()) {
-      const legacy = item.host_volume.trim()
-      hostPath = legacy.startsWith('/') || legacy.startsWith('@/') ? legacy : `@/${legacy}`
-    }
-    if (!hostPath && name) hostPath = `@/${name}`
+    const hostPath = byName.get(name) ?? ''
 
-    if (!name || !hostPath || !containerPath) return []
-    return [{
+    if (!name || !containerPath) throw new Error('A stored volume mount is incomplete.')
+    if (!hostPath) throw new Error(`Volume ${name} is not defined in this environment.`)
+    return {
       name,
       host_path: hostPath,
       container_path: containerPath,
       ...(item.read_only === true ? { read_only: true } : {}),
-    }]
+    }
   })
 }
 
@@ -43,7 +40,9 @@ export async function createDeploymentSpec(serviceId: string, environmentId: str
     .innerJoin(projects, eq(projects.id, services.projectId))
     .where(and(eq(serviceConfigs.serviceId, serviceId), eq(serviceConfigs.environmentId, environmentId))).limit(1)
   if (!row) throw new Error('Service configuration was not found.')
-  const attached = await db.select().from(sidecars).where(eq(sidecars.serviceConfigId, row.config.id))
+  const definitions = await db.select({ name: projectVolumes.name, hostPath: projectVolumes.hostPath })
+    .from(projectVolumes)
+    .where(and(eq(projectVolumes.projectId, row.project.id), eq(projectVolumes.environmentId, environmentId)))
 
   const runtime: TrellisRuntime = row.config.runtime === 'runsc' ? 'runsc' : 'runc'
   const apiAccess: TrellisApiAccess | undefined =
@@ -54,19 +53,17 @@ export async function createDeploymentSpec(serviceId: string, environmentId: str
 
   const spec = buildJobSpec({
     name: jobName || row.service.slug, serviceLabel: row.service.slug, namespace: row.environment.trellisNamespace,
-    image: row.config.image, port: row.config.port ?? undefined, replicas: overrides?.replicas ?? row.config.replicas,
+    image: row.config.image, replicas: overrides?.replicas ?? row.config.replicas,
     cpu: row.config.cpu, memory: row.config.memory, healthCheckPath: row.config.healthCheckPath ?? undefined,
-    healthCheckType: row.config.healthCheckType ?? undefined, healthCheckCommand: row.config.healthCheckCommand as string[],
+    healthCheckType: row.config.healthCheckType ?? undefined, healthCheckPort: row.config.healthCheckPort ?? undefined,
+    healthCheckCommand: row.config.healthCheckCommand as string[],
     healthCheckInterval: row.config.healthCheckInterval, healthCheckTimeout: row.config.healthCheckTimeout,
     healthCheckThreshold: row.config.healthCheckThreshold, deploymentStrategy: row.config.deploymentStrategy,
     envVars: row.config.envVars as Record<string, string>, labels: { ...(row.config.labels as Record<string, string>), ...overrides?.labels },
-    command: row.config.command ?? undefined,
     secrets: [...Object.entries(row.environment.envVars as Record<string, string>).map(([env, name]) => ({ name, target: 'env' as const, env })), ...(row.config.secretBindings as BowerSecretBinding[])],
-    volumes: normalizeStoredVolumes(row.config.volumes),
-    sidecars: attached.map((item) => ({ name: item.name, image: item.image, cpu: item.cpu, memory: item.memory, port: item.port ?? undefined, envVars: item.envVars as Record<string, string>, command: item.command ?? undefined })) as BowerSidecar[],
+    volumes: buildAttachedVolumes(row.config.volumes, definitions),
     runtime,
     apiAccess,
-    rawConfig: row.config.rawConfig as TrellisJobSpec | undefined,
   })
   return { ...row, spec }
 }

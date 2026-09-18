@@ -9,8 +9,10 @@ import { Server, Box } from 'lucide-react'
 
 export default async function ServicesPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const user = await getCurrentUser()
   if (!user) redirect('/login')
@@ -19,6 +21,9 @@ export default async function ServicesPage({
   if (!ctx) redirect('/login')
 
   const { slug } = await params
+  const { env } = await searchParams
+  const environmentId = typeof env === 'string' ? env : undefined
+  const environmentQuery = typeof env === 'string' ? `?env=${encodeURIComponent(env)}` : ''
   const project = await getProjectBySlug(ctx.org.id, slug)
   if (!project) redirect('/projects')
 
@@ -28,7 +33,7 @@ export default async function ServicesPage({
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <SectionTitle>Services</SectionTitle>
-        <CreateServiceDialog projectSlug={slug} />
+        <CreateServiceDialog projectSlug={slug} environmentId={environmentId} />
       </div>
 
       {services.length === 0 ? (
@@ -37,7 +42,7 @@ export default async function ServicesPage({
             icon={<Server className="h-4 w-4" />}
             title="No services yet"
             body="Create your first service to start deploying."
-            action={<CreateServiceDialog projectSlug={slug} />}
+            action={<CreateServiceDialog projectSlug={slug} environmentId={environmentId} />}
           />
         </Panel>
       ) : (
@@ -53,7 +58,7 @@ export default async function ServicesPage({
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <Link
-                          href={`/projects/${slug}/services/${service.slug}`}
+                          href={`/projects/${slug}/services/${service.slug}${environmentQuery}`}
                           className="rounded text-[14px] font-semibold tracking-tight text-ink underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
                         >
                           {service.name}

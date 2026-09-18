@@ -7,7 +7,8 @@ import { baseServiceConfigs, serviceConfigs } from '@/db/schema'
 import { getBaseServiceConfig } from '@/lib/queries'
 import { recordAudit, requireService } from '@/lib/actions/shared'
 import type { BowerSecretBinding } from '@/lib/job-builder'
-import type { TrellisJobSpec, TrellisVolume } from '@/types/trellis'
+
+type VolumeMount = { name: string; container_path: string; read_only?: boolean }
 
 const TIERS = { small: [100, 134217728], medium: [250, 268435456], large: [500, 536870912], xl: [1000, 1073741824] } as const
 
@@ -30,27 +31,30 @@ function jsonField<T>(formData: FormData, key: string, fallback: T): T {
 function parseConfig(formData: FormData) {
   const image = String(formData.get('image') ?? '').trim()
   const replicas = Number(formData.get('replicas'))
-  if (!image || !Number.isInteger(replicas) || replicas < 0) throw new Error('A valid image and replica count are required.')
+  if (!image || !Number.isInteger(replicas) || replicas < 1) throw new Error('A valid image and replica count of at least one are required.')
   const tier = String(formData.get('resourceTier') ?? 'custom') as 'small' | 'medium' | 'large' | 'xl' | 'custom'
   const cpu = tier === 'custom' ? Number(formData.get('cpu')) : TIERS[tier][0]
   const memory = tier === 'custom' ? Number(formData.get('memory')) * 1048576 : TIERS[tier][1]
+  if (!Number.isFinite(cpu) || cpu < 0 || !Number.isFinite(memory) || memory < 0) throw new Error('CPU and memory must be non-negative numbers.')
+  const healthCheckType = (String(formData.get('healthType') ?? '') || null) as 'http' | 'tcp' | 'script' | null
+  const healthCheckPort = Number(formData.get('healthPort')) || null
+  const healthCheckCommand = String(formData.get('healthCommand') ?? '').trim().split(/\s+/).filter(Boolean)
+  if ((healthCheckType === 'http' || healthCheckType === 'tcp') && (!healthCheckPort || healthCheckPort > 65_535)) throw new Error('HTTP and TCP health checks require a valid port.')
+  if (healthCheckType === 'script' && healthCheckCommand.length === 0) throw new Error('Script health checks require a command.')
   return {
     image, replicas, resourceTier: tier, cpu, memory,
-    port: Number(formData.get('port')) || null,
     deploymentStrategy: String(formData.get('strategy')) as 'rolling' | 'recreate' | 'blue_green' | 'canary',
-    healthCheckType: (String(formData.get('healthType') ?? '') || null) as 'http' | 'tcp' | 'script' | null,
+    healthCheckType,
+    healthCheckPort,
     healthCheckPath: String(formData.get('healthPath') ?? '').trim() || null,
-    healthCheckCommand: String(formData.get('healthCommand') ?? '').trim().split(/\s+/).filter(Boolean),
+    healthCheckCommand,
     healthCheckInterval: Number(formData.get('healthInterval')) || 10,
     healthCheckTimeout: Number(formData.get('healthTimeout')) || 2,
     healthCheckThreshold: Number(formData.get('healthThreshold')) || 3,
     envVars: linesToRecord(String(formData.get('envVars') ?? '')),
     labels: linesToRecord(String(formData.get('labels') ?? '')),
-    command: String(formData.get('command') ?? '').trim() || null,
-    volumes: jsonField<TrellisVolume[]>(formData, 'volumes', []),
+    volumes: jsonField<VolumeMount[]>(formData, 'volumes', []),
     secretBindings: jsonField<BowerSecretBinding[]>(formData, 'secretBindings', []),
-    rawConfig: jsonField<TrellisJobSpec | null>(formData, 'rawConfig', null),
-    cronSchedule: String(formData.get('cronSchedule') ?? '').trim() || null,
     autoRollbackSeconds: Math.max(30, Number(formData.get('autoRollbackSeconds')) || 300),
     canarySteps: jsonField<number[]>(formData, 'canarySteps', [10, 25, 50, 100]),
     updatedAt: new Date(),
@@ -160,12 +164,12 @@ export async function resetServiceConfigOverridesAction(serviceId: string, envir
 
   await db.update(serviceConfigs).set({
     image: base.image,
-    port: base.port,
     replicas: base.replicas,
     cpu: base.cpu,
     memory: base.memory,
     healthCheckPath: base.healthCheckPath,
     healthCheckType: base.healthCheckType,
+    healthCheckPort: base.healthCheckPort,
     healthCheckCommand: base.healthCheckCommand,
     healthCheckInterval: base.healthCheckInterval,
     healthCheckTimeout: base.healthCheckTimeout,
@@ -174,11 +178,8 @@ export async function resetServiceConfigOverridesAction(serviceId: string, envir
     resourceTier: base.resourceTier,
     envVars: base.envVars,
     labels: base.labels,
-    command: base.command,
     volumes: base.volumes,
     secretBindings: base.secretBindings,
-    rawConfig: base.rawConfig,
-    cronSchedule: base.cronSchedule,
     autoRollbackSeconds: base.autoRollbackSeconds,
     canarySteps: base.canarySteps,
     overrides: Object.keys(preservedOverrides).length > 0 ? preservedOverrides : null,
@@ -194,34 +195,6 @@ export async function resetServiceConfigOverridesAction(serviceId: string, envir
   revalidatePath(`/projects/${access.project.slug}/services/${access.service.slug}`)
 }
 
-export async function updateBaseServiceVolumesAction(serviceId: string, formData: FormData) {
-  const access = await requireService(serviceId)
-  if (access.projectRole !== 'admin') throw new Error('Insufficient permissions.')
-
-  const base = await getBaseServiceConfig(serviceId)
-  if (!base) throw new Error('No base configuration exists. Set a base configuration on the Overview tab first.')
-
-  const volumes = jsonField<TrellisVolume[]>(formData, 'volumes', [])
-
-  await db.update(baseServiceConfigs).set({ volumes, updatedAt: new Date() }).where(eq(baseServiceConfigs.serviceId, serviceId))
-
-  const allEnvConfigs = await db.select().from(serviceConfigs).where(eq(serviceConfigs.serviceId, serviceId))
-  for (const envConfig of allEnvConfigs) {
-    const overrides = (envConfig.overrides ?? {}) as Record<string, unknown>
-    if (!('volumes' in overrides)) {
-      await db.update(serviceConfigs).set({ volumes, updatedAt: new Date() }).where(eq(serviceConfigs.id, envConfig.id))
-    }
-  }
-
-  await recordAudit({
-    orgId: access.org.id, userId: access.user.id,
-    action: 'service.base_config.volumes_updated',
-    resourceType: 'service', resourceId: serviceId,
-    details: { volumeCount: volumes.length },
-  })
-  revalidatePath(`/projects/${access.project.slug}/services/${access.service.slug}/volumes`)
-}
-
 function formDataFromBase(base: Awaited<ReturnType<typeof getBaseServiceConfig>>) {
   if (!base) return new FormData()
   const fd = new FormData()
@@ -230,9 +203,9 @@ function formDataFromBase(base: Awaited<ReturnType<typeof getBaseServiceConfig>>
   fd.set('resourceTier', base.resourceTier)
   fd.set('cpu', String(base.cpu))
   fd.set('memory', String(Math.round(base.memory / 1048576)))
-  fd.set('port', base.port ? String(base.port) : '')
   fd.set('strategy', base.deploymentStrategy)
   fd.set('healthType', base.healthCheckType ?? '')
+  fd.set('healthPort', base.healthCheckPort ? String(base.healthCheckPort) : '')
   fd.set('healthPath', base.healthCheckPath ?? '')
   fd.set('healthCommand', Array.isArray(base.healthCheckCommand) ? (base.healthCheckCommand as string[]).join(' ') : '')
   fd.set('healthInterval', String(base.healthCheckInterval))
@@ -240,11 +213,8 @@ function formDataFromBase(base: Awaited<ReturnType<typeof getBaseServiceConfig>>
   fd.set('healthThreshold', String(base.healthCheckThreshold))
   fd.set('envVars', Object.entries(base.envVars as Record<string, string> ?? {}).map(([k, v]) => `${k}=${v}`).join('\n'))
   fd.set('labels', Object.entries(base.labels as Record<string, string> ?? {}).map(([k, v]) => `${k}=${v}`).join('\n'))
-  fd.set('command', base.command ?? '')
   fd.set('volumes', JSON.stringify(base.volumes ?? []))
   fd.set('secretBindings', JSON.stringify(base.secretBindings ?? []))
-  fd.set('rawConfig', base.rawConfig ? JSON.stringify(base.rawConfig) : '')
-  fd.set('cronSchedule', base.cronSchedule ?? '')
   fd.set('autoRollbackSeconds', String(base.autoRollbackSeconds))
   fd.set('canarySteps', JSON.stringify(base.canarySteps ?? [10, 25, 50, 100]))
   return fd

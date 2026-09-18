@@ -29,7 +29,12 @@ export async function reconcileProjectDeployments(projectId: string, orgId: stri
       if (failed && elapsed >= config.autoRollbackSeconds) {
         if (deployment.previousJobSpec) {
           const previous = deployment.previousJobSpec as TrellisJobSpec
+          const previousImage = previous.task_groups[0]?.tasks[0]?.image
           await client.applyJob(previous, previous.namespace)
+          if (previousImage) {
+            const overrides = { ...((config.overrides ?? {}) as Record<string, unknown>), image: previousImage }
+            await db.update(serviceConfigs).set({ image: previousImage, overrides, updatedAt: new Date() }).where(eq(serviceConfigs.id, config.id))
+          }
           if (deployment.strategy === 'blue_green' || deployment.strategy === 'canary') {
             await db.update(serviceConfigs).set({ activeJobName: previous.name, updatedAt: new Date() }).where(eq(serviceConfigs.id, config.id))
             if (jobName !== previous.name) await client.deleteJob(jobName, env.trellisNamespace).catch(() => undefined)

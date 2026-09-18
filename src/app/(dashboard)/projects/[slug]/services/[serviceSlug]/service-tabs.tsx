@@ -1,27 +1,30 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { motion } from 'motion/react'
 import { cn } from '@/lib/utils'
 
 const items = [
   { label: 'Overview', suffix: '' },
   { label: 'Configuration', suffix: '/configuration' },
-  { label: 'Volumes', suffix: '/volumes' },
+  { label: 'Mounts', suffix: '/mounts' },
   { label: 'Advanced', suffix: '/advanced' },
   { label: 'Revisions', suffix: '/revisions' },
 ]
 
 export function ServiceTabs({ slug, serviceSlug }: { slug: string; serviceSlug: string }) {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const base = `/projects/${slug}/services/${serviceSlug}`
 
   return (
     <nav className="flex items-center gap-1 overflow-x-auto overflow-y-hidden scroll-thin" aria-label="Service configuration">
       {items.map((item) => {
-        const href = `${base}${item.suffix}`
-        const isActive = item.suffix === '' ? pathname === base : pathname.startsWith(href)
+        const target = `${base}${item.suffix}`
+        const query = searchParams.toString()
+        const href = query ? `${target}?${query}` : target
+        const isActive = item.suffix === '' ? pathname === base : pathname.startsWith(target)
         return (
           <Link
             key={item.label}
