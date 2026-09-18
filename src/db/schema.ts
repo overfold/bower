@@ -528,30 +528,6 @@ export const secretsMetadata = pgTable(
   ]
 );
 
-export const sharedSecretGroups = pgTable("shared_secret_groups", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  projectId: uuid("project_id")
-    .notNull()
-    .references(() => projects.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
-
-export const sharedSecretMembers = pgTable("shared_secret_members", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  groupId: uuid("group_id")
-    .notNull()
-    .references(() => sharedSecretGroups.id, { onDelete: "cascade" }),
-  secretMetadataId: uuid("secret_metadata_id")
-    .notNull()
-    .references(() => secretsMetadata.id, { onDelete: "cascade" }),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-}, (table) => [uniqueIndex("shared_secret_members_group_secret_idx").on(table.groupId, table.secretMetadataId)]);
-
 // ---------------------------------------------------------------------------
 // Audit
 // ---------------------------------------------------------------------------
