@@ -26,6 +26,13 @@ export default function LoginPage() {
 
   return (
     <div className="space-y-5">
+      <div className="space-y-1">
+        <h2 className="text-[15px] font-semibold tracking-tight">Sign in</h2>
+        <p className="text-xs leading-relaxed text-ink-muted">
+          Continue to your Bower instance.
+        </p>
+      </div>
+
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
           <p role="alert" className="text-xs leading-relaxed text-danger-500">
