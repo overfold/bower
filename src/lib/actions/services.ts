@@ -266,7 +266,11 @@ export async function startExecSessionAction(
   rows: number,
 ): Promise<TrellisExecSession> {
   const { access, client, namespace } = await getExecSessionContext(serviceConfigId, allocationId)
-  const session = await client.createExecSession(allocationId, { task, cols, rows }, namespace)
+  const session = await client.createExecSession(
+    allocationId,
+    { task, command: ['/bin/sh'], term: 'xterm-256color', cols, rows },
+    namespace,
+  )
   await recordAudit({
     orgId: access.org.id,
     userId: access.user.id,
