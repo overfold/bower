@@ -232,68 +232,89 @@ export async function stopAllocationAction(serviceId: string, allocationId: stri
   revalidatePath(`/projects/${access.project.slug}/services/${access.service.slug}`)
 }
 
+async function getExecSessionContext(serviceConfigId: string, allocationId?: string) {
+  const [row] = await db
+    .select({ config: serviceConfigs, environment: environments })
+    .from(serviceConfigs)
+    .innerJoin(environments, eq(environments.id, serviceConfigs.environmentId))
+    .where(eq(serviceConfigs.id, serviceConfigId))
+    .limit(1)
+  if (!row) throw new Error('Service configuration not found.')
+
+  const access = await requireService(row.config.serviceId)
+  if (access.projectRole === 'viewer') throw new Error('Insufficient permissions.')
+
+  const client = await getTrellisClient(access.org.id)
+  if (allocationId) {
+    const allocations = await client.listAllocations({ namespace: row.environment.trellisNamespace })
+    const knownJobs = new Set([access.service.slug, row.config.activeJobName].filter(Boolean) as string[])
+    const allocation = allocations.find((item) => (
+      item.id === allocationId
+      && (item.labels?.['bower/service'] === access.service.slug || knownJobs.has(item.job))
+    ))
+    if (!allocation) throw new Error('Allocation does not belong to this service environment.')
+  }
+
+  return { access, client, namespace: row.environment.trellisNamespace }
+}
+
 export async function startExecSessionAction(
-  serviceId: string,
+  serviceConfigId: string,
   allocationId: string,
   cols: number,
   rows: number,
 ): Promise<TrellisExecSession> {
-  const access = await requireService(serviceId); if (access.projectRole === 'viewer') throw new Error('Insufficient permissions.')
-  const client = await getTrellisClient(access.org.id)
-  const session = await client.createExecSession(allocationId, { cols, rows })
+  const { access, client, namespace } = await getExecSessionContext(serviceConfigId, allocationId)
+  const session = await client.createExecSession(allocationId, { cols, rows }, namespace)
   await recordAudit({
     orgId: access.org.id,
     userId: access.user.id,
     action: 'allocation.terminal.opened',
     resourceType: 'service',
-    resourceId: serviceId,
+    resourceId: access.service.id,
     details: { allocationId },
   })
   return session
 }
 
 export async function writeExecSessionAction(
-  serviceId: string,
+  serviceConfigId: string,
   allocationId: string,
   sessionId: string,
   dataBase64: string,
 ): Promise<void> {
-  const access = await requireService(serviceId); if (access.projectRole === 'viewer') throw new Error('Insufficient permissions.')
-  const client = await getTrellisClient(access.org.id)
-  await client.writeExecSession(allocationId, sessionId, dataBase64)
+  const { client, namespace } = await getExecSessionContext(serviceConfigId)
+  await client.writeExecSession(allocationId, sessionId, dataBase64, namespace)
 }
 
 export async function readExecSessionAction(
-  serviceId: string,
+  serviceConfigId: string,
   allocationId: string,
   sessionId: string,
   offset: number,
 ): Promise<TrellisExecSessionOutput> {
-  const access = await requireService(serviceId); if (access.projectRole === 'viewer') throw new Error('Insufficient permissions.')
-  const client = await getTrellisClient(access.org.id)
-  return client.readExecSession(allocationId, sessionId, offset)
+  const { client, namespace } = await getExecSessionContext(serviceConfigId)
+  return client.readExecSession(allocationId, sessionId, offset, namespace)
 }
 
 export async function resizeExecSessionAction(
-  serviceId: string,
+  serviceConfigId: string,
   allocationId: string,
   sessionId: string,
   cols: number,
   rows: number,
 ): Promise<void> {
-  const access = await requireService(serviceId); if (access.projectRole === 'viewer') throw new Error('Insufficient permissions.')
-  const client = await getTrellisClient(access.org.id)
-  await client.resizeExecSession(allocationId, sessionId, cols, rows)
+  const { client, namespace } = await getExecSessionContext(serviceConfigId)
+  await client.resizeExecSession(allocationId, sessionId, cols, rows, namespace)
 }
 
 export async function closeExecSessionAction(
-  serviceId: string,
+  serviceConfigId: string,
   allocationId: string,
   sessionId: string,
 ): Promise<void> {
-  const access = await requireService(serviceId); if (access.projectRole === 'viewer') throw new Error('Insufficient permissions.')
-  const client = await getTrellisClient(access.org.id)
-  await client.closeExecSession(allocationId, sessionId)
+  const { client, namespace } = await getExecSessionContext(serviceConfigId)
+  await client.closeExecSession(allocationId, sessionId, namespace)
 }
 
 export async function deleteServiceAction(serviceId: string, projectSlug: string): Promise<{ error?: string }> {
