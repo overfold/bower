@@ -93,7 +93,7 @@ export function InviteTokensSection({ tokens, role }: InviteTokensSectionProps) 
       <CardHeader>
         <div>
           <CardTitle>Invitations</CardTitle>
-          <p className="mt-0.5 text-xs text-ink-muted">One-time invite links for new organization members</p>
+          <p className="mt-0.5 text-xs text-ink-muted">One-time invitation tokens for new organization members</p>
         </div>
         {isAdmin ? (
           <Dialog open={open} onOpenChange={(value) => { if (!value) handleClose(); else setOpen(true) }}>
@@ -106,13 +106,13 @@ export function InviteTokensSection({ tokens, role }: InviteTokensSectionProps) 
             <DialogContent className="max-w-lg">
               <DialogHeader>
                 <DialogTitle>Invite member</DialogTitle>
-                <DialogDescription>Create a one-time invite link for this organization.</DialogDescription>
+                <DialogDescription>Create a one-time invitation token for this organization.</DialogDescription>
               </DialogHeader>
               {createdToken ? (
                 <>
                   <DialogBody>
                     <div className="space-y-3">
-                      <p className="text-[13px] font-medium text-ink">Copy this invite link token now. It will not be shown again.</p>
+                      <p className="text-[13px] font-medium text-ink">Copy this invitation token now. It will not be shown again.</p>
                       <div className="flex items-center gap-2">
                         <code className="flex-1 break-all rounded-lg border border-line bg-sunken px-3 py-2 font-mono text-[12.5px] text-ink">
                           {createdToken}
