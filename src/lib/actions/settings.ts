@@ -84,27 +84,34 @@ export async function updateOrganizationMemberRoleAction(
 ): Promise<{ error?: string; success?: boolean }> {
   const user = await getCurrentUser()
   if (!user) return { error: 'Not authenticated.' }
+
+  const requesterIsInstanceAdmin = await isInstanceAdmin(user.id)
   const ctx = await getUserOrganization(user.id)
-  if (!ctx) return { error: 'No organization found.' }
-  if (ctx.role !== 'owner') return { error: 'Only organization owners can change member roles.' }
+  if (!requesterIsInstanceAdmin && !ctx) return { error: 'No organization found.' }
+  if (!requesterIsInstanceAdmin && ctx?.role !== 'owner') {
+    return { error: 'Only organization owners can change member roles.' }
+  }
 
   const [membership] = await db.select().from(organizationMembers)
-    .where(and(eq(organizationMembers.id, membershipId), eq(organizationMembers.orgId, ctx.org.id))).limit(1)
+    .where(eq(organizationMembers.id, membershipId)).limit(1)
   if (!membership) return { error: 'Member not found.' }
+  if (!requesterIsInstanceAdmin && membership.orgId !== ctx?.org.id) {
+    return { error: 'Member not found.' }
+  }
 
   if (membership.role === 'owner' && role !== 'owner') {
     const owners = await db.select({ id: organizationMembers.id }).from(organizationMembers)
-      .where(and(eq(organizationMembers.orgId, ctx.org.id), eq(organizationMembers.role, 'owner')))
+      .where(and(eq(organizationMembers.orgId, membership.orgId), eq(organizationMembers.role, 'owner')))
     if (owners.length <= 1) return { error: 'An organization must have at least one owner.' }
   }
 
   await db.update(organizationMembers).set({ role }).where(eq(organizationMembers.id, membershipId))
   await recordAudit({
-    orgId: ctx.org.id,
+    orgId: membership.orgId,
     userId: user.id,
     action: 'organization.member.role_changed',
     resourceType: 'organization',
-    resourceId: ctx.org.id,
+    resourceId: membership.orgId,
     details: { membershipId, before: membership.role, after: role },
   })
   revalidatePath('/settings/members')
