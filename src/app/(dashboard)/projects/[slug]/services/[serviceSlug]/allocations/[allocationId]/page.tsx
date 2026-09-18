@@ -96,7 +96,7 @@ export default async function AllocationDetailPage({
       <AllocationMetrics serviceId={service.id} allocationId={allocationId} initialMetrics={metrics} />
 
       <Panel>
-        <PanelHeader title="Allocation details" hint="Current runtime state" />
+        <PanelHeader title="Allocation details" />
         <div className="p-4">
           <dl className="grid grid-cols-2 gap-x-8 gap-y-1 md:grid-cols-4">
             <KeyValue label="Group" mono>{allocation.group}</KeyValue>
@@ -150,12 +150,12 @@ export default async function AllocationDetailPage({
       <div className="space-y-4">
         <SectionTitle>Logs</SectionTitle>
         <Panel>
-          <PanelHeader title="stdout" hint="Current allocation output" action={<Badge variant="secondary">stdout</Badge>} />
+          <PanelHeader title="stdout" />
           <pre className="max-h-96 overflow-auto p-4 font-mono text-xs leading-relaxed text-ink-soft">{stdout || 'No output'}</pre>
         </Panel>
         {stderr && (
           <Panel className="border-danger-200">
-            <PanelHeader title="stderr" hint="Error output" action={<Badge variant="danger">stderr</Badge>} />
+            <PanelHeader title="stderr" />
             <pre className="max-h-96 overflow-auto bg-danger-50/60 p-4 font-mono text-xs leading-relaxed text-danger-500">{stderr}</pre>
           </Panel>
         )}
