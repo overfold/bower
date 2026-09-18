@@ -34,6 +34,7 @@ export function ConfigurationForm({ serviceId, environmentId, config, overridden
   const [resetting, startReset] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [healthType, setHealthType] = useState(config?.healthCheckType ?? '')
+  const hasConfigurationOverrides = overriddenFields.some((field) => !['runtime', 'apiAccessScope', 'apiAccessLevel'].includes(field))
 
   const d = {
     image: config?.image ?? '',
@@ -225,7 +226,7 @@ export function ConfigurationForm({ serviceId, environmentId, config, overridden
           </div>
 
           <div className="flex items-center justify-between gap-3 px-4 py-3">
-            {environmentId && overriddenFields.length > 0 ? (
+            {environmentId && hasConfigurationOverrides ? (
               <Button variant="ghost" size="sm" type="button" onClick={handleReset} disabled={resetting} className="text-ink-muted">
                 <RotateCcw className="h-3.5 w-3.5" />
                 Reset to base
