@@ -196,7 +196,7 @@ export function ConfigurationForm({ serviceId, environmentId, config, overridden
                     Health check path
                     <OverrideBadge field="healthCheckPath" overriddenFields={overriddenFields} />
                   </Label>
-                  <Input id="healthPath" name="healthPath" defaultValue={d.healthCheckPath} />
+                  <Input id="healthPath" name="healthPath" defaultValue={d.healthCheckPath} mono />
                 </div>
               )}
             </div>
