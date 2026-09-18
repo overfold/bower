@@ -52,7 +52,6 @@ export function ExecDialog({
   const [error, setError] = useState<string | null>(null)
   const terminalElementRef = useRef<HTMLDivElement | null>(null)
   const sessionIdRef = useRef<string | null>(null)
-  const writeChainRef = useRef<Promise<void>>(Promise.resolve())
 
   useEffect(() => {
     if (!open || !terminalElementRef.current) return
@@ -110,17 +109,32 @@ export function ExecDialog({
     setStatus('connecting')
     setError(null)
 
-    const dataDisposable = terminal.onData((data) => {
+    let pendingInput = ''
+    let writingInput = false
+
+    async function flushInput() {
+      if (writingInput || !active || !sessionIdRef.current || !pendingInput) return
       const sessionId = sessionIdRef.current
-      if (!sessionId || !active) return
-      const encoded = stringToBase64(data)
-      writeChainRef.current = writeChainRef.current
-        .then(() => writeExecSessionAction(serviceConfigId, allocationId, sessionId, encoded))
-        .catch((reason: unknown) => {
-          if (!active) return
+      const chunk = pendingInput
+      pendingInput = ''
+      writingInput = true
+      try {
+        await writeExecSessionAction(serviceConfigId, allocationId, sessionId, stringToBase64(chunk))
+      } catch (reason) {
+        if (active) {
           setStatus('error')
           setError(reason instanceof Error ? reason.message : 'Failed to send terminal input.')
-        })
+        }
+      } finally {
+        writingInput = false
+        if (active && pendingInput) void flushInput()
+      }
+    }
+
+    const dataDisposable = terminal.onData((data) => {
+      if (!sessionIdRef.current || !active) return
+      pendingInput += data
+      void flushInput()
     })
 
     const resizeObserver = new ResizeObserver(() => {
@@ -203,7 +217,6 @@ export function ExecDialog({
         void closeExecSessionAction(serviceConfigId, allocationId, sessionId).catch(() => undefined)
       }
       terminal.dispose()
-      writeChainRef.current = Promise.resolve()
     }
   }, [allocationId, open, selectedTask, serviceConfigId])
 
