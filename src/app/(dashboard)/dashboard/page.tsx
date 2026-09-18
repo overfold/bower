@@ -340,7 +340,6 @@ export default async function DashboardPage() {
           <Panel>
             <PanelHeader
               title="Recent activity"
-              hint="Audit log"
               action={
                 <Link
                   href="/audit"
