@@ -64,18 +64,8 @@ export function CreateEnvironmentDialog({ projectId }: { projectId: string }) {
                 <Input id="name" name="name" required placeholder="e.g. staging" />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="envVars">Environment variables</Label>
-                <textarea
-                  id="envVars"
-                  name="envVars"
-                  placeholder="KEY=value, one per line"
-                  className="flex min-h-[80px] w-full rounded-lg border border-line bg-surface px-3 py-2 font-mono text-[12.5px] text-ink shadow-card transition-[border-color,box-shadow] duration-150 ease-enter placeholder:text-ink-faint focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
-                />
-              </div>
-
               <Button variant="primary" type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Creating...' : 'Create environment'}
+                {loading ? 'Creating…' : 'Create environment'}
               </Button>
             </div>
           </DialogBody>
