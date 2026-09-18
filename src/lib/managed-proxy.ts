@@ -45,7 +45,7 @@ export async function syncManagedProxy(projectId: string, environmentId: string,
   const httpPort = proxyPort('BOWER_PROXY_HTTP_PORT', 80)
   const httpsPort = proxyPort('BOWER_PROXY_HTTPS_PORT', 443)
   const adminPort = 20_000 + (parseInt(createHash('sha256').update(environment.id).digest('hex').slice(0, 4), 16) % 10_000)
-  const caddyfile = `{\n  admin 0.0.0.0:${adminPort}\n  http_port ${httpPort}\n  https_port ${httpsPort}\n}\n\n:${httpPort} { respond "Bower proxy is discovering routes" 200 }`
+  const caddyfile = `{\n  admin 0.0.0.0:${adminPort}\n  http_port ${httpPort}\n  https_port ${httpsPort}\n}\n\n:${httpPort} {\n  respond "Bower proxy is discovering routes" 200\n}`
   const hash = createHash('sha256').update(JSON.stringify(controllerRoutes)).digest('hex')
   const secretName = 'BOWER_CADDYFILE'
   await client.setSecret(environment.trellisNamespace, secretName, caddyfile)
@@ -62,13 +62,13 @@ export async function syncManagedProxy(projectId: string, environmentId: string,
       labels: { 'bower/managed': 'true', 'bower/infrastructure': 'proxy' },
       update: { strategy: 'recreate' },
       tasks: [{
-        name: 'caddy', image: process.env.BOWER_CADDY_IMAGE || 'ghcr.io/clofour/bower-caddy:latest',
+        name: 'caddy', image: process.env.BOWER_CADDY_IMAGE || 'ghcr.io/overfold/bower-proxy:latest',
         resources: { cpu: 100, memory: 134217728 },
         networking: { mode: 'host', ports: [{ port: httpPort }, { port: httpsPort }, { port: adminPort }] },
         secrets: [{ name: secretName, target: 'file', path: '/run/trellis-secrets/BOWER_CADDYFILE' }, ...customTls],
         health_check: { type: 'tcp', port: httpPort, interval: 10_000_000_000, timeout: 2_000_000_000, threshold: 3 },
       }, {
-        name: 'route-sync', image: process.env.BOWER_PROXY_SYNC_IMAGE || 'ghcr.io/clofour/bower-proxy-sync:latest',
+        name: 'route-sync', image: process.env.BOWER_PROXY_SYNC_IMAGE || 'ghcr.io/overfold/bower-proxy-sync:latest',
         resources: { cpu: 50, memory: 67108864 }, networking: { mode: 'host' },
         env: { BOWER_ROUTES: JSON.stringify(controllerRoutes), CADDY_ADMIN_URL: `http://127.0.0.1:${adminPort}/load`, CADDY_ADMIN_PORT: String(adminPort), CADDY_HTTP_PORT: String(httpPort), CADDY_HTTPS_PORT: String(httpsPort), BOWER_SYNC_INTERVAL: '5' },
       }],
