@@ -57,14 +57,15 @@ export default async function AllocationDetailPage({
   if (!allocation) notFound()
 
   const matchingConfig = configs.find(({ environment }) => environment.trellisNamespace === allocation?.namespace)
-  const [stdout, stderr, events, metrics, job] = await Promise.all([
+  const [stdout, stderr, events, metrics, revisions] = await Promise.all([
     client.getAllocationLogs(allocationId, 'stdout').catch(() => ''),
     client.getAllocationLogs(allocationId, 'stderr').catch(() => ''),
     client.getAllocationEvents(allocationId).catch(() => []),
     client.getAllocationMetrics(allocationId).catch(() => []),
-    client.getJob(allocation.job, allocation.namespace).catch(() => null),
+    client.getJobRevisions(allocation.job, allocation.namespace).catch(() => []),
   ])
-  const terminalTasks = job?.spec.task_groups
+  const allocationSpec = revisions.find((revision) => revision.revision === allocation.job_revision)?.spec
+  const terminalTasks = allocationSpec?.task_groups
     .find((group) => group.name === allocation.group)
     ?.tasks.map((task) => task.name) ?? []
   const history = eventHistory(allocation, events)
