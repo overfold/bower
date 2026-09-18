@@ -59,7 +59,7 @@ export default async function DeploymentsPage({
 
   return (
     <div className="space-y-5">
-      <SectionTitle>Deployment History</SectionTitle>
+      <SectionTitle>Deployment history</SectionTitle>
 
       <DeploymentPoller active={hasActive} />
 
