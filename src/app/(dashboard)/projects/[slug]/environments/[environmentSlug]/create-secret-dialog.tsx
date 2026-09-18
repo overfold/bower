@@ -116,14 +116,6 @@ export function CreateSecretDialog({
                 mono
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="sharedName">Shared group (optional)</Label>
-              <Input
-                id="sharedName"
-                name="sharedName"
-                placeholder="e.g. database-credentials"
-              />
-            </div>
             <div className="flex justify-end gap-2 pt-1">
               <Button type="button" onClick={() => setOpen(false)}>
                 Cancel

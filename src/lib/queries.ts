@@ -22,8 +22,6 @@ import {
   managedProxies,
   deploymentEvents,
   users,
-  sharedSecretGroups,
-  sharedSecretMembers,
   organizationTokens,
   instanceTokens,
   projectUserAccess,
@@ -320,10 +318,8 @@ export async function getAuditLog(orgId: string, limit = 50) {
 }
 
 export async function getSecretsByProject(projectId: string) {
-  return db.select({ secret: secretsMetadata, environmentName: environments.name, sharedName: sharedSecretGroups.name })
+  return db.select({ secret: secretsMetadata, environmentName: environments.name })
     .from(secretsMetadata).innerJoin(environments, eq(environments.id, secretsMetadata.environmentId))
-    .leftJoin(sharedSecretMembers, eq(sharedSecretMembers.secretMetadataId, secretsMetadata.id))
-    .leftJoin(sharedSecretGroups, eq(sharedSecretGroups.id, sharedSecretMembers.groupId))
     .where(eq(secretsMetadata.projectId, projectId)).orderBy(environments.createdAt, secretsMetadata.name)
 }
 

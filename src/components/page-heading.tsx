@@ -1,7 +1,6 @@
 import { cn } from '@/lib/utils'
 
 interface PageHeadingProps {
-  eyebrow?: React.ReactNode
   title: React.ReactNode
   description?: string
   actions?: React.ReactNode
@@ -9,11 +8,10 @@ interface PageHeadingProps {
   className?: string
 }
 
-export function PageHeading({ eyebrow, title, description, actions, meta, className }: PageHeadingProps) {
+export function PageHeading({ title, description, actions, meta, className }: PageHeadingProps) {
   return (
     <header className={cn('flex flex-col items-stretch gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-x-8', className)}>
       <div className="min-w-0 max-w-2xl">
-        {eyebrow ? <div className="mb-2 flex items-center gap-2">{eyebrow}</div> : null}
         <h1 className="break-words text-[24px] font-bold leading-tight tracking-tightest text-ink sm:text-[26px]">{title}</h1>
         {description ? (
           <p className="mt-2 text-[13.5px] leading-relaxed text-ink-soft">{description}</p>
