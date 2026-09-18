@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/overfold/trellis/main/schemas/trellis-job.schema.json
+#
+# Quick-start Bower deployment for a single-node Trellis cluster.
+# The bundled Postgres allocation is intentionally colocated only by virtue of
+# the single-node assumption. For multi-node/production deployments, use an
+# external Postgres instance and replace DATABASE_URL accordingly.
+name: bower
+namespace: platform
+task_groups:
+  - name: db
+    count: 1
+    tasks:
+      - name: postgres
+        image: docker.io/library/postgres:16-alpine
+        networking:
+          mode: host
+          ports:
+            - port: 5432
+        resources:
+          cpu: 250
+          memory: 256MiB
+        env:
+          POSTGRES_USER: bower
+          POSTGRES_PASSWORD: bower
+          POSTGRES_DB: bower
+        volumes:
+          - name: pgdata
+            host_path: "@/bower-postgres"
+            container_path: /var/lib/postgresql/data
+        health_check:
+          type: script
+          command: ["pg_isready", "-U", "bower"]
+          interval: 5s
+          timeout: 5s
+          threshold: 3
+
+  - name: web
+    count: 1
+    api_access:
+      scope: cluster
+      access: write
+    tasks:
+      - name: bower
+        image: ghcr.io/overfold/bower:latest
+        networking:
+          mode: host
+          ports:
+            - port: 3000
+        resources:
+          cpu: 500
+          memory: 512MiB
+        env:
+          NODE_ENV: production
+          DATABASE_URL: postgres://bower:bower@localhost:5432/bower
+          BOWER_RECONCILE_INTERVAL: "5"
+          BOWER_CADDY_IMAGE: ghcr.io/overfold/bower-proxy:latest
+          BOWER_PROXY_SYNC_IMAGE: ghcr.io/overfold/bower-proxy-sync:latest
+          AUTO_MIGRATE: "true"
+        secrets:
+          - name: encryption-key
+            target: env
+            env: NEXT_SERVER_ACTIONS_ENCRYPTION_KEY
+        health_check:
+          type: http
+          port: 3000
+          path: /
+          interval: 10s
+          timeout: 5s
+          threshold: 2
