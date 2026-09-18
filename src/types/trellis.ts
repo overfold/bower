@@ -284,7 +284,8 @@ export interface TrellisExecResponse {
 
 export interface TrellisExecSessionCreateRequest {
   task?: string
-  command?: string[]
+  command: string[]
+  term?: string
   cols?: number
   rows?: number
 }
