@@ -101,56 +101,59 @@ export function GrantAccessDialog({ projectId, teams, members, existingTeamIds, 
           {error && <div className="rounded-md bg-danger-50 p-3 text-sm text-danger-500">{error}</div>}
           <div className="space-y-2">
             <Label htmlFor="access-search">Search teams and members</Label>
-            <Input
-              id="access-search"
-              placeholder="Search by name or email..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              autoFocus
-            />
-          </div>
-          <div className="max-h-[240px] overflow-y-auto rounded-lg border border-line scroll-thin">
-            {items.length === 0 ? (
-              <div className="px-4 py-6 text-center text-[13px] text-ink-muted">No results found.</div>
-            ) : (
-              items.map((item) => {
-                const isSelected = selected?.kind === item.kind && selected?.id === item.id
-                return (
-                  <button
-                    key={`${item.kind}-${item.id}`}
-                    type="button"
-                    disabled={item.granted}
-                    onClick={() => setSelected(item)}
-                    className={cn(
-                      'flex w-full items-center gap-3 border-b border-line px-3 py-2.5 text-left text-[13px] transition-colors last:border-b-0',
-                      item.granted
-                        ? 'cursor-default opacity-50'
-                        : isSelected
-                          ? 'bg-brand-50 text-ink'
-                          : 'hover:bg-sunken text-ink',
-                    )}
-                  >
-                    {item.kind === 'team' ? (
-                      <Users className="h-4 w-4 shrink-0 text-ink-muted" />
-                    ) : (
-                      <User className="h-4 w-4 shrink-0 text-ink-muted" />
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium">{item.name}</div>
-                      {item.kind === 'user' && (
-                        <div className="text-xs text-ink-muted">{item.email}</div>
-                      )}
-                      {item.kind === 'team' && (
-                        <div className="text-xs text-ink-muted">Team</div>
-                      )}
-                    </div>
-                    {item.granted && (
-                      <span className="shrink-0 text-xs text-ink-muted">Granted</span>
-                    )}
-                  </button>
-                )
-              })
-            )}
+            <div className="overflow-hidden rounded-lg border border-line bg-surface shadow-card transition-[border-color,box-shadow] duration-150 ease-enter focus-within:border-brand-300 focus-within:ring-2 focus-within:ring-brand-100">
+              <Input
+                id="access-search"
+                placeholder="Search by name or email..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="rounded-none border-0 shadow-none focus:border-transparent focus:ring-0"
+                autoFocus
+              />
+              <div className="max-h-[240px] overflow-y-auto border-t border-line scroll-thin">
+                {items.length === 0 ? (
+                  <div className="px-4 py-6 text-center text-[13px] text-ink-muted">No results found.</div>
+                ) : (
+                  items.map((item) => {
+                    const isSelected = selected?.kind === item.kind && selected?.id === item.id
+                    return (
+                      <button
+                        key={`${item.kind}-${item.id}`}
+                        type="button"
+                        disabled={item.granted}
+                        onClick={() => setSelected(item)}
+                        className={cn(
+                          'flex w-full items-center gap-3 border-b border-line px-3 py-2.5 text-left text-[13px] transition-colors last:border-b-0',
+                          item.granted
+                            ? 'cursor-default opacity-50'
+                            : isSelected
+                              ? 'bg-brand-50 text-ink'
+                              : 'hover:bg-sunken text-ink',
+                        )}
+                      >
+                        {item.kind === 'team' ? (
+                          <Users className="h-4 w-4 shrink-0 text-ink-muted" />
+                        ) : (
+                          <User className="h-4 w-4 shrink-0 text-ink-muted" />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium">{item.name}</div>
+                          {item.kind === 'user' && (
+                            <div className="text-xs text-ink-muted">{item.email}</div>
+                          )}
+                          {item.kind === 'team' && (
+                            <div className="text-xs text-ink-muted">Team</div>
+                          )}
+                        </div>
+                        {item.granted && (
+                          <span className="shrink-0 text-xs text-ink-muted">Granted</span>
+                        )}
+                      </button>
+                    )
+                  })
+                )}
+              </div>
+            </div>
           </div>
           {selected && !selected.granted && (
             <div className="space-y-2">
