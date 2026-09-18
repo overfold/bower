@@ -132,14 +132,14 @@ export function SidebarContent({ user, onNavigate }: { user: SidebarUser; onNavi
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <form action={logoutAction} className="w-full">
+              <form action={logoutAction} className="w-full">
+                <DropdownMenuItem asChild>
                   <button type="submit" className="flex w-full items-center gap-2">
                     <LogOut className="h-4 w-4" />
                     Sign out
                   </button>
-                </form>
-              </DropdownMenuItem>
+                </DropdownMenuItem>
+              </form>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
