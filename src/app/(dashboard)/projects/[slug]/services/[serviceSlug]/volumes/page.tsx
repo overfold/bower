@@ -58,7 +58,7 @@ export default async function VolumesPage({
       <div className="space-y-2">
         <SectionTitle>Volumes</SectionTitle>
         <p className="max-w-3xl text-[13px] leading-relaxed text-ink-muted">
-          Volumes are configured per environment. A managed local volume is created under Trellis&apos;s namespaced volume root and stays pinned to its owning node. A host path uses an operator-managed absolute directory. Trellis does not replicate, migrate, snapshot, or back up either kind automatically.
+          Volumes are configured per environment. Managed local storage stays on its owning node, while host paths use an existing absolute directory on that node. Neither type is replicated, migrated, snapshotted, or backed up automatically.
         </p>
       </div>
 

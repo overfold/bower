@@ -36,7 +36,7 @@ export default async function ServicesPage({
           <EmptyState
             icon={<Server className="h-4 w-4" />}
             title="No services yet"
-            body="Create your first service to start deploying containers with Trellis."
+            body="Create your first service to start deploying."
             action={<CreateServiceDialog projectSlug={slug} />}
           />
         </Panel>

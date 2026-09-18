@@ -38,7 +38,7 @@ export default async function RevisionsPage({ params }: { params: Promise<{ slug
       {!activeConfig ? (
         <Card>
           <CardContent className="py-8 text-center text-ink-muted">
-            No active Trellis job for this service.
+            No active deployment is available for revision history.
           </CardContent>
         </Card>
       ) : revisions.length === 0 ? (

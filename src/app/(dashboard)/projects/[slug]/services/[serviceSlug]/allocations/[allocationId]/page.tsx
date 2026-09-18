@@ -96,7 +96,7 @@ export default async function AllocationDetailPage({
       <AllocationMetrics serviceId={service.id} allocationId={allocationId} initialMetrics={metrics} />
 
       <Panel>
-        <PanelHeader title="Allocation details" hint="Current Trellis runtime state" />
+        <PanelHeader title="Allocation details" hint="Current runtime state" />
         <div className="p-4">
           <dl className="grid grid-cols-2 gap-x-8 gap-y-1 md:grid-cols-4">
             <KeyValue label="Group" mono>{allocation.group}</KeyValue>

@@ -56,7 +56,7 @@ export function AllocationStopButton({
         <AlertDialogHeader>
           <AlertDialogTitle>Stop allocation?</AlertDialogTitle>
           <AlertDialogDescription>
-            This asks Trellis to stop allocation <span className="font-mono text-ink">{allocationId.slice(0, 8)}</span>. The scheduler may create a replacement if the service still desires this replica.
+            Stop allocation <span className="font-mono text-ink">{allocationId.slice(0, 8)}</span>. A replacement may be created if the service still requires this replica.
           </AlertDialogDescription>
         </AlertDialogHeader>
         {error && <div className="mx-5 rounded-lg border border-danger-200 bg-danger-50 p-3 text-[13px] text-danger-500">{error}</div>}

@@ -39,7 +39,7 @@ export default async function ProjectsPage() {
     <div className="space-y-6">
       <PageHeading
         title="Projects"
-        description="Each project groups services, environments, routes, and secrets."
+        description="Create and manage projects and their deployed services."
         actions={clusterConfigured ? <CreateProjectDialog /> : undefined}
       />
 
@@ -51,7 +51,7 @@ export default async function ProjectsPage() {
             body={
               clusterConfigured
                 ? 'Create your first project to start deploying services.'
-                : 'Connect a Trellis cluster in Settings to start creating projects.'
+                : 'Connect a cluster in Settings to start creating projects.'
             }
             action={clusterConfigured ? <CreateProjectDialog /> : undefined}
           />

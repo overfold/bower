@@ -130,7 +130,7 @@ export function VolumeEditor({
         <DialogBody>
           <div className="space-y-4">
             <p className="text-[13px] leading-relaxed text-ink-muted">
-              Managed local paths use <span className="font-mono text-ink-soft">@/</span> and are created under Trellis&apos;s namespaced volume root. Host paths use an absolute node path that must already exist.
+              Managed local storage is created automatically. Host paths point to an absolute path that must already exist on the node.
             </p>
             {error && <div className="rounded-lg border border-danger-200 bg-danger-50 p-3 text-[13px] text-danger-500">{error}</div>}
             {volumes.length === 0 ? (
