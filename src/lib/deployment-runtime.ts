@@ -1,7 +1,6 @@
 import { and, eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { deploymentEvents, environments, projects, serviceConfigs, services, sidecars, users } from '@/db/schema'
-import { serviceAdvancedSettings } from '@/db/service-advanced-schema'
 import { buildJobSpec, type BowerSecretBinding, type BowerSidecar } from '@/lib/job-builder'
 import { sendDeploymentNotifications } from '@/lib/notifications'
 import type { TrellisApiAccess, TrellisJobSpec, TrellisRuntime, TrellisVolume } from '@/types/trellis'
@@ -44,16 +43,13 @@ export async function createDeploymentSpec(serviceId: string, environmentId: str
     .innerJoin(projects, eq(projects.id, services.projectId))
     .where(and(eq(serviceConfigs.serviceId, serviceId), eq(serviceConfigs.environmentId, environmentId))).limit(1)
   if (!row) throw new Error('Service configuration was not found.')
-  const [attached, advanced] = await Promise.all([
-    db.select().from(sidecars).where(eq(sidecars.serviceConfigId, row.config.id)),
-    db.select().from(serviceAdvancedSettings).where(eq(serviceAdvancedSettings.serviceConfigId, row.config.id)).limit(1).then((items) => items[0] ?? null),
-  ])
+  const attached = await db.select().from(sidecars).where(eq(sidecars.serviceConfigId, row.config.id))
 
-  const runtime: TrellisRuntime = advanced?.runtime === 'runsc' ? 'runsc' : 'runc'
+  const runtime: TrellisRuntime = row.config.runtime === 'runsc' ? 'runsc' : 'runc'
   const apiAccess: TrellisApiAccess | undefined =
-    (advanced?.apiAccessScope === 'namespace' || advanced?.apiAccessScope === 'cluster') &&
-    (advanced?.apiAccessLevel === 'read' || advanced?.apiAccessLevel === 'write')
-      ? { scope: advanced.apiAccessScope, access: advanced.apiAccessLevel }
+    (row.config.apiAccessScope === 'namespace' || row.config.apiAccessScope === 'cluster') &&
+    (row.config.apiAccessLevel === 'read' || row.config.apiAccessLevel === 'write')
+      ? { scope: row.config.apiAccessScope, access: row.config.apiAccessLevel }
       : undefined
 
   const spec = buildJobSpec({

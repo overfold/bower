@@ -14,6 +14,8 @@
     { "idx": 9, "version": "7", "when": 1789593300000, "tag": "0010_project_user_access", "breakpoints": true },
     { "idx": 10, "version": "7", "when": 1789681800000, "tag": "0011_remove_project_registry_url", "breakpoints": true },
     { "idx": 11, "version": "7", "when": 1789682580000, "tag": "0012_remove_environment_locking", "breakpoints": true },
-    { "idx": 12, "version": "7", "when": 1789683300000, "tag": "0013_remove_environment_promotion_order", "breakpoints": true }
+    { "idx": 12, "version": "7", "when": 1789683300000, "tag": "0013_remove_environment_promotion_order", "breakpoints": true },
+    { "idx": 13, "version": "7", "when": 1789729500000, "tag": "0014_remove_shared_secret_groups", "breakpoints": true },
+    { "idx": 14, "version": "7", "when": 1789732800000, "tag": "0015_advanced_config_inheritance", "breakpoints": true }
   ]
 }
