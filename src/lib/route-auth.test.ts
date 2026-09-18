@@ -11,7 +11,8 @@ test('route grants are signed, typed, and expire', async () => {
   const token = signRouteAuthToken({ type: 'grant', routeId: 'route-1', protectionMode: 'bower_auth', userId: 'user-1' }, 60)
   assert.equal(verifyRouteAuthToken(token, 'grant')?.routeId, 'route-1')
   assert.equal(verifyRouteAuthToken(token, 'handoff'), null)
-  assert.equal(verifyRouteAuthToken(`${token.slice(0, -1)}x`, 'grant'), null)
+  const tampered = `${token[0] === 'x' ? 'y' : 'x'}${token.slice(1)}`
+  assert.equal(verifyRouteAuthToken(tampered, 'grant'), null)
 
   const expired = signRouteAuthToken({ type: 'grant', routeId: 'route-1', protectionMode: 'bower_auth', userId: 'user-1' }, -1)
   assert.equal(verifyRouteAuthToken(expired, 'grant'), null)
