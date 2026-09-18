@@ -122,7 +122,6 @@ export default async function EnvironmentDetailPage({ params }: { params: Promis
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
-                    <TableHead>Shared group</TableHead>
                     <TableHead>Rotated</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -131,7 +130,6 @@ export default async function EnvironmentDetailPage({ params }: { params: Promis
                   {secrets.map((row) => (
                     <TableRow key={row.secret.id}>
                       <TableCell className="font-mono text-xs font-medium">{row.secret.name}</TableCell>
-                      <TableCell className="text-ink-muted">{row.sharedName ?? '—'}</TableCell>
                       <TableCell className="text-ink-muted">{formatDate(row.secret.lastRotatedAt)}</TableCell>
                       <TableCell className="text-right"><SecretActions projectId={project.id} secretId={row.secret.id} /></TableCell>
                     </TableRow>
