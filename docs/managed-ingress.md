@@ -38,10 +38,10 @@ Protection is configured per route and enforced by the managed proxy before traf
 | Mode | Behaviour |
 |---|---|
 | `Public` | No authentication is required. |
-| `Password` | Caddy HTTP Basic Authentication is enabled. Visitors use the username `bower` and the password configured on the route. Use this mode only with HTTPS. |
+| `Password` | Visitors are sent to Bower's route-password screen and enter only the password configured on the route. Use this mode only with HTTPS. |
 | `Bower account (Viewer+)` | Visitors sign in through Bower. Bower grants access only while the user has Viewer, Deployer, or Admin access to the route's project. |
 
-Bower account protection requires `BOWER_PUBLIC_URL` and `BOWER_ROUTE_AUTH_SECRET`. The proxy redirects the browser to Bower, then receives a short-lived route-scoped cookie through `/.bower/auth/callback`; deployment configuration and application containers are not modified.
+Password and Bower-account protection require `BOWER_PUBLIC_URL` and `BOWER_ROUTE_AUTH_SECRET`. The proxy redirects the browser to Bower, then receives a short-lived route-scoped cookie through `/.bower/auth/callback`; deployment configuration and application containers are not modified.
 
 ## DNS
 

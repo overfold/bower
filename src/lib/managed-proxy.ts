@@ -36,16 +36,16 @@ export async function syncManagedProxy(projectId: string, environmentId: string,
     const requestHeaders = definition.route.headers as Record<string, string>
     const responseHeaders = definition.route.responseHeaders as Record<string, string>
     const redirects = definition.route.redirects as Array<{ from: string; to: string; code?: number }>
-    if (definition.route.protectionMode === 'bower_auth' && !authOrigin) {
-      throw new Error('BOWER_PUBLIC_URL is required for Bower authentication.')
+    if (definition.route.protectionMode !== 'none' && !authOrigin) {
+      throw new Error('BOWER_PUBLIC_URL is required for protected routes.')
     }
-    controllerRoutes.push({ id: definition.route.id, projectId, domain: definition.route.domain, pathPrefix: definition.route.pathPrefix, port: definition.route.port, tlsMode: definition.route.tlsMode, tlsCertSecret: definition.route.tlsCertSecret, tlsKeySecret: definition.route.tlsKeySecret, requestHeaders, responseHeaders, redirects, rateLimit: definition.route.rateLimit, protectionMode: definition.route.protectionMode, passwordHash: definition.route.passwordHash, authOrigin, service: definition.service.slug, activeJob: definition.config.activeJobName || definition.service.slug, strategy: definition.config.deploymentStrategy })
+    controllerRoutes.push({ id: definition.route.id, projectId, domain: definition.route.domain, pathPrefix: definition.route.pathPrefix, port: definition.route.port, tlsMode: definition.route.tlsMode, tlsCertSecret: definition.route.tlsCertSecret, tlsKeySecret: definition.route.tlsKeySecret, requestHeaders, responseHeaders, redirects, rateLimit: definition.route.rateLimit, protectionMode: definition.route.protectionMode, authOrigin, service: definition.service.slug, activeJob: definition.config.activeJobName || definition.service.slug, strategy: definition.config.deploymentStrategy })
   }
 
   const httpPort = proxyPort('BOWER_PROXY_HTTP_PORT', 80)
   const httpsPort = proxyPort('BOWER_PROXY_HTTPS_PORT', 443)
   const adminPort = 20_000 + (parseInt(createHash('sha256').update(environment.id).digest('hex').slice(0, 4), 16) % 10_000)
-  const caddyfile = `{\n  admin 0.0.0.0:${adminPort}\n  http_port ${httpPort}\n  https_port ${httpsPort}\n  order rate_limit before basic_auth\n}\n\n:${httpPort} { respond "Bower proxy is discovering routes" 200 }`
+  const caddyfile = `{\n  admin 0.0.0.0:${adminPort}\n  http_port ${httpPort}\n  https_port ${httpsPort}\n}\n\n:${httpPort} { respond "Bower proxy is discovering routes" 200 }`
   const hash = createHash('sha256').update(JSON.stringify(controllerRoutes)).digest('hex')
   const secretName = 'BOWER_CADDYFILE'
   await client.setSecret(environment.trellisNamespace, secretName, caddyfile)

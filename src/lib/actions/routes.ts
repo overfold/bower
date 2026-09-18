@@ -62,8 +62,8 @@ export async function updateRouteProtectionAction(projectId: string, routeId: st
     throw new Error('Route passwords must be at least 8 characters.')
   }
   if (password && password.length < 8) throw new Error('Route passwords must be at least 8 characters.')
-  if (protectionMode === 'bower_auth' && (!process.env.BOWER_PUBLIC_URL || (process.env.BOWER_ROUTE_AUTH_SECRET?.length ?? 0) < 32)) {
-    throw new Error('BOWER_PUBLIC_URL and a BOWER_ROUTE_AUTH_SECRET of at least 32 characters are required for Bower authentication.')
+  if (protectionMode !== 'none' && (!process.env.BOWER_PUBLIC_URL || (process.env.BOWER_ROUTE_AUTH_SECRET?.length ?? 0) < 32)) {
+    throw new Error('BOWER_PUBLIC_URL and a BOWER_ROUTE_AUTH_SECRET of at least 32 characters are required for protected routes.')
   }
 
   const passwordHash = protectionMode === 'password'

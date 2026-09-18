@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-const PUBLIC_PATHS = ['/login', '/register']
+const PUBLIC_PATHS = ['/login', '/register', '/route-auth/password']
 const SESSION_COOKIE_NAME = 'bower_session'
 
 export function proxy(request: NextRequest) {
@@ -10,7 +10,7 @@ export function proxy(request: NextRequest) {
 
   // If the user has a session cookie and is on a public auth page,
   // redirect them to the dashboard
-  if (sessionToken && PUBLIC_PATHS.includes(pathname)) {
+  if (sessionToken && ['/login', '/register'].includes(pathname)) {
     const next = request.nextUrl.searchParams.get('next')
     if (next?.startsWith('/') && !next.startsWith('//')) {
       return NextResponse.redirect(new URL(next, request.url))

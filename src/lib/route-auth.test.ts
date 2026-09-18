@@ -8,13 +8,26 @@ const routeAuth = import('./route-auth')
 
 test('route grants are signed, typed, and expire', async () => {
   const { signRouteAuthToken, verifyRouteAuthToken } = await routeAuth
-  const token = signRouteAuthToken({ type: 'grant', routeId: 'route-1', userId: 'user-1' }, 60)
+  const token = signRouteAuthToken({ type: 'grant', routeId: 'route-1', protectionMode: 'bower_auth', userId: 'user-1' }, 60)
   assert.equal(verifyRouteAuthToken(token, 'grant')?.routeId, 'route-1')
   assert.equal(verifyRouteAuthToken(token, 'handoff'), null)
   assert.equal(verifyRouteAuthToken(`${token.slice(0, -1)}x`, 'grant'), null)
 
-  const expired = signRouteAuthToken({ type: 'grant', routeId: 'route-1', userId: 'user-1' }, -1)
+  const expired = signRouteAuthToken({ type: 'grant', routeId: 'route-1', protectionMode: 'bower_auth', userId: 'user-1' }, -1)
   assert.equal(verifyRouteAuthToken(expired, 'grant'), null)
+})
+
+test('password route grants are route scoped without requiring a Bower account', async () => {
+  const { createPasswordRouteGrant, createPasswordRouteHandoff, passwordRouteGrantMatches, verifyRouteAuthToken } = await routeAuth
+  const token = createPasswordRouteGrant('route-1', '$2b$12$password-hash')
+  const grant = verifyRouteAuthToken(token, 'grant')
+  assert.equal(grant?.protectionMode, 'password')
+  assert.equal(grant?.userId, undefined)
+  assert.equal(grant && passwordRouteGrantMatches(grant, '$2b$12$password-hash'), true)
+  assert.equal(grant && passwordRouteGrantMatches(grant, '$2b$12$new-password-hash'), false)
+
+  const handoff = verifyRouteAuthToken(createPasswordRouteHandoff('route-1', 'https://preview.example.com/'), 'handoff')
+  assert.equal(handoff?.protectionMode, 'password')
 })
 
 test('return URLs must belong to the exact route hostname and path', async () => {

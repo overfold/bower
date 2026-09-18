@@ -21,10 +21,11 @@ const route = {
   strategy: 'rolling',
 }
 
-test('renders password protection before the deployment upstream', () => {
-  const config = renderCaddyfile([{ ...route, protectionMode: 'password', passwordHash: '$2b$12$hash' }], [allocation])
-  assert.match(config, /basic_auth \{\n      bower "\$2b\$12\$hash"\n    \}/)
-  assert.ok(config.indexOf('basic_auth') < config.indexOf('reverse_proxy 10.0.0.2:32100'))
+test('routes password protection through Bower before the deployment upstream', () => {
+  const config = renderCaddyfile([{ ...route, protectionMode: 'password', authOrigin: 'https://bower.example.com' }], [allocation])
+  assert.match(config, /forward_auth https:\/\/bower\.example\.com \{\n      uri \/api\/route-auth\/verify\/route-id/)
+  assert.doesNotMatch(config, /basic_auth/)
+  assert.ok(config.indexOf('forward_auth') < config.indexOf('reverse_proxy 10.0.0.2:32100'))
 })
 
 test('renders Bower forward auth and a callback outside the protected handler', () => {

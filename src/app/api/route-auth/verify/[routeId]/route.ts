@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import {
   getProtectedRoute,
   hasProjectViewerAccess,
+  passwordRouteGrantMatches,
   routeAuthCookieName,
   routeMatchesUrl,
   verifyRouteAuthToken,
@@ -15,8 +16,11 @@ export async function GET(request: NextRequest, context: { params: Promise<{ rou
   const token = request.cookies.get(routeAuthCookieName(routeId))?.value
   if (token) {
     const grant = verifyRouteAuthToken(token, 'grant')
-    const userId = grant?.routeId === routeId ? grant.userId : null
-    if (userId && await hasProjectViewerAccess(userId, route.projectId)) {
+    const userId = grant?.routeId === routeId && grant.protectionMode === 'bower_auth' ? grant.userId : null
+    if (grant?.routeId === routeId && route.protectionMode === 'password' && passwordRouteGrantMatches(grant, route.passwordHash)) {
+      return new NextResponse(null, { status: 204 })
+    }
+    if (route.protectionMode === 'bower_auth' && userId && await hasProjectViewerAccess(userId, route.projectId)) {
       return new NextResponse(null, { status: 204 })
     }
   }

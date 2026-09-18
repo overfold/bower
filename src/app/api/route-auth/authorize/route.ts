@@ -18,6 +18,13 @@ export async function GET(request: NextRequest) {
     return new NextResponse('Route not found.', { status: 404 })
   }
 
+  if (route.protectionMode === 'password') {
+    const password = new URL('/route-auth/password', request.url)
+    password.searchParams.set('route', routeId)
+    password.searchParams.set('returnTo', target.toString())
+    return NextResponse.redirect(password)
+  }
+
   const sessionToken = request.cookies.get(SESSION_COOKIE_NAME)?.value
   const session = sessionToken ? await validateSession(sessionToken) : null
   if (!session) {

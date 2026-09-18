@@ -210,7 +210,7 @@ export function AddRouteDialog({
                   <div className="space-y-2">
                     <Label htmlFor="routePassword">Route password</Label>
                     <Input id="routePassword" name="routePassword" type="password" minLength={8} required autoComplete="new-password" />
-                    <p className="text-[11px] text-ink-muted">Visitors sign in with username <span className="font-mono">bower</span>.</p>
+                    <p className="text-[11px] text-ink-muted">Visitors enter this password on a Bower page.</p>
                   </div>
                 ) : (
                   <div className="flex items-end pb-1 text-xs leading-5 text-ink-muted">
@@ -297,7 +297,7 @@ export function RouteProtectionButton({
                 <div className="space-y-2">
                   <Label htmlFor={`password-${routeId}`}>{currentMode === 'password' ? 'New password (optional)' : 'Password'}</Label>
                   <Input id={`password-${routeId}`} name="routePassword" type="password" minLength={8} required={currentMode !== 'password'} autoComplete="new-password" />
-                  <p className="text-xs text-ink-muted">{currentMode === 'password' ? 'Leave blank to keep the current password. ' : ''}Visitors use username <span className="font-mono">bower</span>.</p>
+                  <p className="text-xs text-ink-muted">{currentMode === 'password' ? 'Leave blank to keep the current password. ' : ''}Visitors enter this password on a Bower page.</p>
                 </div>
               ) : null}
               {mode === 'bower_auth' ? (

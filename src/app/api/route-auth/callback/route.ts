@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
+  createPasswordRouteGrant,
   createRouteGrant,
   getProtectedRoute,
   hasProjectViewerAccess,
@@ -20,14 +21,21 @@ export async function GET(request: NextRequest) {
   } catch {
     return new NextResponse('Invalid route authorization target.', { status: 403 })
   }
-  if (!route || !routeMatchesUrl(route, target) || !await hasProjectViewerAccess(handoff.userId, route.projectId)) {
+  const authorized = route && routeMatchesUrl(route, target) && (
+    handoff.protectionMode === 'password'
+      ? route.protectionMode === 'password'
+      : handoff.userId !== undefined && route.protectionMode === 'bower_auth' && await hasProjectViewerAccess(handoff.userId, route.projectId)
+  )
+  if (!authorized) {
     return new NextResponse('You do not have access to this project.', { status: 403 })
   }
 
   const response = NextResponse.redirect(target)
   response.cookies.set({
     name: routeAuthCookieName(route.id),
-    value: createRouteGrant(route.id, handoff.userId),
+    value: handoff.protectionMode === 'password'
+      ? createPasswordRouteGrant(route.id, route.passwordHash!)
+      : createRouteGrant(route.id, handoff.userId!),
     httpOnly: true,
     secure: target.protocol === 'https:',
     sameSite: 'lax',

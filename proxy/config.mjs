@@ -5,10 +5,7 @@ const jobFor = (route, allocation) => route.strategy === 'canary'
   : allocation.job === route.activeJob
 
 function authLines(route) {
-  if (route.protectionMode === 'password' && route.passwordHash) {
-    return ['    basic_auth {', `      bower ${q(route.passwordHash)}`, '    }']
-  }
-  if (route.protectionMode === 'bower_auth' && route.authOrigin) {
+  if ((route.protectionMode === 'password' || route.protectionMode === 'bower_auth') && route.authOrigin) {
     return [
       `    forward_auth ${route.authOrigin} {`,
       `      uri /api/route-auth/verify/${route.id}`,
@@ -49,7 +46,7 @@ export function renderCaddyfile(routes, allocations, { adminPort = '2019', httpP
   const blocks = [...groups.entries()].map(([address, group]) => {
     const lines = [`${address} {`]
     if (group.route.tlsMode === 'custom' && group.route.tlsCertSecret && group.route.tlsKeySecret) lines.push(`  tls /run/trellis-secrets/${group.route.tlsCertSecret} /run/trellis-secrets/${group.route.tlsKeySecret}`)
-    const authRoute = group.handlers.find((route) => route.protectionMode === 'bower_auth' && route.authOrigin)
+    const authRoute = group.handlers.find((route) => route.protectionMode !== 'none' && route.authOrigin)
     if (authRoute) {
       lines.push(
         '  handle /.bower/auth/callback {',
@@ -65,5 +62,5 @@ export function renderCaddyfile(routes, allocations, { adminPort = '2019', httpP
     }
     lines.push('}'); return lines.join('\n')
   })
-  return `{\n  admin 0.0.0.0:${adminPort}\n  http_port ${httpPort}\n  https_port ${httpsPort}\n  order rate_limit before basic_auth\n}\n\n${blocks.length ? blocks.join('\n\n') : `:${httpPort} { respond "Bower proxy ready" 200 }`}`
+  return `{\n  admin 0.0.0.0:${adminPort}\n  http_port ${httpPort}\n  https_port ${httpsPort}\n}\n\n${blocks.length ? blocks.join('\n\n') : `:${httpPort} { respond "Bower proxy ready" 200 }`}`
 }
