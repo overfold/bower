@@ -117,7 +117,8 @@ export function ServiceEnvironmentDialog({
                   rows={6}
                   defaultValue={recordToLines(envVars)}
                   placeholder={'LOG_LEVEL=info\nFEATURE_FLAG=true'}
-                  className="font-mono text-xs"
+                  className="text-xs"
+                  mono
                 />
                 <p className="text-2xs leading-relaxed text-ink-muted">Plain, environment-specific values for this service. Use secret bindings below for sensitive values.</p>
               </div>
