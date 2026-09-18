@@ -294,7 +294,7 @@ export async function createInstanceTokenAction(
     createdByUserId: user.id,
   })
 
-  revalidatePath('/settings/instance')
+  revalidatePath('/settings/members')
   return { token: rawToken }
 }
 
@@ -308,6 +308,6 @@ export async function revokeInstanceTokenAction(id: string) {
   if (token.usedAt) return { error: 'Cannot revoke a token that has already been used.' }
 
   await db.delete(instanceTokens).where(eq(instanceTokens.id, id))
-  revalidatePath('/settings/instance')
+  revalidatePath('/settings/members')
   return { success: true }
 }
