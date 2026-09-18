@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { getApiKeys } from '@/lib/queries'
 import { PageHeading } from '@/components/page-heading'
-import { Separator } from '@/components/ui/separator'
 import { AccountSettingsForm } from '@/components/account-settings-form'
 import { ChangePasswordForm } from './change-password-form'
 import { ApiKeysSection } from './api-keys-section'
@@ -21,11 +20,9 @@ export default async function AccountSettingsPage() {
         user={{ name: user.name, email: user.email, avatarUrl: user.avatarUrl }}
       />
 
-      <Separator />
 
       <ChangePasswordForm />
 
-      <Separator />
 
       <ApiKeysSection
         keys={apiKeysList.map((k) => ({

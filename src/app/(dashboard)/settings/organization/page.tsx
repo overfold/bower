@@ -14,7 +14,7 @@ export default async function OrganizationSettingsPage() {
     <div className="space-y-6">
       <PageHeading
         title="Organization"
-        description="Manage the identity and organization-wide configuration for the currently selected organization."
+        description="Manage organization details for the currently selected organization."
       />
 
       <OrgSettingsForm

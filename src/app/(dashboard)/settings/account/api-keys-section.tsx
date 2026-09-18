@@ -51,7 +51,7 @@ export function ApiKeysSection({ keys }: { keys: ApiKey[] }) {
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
-        <CardTitle className="text-base">API Keys</CardTitle>
+        <CardTitle>API keys</CardTitle>
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setNewKey(null); setError(null) } }}>
           <DialogTrigger asChild>
             <Button variant="primary" size="sm">
@@ -69,7 +69,7 @@ export function ApiKeysSection({ keys }: { keys: ApiKey[] }) {
                   <p className="text-sm text-ink-muted">Copy this key now. It will not be shown again.</p>
                   <div className="flex items-center gap-2">
                     <code className="flex-1 rounded-md bg-sunken px-3 py-2 font-mono text-xs break-all">{newKey}</code>
-                    <Button variant="default" size="icon" onClick={handleCopy}>
+                    <Button variant="default" size="icon" onClick={handleCopy} aria-label="Copy API key">
                       {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                     </Button>
                   </div>
@@ -83,7 +83,7 @@ export function ApiKeysSection({ keys }: { keys: ApiKey[] }) {
                     <Input id="keyName" name="name" placeholder="CI deploy key" required />
                   </div>
                   <Button variant="primary" type="submit" className="w-full" disabled={loading}>
-                    {loading ? 'Creating...' : 'Create key'}
+                    {loading ? 'Creating…' : 'Create key'}
                   </Button>
                 </form>
               )}
@@ -136,6 +136,7 @@ function RevokeableRow({ apiKey }: { apiKey: ApiKey }) {
           size="sm"
           disabled={pending}
           onClick={() => startTransition(() => revokeApiKeyAction(apiKey.id))}
+          aria-label={`Revoke ${apiKey.name}`}
         >
           <Trash2 className="h-3.5 w-3.5 text-ink-muted" />
         </Button>

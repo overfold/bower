@@ -214,10 +214,7 @@ export default async function StatusPage() {
 
       {proxies.length > 0 && (
         <Panel>
-          <PanelHeader
-            title="Managed ingress"
-            hint="Ingress status by environment"
-          />
+          <PanelHeader title="Managed ingress" />
           <Table>
             <TableHeader>
               <TableRow>

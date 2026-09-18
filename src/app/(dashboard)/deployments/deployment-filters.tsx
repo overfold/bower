@@ -177,8 +177,8 @@ export function DeploymentFilters({ items, projects, environments }: DeploymentF
                     <TableCell>
                       <Mono>{shortImage(row.deployment.imageAfter)}</Mono>
                       {row.deployment.imageBefore && row.deployment.imageBefore !== row.deployment.imageAfter && (
-                        <p className="mt-0.5 font-mono text-2xs text-ink-faint">
-                          from {shortImage(row.deployment.imageBefore)}
+                        <p className="mt-0.5 text-2xs text-ink-faint">
+                          from <Mono className="text-2xs text-ink-faint">{shortImage(row.deployment.imageBefore)}</Mono>
                         </p>
                       )}
                     </TableCell>

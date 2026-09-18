@@ -151,8 +151,8 @@ export default async function EnvironmentDetailPage({ params }: { params: Promis
 
       <div className="space-y-4">
         <div className="space-y-1">
-          <SectionTitle>Service configuration</SectionTitle>
-          <p className="text-[13px] text-ink-muted">Configure environment variables and secret bindings for each service in this environment.</p>
+          <SectionTitle>Service variables and secrets</SectionTitle>
+          <p className="text-[13px] text-ink-muted">Configure variables and secret bindings that apply only to each service in this environment.</p>
         </div>
         {serviceRows.length === 0 ? (
           <Panel>

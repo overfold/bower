@@ -41,7 +41,7 @@ export function AccountSettingsForm({ user }: AccountSettingsFormProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Profile</CardTitle>
+        <CardTitle>Profile</CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -58,7 +58,7 @@ export function AccountSettingsForm({ user }: AccountSettingsFormProps) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="avatarUrl">Avatar URL</Label>
-            <Input id="avatarUrl" name="avatarUrl" defaultValue={user.avatarUrl ?? ''} placeholder="https://example.com/avatar.png" />
+            <Input id="avatarUrl" name="avatarUrl" defaultValue={user.avatarUrl ?? ''} placeholder="https://example.com/avatar.png" mono />
           </div>
           <Button variant="primary" type="submit" disabled={loading}>
             {loading ? 'Saving...' : 'Save changes'}

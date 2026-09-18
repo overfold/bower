@@ -22,10 +22,7 @@ export default async function InstanceSettingsPage() {
 
       <Card>
         <CardHeader>
-          <div>
-            <CardTitle>Organizations</CardTitle>
-            <p className="mt-0.5 text-xs text-ink-muted">Organizations hosted by this Bower instance</p>
-          </div>
+<CardTitle>Organizations</CardTitle>
           <CreateOrganizationDialog />
         </CardHeader>
         <CardContent className="p-0">
