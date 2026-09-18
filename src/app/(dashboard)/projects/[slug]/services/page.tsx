@@ -32,7 +32,10 @@ export default async function ServicesPage({
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <SectionTitle>Services</SectionTitle>
+        <div>
+          <SectionTitle>Services</SectionTitle>
+          <p className="mt-1 text-[13px] text-ink-muted">Manage the workloads deployed by this project.</p>
+        </div>
         <CreateServiceDialog projectSlug={slug} environmentId={environmentId} />
       </div>
 

@@ -59,7 +59,10 @@ export default async function DeploymentsPage({
 
   return (
     <div className="space-y-5">
-      <SectionTitle>Deployment history</SectionTitle>
+      <div>
+        <SectionTitle>Deployment history</SectionTitle>
+        <p className="mt-1 text-[13px] text-ink-muted">Review deployments for every service and environment in this project.</p>
+      </div>
 
       <DeploymentPoller active={hasActive} />
 

@@ -86,7 +86,7 @@ export default async function RoutesPage({ params, searchParams }: { params: Pro
           title={selectedEnvironment ? `${visibleRoutes.length} route${visibleRoutes.length === 1 ? '' : 's'}` : 'Routes'}
         />
         {!selectedEnvironment ? (
-          <EmptyState icon={<Globe className="h-4 w-4" />} title="Select an environment" body="Routes target one environment namespace; Base has no routes." />
+          <EmptyState icon={<Globe className="h-4 w-4" />} title="Select an environment" body="Choose an environment to view and manage its routes." />
         ) : visibleRoutes.length === 0 ? (
           <EmptyState
             icon={<Globe className="h-4 w-4" />}

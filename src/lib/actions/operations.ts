@@ -291,6 +291,19 @@ export async function createTeamAction(formData: FormData) {
   revalidatePath('/settings/teams')
 }
 
+export async function updateTeamAction(teamId: string, formData: FormData) {
+  const ctx = await requireContext()
+  if (ctx.role !== 'owner' && ctx.role !== 'admin') throw new Error('Insufficient permissions.')
+  const name = text(formData, 'name')
+  if (!name) throw new Error('Team name is required.')
+  const [team] = await db.select().from(teams).where(and(eq(teams.id, teamId), eq(teams.orgId, ctx.org.id))).limit(1)
+  if (!team) throw new Error('Team not found.')
+  await db.update(teams).set({ name, updatedAt: new Date() }).where(eq(teams.id, teamId))
+  await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'team.updated',
+    resourceType: 'team', resourceId: teamId, details: { before: { name: team.name }, after: { name } } })
+  revalidatePath('/settings/teams')
+}
+
 export async function addTeamMemberAction(teamId: string, formData: FormData) {
   const ctx = await requireContext()
   if (ctx.role !== 'owner' && ctx.role !== 'admin') throw new Error('Insufficient permissions.')

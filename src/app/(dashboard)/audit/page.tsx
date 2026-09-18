@@ -26,7 +26,7 @@ export default async function AuditLogPage() {
   }))
 
   return (
-    <div className="mx-auto max-w-[960px] space-y-6">
+    <div className="space-y-6">
       <PageHeading
         title="Audit Log"
         description="Review changes and actions across the organization."

@@ -56,8 +56,6 @@ export function CreateServiceDialog({ projectSlug, environmentId }: { projectSlu
                 <Label htmlFor="replicas">Replicas</Label>
                 <Input id="replicas" name="replicas" type="number" defaultValue={1} min={1} required />
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="strategy">Deployment strategy</Label>
                 <div className="relative">
@@ -75,14 +73,16 @@ export function CreateServiceDialog({ projectSlug, environmentId }: { projectSlu
                   <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-muted" aria-hidden="true" />
                 </div>
               </div>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="cpu">CPU (millicores)</Label>
                 <Input id="cpu" name="cpu" type="number" defaultValue={100} min={0} required />
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="memory">Memory (MB)</Label>
-              <Input id="memory" name="memory" type="number" defaultValue={128} min={0} required />
+              <div className="space-y-2">
+                <Label htmlFor="memory">Memory (MB)</Label>
+                <Input id="memory" name="memory" type="number" defaultValue={128} min={0} required />
+              </div>
             </div>
             <Button variant="primary" type="submit" className="w-full" disabled={loading}>
               {loading ? 'Creating...' : 'Create service'}

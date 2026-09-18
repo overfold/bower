@@ -105,6 +105,15 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
     <div className="space-y-4">
       {error && !adding ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
 
+      <InlineNotice tone="neutral" icon={<Globe2 className="h-4 w-4" />}>
+        <p className="font-medium text-ink">Verify ownership with a one-time DNS check</p>
+        <p className="mt-0.5 text-xs text-ink-muted">
+          For each pending domain, add the TXT record shown below at your DNS provider
+          {canManage ? ', then click Check verification after it propagates.' : '. An organization admin can check it after it propagates.'}
+          {' '}Bower never creates or changes DNS records.
+        </p>
+      </InlineNotice>
+
       <Panel>
         <PanelHeader
           title="Managed domains"
@@ -116,19 +125,6 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
             </Button>
           ) : undefined}
         />
-
-        <div className="flex items-start gap-2.5 border-b border-line bg-sunken px-4 py-3">
-          <Globe2 className="mt-0.5 h-4 w-4 shrink-0 text-ink-muted" />
-          <div className="space-y-0.5 text-[12.5px] leading-relaxed text-ink-soft">
-            <p>
-              Verification is a one-time DNS check. For each pending domain, add the TXT record shown below at your DNS provider
-              {canManage ? ', then click Check verification after it propagates.' : '. An organization admin can check it after it propagates.'}
-            </p>
-            <p className="text-ink-muted">
-              Bower never creates or changes DNS records. Hostnames, TLS, and paths are configured from project routes.
-            </p>
-          </div>
-        </div>
 
         {domains.length === 0 ? (
           <EmptyState

@@ -4,6 +4,7 @@ import { getUserOrganization, getProjectBySlug, getServiceBySlug, getMergedServi
 import { ServiceHeader } from '../service-header'
 import { ServiceActions } from '../service-actions'
 import { ConfigurationForm } from './configuration-form'
+import { SectionTitle } from '@/components/ui/panel'
 
 export default async function ServiceConfigurationPage({
   params,
@@ -49,6 +50,10 @@ export default async function ServiceConfigurationPage({
           />
         </div>
       ) : null}
+      <div>
+        <SectionTitle>Configuration</SectionTitle>
+        <p className="mt-1 max-w-3xl text-[13px] text-ink-muted">Configure the image, deployment behavior, resources, and health checks for this service.</p>
+      </div>
       <ConfigurationForm
         serviceId={service.id}
         environmentId={environmentId}

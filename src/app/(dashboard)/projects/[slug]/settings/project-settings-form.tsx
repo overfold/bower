@@ -18,7 +18,6 @@ interface Props {
   project: {
     id: string
     name: string
-    slug: string
     description: string | null
     createdAt: string
   }
@@ -63,10 +62,6 @@ export function ProjectSettingsForm({ project }: Props) {
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
               <Input id="name" name="name" defaultValue={project.name} required />
-            </div>
-            <div className="space-y-2">
-              <Label>Slug</Label>
-              <Input value={project.slug} disabled mono />
             </div>
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>

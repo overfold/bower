@@ -127,7 +127,7 @@ export function AdvancedConfigForm({
         {hasOverrides ? (
           <Button variant="ghost" size="sm" type="button" onClick={resetToBase} disabled={resetting} className="text-ink-muted">
             <RotateCcw className="h-3.5 w-3.5" />
-            {resetting ? 'Resetting…' : 'Reset to base'}
+            {resetting ? 'Resetting…' : 'Reset to defaults'}
           </Button>
         ) : (
           <div />

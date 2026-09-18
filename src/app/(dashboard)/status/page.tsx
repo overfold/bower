@@ -86,11 +86,13 @@ export default async function StatusPage() {
           title="Cluster"
           description="Monitor cluster connectivity, capacity, nodes, and managed ingress."
         />
-        <EmptyState
-          icon={<Server className="h-4 w-4" />}
-          title="Unable to reach cluster"
-          body={clusterError}
-        />
+        <Panel>
+          <EmptyState
+            icon={<Server className="h-4 w-4" />}
+            title="Unable to reach cluster"
+            body={clusterError}
+          />
+        </Panel>
       </div>
     )
   }

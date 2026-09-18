@@ -2,7 +2,7 @@ import { redirect, notFound } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { getUserOrganization, getProjectBySlug, getServiceBySlug, getServiceConfigsWithEnvironments } from '@/lib/queries'
 import { getTrellisClient } from '@/lib/trellis-instance'
-import { Panel } from '@/components/ui/panel'
+import { Panel, SectionTitle } from '@/components/ui/panel'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ServiceHeader } from '../service-header'
@@ -40,20 +40,25 @@ export default async function RevisionsPage({ params, searchParams }: { params: 
     <div className="space-y-6">
       <ServiceHeader slug={slug} serviceSlug={serviceSlug} serviceName={service.name} />
 
+      <div>
+        <SectionTitle>Deployment history</SectionTitle>
+        <p className="mt-1 max-w-3xl text-[13px] text-ink-muted">Review previous versions of this service for the selected environment.</p>
+      </div>
+
       {!activeConfig ? (
         <Panel>
           <EmptyState
             icon={<History className="h-4 w-4" />}
             title="Select an environment"
-            body="Revision history belongs to a deployed Trellis job, not Base configuration."
+            body="Choose an environment to view its deployment history."
           />
         </Panel>
       ) : revisions.length === 0 ? (
         <Panel>
           <EmptyState
             icon={<History className="h-4 w-4" />}
-            title="No revisions"
-            body="No revisions have been recorded for the active deployment."
+            title="No history yet"
+            body="Previous versions will appear here after this service has been deployed."
           />
         </Panel>
       ) : (

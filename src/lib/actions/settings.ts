@@ -52,17 +52,14 @@ export async function createOrganizationAction(
   if (!(await isInstanceAdmin(user.id))) return { error: 'Instance administrator access required.' }
 
   const name = formData.get('name')
-  const slugValue = formData.get('slug')
   const trellisApiUrl = formData.get('trellisApiUrl')
   const trellisApiToken = formData.get('trellisApiToken')
-  if ([name, slugValue, trellisApiUrl, trellisApiToken].some((value) => typeof value !== 'string' || !value.trim())) {
-    return { error: 'Name, slug, Trellis API URL, and Trellis API token are required.' }
+  if (typeof name !== 'string' || !name.trim()) {
+    return { error: 'Name is required.' }
   }
 
-  const slug = (slugValue as string).trim().toLowerCase()
-  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
-    return { error: 'Slug must contain lowercase letters, numbers, and single hyphens only.' }
-  }
+  const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 63)
+  if (!slug) return { error: 'Name must contain at least one letter or number.' }
 
   const existing = await db.select({ id: organizations.id }).from(organizations).where(eq(organizations.slug, slug)).limit(1)
   if (existing.length) return { error: 'An organization with this slug already exists.' }
@@ -70,8 +67,8 @@ export async function createOrganizationAction(
   await db.insert(organizations).values({
     name: (name as string).trim(),
     slug,
-    trellisApiUrl: (trellisApiUrl as string).trim(),
-    trellisApiToken: (trellisApiToken as string).trim(),
+    trellisApiUrl: typeof trellisApiUrl === 'string' ? trellisApiUrl.trim() : '',
+    trellisApiToken: typeof trellisApiToken === 'string' ? trellisApiToken.trim() : '',
   })
 
   revalidatePath('/settings/instance')

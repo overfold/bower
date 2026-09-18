@@ -46,7 +46,10 @@ export default async function IntegrationsPage({
     <div className="space-y-8">
       <div className="space-y-5">
         <div className="flex items-center justify-between">
-          <SectionTitle>Webhooks</SectionTitle>
+          <div>
+            <SectionTitle>Webhooks</SectionTitle>
+            <p className="mt-1 text-[13px] text-ink-muted">Trigger service deployments when your source provider sends an event.</p>
+          </div>
           {isAdmin && (
             <CreateWebhookDialog
               projectId={project.id}
@@ -112,7 +115,10 @@ export default async function IntegrationsPage({
 
       <div className="space-y-5">
         <div className="flex items-center justify-between">
-          <SectionTitle>Notification channels</SectionTitle>
+          <div>
+            <SectionTitle>Notification channels</SectionTitle>
+            <p className="mt-1 text-[13px] text-ink-muted">Send deployment updates to the tools your team already uses.</p>
+          </div>
           {isAdmin && <CreateNotificationDialog projectId={project.id} />}
         </div>
 

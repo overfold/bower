@@ -84,123 +84,130 @@ export function ConfigurationForm({ serviceId, environmentId, config, overridden
   }
 
   return (
-    <Panel>
-      <PanelHeader title="Configuration" />
-      <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {error && (
+        <div className="rounded-md bg-danger-50 p-3 text-[13px] text-danger-500">{error}</div>
+      )}
+      <div className="hidden">
         <input type="hidden" name="resourceTier" value="custom" />
         <input type="hidden" name="envVars" value={recordToLines(config?.envVars)} />
         <input type="hidden" name="labels" value={recordToLines(config?.labels)} />
         <input type="hidden" name="volumes" value={JSON.stringify(config?.volumes ?? [])} />
         <input type="hidden" name="secretBindings" value={JSON.stringify(config?.secretBindings ?? [])} />
         <input type="hidden" name="canarySteps" value={JSON.stringify(config?.canarySteps ?? [10, 25, 50, 100])} />
+      </div>
 
-        <div className="divide-y divide-line">
-          <div className="space-y-4 p-4">
-            {error && (
-              <div className="rounded-md bg-danger-50 p-3 text-[13px] text-danger-500">{error}</div>
-            )}
+      <Panel>
+        <PanelHeader title="General" hint="Image and deployment behavior" />
+        <div className="space-y-4 p-4">
+          <div className="space-y-2">
+            <Label htmlFor="image">
+              Container image
+              <OverrideBadge field="image" overriddenFields={overriddenFields} />
+            </Label>
+            <Input id="image" name="image" defaultValue={d.image} required mono />
+          </div>
 
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="image">
-                Container image
-                <OverrideBadge field="image" overriddenFields={overriddenFields} />
+              <Label htmlFor="replicas">
+                Replicas
+                <OverrideBadge field="replicas" overriddenFields={overriddenFields} />
               </Label>
-              <Input id="image" name="image" defaultValue={d.image} required mono />
+              <Input id="replicas" name="replicas" type="number" defaultValue={d.replicas} required min={1} />
             </div>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="replicas">
-                  Replicas
-                  <OverrideBadge field="replicas" overriddenFields={overriddenFields} />
-                </Label>
-                <Input id="replicas" name="replicas" type="number" defaultValue={d.replicas} required min={1} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="strategy">
-                  Deployment strategy
-                  <OverrideBadge field="deploymentStrategy" overriddenFields={overriddenFields} />
-                </Label>
-                <div className="relative">
-                  <select
-                    id="strategy"
-                    name="strategy"
-                    defaultValue={d.deploymentStrategy}
-                    className="flex h-9 w-full appearance-none rounded-lg border border-line bg-surface px-3 pr-9 text-[13px] text-ink shadow-card transition-[border-color,box-shadow] duration-150 ease-enter focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
-                  >
-                    <option value="rolling">Rolling</option>
-                    <option value="recreate">Recreate</option>
-                    <option value="blue_green">Blue/green</option>
-                    <option value="canary">Canary</option>
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-muted" />
-                </div>
+            <div className="space-y-2">
+              <Label htmlFor="strategy">
+                Deployment strategy
+                <OverrideBadge field="deploymentStrategy" overriddenFields={overriddenFields} />
+              </Label>
+              <div className="relative">
+                <select
+                  id="strategy"
+                  name="strategy"
+                  defaultValue={d.deploymentStrategy}
+                  className="flex h-9 w-full appearance-none rounded-lg border border-line bg-surface px-3 pr-9 text-[13px] text-ink shadow-card transition-[border-color,box-shadow] duration-150 ease-enter focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                >
+                  <option value="rolling">Rolling</option>
+                  <option value="recreate">Recreate</option>
+                  <option value="blue_green">Blue/green</option>
+                  <option value="canary">Canary</option>
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-muted" />
               </div>
             </div>
+          </div>
+        </div>
+      </Panel>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="cpu">
-                  CPU (millicores)
-                  <OverrideBadge field="cpu" overriddenFields={overriddenFields} />
-                </Label>
-                <Input id="cpu" name="cpu" type="number" defaultValue={d.cpu} min={0} required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="memory">
-                  Memory (MB)
-                  <OverrideBadge field="memory" overriddenFields={overriddenFields} />
-                </Label>
-                <Input id="memory" name="memory" type="number" defaultValue={d.memory} min={0} required />
+      <Panel>
+        <PanelHeader title="Resources" hint="Compute reserved for each replica" />
+        <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="cpu">
+              CPU (millicores)
+              <OverrideBadge field="cpu" overriddenFields={overriddenFields} />
+            </Label>
+            <Input id="cpu" name="cpu" type="number" defaultValue={d.cpu} min={0} required />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="memory">
+              Memory (MB)
+              <OverrideBadge field="memory" overriddenFields={overriddenFields} />
+            </Label>
+            <Input id="memory" name="memory" type="number" defaultValue={d.memory} min={0} required />
+          </div>
+        </div>
+      </Panel>
+
+      <Panel>
+        <PanelHeader title="Health checks" hint="Determine when a deployment is ready and healthy" />
+        <div className="space-y-4 p-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="healthType">
+                Health check type
+                <OverrideBadge field="healthCheckType" overriddenFields={overriddenFields} />
+              </Label>
+              <div className="relative">
+                <select
+                  id="healthType"
+                  name="healthType"
+                  defaultValue={d.healthCheckType}
+                  onChange={(e) => setHealthType(e.target.value)}
+                  className="flex h-9 w-full appearance-none rounded-lg border border-line bg-surface px-3 pr-9 text-[13px] text-ink shadow-card transition-[border-color,box-shadow] duration-150 ease-enter focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                >
+                  <option value="">None</option>
+                  <option value="http">HTTP</option>
+                  <option value="tcp">TCP</option>
+                  <option value="script">Script</option>
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-muted" />
               </div>
             </div>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {healthType === 'http' && (
               <div className="space-y-2">
-                <Label htmlFor="healthType">
-                  Health check type
-                  <OverrideBadge field="healthCheckType" overriddenFields={overriddenFields} />
-                </Label>
-                <div className="relative">
-                  <select
-                    id="healthType"
-                    name="healthType"
-                    defaultValue={d.healthCheckType}
-                    onChange={(e) => setHealthType(e.target.value)}
-                    className="flex h-9 w-full appearance-none rounded-lg border border-line bg-surface px-3 pr-9 text-[13px] text-ink shadow-card transition-[border-color,box-shadow] duration-150 ease-enter focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
-                  >
-                    <option value="">None</option>
-                    <option value="http">HTTP</option>
-                    <option value="tcp">TCP</option>
-                    <option value="script">Script</option>
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-muted" />
-                </div>
-              </div>
-              {healthType === 'http' && (
-                <div className="space-y-2">
-                  <Label htmlFor="healthPath">
-                    Health check path
-                    <OverrideBadge field="healthCheckPath" overriddenFields={overriddenFields} />
-                  </Label>
-                  <Input id="healthPath" name="healthPath" defaultValue={d.healthCheckPath} mono />
-                </div>
-              )}
-              {(healthType === 'http' || healthType === 'tcp') && (
-                <div className="space-y-2">
-                  <Label htmlFor="healthPort">Health check port<OverrideBadge field="healthCheckPort" overriddenFields={overriddenFields} /></Label>
-                  <Input id="healthPort" name="healthPort" type="number" min={1} max={65535} defaultValue={d.healthCheckPort} required />
-                </div>
-              )}
-            </div>
-
-            {healthType === 'script' && (
-              <div className="space-y-2">
-                <Label htmlFor="healthCommand">Health check command<OverrideBadge field="healthCheckCommand" overriddenFields={overriddenFields} /></Label>
-                <Input id="healthCommand" name="healthCommand" defaultValue={d.healthCheckCommand} required mono />
+                <Label htmlFor="healthPath">Health check path<OverrideBadge field="healthCheckPath" overriddenFields={overriddenFields} /></Label>
+                <Input id="healthPath" name="healthPath" defaultValue={d.healthCheckPath} mono />
               </div>
             )}
+            {(healthType === 'http' || healthType === 'tcp') && (
+              <div className="space-y-2">
+                <Label htmlFor="healthPort">Health check port<OverrideBadge field="healthCheckPort" overriddenFields={overriddenFields} /></Label>
+                <Input id="healthPort" name="healthPort" type="number" min={1} max={65535} defaultValue={d.healthCheckPort} required />
+              </div>
+            )}
+          </div>
 
+          {healthType === 'script' && (
+            <div className="space-y-2">
+              <Label htmlFor="healthCommand">Health check command<OverrideBadge field="healthCheckCommand" overriddenFields={overriddenFields} /></Label>
+              <Input id="healthCommand" name="healthCommand" defaultValue={d.healthCheckCommand} required mono />
+            </div>
+          )}
+
+          {healthType && (
+            <>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="space-y-2"><Label htmlFor="healthInterval">Check interval (seconds)</Label><Input id="healthInterval" name="healthInterval" type="number" min={0} defaultValue={d.healthCheckInterval} /></div>
               <div className="space-y-2"><Label htmlFor="healthTimeout">Check timeout (seconds)</Label><Input id="healthTimeout" name="healthTimeout" type="number" min={0} defaultValue={d.healthCheckTimeout} /></div>
@@ -211,23 +218,24 @@ export function ConfigurationForm({ serviceId, environmentId, config, overridden
               <Label htmlFor="autoRollbackSeconds">Failure grace period (seconds)</Label>
               <Input id="autoRollbackSeconds" name="autoRollbackSeconds" type="number" min={30} defaultValue={d.autoRollbackSeconds} className="max-w-48" />
             </div>
-          </div>
-
-          <div className="flex items-center justify-between gap-3 px-4 py-3">
-            {environmentId && hasConfigurationOverrides ? (
-              <Button variant="ghost" size="sm" type="button" onClick={handleReset} disabled={resetting} className="text-ink-muted">
-                <RotateCcw className="h-3.5 w-3.5" />
-                Reset to base
-              </Button>
-            ) : (
-              <div />
-            )}
-            <Button variant="primary" type="submit" disabled={saving}>
-              {saving ? 'Saving…' : 'Save'}
-            </Button>
-          </div>
+            </>
+          )}
         </div>
-      </form>
-    </Panel>
+      </Panel>
+
+      <div className="flex items-center justify-between gap-3">
+        {environmentId && hasConfigurationOverrides ? (
+          <Button variant="ghost" size="sm" type="button" onClick={handleReset} disabled={resetting} className="text-ink-muted">
+            <RotateCcw className="h-3.5 w-3.5" />
+            Reset to defaults
+          </Button>
+        ) : (
+          <div />
+        )}
+        <Button variant="primary" type="submit" disabled={saving}>
+          {saving ? 'Saving…' : 'Save configuration'}
+        </Button>
+      </div>
+    </form>
   )
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useTransition } from 'react'
-import { addTeamMemberAction, createTeamAction, deleteTeamAction, removeTeamMemberAction } from '@/lib/actions/operations'
+import { addTeamMemberAction, createTeamAction, deleteTeamAction, removeTeamMemberAction, updateTeamAction } from '@/lib/actions/operations'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -10,14 +10,16 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { Plus, Trash2, User } from 'lucide-react'
+import { Pencil, Plus, Trash2, User } from 'lucide-react'
 
 type Props =
   | { mode: 'create' }
+  | { mode: 'edit'; teamId: string; teamName: string }
   | { mode: 'delete'; teamId: string; teamName: string }
 
 export function TeamActions(props: Props) {
   if (props.mode === 'create') return <CreateTeamDialog />
+  if (props.mode === 'edit') return <EditTeamDialog teamId={props.teamId} teamName={props.teamName} />
   return <DeleteTeamButton teamId={props.teamId} teamName={props.teamName} />
 }
 
@@ -59,6 +61,51 @@ function CreateTeamDialog() {
             </Button>
             <Button variant="primary" type="submit" size="sm" disabled={pending}>
               {pending ? 'Creating…' : 'Create team'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function EditTeamDialog({ teamId, teamName }: { teamId: string; teamName: string }) {
+  const [open, setOpen] = useState(false)
+  const [pending, startTransition] = useTransition()
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const formData = new FormData(e.currentTarget)
+    startTransition(async () => {
+      await updateTeamAction(teamId, formData)
+      setOpen(false)
+    })
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="icon" aria-label={`Edit ${teamName}`}>
+          <Pencil className="h-3.5 w-3.5 text-ink-muted" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Edit team</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit}>
+          <DialogBody>
+            <div className="space-y-2">
+              <Label htmlFor={`team-name-${teamId}`}>Team name</Label>
+              <Input id={`team-name-${teamId}`} name="name" defaultValue={teamName} required />
+            </div>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="default" type="button" size="sm" onClick={() => setOpen(false)} disabled={pending}>
+              Cancel
+            </Button>
+            <Button variant="primary" type="submit" size="sm" disabled={pending}>
+              {pending ? 'Saving…' : 'Save changes'}
             </Button>
           </DialogFooter>
         </form>

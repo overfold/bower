@@ -44,8 +44,8 @@ export default async function AdvancedPage({
 
       <Panel>
         <PanelHeader
-          title={selectedEnv?.name ?? 'Base'}
-          hint={selectedEnv ? 'Inherited values can be overridden here' : 'Defaults inherited by environments'}
+          title={selectedEnv ? `${selectedEnv.name} execution` : 'Execution defaults'}
+          hint={selectedEnv ? 'Override execution settings for this environment' : 'Runtime and workload API access'}
         />
         {mergedConfig ? (
           <AdvancedConfigForm
