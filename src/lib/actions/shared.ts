@@ -38,7 +38,7 @@ export async function requireService(serviceId: string) {
   return { ...ctx, ...row, projectRole }
 }
 
-async function getProjectRole(userId: string, orgRole: 'owner' | 'admin' | 'member', projectId: string) {
+export async function getProjectRole(userId: string, orgRole: 'owner' | 'admin' | 'member', projectId: string) {
   if (orgRole === 'owner' || orgRole === 'admin') return 'admin' as const
   const teamGrants = await db.select({ role: teamProjectAccess.role }).from(teamMemberships)
     .innerJoin(teamProjectAccess, eq(teamProjectAccess.teamId, teamMemberships.teamId))

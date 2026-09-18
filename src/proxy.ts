@@ -11,6 +11,10 @@ export function proxy(request: NextRequest) {
   // If the user has a session cookie and is on a public auth page,
   // redirect them to the dashboard
   if (sessionToken && PUBLIC_PATHS.includes(pathname)) {
+    const next = request.nextUrl.searchParams.get('next')
+    if (next?.startsWith('/') && !next.startsWith('//')) {
+      return NextResponse.redirect(new URL(next, request.url))
+    }
     return NextResponse.redirect(new URL('/projects', request.url))
   }
 
@@ -41,6 +45,6 @@ export const config = {
      * /login and /register are matched but handled as public paths
      * in the proxy function body.
      */
-    '/((?!api/webhooks|api/deploy|_next/static|_next/image|favicon\\.ico|sitemap\\.xml|robots\\.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+    '/((?!api/webhooks|api/deploy|api/route-auth|_next/static|_next/image|favicon\\.ico|sitemap\\.xml|robots\\.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 }

@@ -61,6 +61,12 @@ export const triggerTypeEnum = pgEnum("trigger_type", [
 
 export const tlsModeEnum = pgEnum("tls_mode", ["auto", "custom", "none"]);
 
+export const routeProtectionModeEnum = pgEnum("route_protection_mode", [
+  "none",
+  "password",
+  "bower_auth",
+]);
+
 export const proxyStatusEnum = pgEnum("proxy_status", [
   "pending",
   "running",
@@ -476,6 +482,8 @@ export const routes = pgTable("routes", {
   redirects: jsonb("redirects").notNull().default([]),
   tlsCertSecret: text("tls_cert_secret"),
   tlsKeySecret: text("tls_key_secret"),
+  protectionMode: routeProtectionModeEnum("protection_mode").notNull().default("none"),
+  passwordHash: text("password_hash"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

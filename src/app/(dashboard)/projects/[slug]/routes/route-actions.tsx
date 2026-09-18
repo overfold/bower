@@ -3,8 +3,8 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
-import { ChevronDown, Plus, Trash2 } from 'lucide-react'
-import { createManagedRouteAction, deleteManagedRouteAction } from '@/lib/actions/routes'
+import { ChevronDown, Plus, ShieldCheck, Trash2 } from 'lucide-react'
+import { createManagedRouteAction, deleteManagedRouteAction, updateRouteProtectionAction } from '@/lib/actions/routes'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -53,6 +53,7 @@ export function AddRouteDialog({
   const [error, setError] = useState<string | null>(null)
   const [domainId, setDomainId] = useState(domains[0]?.id ?? '')
   const [prefix, setPrefix] = useState('')
+  const [protectionMode, setProtectionMode] = useState('none')
   const selectedDomain = useMemo(() => domains.find((domain) => domain.id === domainId), [domainId, domains])
   const preview = selectedDomain
     ? (prefix.trim() ? `${prefix.trim().replace(/^\.+|\.+$/g, '')}.${selectedDomain.domain}` : selectedDomain.domain)
@@ -196,6 +197,39 @@ export function AddRouteDialog({
                   <Input id="rateLimit" name="rateLimit" type="number" min={0} placeholder="Requests / second" />
                 </div>
               </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="protectionMode">Access protection</Label>
+                  <div className="relative">
+                    <select
+                      id="protectionMode"
+                      name="protectionMode"
+                      className={selectClass}
+                      value={protectionMode}
+                      onChange={(event) => setProtectionMode(event.target.value)}
+                    >
+                      <option value="none">Public</option>
+                      <option value="password">Password</option>
+                      <option value="bower_auth">Bower account (Viewer+)</option>
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
+                  </div>
+                </div>
+                {protectionMode === 'password' ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="routePassword">Route password</Label>
+                    <Input id="routePassword" name="routePassword" type="password" minLength={8} required autoComplete="new-password" />
+                    <p className="text-[11px] text-ink-muted">Visitors sign in with username <span className="font-mono">bower</span>.</p>
+                  </div>
+                ) : (
+                  <div className="flex items-end pb-1 text-xs leading-5 text-ink-muted">
+                    {protectionMode === 'bower_auth'
+                      ? 'Only Bower users with Viewer, Deployer, or Admin access to this project can continue.'
+                      : 'Anyone who can reach this hostname can access the service.'}
+                  </div>
+                )}
+              </div>
             </div>
           </DialogBody>
           <DialogFooter>
@@ -205,6 +239,85 @@ export function AddRouteDialog({
             <Button variant="primary" type="submit" disabled={busy}>
               {busy ? 'Creating route…' : 'Create route'}
             </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+export function RouteProtectionButton({
+  projectId,
+  routeId,
+  hostname,
+  currentMode,
+}: {
+  projectId: string
+  routeId: string
+  hostname: string
+  currentMode: 'none' | 'password' | 'bower_auth'
+}) {
+  const router = useRouter()
+  const [open, setOpen] = useState(false)
+  const [mode, setMode] = useState(currentMode)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setBusy(true)
+    setError(null)
+    try {
+      await updateRouteProtectionAction(projectId, routeId, new FormData(event.currentTarget))
+      setOpen(false)
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not update route protection.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(next) => { setOpen(next); if (next) { setMode(currentMode); setError(null) } }}>
+      <IconButton label={`Configure protection for ${hostname}`} onClick={() => setOpen(true)}>
+        <ShieldCheck />
+      </IconButton>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Route protection</DialogTitle>
+          <DialogDescription>Control access to <span className="font-mono text-[12px]">{hostname}</span> at the proxy.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={onSubmit}>
+          <DialogBody>
+            <div className="space-y-4">
+              {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
+              <div className="space-y-2">
+                <Label htmlFor={`protection-${routeId}`}>Access protection</Label>
+                <div className="relative">
+                  <select id={`protection-${routeId}`} name="protectionMode" className={selectClass} value={mode} onChange={(event) => setMode(event.target.value as typeof mode)}>
+                    <option value="none">Public</option>
+                    <option value="password">Password</option>
+                    <option value="bower_auth">Bower account (Viewer+)</option>
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
+                </div>
+              </div>
+              {mode === 'password' ? (
+                <div className="space-y-2">
+                  <Label htmlFor={`password-${routeId}`}>{currentMode === 'password' ? 'New password (optional)' : 'Password'}</Label>
+                  <Input id={`password-${routeId}`} name="routePassword" type="password" minLength={8} required={currentMode !== 'password'} autoComplete="new-password" />
+                  <p className="text-xs text-ink-muted">{currentMode === 'password' ? 'Leave blank to keep the current password. ' : ''}Visitors use username <span className="font-mono">bower</span>.</p>
+                </div>
+              ) : null}
+              {mode === 'bower_auth' ? (
+                <p className="text-xs leading-5 text-ink-muted">Users sign in to Bower and must have Viewer, Deployer, or Admin access to this project.</p>
+              ) : null}
+            </div>
+          </DialogBody>
+          <DialogFooter>
+            <DialogClose asChild><Button type="button" disabled={busy}>Cancel</Button></DialogClose>
+            <Button variant="primary" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save protection'}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

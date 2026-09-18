@@ -10,6 +10,7 @@ import {
   projectUserAccess,
 } from '@/db/schema'
 import { getTrellisClient } from '@/lib/trellis-instance'
+import { hashPassword } from '@/lib/auth'
 import { integer, recordAudit, requireContext, requireProject, text } from './shared'
 import { syncManagedProxy } from '@/lib/managed-proxy'
 
@@ -94,8 +95,15 @@ export async function createRouteAction(projectId: string, formData: FormData) {
   const serviceId = text(formData, 'serviceId')
   const environmentId = text(formData, 'environmentId')
   const port = integer(formData, 'port', 8080)
+  const protectionMode = (text(formData, 'protectionMode') || 'none') as 'none' | 'password' | 'bower_auth'
+  const password = text(formData, 'routePassword')
   if (!domain || !serviceId || !environmentId) throw new Error('Domain, service, and environment are required.')
   if (!/^(?:\*\.)?[a-z0-9.-]+$/i.test(domain)) throw new Error('Enter a valid domain name.')
+  if (!['none', 'password', 'bower_auth'].includes(protectionMode)) throw new Error('Invalid route protection mode.')
+  if (protectionMode === 'password' && password.length < 8) throw new Error('Route passwords must be at least 8 characters.')
+  if (protectionMode === 'bower_auth' && (!process.env.BOWER_PUBLIC_URL || (process.env.BOWER_ROUTE_AUTH_SECRET?.length ?? 0) < 32)) {
+    throw new Error('BOWER_PUBLIC_URL and a BOWER_ROUTE_AUTH_SECRET of at least 32 characters are required for Bower authentication.')
+  }
   if (text(formData, 'tlsMode') === 'custom' && (!text(formData, 'tlsCertSecret') || !text(formData, 'tlsKeySecret'))) throw new Error('Custom TLS requires certificate and key secret names.')
   const [service] = await db.select().from(services)
     .where(and(eq(services.id, serviceId), eq(services.projectId, projectId))).limit(1)
@@ -116,6 +124,8 @@ export async function createRouteAction(projectId: string, formData: FormData) {
     redirects: parseRedirects(text(formData, 'redirects')),
     tlsCertSecret: text(formData, 'tlsCertSecret') || null,
     tlsKeySecret: text(formData, 'tlsKeySecret') || null,
+    protectionMode,
+    passwordHash: protectionMode === 'password' ? await hashPassword(password) : null,
   }).returning()
   await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'route.created',
     resourceType: 'route', resourceId: route.id, details: { domain, service: service.slug } })
@@ -320,4 +330,3 @@ export async function revokeProjectUserAccessAction(projectId: string, accessId:
   await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'project.access.user.revoked', resourceType: 'project', resourceId: projectId, details: { accessId } })
   revalidatePath(`/projects/${ctx.project.slug}/access`)
 }
-

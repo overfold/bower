@@ -17,6 +17,8 @@ export default function LoginPage() {
     setError(null)
     setLoading(true)
     const formData = new FormData(e.currentTarget)
+    const next = new URLSearchParams(window.location.search).get('next')
+    if (next) formData.set('next', next)
     const result = await loginAction(formData)
     if (result?.error) {
       setError(result.error)
