@@ -84,7 +84,7 @@ export default async function StatusPage() {
       <div className="space-y-6">
         <PageHeading
           title="Cluster"
-          description="Bower talks to one Trellis cluster. Scheduling, placement, and container lifecycle stay entirely with Trellis."
+          description="Monitor cluster connectivity, capacity, nodes, and managed ingress."
         />
         <EmptyState
           icon={<Server className="h-4 w-4" />}
@@ -99,7 +99,7 @@ export default async function StatusPage() {
     <div className="space-y-6">
       <PageHeading
         title="Cluster"
-        description="Bower talks to one Trellis cluster. Scheduling, placement, and container lifecycle stay entirely with Trellis."
+        description="Monitor cluster connectivity, capacity, nodes, and managed ingress."
       />
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -145,7 +145,7 @@ export default async function StatusPage() {
           <EmptyState
             icon={<Server className="h-4 w-4" />}
             title="No nodes"
-            body="No nodes are registered with the Trellis cluster."
+            body="No nodes are registered with this cluster."
           />
         ) : (
           <Table>
@@ -216,7 +216,7 @@ export default async function StatusPage() {
         <Panel>
           <PanelHeader
             title="Managed ingress"
-            hint="One proxy job per environment — Bower-managed infrastructure"
+            hint="Ingress status by environment"
           />
           <Table>
             <TableHeader>
