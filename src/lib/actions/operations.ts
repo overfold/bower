@@ -6,7 +6,7 @@ import { db } from '@/db'
 import {
   environments, routes, secretsMetadata, services, teams, teamMemberships,
   teamProjectAccess, users, projects, serviceConfigs,
-  sharedSecretGroups, sharedSecretMembers, organizationMembers,
+  organizationMembers,
   projectUserAccess,
 } from '@/db/schema'
 import { getTrellisClient } from '@/lib/trellis-instance'
@@ -166,19 +166,13 @@ export async function setSecretAction(projectId: string, formData: FormData) {
   try {
     const client = await getTrellisClient(ctx.org.id)
     await client.setSecret(environment.trellisNamespace, name, value)
-    const [metadata] = await db.insert(secretsMetadata).values({ projectId, environmentId, name,
+    await db.insert(secretsMetadata).values({ projectId, environmentId, name,
       trellisSecretName: name, lastRotatedAt: new Date() }).onConflictDoUpdate({
         target: [secretsMetadata.environmentId, secretsMetadata.name],
         set: { lastRotatedAt: new Date(), updatedAt: new Date() },
-      }).returning()
-    const sharedName = text(formData, 'sharedName')
-    if (sharedName) {
-      let [group] = await db.select().from(sharedSecretGroups).where(and(eq(sharedSecretGroups.projectId, projectId), eq(sharedSecretGroups.name, sharedName))).limit(1)
-      if (!group) [group] = await db.insert(sharedSecretGroups).values({ projectId, name: sharedName }).returning()
-      await db.insert(sharedSecretMembers).values({ groupId: group.id, secretMetadataId: metadata.id }).onConflictDoNothing()
-    }
+      })
     await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'secret.rotated',
-      resourceType: 'secret', resourceId: `${environmentId}:${name}`, details: { name, sharedName } })
+      resourceType: 'secret', resourceId: `${environmentId}:${name}`, details: { name } })
   } catch (error) { throw new Error(error instanceof Error ? error.message : 'Could not store secret.') }
   revalidatePath(`/projects/${ctx.project.slug}/secrets`)
 }
