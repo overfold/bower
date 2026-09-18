@@ -3,8 +3,8 @@
 import { and, eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/db'
-import { environments, secretsMetadata, serviceConfigs } from '@/db/schema'
-import { serviceAdvancedSettings } from '@/db/service-advanced-schema'
+import { baseServiceConfigs, environments, secretsMetadata, serviceConfigs } from '@/db/schema'
+import { getBaseServiceConfig } from '@/lib/queries'
 import { recordAudit, requireService } from '@/lib/actions/shared'
 import type { BowerSecretBinding } from '@/lib/job-builder'
 import type { TrellisApiAccess, TrellisRuntime, TrellisVolume } from '@/types/trellis'
@@ -110,28 +110,84 @@ function parseApiAccess(value: string): TrellisApiAccess | undefined {
   return { scope, access }
 }
 
+type AdvancedConfigValues = {
+  runtime: Exclude<TrellisRuntime, ''>
+  apiAccessScope: 'namespace' | 'cluster' | null
+  apiAccessLevel: 'read' | 'write' | null
+}
+
+const ADVANCED_OVERRIDE_FIELDS = ['runtime', 'apiAccessScope', 'apiAccessLevel'] as const
+
+function parseAdvancedConfig(formData: FormData): AdvancedConfigValues {
+  const runtimeValue = String(formData.get('runtime') ?? 'runc')
+  if (runtimeValue !== 'runc' && runtimeValue !== 'runsc') throw new Error('Runtime must be runc or runsc.')
+  const apiAccess = parseApiAccess(String(formData.get('apiAccess') ?? 'none'))
+  return {
+    runtime: runtimeValue,
+    apiAccessScope: apiAccess?.scope ?? null,
+    apiAccessLevel: apiAccess?.access ?? null,
+  }
+}
+
+export async function updateBaseServiceAdvancedAction(serviceId: string, formData: FormData) {
+  const access = await requireService(serviceId)
+  if (access.projectRole !== 'admin') throw new Error('Insufficient permissions.')
+  const base = await getBaseServiceConfig(serviceId)
+  if (!base) throw new Error('No base service configuration exists.')
+  const values = parseAdvancedConfig(formData)
+
+  await db.update(baseServiceConfigs).set({ ...values, updatedAt: new Date() })
+    .where(eq(baseServiceConfigs.serviceId, serviceId))
+
+  const envConfigs = await db.select().from(serviceConfigs).where(eq(serviceConfigs.serviceId, serviceId))
+  for (const envConfig of envConfigs) {
+    const overrides = (envConfig.overrides ?? {}) as Record<string, unknown>
+    const patch: Record<string, unknown> = { updatedAt: new Date() }
+    for (const field of ADVANCED_OVERRIDE_FIELDS) {
+      if (!(field in overrides)) patch[field] = values[field]
+    }
+    if (Object.keys(patch).length > 1) {
+      await db.update(serviceConfigs).set(patch).where(eq(serviceConfigs.id, envConfig.id))
+    }
+  }
+
+  await recordAudit({
+    orgId: access.org.id,
+    userId: access.user.id,
+    action: 'service.base_config.advanced_updated',
+    resourceType: 'service',
+    resourceId: serviceId,
+    details: {
+      before: { runtime: base.runtime, scope: base.apiAccessScope, access: base.apiAccessLevel },
+      after: { runtime: values.runtime, scope: values.apiAccessScope, access: values.apiAccessLevel },
+    },
+  })
+  revalidatePath(`/projects/${access.project.slug}/services/${access.service.slug}/advanced`)
+}
+
 export async function updateServiceAdvancedAction(serviceId: string, environmentId: string, formData: FormData) {
   const access = await requireService(serviceId)
   if (access.projectRole !== 'admin') throw new Error('Insufficient permissions.')
   const config = await getOwnedConfig(serviceId, environmentId)
-  const runtimeValue = String(formData.get('runtime') ?? 'runc')
-  if (runtimeValue !== 'runc' && runtimeValue !== 'runsc') throw new Error('Runtime must be runc or runsc.')
-  const runtime = runtimeValue as Exclude<TrellisRuntime, ''>
-  const apiAccess = parseApiAccess(String(formData.get('apiAccess') ?? 'none'))
+  const base = await getBaseServiceConfig(serviceId)
+  const desired = parseAdvancedConfig(formData)
 
-  const [before] = await db.select().from(serviceAdvancedSettings)
-    .where(eq(serviceAdvancedSettings.serviceConfigId, config.id)).limit(1)
-  const values = {
-    serviceConfigId: config.id,
-    runtime,
-    apiAccessScope: apiAccess?.scope ?? null,
-    apiAccessLevel: apiAccess?.access ?? null,
-    updatedAt: new Date(),
+  const existingOverrides = (config.overrides ?? {}) as Record<string, unknown>
+  const newOverrides: Record<string, unknown> = { ...existingOverrides }
+  for (const field of ADVANCED_OVERRIDE_FIELDS) delete newOverrides[field]
+
+  if (base) {
+    for (const field of ADVANCED_OVERRIDE_FIELDS) {
+      if (desired[field] !== base[field]) newOverrides[field] = desired[field]
+    }
   }
-  await db.insert(serviceAdvancedSettings).values(values).onConflictDoUpdate({
-    target: serviceAdvancedSettings.serviceConfigId,
-    set: values,
-  })
+
+  await db.update(serviceConfigs).set({
+    ...desired,
+    overrides: Object.keys(newOverrides).length > 0 ? newOverrides : null,
+    updatedAt: new Date(),
+  }).where(eq(serviceConfigs.id, config.id))
+
   await recordAudit({
     orgId: access.org.id,
     userId: access.user.id,
@@ -140,9 +196,39 @@ export async function updateServiceAdvancedAction(serviceId: string, environment
     resourceId: serviceId,
     details: {
       environmentId,
-      before: before ? { runtime: before.runtime, scope: before.apiAccessScope, access: before.apiAccessLevel } : null,
-      after: { runtime, scope: apiAccess?.scope ?? null, access: apiAccess?.access ?? null },
+      before: { runtime: config.runtime, scope: config.apiAccessScope, access: config.apiAccessLevel },
+      after: { runtime: desired.runtime, scope: desired.apiAccessScope, access: desired.apiAccessLevel },
+      overriddenFields: ADVANCED_OVERRIDE_FIELDS.filter((field) => field in newOverrides),
     },
+  })
+  revalidatePath(`/projects/${access.project.slug}/services/${access.service.slug}/advanced`)
+}
+
+export async function resetServiceAdvancedOverridesAction(serviceId: string, environmentId: string) {
+  const access = await requireService(serviceId)
+  if (access.projectRole !== 'admin') throw new Error('Insufficient permissions.')
+  const config = await getOwnedConfig(serviceId, environmentId)
+  const base = await getBaseServiceConfig(serviceId)
+  if (!base) throw new Error('No base service configuration exists.')
+
+  const newOverrides = { ...((config.overrides ?? {}) as Record<string, unknown>) }
+  for (const field of ADVANCED_OVERRIDE_FIELDS) delete newOverrides[field]
+
+  await db.update(serviceConfigs).set({
+    runtime: base.runtime,
+    apiAccessScope: base.apiAccessScope,
+    apiAccessLevel: base.apiAccessLevel,
+    overrides: Object.keys(newOverrides).length > 0 ? newOverrides : null,
+    updatedAt: new Date(),
+  }).where(eq(serviceConfigs.id, config.id))
+
+  await recordAudit({
+    orgId: access.org.id,
+    userId: access.user.id,
+    action: 'service.advanced.reset_to_base',
+    resourceType: 'service',
+    resourceId: serviceId,
+    details: { environmentId },
   })
   revalidatePath(`/projects/${access.project.slug}/services/${access.service.slug}/advanced`)
 }
