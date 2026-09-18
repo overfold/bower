@@ -75,9 +75,9 @@ export default async function AllocationDetailPage({
         <div className="min-w-0 flex-1">
           <PageHeading
             title={allocationId.slice(0, 8)}
-            eyebrow={<Chip tone="neutral">Allocation · {service.name}</Chip>}
             meta={
               <>
+                <MetaItem label="Service" value={service.name} />
                 <MetaItem label="Phase" value={<StatusDot status={allocation.phase} />} />
                 <MetaItem label="Health" value={<StatusDot status={allocation.health} />} />
                 <MetaItem label="Namespace" value={<span className="font-mono text-[11.5px]">{allocation.namespace}</span>} />
