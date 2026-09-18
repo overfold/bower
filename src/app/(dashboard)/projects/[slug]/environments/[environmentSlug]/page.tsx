@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Panel, PanelHeader, SectionTitle } from '@/components/ui/panel'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Chip, StatusDot } from '@/components/status'
+import { StatusDot } from '@/components/status'
 import { CreateSecretDialog } from './create-secret-dialog'
 import { SecretActions } from './secret-actions'
 import { CreateEnvironmentVariableDialog, DeleteEnvironmentVariableButton } from './environment-variable-controls'
@@ -77,7 +77,6 @@ export default async function EnvironmentDetailPage({ params }: { params: Promis
         </Link>
         <div className="min-w-0 flex-1">
           <PageHeading
-            eyebrow={<Chip tone="neutral">Environment</Chip>}
             title={environment.name}
             meta={<span className="font-mono text-[11.5px] text-ink-muted">{environment.trellisNamespace}</span>}
           />
@@ -88,22 +87,31 @@ export default async function EnvironmentDetailPage({ params }: { params: Promis
         <Panel>
           <PanelHeader
             title="Environment variables"
-            hint="Secret-backed values injected into every service"
+            hint={`${environmentVariables.length} ${environmentVariables.length === 1 ? 'variable' : 'variables'} injected into every service in this environment`}
             action={<CreateEnvironmentVariableDialog projectId={project.id} environmentId={environment.id} />}
           />
           {environmentVariables.length === 0 ? (
             <div className="p-4 text-[13px] text-ink-muted">No environment variables are configured.</div>
           ) : (
-            <div className="divide-y divide-line">
-              {environmentVariables.map(([name]) => (
-                <div key={name} className="flex items-center justify-between gap-4 px-4 py-3">
-                  <span className="font-mono text-[12.5px] font-medium text-ink">{name}</span>
-                  <div className="flex items-center gap-2">
-                    <Chip tone="neutral">Secret-backed</Chip>
-                    <DeleteEnvironmentVariableButton projectId={project.id} environmentId={environment.id} name={name} />
-                  </div>
-                </div>
-              ))}
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {environmentVariables.map(([name]) => (
+                    <TableRow key={name}>
+                      <TableCell className="font-mono text-xs font-medium">{name}</TableCell>
+                      <TableCell className="text-right">
+                        <DeleteEnvironmentVariableButton projectId={project.id} environmentId={environment.id} name={name} />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           )}
         </Panel>
