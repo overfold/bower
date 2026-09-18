@@ -85,8 +85,8 @@ export function AdvancedConfigForm({
             onChange={(event) => setRuntime(event.target.value as 'runc' | 'runsc')}
             className="flex h-9 w-full appearance-none rounded-lg border border-line bg-surface px-3 text-[13px] text-ink shadow-card focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
           >
-            <option value="runc">Standard — best compatibility</option>
-            <option value="runsc">Sandboxed — additional isolation</option>
+            <option value="runc">None</option>
+            <option value="runsc">Standard</option>
           </select>
           <p className="text-2xs leading-relaxed text-ink-muted">
             Isolation mode applies to the whole service group, including sidecars.
