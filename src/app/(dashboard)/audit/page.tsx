@@ -29,7 +29,7 @@ export default async function AuditLogPage() {
     <div className="mx-auto max-w-[960px] space-y-6">
       <PageHeading
         title="Audit Log"
-        description="Every mutation is recorded with the actor, timestamp, and context — including system actions."
+        description="Review changes and actions across the organization."
       />
 
       {mapped.length === 0 ? (
