@@ -43,7 +43,7 @@ export default async function RoutesPage({ params }: { params: Promise<{ slug: s
         <div>
           <h2 className="text-lg font-semibold tracking-tight text-ink">Routes</h2>
           <p className="mt-1 text-[13px] text-ink-muted">
-            Hostnames come from domains verified at the organization level.
+            Route verified hostnames to services in this project.
           </p>
         </div>
         {canManage && managedDomains.length > 0 ? (
@@ -74,7 +74,6 @@ export default async function RoutesPage({ params }: { params: Promise<{ slug: s
       <Panel>
         <PanelHeader
           title={`${routeRows.length} route${routeRows.length === 1 ? '' : 's'}`}
-          hint="Project hostname bindings"
         />
         {routeRows.length === 0 ? (
           <EmptyState
