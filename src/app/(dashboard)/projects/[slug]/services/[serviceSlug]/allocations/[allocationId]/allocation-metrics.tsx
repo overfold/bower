@@ -112,7 +112,7 @@ export function AllocationMetrics({
           </div>
         </div>
         <p className="mt-3 text-2xs text-ink-muted">
-          {error ? 'Latest sample unavailable; showing last known data.' : `Current resident usage reported by Trellis · sampled ${sampledAt}`}
+          {error ? 'Latest sample unavailable; showing last known data.' : `Current resident usage · sampled ${sampledAt}`}
         </p>
       </Panel>
     </div>
