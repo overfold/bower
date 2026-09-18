@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { EmptyState, InlineNotice } from '@/components/ui/empty-state'
 import { Panel, PanelHeader } from '@/components/ui/panel'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { AddRouteDialog, DeleteRouteButton } from './route-actions'
+import { AddRouteDialog, DeleteRouteButton, RouteProtectionButton } from './route-actions'
 
 const tlsBadgeVariant: Record<string, 'success' | 'secondary' | 'outline'> = {
   auto: 'success',
@@ -90,7 +90,8 @@ export default async function RoutesPage({ params }: { params: Promise<{ slug: s
                 <TableHead>Target</TableHead>
                 <TableHead>Environment</TableHead>
                 <TableHead>TLS</TableHead>
-                <TableHead className="w-[56px] text-right">Actions</TableHead>
+                <TableHead>Protection</TableHead>
+                <TableHead className="w-[96px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -104,8 +105,16 @@ export default async function RoutesPage({ params }: { params: Promise<{ slug: s
                     <Badge variant={tlsBadgeVariant[row.route.tlsMode] ?? 'outline'}>{row.route.tlsMode}</Badge>
                   </TableCell>
                   <TableCell>
+                    <Badge variant={row.route.protectionMode === 'none' ? 'outline' : 'secondary'}>
+                      {row.route.protectionMode === 'bower_auth' ? 'Bower auth' : row.route.protectionMode}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
                     {canManage ? (
-                      <DeleteRouteButton projectId={project.id} routeId={row.route.id} hostname={row.route.domain} />
+                      <div className="flex items-center justify-end gap-1">
+                        <RouteProtectionButton projectId={project.id} routeId={row.route.id} hostname={row.route.domain} currentMode={row.route.protectionMode} />
+                        <DeleteRouteButton projectId={project.id} routeId={row.route.id} hostname={row.route.domain} />
+                      </div>
                     ) : null}
                   </TableCell>
                 </TableRow>

@@ -29,12 +29,17 @@ export async function syncManagedProxy(projectId: string, environmentId: string,
     return
   }
   const controllerRoutes: Array<Record<string, unknown>> = []
+  const bowerPublicUrl = process.env.BOWER_PUBLIC_URL
+  const authOrigin = bowerPublicUrl ? new URL(bowerPublicUrl).origin : null
 
   for (const definition of definitions) {
     const requestHeaders = definition.route.headers as Record<string, string>
     const responseHeaders = definition.route.responseHeaders as Record<string, string>
     const redirects = definition.route.redirects as Array<{ from: string; to: string; code?: number }>
-    controllerRoutes.push({ domain: definition.route.domain, pathPrefix: definition.route.pathPrefix, port: definition.route.port, tlsMode: definition.route.tlsMode, tlsCertSecret: definition.route.tlsCertSecret, tlsKeySecret: definition.route.tlsKeySecret, requestHeaders, responseHeaders, redirects, rateLimit: definition.route.rateLimit, service: definition.service.slug, activeJob: definition.config.activeJobName || definition.service.slug, strategy: definition.config.deploymentStrategy })
+    if (definition.route.protectionMode === 'bower_auth' && !authOrigin) {
+      throw new Error('BOWER_PUBLIC_URL is required for Bower authentication.')
+    }
+    controllerRoutes.push({ id: definition.route.id, projectId, domain: definition.route.domain, pathPrefix: definition.route.pathPrefix, port: definition.route.port, tlsMode: definition.route.tlsMode, tlsCertSecret: definition.route.tlsCertSecret, tlsKeySecret: definition.route.tlsKeySecret, requestHeaders, responseHeaders, redirects, rateLimit: definition.route.rateLimit, protectionMode: definition.route.protectionMode, passwordHash: definition.route.passwordHash, authOrigin, service: definition.service.slug, activeJob: definition.config.activeJobName || definition.service.slug, strategy: definition.config.deploymentStrategy })
   }
 
   const httpPort = proxyPort('BOWER_PROXY_HTTP_PORT', 80)

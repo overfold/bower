@@ -1,13 +1,16 @@
 'use server'
 
 import { and, eq } from 'drizzle-orm'
+import { revalidatePath } from 'next/cache'
 import { db } from '@/db'
 import { organizationDomains } from '@/db/domain-schema'
-import { environments } from '@/db/schema'
+import { environments, routes } from '@/db/schema'
+import { hashPassword } from '@/lib/auth'
 import { getOrganizationRouteBindings } from '@/lib/domain-queries'
 import { hostnamesOverlap, routeHostnameForDomain } from '@/lib/domains'
+import { syncManagedProxy } from '@/lib/managed-proxy'
 import { createRouteAction, deleteRouteAction } from './operations'
-import { requireProject, text } from './shared'
+import { recordAudit, requireProject, text } from './shared'
 
 export async function createManagedRouteAction(projectId: string, formData: FormData) {
   const ctx = await requireProject(projectId)
@@ -43,4 +46,39 @@ export async function createManagedRouteAction(projectId: string, formData: Form
 
 export async function deleteManagedRouteAction(projectId: string, routeId: string) {
   return deleteRouteAction(projectId, routeId)
+}
+
+export async function updateRouteProtectionAction(projectId: string, routeId: string, formData: FormData) {
+  const ctx = await requireProject(projectId)
+  if (ctx.projectRole !== 'admin') throw new Error('Insufficient permissions.')
+  const [route] = await db.select().from(routes)
+    .where(and(eq(routes.id, routeId), eq(routes.projectId, projectId))).limit(1)
+  if (!route) throw new Error('Route not found.')
+
+  const protectionMode = text(formData, 'protectionMode') as 'none' | 'password' | 'bower_auth'
+  const password = text(formData, 'routePassword')
+  if (!['none', 'password', 'bower_auth'].includes(protectionMode)) throw new Error('Invalid route protection mode.')
+  if (protectionMode === 'password' && !route.passwordHash && password.length < 8) {
+    throw new Error('Route passwords must be at least 8 characters.')
+  }
+  if (password && password.length < 8) throw new Error('Route passwords must be at least 8 characters.')
+  if (protectionMode === 'bower_auth' && (!process.env.BOWER_PUBLIC_URL || (process.env.BOWER_ROUTE_AUTH_SECRET?.length ?? 0) < 32)) {
+    throw new Error('BOWER_PUBLIC_URL and a BOWER_ROUTE_AUTH_SECRET of at least 32 characters are required for Bower authentication.')
+  }
+
+  const passwordHash = protectionMode === 'password'
+    ? (password ? await hashPassword(password) : route.passwordHash)
+    : null
+  await db.update(routes).set({ protectionMode, passwordHash, updatedAt: new Date() })
+    .where(eq(routes.id, routeId))
+  await syncManagedProxy(projectId, route.environmentId, ctx.org.id)
+  await recordAudit({
+    orgId: ctx.org.id,
+    userId: ctx.user.id,
+    action: 'route.protection.updated',
+    resourceType: 'route',
+    resourceId: routeId,
+    details: { before: route.protectionMode, after: protectionMode },
+  })
+  revalidatePath(`/projects/${ctx.project.slug}/routes`)
 }

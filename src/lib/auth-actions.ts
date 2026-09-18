@@ -55,7 +55,8 @@ export async function loginAction(
   const cookieStore = await cookies()
   cookieStore.set(getSessionCookieConfig(token, expiresAt))
 
-  redirect('/dashboard')
+  const next = formData.get('next')
+  redirect(typeof next === 'string' && next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard')
 }
 
 export async function registerAction(

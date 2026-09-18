@@ -31,6 +31,18 @@ The proxy job is managed infrastructure — it appears in the Bower UI but is no
 | `custom` | Caddy reads a certificate and key from a Trellis secret you provide |
 | `none` | HTTP only |
 
+## Access protection
+
+Protection is configured per route and enforced by the managed proxy before traffic reaches the service:
+
+| Mode | Behaviour |
+|---|---|
+| `Public` | No authentication is required. |
+| `Password` | Caddy HTTP Basic Authentication is enabled. Visitors use the username `bower` and the password configured on the route. Use this mode only with HTTPS. |
+| `Bower account (Viewer+)` | Visitors sign in through Bower. Bower grants access only while the user has Viewer, Deployer, or Admin access to the route's project. |
+
+Bower account protection requires `BOWER_PUBLIC_URL` and `BOWER_ROUTE_AUTH_SECRET`. The proxy redirects the browser to Bower, then receives a short-lived route-scoped cookie through `/.bower/auth/callback`; deployment configuration and application containers are not modified.
+
 ## DNS
 
 Bower uses DNS only to verify that the organization controls a managed domain and to tell you what traffic record to create for a route. It does not create, modify, or delete DNS records itself.
