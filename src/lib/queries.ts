@@ -381,6 +381,9 @@ export type MergedServiceConfig = {
   cronSchedule: string | null
   autoRollbackSeconds: number
   canarySteps: unknown
+  runtime: 'runc' | 'runsc'
+  apiAccessScope: 'namespace' | 'cluster' | null
+  apiAccessLevel: 'read' | 'write' | null
   overriddenFields: string[]
   isBase: boolean
 }
@@ -413,6 +416,9 @@ export async function getMergedServiceConfig(serviceId: string, environmentId: s
       cronSchedule: base.cronSchedule,
       autoRollbackSeconds: base.autoRollbackSeconds,
       canarySteps: base.canarySteps,
+      runtime: base.runtime as 'runc' | 'runsc',
+      apiAccessScope: base.apiAccessScope as 'namespace' | 'cluster' | null,
+      apiAccessLevel: base.apiAccessLevel as 'read' | 'write' | null,
       overriddenFields: [],
       isBase: true,
     }
@@ -448,6 +454,9 @@ export async function getMergedServiceConfig(serviceId: string, environmentId: s
       cronSchedule: envConfig.cronSchedule,
       autoRollbackSeconds: envConfig.autoRollbackSeconds,
       canarySteps: envConfig.canarySteps,
+      runtime: envConfig.runtime as 'runc' | 'runsc',
+      apiAccessScope: envConfig.apiAccessScope as 'namespace' | 'cluster' | null,
+      apiAccessLevel: envConfig.apiAccessLevel as 'read' | 'write' | null,
       overriddenFields: [],
       isBase: false,
     }
@@ -479,6 +488,9 @@ export async function getMergedServiceConfig(serviceId: string, environmentId: s
     cronSchedule: ('cronSchedule' in overrides ? overrides.cronSchedule as string | null : base.cronSchedule),
     autoRollbackSeconds: (overrides.autoRollbackSeconds as number) ?? base.autoRollbackSeconds,
     canarySteps: overrides.canarySteps ?? base.canarySteps,
+    runtime: (('runtime' in overrides ? overrides.runtime : base.runtime) as 'runc' | 'runsc'),
+    apiAccessScope: (('apiAccessScope' in overrides ? overrides.apiAccessScope : base.apiAccessScope) as 'namespace' | 'cluster' | null),
+    apiAccessLevel: (('apiAccessLevel' in overrides ? overrides.apiAccessLevel : base.apiAccessLevel) as 'read' | 'write' | null),
     overriddenFields,
     isBase: false,
   }
