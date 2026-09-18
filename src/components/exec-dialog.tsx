@@ -13,6 +13,7 @@ import {
 } from '@/lib/actions/services'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 type TerminalStatus = 'idle' | 'connecting' | 'connected' | 'exited' | 'error'
 
@@ -36,8 +37,17 @@ function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-export function ExecDialog({ allocationId, serviceConfigId }: { allocationId: string; serviceConfigId: string }) {
+export function ExecDialog({
+  allocationId,
+  serviceConfigId,
+  tasks,
+}: {
+  allocationId: string
+  serviceConfigId: string
+  tasks: string[]
+}) {
   const [open, setOpen] = useState(false)
+  const [selectedTask, setSelectedTask] = useState(tasks[0] ?? '')
   const [status, setStatus] = useState<TerminalStatus>('idle')
   const [error, setError] = useState<string | null>(null)
   const terminalElementRef = useRef<HTMLDivElement | null>(null)
@@ -140,6 +150,7 @@ export function ExecDialog({ allocationId, serviceConfigId }: { allocationId: st
         const session = await startExecSessionAction(
           serviceConfigId,
           allocationId,
+          selectedTask || undefined,
           Math.max(terminal.cols, 1),
           Math.max(terminal.rows, 1),
         )
@@ -194,7 +205,7 @@ export function ExecDialog({ allocationId, serviceConfigId }: { allocationId: st
       terminal.dispose()
       writeChainRef.current = Promise.resolve()
     }
-  }, [allocationId, open, serviceConfigId])
+  }, [allocationId, open, selectedTask, serviceConfigId])
 
   function handleOpenChange(nextOpen: boolean) {
     setOpen(nextOpen)
@@ -217,6 +228,23 @@ export function ExecDialog({ allocationId, serviceConfigId }: { allocationId: st
           <DialogTitle>Interactive terminal</DialogTitle>
         </DialogHeader>
         <DialogBody className="space-y-3">
+          {tasks.length > 1 && (
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs font-medium text-ink-soft">Task</span>
+              <Select value={selectedTask} onValueChange={setSelectedTask}>
+                <SelectTrigger className="h-8 w-48 font-mono text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {tasks.map((task) => (
+                    <SelectItem key={task} value={task} className="font-mono text-xs">
+                      {task}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div
             className="overflow-hidden rounded-md border border-line-strong bg-[#0b1113] p-2"
             onMouseDown={() => terminalElementRef.current?.focus()}
@@ -228,7 +256,9 @@ export function ExecDialog({ allocationId, serviceConfigId }: { allocationId: st
             />
           </div>
           <div className="flex min-h-5 items-center justify-between gap-4 text-2xs text-ink-muted">
-            <span className="font-mono">{allocationId.slice(0, 8)}</span>
+            <span className="font-mono">
+              {allocationId.slice(0, 8)}{selectedTask ? ` · ${selectedTask}` : ''}
+            </span>
             <span>
               {status === 'connecting' && 'Connecting…'}
               {status === 'connected' && 'Connected'}
