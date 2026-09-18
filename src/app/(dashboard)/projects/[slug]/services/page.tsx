@@ -3,7 +3,6 @@ import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { getUserOrganization, getProjectBySlug, getServicesByProject } from '@/lib/queries'
 import { Panel, SectionTitle } from '@/components/ui/panel'
-import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { CreateServiceDialog } from '@/components/create-service-dialog'
 import { Server, Box } from 'lucide-react'
@@ -46,7 +45,7 @@ export default async function ServicesPage({
           {services.map((service) => (
             <li key={service.id}>
               <Panel className="transition-[border-color,box-shadow] duration-150 hover:border-line-strong hover:shadow-raised">
-                <div className="flex items-start justify-between gap-4 p-4">
+                <div className="flex items-start gap-4 p-4">
                   <div className="flex min-w-0 items-start gap-3">
                     <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-line bg-sunken text-ink-muted">
                       <Box className="h-4 w-4" />
@@ -70,11 +69,6 @@ export default async function ServicesPage({
                       </p>
                     </div>
                   </div>
-                  <Link href={`/projects/${slug}/services/${service.slug}`}>
-                    <Button variant="default" size="sm">
-                      View service
-                    </Button>
-                  </Link>
                 </div>
               </Panel>
             </li>

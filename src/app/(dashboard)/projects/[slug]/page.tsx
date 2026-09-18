@@ -11,7 +11,7 @@ import {
 } from '@/lib/queries'
 import { Panel, PanelHeader } from '@/components/ui/panel'
 import { Badge } from '@/components/ui/badge'
-import { StatusDot, Chip } from '@/components/status'
+import { StatusDot } from '@/components/status'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Layers, Rocket, Globe } from 'lucide-react'
 
@@ -70,14 +70,7 @@ export default async function ProjectOverviewPage({
           {environments.map((env) => {
             return (
               <Panel key={env.id}>
-                <PanelHeader
-                  title={env.name}
-                  action={
-                    <div className="flex items-center gap-2">
-                      <Chip tone="neutral">promotion #{env.promotionOrder}</Chip>
-                    </div>
-                  }
-                />
+                <PanelHeader title={env.name} />
                 <ul className="divide-y divide-line">
                   {services.length === 0 ? (
                     <li className="px-4 py-3 text-xs text-ink-muted">

@@ -36,7 +36,6 @@ const pages: SearchEntry[] = [
   { id: 'pg-projects', label: 'Projects', hint: 'Page', href: '/projects', kind: 'page' },
   { id: 'pg-deploys', label: 'Deployments', hint: 'Page', href: '/deployments', kind: 'page' },
   { id: 'pg-status', label: 'Status', hint: 'Page', href: '/status', kind: 'page' },
-  { id: 'pg-cluster', label: 'Cluster', hint: 'Page', href: '/cluster', kind: 'page' },
   { id: 'pg-audit', label: 'Audit log', hint: 'Page', href: '/audit', kind: 'page' },
   { id: 'pg-settings', label: 'Settings', hint: 'Page', href: '/settings', kind: 'page' },
   { id: 'pg-settings-account', label: 'Account Settings', hint: 'Page', href: '/settings/account', kind: 'page' },

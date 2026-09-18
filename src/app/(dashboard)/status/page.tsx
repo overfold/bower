@@ -20,7 +20,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Server } from 'lucide-react'
-import { DrainToggle } from '../cluster/drain-toggle'
+import { DrainToggle } from './drain-toggle'
 import type { TrellisNode } from '@/types/trellis'
 
 function relTime(date: Date): string {

@@ -161,7 +161,7 @@ export async function getServicesForOrg(orgId: string) {
 }
 
 export async function getEnvironmentsByProject(projectId: string) {
-  return db.select().from(environments).where(eq(environments.projectId, projectId)).orderBy(environments.promotionOrder)
+  return db.select().from(environments).where(eq(environments.projectId, projectId)).orderBy(environments.createdAt)
 }
 
 export async function getServiceConfigs(serviceId: string) {
@@ -176,7 +176,7 @@ export async function getServiceBySlug(projectId: string, slug: string) {
 export async function getServiceConfigsWithEnvironments(serviceId: string) {
   return db.select({ config: serviceConfigs, environment: environments }).from(serviceConfigs)
     .innerJoin(environments, eq(environments.id, serviceConfigs.environmentId))
-    .where(eq(serviceConfigs.serviceId, serviceId)).orderBy(environments.promotionOrder)
+    .where(eq(serviceConfigs.serviceId, serviceId)).orderBy(environments.createdAt)
 }
 
 export async function getSidecars(serviceConfigId: string) {
@@ -235,7 +235,7 @@ export async function getManagedProxiesForOrg(orgId: string) {
   return db.select({ proxy: managedProxies, environmentName: environments.name, projectName: projects.name }).from(managedProxies)
     .innerJoin(environments, eq(environments.id, managedProxies.environmentId))
     .innerJoin(projects, eq(projects.id, environments.projectId))
-    .where(eq(projects.orgId, orgId)).orderBy(environments.promotionOrder)
+    .where(eq(projects.orgId, orgId)).orderBy(environments.createdAt)
 }
 
 export async function getRouteCountsByEnvironment(orgId: string) {
@@ -280,7 +280,7 @@ export async function getSecretsByProject(projectId: string) {
     .from(secretsMetadata).innerJoin(environments, eq(environments.id, secretsMetadata.environmentId))
     .leftJoin(sharedSecretMembers, eq(sharedSecretMembers.secretMetadataId, secretsMetadata.id))
     .leftJoin(sharedSecretGroups, eq(sharedSecretGroups.id, sharedSecretMembers.groupId))
-    .where(eq(secretsMetadata.projectId, projectId)).orderBy(environments.promotionOrder, secretsMetadata.name)
+    .where(eq(secretsMetadata.projectId, projectId)).orderBy(environments.createdAt, secretsMetadata.name)
 }
 
 export async function getProjectIntegrations(projectId: string) {

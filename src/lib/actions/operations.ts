@@ -1,6 +1,6 @@
 'use server'
 
-import { and, desc, eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/db'
 import {
@@ -19,13 +19,10 @@ export async function createEnvironmentAction(projectId: string, formData: FormD
   const name = text(formData, 'name')
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
   if (!slug) throw new Error('Environment name is required.')
-  const [last] = await db.select().from(environments).where(eq(environments.projectId, projectId))
-    .orderBy(desc(environments.promotionOrder)).limit(1)
   let env: typeof environments.$inferSelect
   try {
     ;[env] = await db.insert(environments).values({
       projectId, name, slug, trellisNamespace: `${ctx.project.slug}-${slug}`,
-      promotionOrder: (last?.promotionOrder ?? -1) + 1,
       defaultReplicas: Math.max(0, integer(formData, 'replicas', 1)),
       resourceTier: (text(formData, 'resourceTier') || 'small') as 'small' | 'medium' | 'large' | 'xl' | 'custom',
       envVars: {},
@@ -66,7 +63,7 @@ export async function updateEnvironmentAction(projectId: string, environmentId: 
   const [before] = await db.select().from(environments).where(and(eq(environments.id, environmentId), eq(environments.projectId, projectId))).limit(1)
   if (!before) throw new Error('Environment not found.')
   const envVars = await storeEnvironmentVariables(ctx.org.id, before, parseLines(text(formData, 'envVars')))
-  const after = { defaultReplicas: Math.max(0, integer(formData, 'replicas', 1)), promotionOrder: Math.max(0, integer(formData, 'promotionOrder', before.promotionOrder)), resourceTier: (text(formData, 'resourceTier') || 'small') as 'small' | 'medium' | 'large' | 'xl' | 'custom', envVars, updatedAt: new Date() }
+  const after = { defaultReplicas: Math.max(0, integer(formData, 'replicas', 1)), resourceTier: (text(formData, 'resourceTier') || 'small') as 'small' | 'medium' | 'large' | 'xl' | 'custom', envVars, updatedAt: new Date() }
   await db.update(environments).set(after).where(eq(environments.id, environmentId))
   const tierResources = { small: [100, 134217728], medium: [250, 268435456], large: [500, 536870912], xl: [1000, 1073741824] } as const
   if (after.resourceTier !== 'custom') await db.update(serviceConfigs).set({ resourceTier: after.resourceTier, cpu: tierResources[after.resourceTier][0], memory: tierResources[after.resourceTier][1], updatedAt: new Date() }).where(eq(serviceConfigs.environmentId, environmentId))

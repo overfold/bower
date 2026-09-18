@@ -14,12 +14,11 @@ import {
 import { PageHeading } from '@/components/page-heading'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
-import { Panel, PanelHeader, SectionTitle, KeyValue } from '@/components/ui/panel'
+import { Panel, PanelHeader, SectionTitle } from '@/components/ui/panel'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Chip, StatusDot } from '@/components/status'
-import { CreateSecretDialog } from '../../secrets/create-secret-dialog'
-import { SecretActions } from '../../secrets/secret-actions'
-import { EnvironmentSettingsDialog } from './environment-settings-dialog'
+import { CreateSecretDialog } from './create-secret-dialog'
+import { SecretActions } from './secret-actions'
 import { CreateEnvironmentVariableDialog, DeleteEnvironmentVariableButton } from './environment-variable-controls'
 import { ServiceEnvironmentDialog } from './service-environment-dialog'
 import type { BowerSecretBinding } from '@/lib/job-builder'
@@ -81,31 +80,9 @@ export default async function EnvironmentDetailPage({ params }: { params: Promis
             eyebrow={<Chip tone="neutral">Environment</Chip>}
             title={environment.name}
             meta={<span className="font-mono text-[11.5px] text-ink-muted">{environment.trellisNamespace}</span>}
-            actions={
-              <div className="flex flex-wrap items-center gap-2">
-                <EnvironmentSettingsDialog
-                  projectId={project.id}
-                  environment={{
-                    id: environment.id,
-                    promotionOrder: environment.promotionOrder,
-                    envVarNames: environmentVariables.map(([name]) => name),
-                  }}
-                />
-              </div>
-            }
           />
         </div>
       </div>
-
-      <Panel>
-        <PanelHeader title="Environment defaults" hint="Inherited by services unless their configuration overrides them" />
-        <div className="p-4">
-          <dl className="grid grid-cols-2 gap-x-8 gap-y-1 md:grid-cols-4">
-            <KeyValue label="Namespace" mono>{environment.trellisNamespace}</KeyValue>
-            <KeyValue label="Promotion order">{environment.promotionOrder}</KeyValue>
-          </dl>
-        </div>
-      </Panel>
 
       <div className="grid gap-5 xl:grid-cols-2">
         <Panel>

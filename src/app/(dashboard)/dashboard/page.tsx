@@ -343,7 +343,7 @@ export default async function DashboardPage() {
               hint="Audit log"
               action={
                 <Link
-                  href="/settings/audit"
+                  href="/audit"
                   className="rounded text-[12.5px] font-medium text-brand-600 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
                 >
                   View all
