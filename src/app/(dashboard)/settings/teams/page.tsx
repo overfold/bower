@@ -1,5 +1,7 @@
+import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
+import { ORG_COOKIE_NAME } from '@/lib/constants'
 import { getUserOrganization, getTeamsByOrg, getTeamMembers, getOrgMembers } from '@/lib/queries'
 import { PageHeading } from '@/components/page-heading'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -13,7 +15,9 @@ import { Users, ChevronRight } from 'lucide-react'
 export default async function TeamsPage() {
   const user = await getCurrentUser()
   if (!user) redirect('/login')
-  const orgCtx = await getUserOrganization(user.id)
+  const cookieStore = await cookies()
+  const preferredOrgId = cookieStore.get(ORG_COOKIE_NAME)?.value ?? null
+  const orgCtx = await getUserOrganization(user.id, preferredOrgId)
   if (!orgCtx) redirect('/login')
 
   const [teams, orgMembers] = await Promise.all([
@@ -52,7 +56,7 @@ export default async function TeamsPage() {
           />
         </Card>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-2">
           {teamsWithDetails.map(({ team, members }) => (
             <Card key={team.id}>
               <Collapsible>
