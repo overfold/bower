@@ -59,7 +59,7 @@ export default async function AccessPage({ params }: { params: Promise<{ slug: s
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Team or member</TableHead>
+                <TableHead>Entity</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Granted</TableHead>
                 {isAdmin && <TableHead className="w-[56px]" />}
