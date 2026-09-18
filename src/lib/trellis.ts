@@ -15,6 +15,9 @@ import type {
   TrellisJobRevision,
   TrellisAllocationMetrics,
   TrellisExecResponse,
+  TrellisExecSession,
+  TrellisExecSessionCreateRequest,
+  TrellisExecSessionOutput,
 } from '@/types/trellis'
 
 // ---------------------------------------------------------------------------
@@ -244,6 +247,43 @@ export class TrellisClient {
     return this.request<TrellisExecResponse>('POST', `/v1/allocations/${encodeURIComponent(id)}/exec`, {
       body: { task, command },
     })
+  }
+
+  async createExecSession(id: string, request: TrellisExecSessionCreateRequest): Promise<TrellisExecSession> {
+    return this.request<TrellisExecSession>('POST', `/v1/allocations/${encodeURIComponent(id)}/exec/sessions`, {
+      body: request,
+    })
+  }
+
+  async writeExecSession(id: string, sessionId: string, dataBase64: string): Promise<void> {
+    await this.request<void>(
+      'POST',
+      `/v1/allocations/${encodeURIComponent(id)}/exec/sessions/${encodeURIComponent(sessionId)}/input`,
+      { body: { data_base64: dataBase64 } },
+    )
+  }
+
+  async readExecSession(id: string, sessionId: string, offset: number): Promise<TrellisExecSessionOutput> {
+    const params = new URLSearchParams({ offset: String(offset) })
+    return this.request<TrellisExecSessionOutput>(
+      'GET',
+      `/v1/allocations/${encodeURIComponent(id)}/exec/sessions/${encodeURIComponent(sessionId)}/output?${params.toString()}`,
+    )
+  }
+
+  async resizeExecSession(id: string, sessionId: string, cols: number, rows: number): Promise<void> {
+    await this.request<void>(
+      'POST',
+      `/v1/allocations/${encodeURIComponent(id)}/exec/sessions/${encodeURIComponent(sessionId)}/resize`,
+      { body: { cols, rows } },
+    )
+  }
+
+  async closeExecSession(id: string, sessionId: string): Promise<void> {
+    await this.request<void>(
+      'DELETE',
+      `/v1/allocations/${encodeURIComponent(id)}/exec/sessions/${encodeURIComponent(sessionId)}`,
+    )
   }
 
   async getAllocationMetrics(id: string): Promise<TrellisAllocationMetrics[]> {
