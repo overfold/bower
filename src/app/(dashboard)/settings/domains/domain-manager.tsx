@@ -108,7 +108,7 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
       <Panel>
         <PanelHeader
           title="Managed domains"
-          hint="Organization-owned DNS namespaces available to project routes"
+          hint="Domains verified for this organization and available to project routes"
           action={canManage ? (
             <Button variant="primary" size="sm" onClick={openAddDialog}>
               <Plus />
@@ -116,32 +116,51 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
             </Button>
           ) : undefined}
         />
+
+        <div className="flex items-start gap-2.5 border-b border-line bg-sunken px-4 py-3">
+          <Globe2 className="mt-0.5 h-4 w-4 shrink-0 text-ink-muted" />
+          <div className="space-y-0.5 text-[12.5px] leading-relaxed text-ink-soft">
+            <p>
+              Verification is a one-time DNS check. For each pending domain, add the TXT record shown below at your DNS provider
+              {canManage ? ', then click Check verification after it propagates.' : '. An organization admin can check it after it propagates.'}
+            </p>
+            <p className="text-ink-muted">
+              Bower never creates or changes DNS records. Hostnames, TLS, and paths are configured from project routes.
+            </p>
+          </div>
+        </div>
+
         {domains.length === 0 ? (
           <EmptyState
             icon={<Globe2 className="h-4 w-4" />}
             title="No managed domains"
-            body="Add a domain here first. Once verified, project admins can use it for routes."
+            body="Add a domain to verify ownership. Once verified, it can be used when creating project routes."
             action={canManage ? (
               <Button variant="primary" size="sm" onClick={openAddDialog}>
+                <Plus />
                 Add domain
               </Button>
             ) : undefined}
           />
         ) : (
-          <Table>
+          <Table className="min-w-[900px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Domain</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Routes</TableHead>
-                <TableHead className="w-[220px]">Verification</TableHead>
-                <TableHead className="w-[96px] text-right">Actions</TableHead>
+                <TableHead className="w-[420px] min-w-[380px]">DNS verification</TableHead>
+                <TableHead className="w-[64px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {domains.map((item) => {
                 const recordName = `_bower.${item.domain}`
                 const recordValue = `bower-verification=${item.verificationToken}`
+                const isVerifying = busy === `verify:${item.id}`
+                const isDeleting = busy === `delete:${item.id}`
+                const isInUse = item.usage.length > 0
+
                 return (
                   <TableRow key={item.id}>
                     <TableCell>
@@ -163,7 +182,7 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
                     </TableCell>
                     <TableCell>
                       <Badge variant={item.verifiedAt ? 'success' : 'warning'}>
-                        {item.verifiedAt ? 'Verified' : 'Pending'}
+                        {item.verifiedAt ? 'Verified' : 'Pending verification'}
                       </Badge>
                     </TableCell>
                     <TableCell className="nums text-[13px] text-ink-soft">{item.usage.length}</TableCell>
@@ -171,44 +190,62 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
                       {item.verifiedAt ? (
                         <div className="flex items-center gap-1.5 text-[12px] text-ink-muted">
                           <Check className="h-3.5 w-3.5 text-brand-500" />
-                          Ownership confirmed
+                          DNS ownership verified
                         </div>
                       ) : (
-                        <div className="space-y-1.5">
-                          <div className="flex items-center gap-1">
-                            <code className="min-w-0 truncate font-mono text-[11px] text-ink-soft" title={recordName}>
+                        <div className="space-y-2.5 py-0.5">
+                          <p className="text-[11.5px] text-ink-muted">Create this record at your DNS provider:</p>
+                          <div className="grid grid-cols-[40px_minmax(0,1fr)_28px] items-center gap-x-2 gap-y-1.5">
+                            <span className="text-2xs font-semibold uppercase tracking-wide text-ink-muted">Type</span>
+                            <code className="font-mono text-[11.5px] text-ink-soft">TXT</code>
+                            <span aria-hidden="true" />
+
+                            <span className="text-2xs font-semibold uppercase tracking-wide text-ink-muted">Name</span>
+                            <code className="min-w-0 truncate rounded-md bg-sunken px-2 py-1 font-mono text-[11px] text-ink-soft" title={recordName}>
                               {recordName}
                             </code>
-                            <IconButton label="Copy record name" onClick={() => copy(recordName, `name:${item.id}`)}>
+                            <IconButton
+                              className="h-7 w-7"
+                              label="Copy TXT record name"
+                              onClick={() => copy(recordName, `name:${item.id}`)}
+                            >
                               {copied === `name:${item.id}` ? <Check /> : <Copy />}
                             </IconButton>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <code className="min-w-0 truncate font-mono text-[11px] text-ink-muted" title={recordValue}>
+
+                            <span className="text-2xs font-semibold uppercase tracking-wide text-ink-muted">Value</span>
+                            <code className="min-w-0 truncate rounded-md bg-sunken px-2 py-1 font-mono text-[11px] text-ink-soft" title={recordValue}>
                               {recordValue}
                             </code>
-                            <IconButton label="Copy record value" onClick={() => copy(recordValue, `value:${item.id}`)}>
+                            <IconButton
+                              className="h-7 w-7"
+                              label="Copy TXT record value"
+                              onClick={() => copy(recordValue, `value:${item.id}`)}
+                            >
                               {copied === `value:${item.id}` ? <Check /> : <Copy />}
                             </IconButton>
                           </div>
+                          {canManage ? (
+                            <Button
+                              size="sm"
+                              disabled={isVerifying}
+                              onClick={() => verifyDomain(item.id)}
+                            >
+                              <RefreshCw className={isVerifying ? 'animate-spin' : undefined} />
+                              {isVerifying ? 'Checking…' : 'Check verification'}
+                            </Button>
+                          ) : null}
                         </div>
                       )}
                     </TableCell>
                     <TableCell>
-                      <div className="flex justify-end gap-1">
-                        {!item.verifiedAt && canManage ? (
-                          <IconButton
-                            label="Check verification"
-                            disabled={busy === `verify:${item.id}`}
-                            onClick={() => verifyDomain(item.id)}
-                          >
-                            <RefreshCw className={busy === `verify:${item.id}` ? 'animate-spin' : undefined} />
-                          </IconButton>
-                        ) : null}
+                      <div className="flex justify-end">
                         {canManage ? (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <IconButton label="Delete domain" disabled={busy === `delete:${item.id}`}>
+                              <IconButton
+                                label={isInUse ? 'Remove project routes before deleting this domain' : 'Delete domain'}
+                                disabled={isDeleting || isInUse}
+                              >
                                 <Trash2 />
                               </IconButton>
                             </AlertDialogTrigger>
@@ -216,7 +253,7 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Delete {item.domain}?</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  The domain can only be removed when no project routes rely on it. DNS records are never changed by Bower.
+                                  This removes the domain from Bower. DNS records are left untouched.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
@@ -241,16 +278,13 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
         )}
       </Panel>
 
-      <InlineNotice tone="neutral" icon={<Globe2 className="h-4 w-4" />}>
-        Bower verifies ownership with a TXT record under{' '}
-        <span className="font-mono text-[11.5px] text-ink-soft">_bower</span>. It does not create, modify, or delete DNS records. Project routes remain responsible for the hostname, target service, TLS, and path configuration.
-      </InlineNotice>
-
       <Dialog open={adding} onOpenChange={setAdding}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Add domain</DialogTitle>
-            <DialogDescription>Add an apex or delegated DNS namespace owned by this organization.</DialogDescription>
+            <DialogDescription>
+              Add a domain you control. Bower will give you a TXT record to verify ownership.
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={addDomain}>
             <DialogBody>
@@ -268,7 +302,7 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
                     required
                   />
                   <p className="text-xs leading-relaxed text-ink-muted">
-                    Use <span className="font-mono">internal.example.com</span> if you only want Bower to control that subtree.
+                    Use <span className="font-mono">internal.example.com</span> if you only want to manage that delegated subtree.
                   </p>
                 </div>
               </div>
