@@ -18,7 +18,6 @@ import { InviteTokensSection } from '@/components/invite-tokens-section'
 import { AddMemberDialog } from './add-member-dialog'
 import { MembersTable } from './members-table'
 import { AddInstanceAdminDialog } from '../instance/instance-admin-actions'
-import { InstanceTokensSection } from '../instance/instance-tokens-section'
 
 export default async function MembersSettingsPage() {
   const user = await getCurrentUser()
@@ -154,33 +153,37 @@ export default async function MembersSettingsPage() {
       />
 
       <InviteTokensSection
-        tokens={tokens.map((row) => ({
-          token: {
-            id: row.token.id,
-            tokenPrefix: row.token.tokenPrefix,
-            role: row.token.role,
-            note: row.token.note,
-            usedAt: row.token.usedAt?.toISOString() ?? null,
-            expiresAt: row.token.expiresAt?.toISOString() ?? null,
-            createdAt: row.token.createdAt.toISOString(),
-          },
-          createdByName: row.createdByName,
-        }))}
+        tokens={[
+          ...tokens.map((row) => ({
+            kind: 'organization' as const,
+            token: {
+              id: row.token.id,
+              tokenPrefix: row.token.tokenPrefix,
+              role: row.token.role,
+              note: row.token.note,
+              usedAt: row.token.usedAt?.toISOString() ?? null,
+              expiresAt: row.token.expiresAt?.toISOString() ?? null,
+              createdAt: row.token.createdAt.toISOString(),
+            },
+            createdByName: row.createdByName,
+          })),
+          ...instanceTokens.map((row) => ({
+            kind: 'instance' as const,
+            token: {
+              id: row.token.id,
+              tokenPrefix: row.token.tokenPrefix,
+              role: null,
+              note: row.token.note,
+              usedAt: row.token.usedAt?.toISOString() ?? null,
+              expiresAt: row.token.expiresAt?.toISOString() ?? null,
+              createdAt: row.token.createdAt.toISOString(),
+            },
+            createdByName: row.createdByName,
+          })),
+        ].sort((a, b) => new Date(b.token.createdAt).getTime() - new Date(a.token.createdAt).getTime())}
         role={orgCtx.role}
+        showInstanceAdmin={showInstanceAdmin}
       />
-
-      {showInstanceAdmin && (
-        <InstanceTokensSection tokens={instanceTokens.map((row) => ({
-          token: {
-            id: row.token.id,
-            tokenPrefix: row.token.tokenPrefix,
-            note: row.token.note,
-            usedAt: row.token.usedAt?.toISOString() ?? null,
-            createdAt: row.token.createdAt.toISOString(),
-          },
-          createdByName: row.createdByName,
-        }))} />
-      )}
     </div>
   )
 }
