@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogBody, DialogTitle, DialogTri
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Plus, Trash2, Copy, Check } from 'lucide-react'
+import { InlineNotice, useFeedback } from '@/components/ui/feedback'
 
 interface ApiKey {
   id: string
@@ -19,6 +20,7 @@ interface ApiKey {
 }
 
 export function ApiKeysSection({ keys }: { keys: ApiKey[] }) {
+  const { toast } = useFeedback()
   const [open, setOpen] = useState(false)
   const [newKey, setNewKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -40,11 +42,16 @@ export function ApiKeysSection({ keys }: { keys: ApiKey[] }) {
     setLoading(false)
   }
 
-  function handleCopy() {
+  async function handleCopy() {
     if (newKey) {
-      navigator.clipboard.writeText(newKey)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      try {
+        await navigator.clipboard.writeText(newKey)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+        toast({ tone: 'success', title: 'API key copied.' })
+      } catch {
+        toast({ tone: 'error', title: 'Could not copy API key.' })
+      }
     }
   }
 
@@ -77,7 +84,7 @@ export function ApiKeysSection({ keys }: { keys: ApiKey[] }) {
                 </div>
               ) : (
                 <form onSubmit={handleCreate} className="space-y-4">
-                  {error && <div className="rounded-md bg-danger-50 p-3 text-sm text-danger-500">{error}</div>}
+                  {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
                   <div className="space-y-2">
                     <Label htmlFor="keyName">Name</Label>
                     <Input id="keyName" name="name" placeholder="CI deploy key" required />

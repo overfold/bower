@@ -19,6 +19,7 @@ import {
   createNotificationChannelAction, deleteNotificationChannelAction,
   type WebhookCreationState,
 } from '@/lib/actions/integrations'
+import { InlineNotice, useFeedback } from '@/components/ui/feedback'
 
 interface CreateWebhookDialogProps {
   projectId: string
@@ -28,11 +29,22 @@ interface CreateWebhookDialogProps {
 
 export function CreateWebhookDialog({ projectId, services, environmentId }: CreateWebhookDialogProps) {
   const [open, setOpen] = useState(false)
+  const { toast } = useFeedback()
   const boundAction = createWebhookAction.bind(null, projectId)
   const [state, formAction, isPending] = useActionState<WebhookCreationState, FormData>(boundAction, {})
 
   function handleClose() {
     setOpen(false)
+  }
+
+  async function copyToken() {
+    if (!state.token) return
+    try {
+      await navigator.clipboard.writeText(state.token)
+      toast({ tone: 'success', title: 'Webhook token copied.' })
+    } catch {
+      toast({ tone: 'error', title: 'Could not copy webhook token.' })
+    }
   }
 
   return (
@@ -56,7 +68,7 @@ export function CreateWebhookDialog({ projectId, services, environmentId }: Crea
                   <code className="flex-1 break-all rounded-lg border border-line bg-sunken px-3 py-2 font-mono text-[12.5px] text-ink">
                     {state.token}
                   </code>
-                  <Button variant="default" size="icon" onClick={() => navigator.clipboard.writeText(state.token!)} aria-label="Copy token">
+                  <Button variant="default" size="icon" onClick={copyToken} aria-label="Copy token">
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>
@@ -69,7 +81,7 @@ export function CreateWebhookDialog({ projectId, services, environmentId }: Crea
         ) : (
           <form action={formAction}>
             <DialogBody className="space-y-4">
-              {state.error ? <div className="rounded-md bg-danger-50 p-3 text-sm text-danger-500">{state.error}</div> : null}
+              {state.error ? <InlineNotice tone="error">{state.error}</InlineNotice> : null}
               <input type="hidden" name="environmentId" value={environmentId} />
               <div className="space-y-2">
                 <Label htmlFor="wh-service">Service</Label>

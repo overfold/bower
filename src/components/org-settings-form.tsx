@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { InlineNotice } from '@/components/ui/empty-state'
+import { InlineNotice, useFeedback } from '@/components/ui/feedback'
 import { updateOrganizationAction } from '@/lib/actions/settings'
 
 interface OrgSettingsFormProps {
@@ -19,20 +19,19 @@ interface OrgSettingsFormProps {
 
 export function OrgSettingsForm({ org }: OrgSettingsFormProps) {
   const router = useRouter()
+  const { toast } = useFeedback()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setLoading(true)
     setError(null)
-    setSuccess(false)
     const formData = new FormData(e.currentTarget)
     const result = await updateOrganizationAction(formData)
     if (result?.error) setError(result.error)
     else if (result?.success) {
-      setSuccess(true)
+      toast({ tone: 'success', title: 'Organization settings saved.' })
       router.refresh()
     }
     setLoading(false)
@@ -45,8 +44,7 @@ export function OrgSettingsForm({ org }: OrgSettingsFormProps) {
           <CardTitle>Organization details</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
-          {success ? <InlineNotice tone="brand">Settings updated.</InlineNotice> : null}
+          {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
           <div className="space-y-2">
             <Label htmlFor="name">Organization name</Label>
             <Input id="name" name="name" defaultValue={org.name} required />

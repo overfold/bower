@@ -8,9 +8,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Plus } from 'lucide-react'
+import { InlineNotice, useFeedback } from '@/components/ui/feedback'
 
 export function AddMemberDialog({ canManage }: { canManage: boolean }) {
   const [open, setOpen] = useState(false)
+  const { toast } = useFeedback()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [selectedRole, setSelectedRole] = useState<string>('member')
@@ -27,6 +29,7 @@ export function AddMemberDialog({ canManage }: { canManage: boolean }) {
       try {
         await addOrganizationMemberAction(formData)
         handleClose()
+        toast({ tone: 'success', title: 'Member added.' })
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to add member.')
       }
@@ -77,7 +80,7 @@ export function AddMemberDialog({ canManage }: { canManage: boolean }) {
                 </SelectContent>
               </Select>
             </div>
-            {error ? <div className="rounded-md bg-danger-50 p-3 text-sm text-danger-500">{error}</div> : null}
+            {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
           </DialogBody>
           <DialogFooter>
             <Button variant="default" type="button" size="sm" onClick={handleClose} disabled={pending}>

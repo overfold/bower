@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState, InlineNotice } from '@/components/ui/empty-state'
+import { FieldError, useFeedback } from '@/components/ui/feedback'
 import {
   Dialog,
   DialogContent,
@@ -56,6 +57,7 @@ function tokenStatus(token: InvitationRow['token']): { label: string; variant: '
 
 export function InviteTokensSection({ tokens, role, showInstanceAdmin }: InviteTokensSectionProps) {
   const router = useRouter()
+  const { toast } = useFeedback()
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -102,6 +104,16 @@ export function InviteTokensSection({ tokens, role, showInstanceAdmin }: InviteT
     setSelectedRole('member')
   }
 
+  async function copyInvitation() {
+    if (!createdToken) return
+    try {
+      await navigator.clipboard.writeText(createdToken)
+      toast({ tone: 'success', title: 'Invitation copied.' })
+    } catch {
+      toast({ tone: 'error', title: 'Could not copy invitation.' })
+    }
+  }
+
   const isInstanceInvitation = showInstanceAdmin && selectedInstanceRole === 'admin'
 
   return (
@@ -139,7 +151,7 @@ export function InviteTokensSection({ tokens, role, showInstanceAdmin }: InviteT
                         <code className="flex-1 break-all rounded-lg border border-line bg-sunken px-3 py-2 font-mono text-[12.5px] text-ink">
                           {createdToken}
                         </code>
-                        <Button variant="default" size="icon" onClick={() => navigator.clipboard.writeText(createdToken)} aria-label="Copy invitation">
+                        <Button variant="default" size="icon" onClick={copyInvitation} aria-label="Copy invitation">
                           <Copy className="h-4 w-4" />
                         </Button>
                       </div>
@@ -193,7 +205,8 @@ export function InviteTokensSection({ tokens, role, showInstanceAdmin }: InviteT
 
                     <div className="space-y-2">
                       <Label htmlFor="note">Note <span className="font-normal text-ink-muted">(optional)</span></Label>
-                      <Input id="note" name="note" placeholder="e.g. Platform team" />
+                      <Input id="note" name="note" placeholder="e.g. Platform team" aria-describedby="invite-note-help" />
+                      <FieldError>{error?.includes('note') ? error : null}</FieldError>
                     </div>
                     {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
                   </DialogBody>

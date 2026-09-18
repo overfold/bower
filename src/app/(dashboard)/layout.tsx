@@ -6,7 +6,8 @@ import { getUserOrganizations, getUserOrganization, getUserTeams, getProjectsFor
 import { Sidebar } from '@/components/sidebar'
 import { HeaderBar } from '@/components/header-bar'
 import { PageTransition } from '@/components/page-transition'
-import { Toaster } from '@/components/ui/toaster'
+import { FeedbackProvider, PageBanner } from '@/components/ui/feedback'
+import { getTrellisClient } from '@/lib/trellis-instance'
 
 export default async function DashboardLayout({
   children,
@@ -29,6 +30,13 @@ export default async function DashboardLayout({
   const userProjects = await getProjectsForUser(orgCtx.org.id, user.id, orgCtx.role as 'owner' | 'admin' | 'member')
   const orgServices = await getServicesForOrg(orgCtx.org.id)
   const instanceAdmin = await isInstanceAdmin(user.id)
+  let trellisError: string | null = null
+  try {
+    const client = await getTrellisClient(orgCtx.org.id)
+    await client.listNodes()
+  } catch (error) {
+    trellisError = error instanceof Error ? error.message : 'Trellis could not be reached.'
+  }
 
   const orgs = allOrgs.map((entry) => ({
     id: entry.org.id,
@@ -45,6 +53,7 @@ export default async function DashboardLayout({
   }
 
   return (
+    <FeedbackProvider>
     <div className="flex min-h-screen w-full bg-canvas">
       <Sidebar
         user={{
@@ -81,13 +90,14 @@ export default async function DashboardLayout({
             instanceAdmin,
           }}
         />
+        {trellisError ? <PageBanner tone="warning" title="Trellis is unavailable.">{trellisError}</PageBanner> : null}
         <main className="min-w-0 flex-1 px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
           <div className="mx-auto max-w-6xl">
             <PageTransition>{children}</PageTransition>
           </div>
         </main>
       </div>
-      <Toaster />
     </div>
+    </FeedbackProvider>
   )
 }
