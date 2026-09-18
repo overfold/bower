@@ -48,7 +48,7 @@ export function CreateServiceDialog({ projectSlug }: { projectSlug: string }) {
             </div>
             <div className="space-y-2">
               <Label htmlFor="image">Image</Label>
-              <Input id="image" name="image" placeholder="nginx:latest" required />
+              <Input id="image" name="image" placeholder="nginx:latest" required mono />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
