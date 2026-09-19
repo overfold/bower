@@ -45,3 +45,35 @@ test('wildcard route URLs require a subdomain', async () => {
   assert.equal(routeMatchesUrl(route, new URL('https://branch.preview.example.com/')), true)
   assert.equal(routeMatchesUrl(route, new URL('https://preview.example.com/')), false)
 })
+
+test('protected route context prefers Bower headers over provider-rewritten forwarded headers', async () => {
+  const { forwardedRouteContext } = await routeAuth
+  const headers = new Headers({
+    'x-forwarded-host': 'bower-delta.vercel.app',
+    'x-forwarded-uri': '/provider-path',
+    'x-forwarded-proto': 'https',
+    'x-bower-forwarded-host': 'demo.trellis.twilightzone.dev',
+    'x-bower-forwarded-uri': '/app/dashboard?tab=logs',
+    'x-bower-forwarded-proto': 'http',
+  })
+  assert.deepEqual(forwardedRouteContext(headers), {
+    host: 'demo.trellis.twilightzone.dev',
+    uri: '/app/dashboard?tab=logs',
+    protocol: 'http',
+  })
+})
+
+test('protected route context falls back to standard forwarded headers', async () => {
+  const { forwardedRouteContext } = await routeAuth
+  const headers = new Headers({
+    'x-forwarded-host': 'preview.example.com',
+    'x-forwarded-uri': '/app',
+    'x-forwarded-proto': 'https',
+  })
+  assert.deepEqual(forwardedRouteContext(headers), {
+    host: 'preview.example.com',
+    uri: '/app',
+    protocol: 'https',
+  })
+})
+
