@@ -79,6 +79,17 @@ export function routeAuthCookieName(routeId: string) {
   return `bower_route_${routeId.replaceAll('-', '')}`
 }
 
+export function forwardedRouteContext(headers: Pick<Headers, 'get'>) {
+  const host = headers.get('x-bower-forwarded-host') || headers.get('x-forwarded-host')
+  const uri = headers.get('x-bower-forwarded-uri') || headers.get('x-forwarded-uri') || '/'
+  const forwardedProto = headers.get('x-bower-forwarded-proto') || headers.get('x-forwarded-proto')
+  return {
+    host,
+    uri,
+    protocol: forwardedProto === 'http' ? 'http' : 'https',
+  }
+}
+
 export function routeMatchesUrl(route: { domain: string; pathPrefix: string }, target: URL) {
   const hostname = target.hostname.toLowerCase()
   const routeDomain = route.domain.toLowerCase()

@@ -24,6 +24,9 @@ const route = {
 test('routes password protection through Bower before the deployment upstream', () => {
   const config = renderCaddyfile([{ ...route, protectionMode: 'password', authOrigin: 'https://bower.example.com' }], [allocation])
   assert.match(config, /forward_auth https:\/\/bower\.example\.com \{\n      uri \/api\/route-auth\/verify\/route-id/)
+  assert.match(config, /header_up X-Bower-Forwarded-Host \{http\.request\.host\}/)
+  assert.match(config, /header_up X-Bower-Forwarded-Uri \{uri\}/)
+  assert.match(config, /header_up X-Bower-Forwarded-Proto \{scheme\}/)
   assert.doesNotMatch(config, /basic_auth/)
   assert.ok(config.indexOf('forward_auth') < config.indexOf('reverse_proxy 10.0.0.2:32100'))
 })

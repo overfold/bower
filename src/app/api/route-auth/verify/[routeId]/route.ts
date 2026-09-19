@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
+  forwardedRouteContext,
   getProtectedRoute,
   hasProjectViewerAccess,
   passwordRouteGrantMatches,
@@ -25,10 +26,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ rou
     }
   }
 
-  const host = request.headers.get('x-forwarded-host')
-  const uri = request.headers.get('x-forwarded-uri') || '/'
-  const forwardedProto = request.headers.get('x-forwarded-proto')
-  const protocol = forwardedProto === 'http' ? 'http' : 'https'
+  const { host, uri, protocol } = forwardedRouteContext(request.headers)
   if (!host) return new NextResponse('Missing forwarded host.', { status: 400 })
   let target: URL
   try {
