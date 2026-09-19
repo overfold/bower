@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+run_step() {
+  local name="$1"
+  shift
+  local started
+  started=$(date +%s)
+  printf '\n==> %s\n' "$name"
+  "$@"
+  printf '<== %s (%ss)\n' "$name" "$(( $(date +%s) - started ))"
+}
+
+if ! /usr/bin/node --version 2>/dev/null | grep -q '^v22\.'; then
+  run_step "Installing Node.js 22" bash -c '
+    sudo apt-get update
+    sudo apt-get install -y ca-certificates curl gnupg
+    sudo install -d -m 0755 /etc/apt/keyrings
+    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --batch --yes --dearmor -o /etc/apt/keyrings/nodesource.gpg
+    printf "%s\\n" "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" | sudo tee /etc/apt/sources.list.d/nodesource.list >/dev/null
+    sudo apt-get update
+    sudo apt-get install -y nodejs
+  '
+fi
+export PATH="/usr/bin:$PATH"
+
+profile_marker="# Bower Node.js 22"
+if ! grep -Fqx "$profile_marker" "$HOME/.bash_profile" 2>/dev/null; then
+  cat >> "$HOME/.bash_profile" <<EOF
+
+$profile_marker
+if [[ "\${PWD}" == "$repo_root" || "\${PWD}" == "$repo_root/"* ]]; then
+  export PATH="/usr/bin:\${PATH}"
+fi
+EOF
+fi
+
+if ! dpkg-query -W -f='${db:Status-Status}' postgresql 2>/dev/null | grep -qx installed; then
+  run_step "Installing PostgreSQL" sudo apt-get update
+  run_step "Installing PostgreSQL packages" sudo apt-get install -y postgresql
+fi
+
+run_step "Starting PostgreSQL" sudo service postgresql start
+run_step "Configuring development database" sudo -u postgres psql -v ON_ERROR_STOP=1 <<'SQL'
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'bower') THEN
+    CREATE ROLE bower LOGIN PASSWORD 'bower';
+  ELSE
+    ALTER ROLE bower WITH LOGIN PASSWORD 'bower';
+  END IF;
+END
+$$;
+SQL
+
+if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname = 'bower'" | grep -qx 1; then
+  run_step "Creating development database" sudo -u postgres createdb -O bower bower
+fi
+
+if [ ! -f .env.local ]; then
+  run_step "Creating local environment file" cp -- .env.example .env.local
+fi
+
+dependency_cache_dir="$HOME/.cache/bower-orb"
+dependency_marker="$dependency_cache_dir/npm-dependencies"
+dependency_signature="$(sha256sum package-lock.json | awk '{print $1}') $(node --version)"
+if [ ! -d node_modules ] || [ ! -f "$dependency_marker" ] || ! grep -Fqx "$dependency_signature" "$dependency_marker"; then
+  run_step "Installing npm dependencies" npm ci
+  mkdir -p "$dependency_cache_dir"
+  printf '%s\n' "$dependency_signature" > "$dependency_marker"
+else
+  printf '\n==> npm dependencies already match package-lock.json\n'
+fi
+
+run_step "Applying database migrations" env DATABASE_URL="${DATABASE_URL:-postgres://bower:bower@localhost:5432/bower}" npm run db:migrate
