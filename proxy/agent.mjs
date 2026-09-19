@@ -1,5 +1,6 @@
 import { writeFile } from 'node:fs/promises'
 import process from 'node:process'
+import { loadCaddyConfig } from './caddy-api.mjs'
 import { renderCaddyfile } from './config.mjs'
 import { fetchTrellisJson, normalizeTrellisAddress } from './trellis-api.mjs'
 
@@ -23,8 +24,7 @@ let last = ''
 async function reconcile() {
   const allocations = await fetchTrellisJson(trellis, '/v1/allocations', { token, namespace, caCert })
   const config = renderCaddyfile(routes, allocations, { adminPort, httpPort, httpsPort })
-  const loaded = await fetch(caddy, { method: 'POST', headers: { 'content-type': 'text/caddyfile' }, body: config })
-  if (!loaded.ok) throw new Error(`Caddy reload returned ${loaded.status}: ${await loaded.text()}`)
+  await loadCaddyConfig(caddy, config)
   if (config !== last) {
     last = config
     console.log(`loaded ${routes.length} routes with ${allocations.length} allocations`)
