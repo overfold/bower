@@ -67,3 +67,10 @@ test('bootstrap config preserves custom TLS so HTTPS can start before discovery'
   }])
   assert.match(config, /tls \/run\/trellis-secrets\/route-cert \/run\/trellis-secrets\/route-key/)
 })
+
+
+test('binds the Caddy admin API to loopback for route-sync reloads', () => {
+  const config = renderCaddyfile([{ ...route, protectionMode: 'none' }], [allocation], { adminPort: '22909' })
+  assert.match(config, /admin 127\.0\.0\.1:22909/)
+  assert.doesNotMatch(config, /admin 0\.0\.0\.0:/)
+})
