@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
-import { getUserOrganization, getDeploymentsForOrg } from '@/lib/queries'
+import { getUserOrganization, getDeploymentsForOrg, getProjectsForUser } from '@/lib/queries'
 import { PageHeading } from '@/components/page-heading'
 import { DeploymentFilters } from './deployment-filters'
 
@@ -11,9 +11,14 @@ export default async function DeploymentsPage() {
   const orgCtx = await getUserOrganization(user.id)
   if (!orgCtx) redirect('/login')
 
-  const allDeployments = await getDeploymentsForOrg(orgCtx.org.id, 100)
+  const [allDeployments, projects] = await Promise.all([
+    getDeploymentsForOrg(orgCtx.org.id, 100),
+    getProjectsForUser(orgCtx.org.id, user.id, orgCtx.role),
+  ])
+  const visibleProjectSlugs = new Set(projects.map((project) => project.slug))
+  const visibleDeployments = allDeployments.filter((deployment) => visibleProjectSlugs.has(deployment.projectSlug))
 
-  const items = allDeployments.map((d) => ({
+  const items = visibleDeployments.map((d) => ({
     deployment: {
       id: d.deployment.id,
       status: d.deployment.status,

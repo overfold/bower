@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { Box, KeyRound } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth'
+import { requireProject } from '@/lib/actions/shared'
 import {
   getProjectBySlug,
   getProjectEnvironment,
@@ -42,6 +43,8 @@ export default async function EnvironmentPage({ params }: { params: Promise<{ sl
   if (!orgCtx) redirect('/login')
   const project = await getProjectBySlug(orgCtx.org.id, slug)
   if (!project) notFound()
+  const access = await requireProject(project.id)
+  const canManage = access.projectRole === 'admin'
 
   const environment = await getProjectEnvironment(project.id)
   if (!environment) notFound()
@@ -70,7 +73,7 @@ export default async function EnvironmentPage({ params }: { params: Promise<{ sl
           <PanelHeader
             title="Environment variables"
             hint={`${environmentVariables.length} ${environmentVariables.length === 1 ? 'variable' : 'variables'} injected into every service`}
-            action={<CreateEnvironmentVariableDialog projectId={project.id} environmentId={environment.id} />}
+            action={canManage ? <CreateEnvironmentVariableDialog projectId={project.id} environmentId={environment.id} /> : undefined}
           />
           {environmentVariables.length === 0 ? (
             <div className="p-4 text-[13px] text-ink-muted">No environment variables are configured.</div>
@@ -82,7 +85,7 @@ export default async function EnvironmentPage({ params }: { params: Promise<{ sl
                   {environmentVariables.map(([name]) => (
                     <TableRow key={name}>
                       <TableCell className="font-mono text-xs font-medium">{name}</TableCell>
-                      <TableCell className="text-right"><DeleteEnvironmentVariableButton projectId={project.id} environmentId={environment.id} name={name} /></TableCell>
+                      <TableCell className="text-right">{canManage ? <DeleteEnvironmentVariableButton projectId={project.id} environmentId={environment.id} name={name} /> : null}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -95,7 +98,7 @@ export default async function EnvironmentPage({ params }: { params: Promise<{ sl
           <PanelHeader
             title="Secrets"
             hint={`${secrets.length} ${secrets.length === 1 ? 'secret' : 'secrets'} available to services`}
-            action={<CreateSecretDialog projectId={project.id} environmentId={environment.id} />}
+            action={canManage ? <CreateSecretDialog projectId={project.id} environmentId={environment.id} /> : undefined}
           />
           {secrets.length === 0 ? (
             <EmptyState icon={<KeyRound className="h-4 w-4" />} title="No secrets" body="Add a secret, then bind it to a service below." />
@@ -108,7 +111,7 @@ export default async function EnvironmentPage({ params }: { params: Promise<{ sl
                     <TableRow key={row.secret.id}>
                       <TableCell className="font-mono text-xs font-medium">{row.secret.name}</TableCell>
                       <TableCell className="text-ink-muted">{formatDate(row.secret.lastRotatedAt)}</TableCell>
-                      <TableCell className="text-right"><SecretActions projectId={project.id} secretId={row.secret.id} /></TableCell>
+                      <TableCell className="text-right">{canManage ? <SecretActions projectId={project.id} secretId={row.secret.id} /> : null}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -137,14 +140,14 @@ export default async function EnvironmentPage({ params }: { params: Promise<{ sl
                   action={
                     <div className="flex items-center gap-2">
                       <Button asChild variant="ghost" size="sm"><Link href={`/projects/${slug}/services/${service.slug}`}>Open service</Link></Button>
-                      <ServiceEnvironmentDialog
+                      {canManage ? <ServiceEnvironmentDialog
                         serviceId={service.id}
                         environmentId={environment.id}
                         serviceName={service.name}
                         envVars={config.envVars}
                         secretBindings={config.secretBindings}
                         secretNames={secretNames}
-                      />
+                      /> : null}
                     </div>
                   }
                 />

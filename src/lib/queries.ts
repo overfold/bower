@@ -1,4 +1,5 @@
 import { eq, and, desc, sql } from 'drizzle-orm'
+import { cookies } from 'next/headers'
 import { db } from '@/db'
 import {
   organizations,
@@ -25,6 +26,7 @@ import {
   invitations,
   projectUserAccess,
 } from '@/db/schema'
+import { ORG_COOKIE_NAME } from '@/lib/constants'
 
 export async function isInstanceAdmin(userId: string) {
   const [user] = await db
@@ -58,8 +60,9 @@ export async function getUserOrganizations(userId: string) {
 export async function getUserOrganization(userId: string, preferredOrgId?: string | null) {
   const all = await getUserOrganizations(userId)
   if (all.length === 0) return null
-  if (preferredOrgId) {
-    const match = all.find((r) => r.org.id === preferredOrgId)
+  const selectedOrgId = preferredOrgId ?? (await cookies()).get(ORG_COOKIE_NAME)?.value
+  if (selectedOrgId) {
+    const match = all.find((r) => r.org.id === selectedOrgId)
     if (match) return match
   }
   return all[0]

@@ -7,6 +7,7 @@ import {
   getServicesByProject,
   getDeploymentsByProject,
 } from '@/lib/queries'
+import { requireProject } from '@/lib/actions/shared'
 import { PageHeading, MetaItem } from '@/components/page-heading'
 import { ProjectTabs } from '@/components/project-tabs'
 
@@ -26,6 +27,7 @@ export default async function ProjectLayout({
   const { slug } = await params
   const project = await getProjectBySlug(ctx.org.id, slug)
   if (!project) notFound()
+  await requireProject(project.id)
 
   const [services, environment] = await Promise.all([
     getServicesByProject(project.id),

@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
 import { getUserOrganization, getProjectBySlug, getDeploymentsByProject, getProjectEnvironment } from '@/lib/queries'
 import { Panel, SectionTitle } from '@/components/ui/panel'
@@ -94,7 +95,7 @@ export default async function DeploymentsPage({
                   <TableCell>
                     <StatusDot status={row.deployment.status} />
                   </TableCell>
-                  <TableCell className="font-medium">{row.serviceName}</TableCell>
+                  <TableCell className="font-medium"><Link className="underline-offset-2 hover:underline" href={`/projects/${slug}/deployments/${row.deployment.id}`}>{row.serviceName}</Link></TableCell>
                   <TableCell className="font-mono text-xs">
                     {imageShort(row.deployment.imageAfter)}
                   </TableCell>

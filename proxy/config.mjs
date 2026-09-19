@@ -21,10 +21,19 @@ function authLines(route) {
 
 export function renderCaddyfile(routes, allocations, { adminPort = '2019', httpPort = '80', httpsPort = '443' } = {}) {
   const rendered = routes.map((route) => {
+    const candidates = route.strategy === 'canary'
+      ? allocations.filter((allocation) => allocation.labels?.['bower/service'] === route.service && allocation.labels?.['bower/canary'] === 'true')
+      : []
+    const canaryWeight = candidates.reduce((weight, allocation) => Math.max(weight, Number(allocation.labels?.['trellis/weight'] || 0)), 0)
     const upstreams = allocations.filter((allocation) => allocation.phase === 'running' && allocation.health === 'healthy' && jobFor(route, allocation)).flatMap((allocation) => {
       const port = allocation.ports?.find((item) => item.port === route.port)?.host_port || route.port
       const upstream = `${allocation.address}:${port}`
-      const weight = Math.max(1, Number(allocation.labels?.['trellis/weight'] || 100))
+      const weight = allocation.labels?.['bower/canary'] === 'true'
+        ? Number(allocation.labels?.['trellis/weight'] || 0)
+        : route.strategy === 'canary' && canaryWeight > 0
+          ? 100 - canaryWeight
+          : 100
+      if (!Number.isFinite(weight) || weight <= 0) return []
       return Array.from({ length: Math.min(100, weight) }, () => upstream)
     })
     const lines = []

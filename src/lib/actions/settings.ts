@@ -5,10 +5,12 @@ import { db } from '@/db'
 import { organizations, users, invitations, invitationTeams, organizationMembers, apiKeys, teams } from '@/db/schema'
 import { createHash, randomBytes } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
+import { cookies } from 'next/headers'
 import { getCurrentUser, hashPassword, verifyPassword } from '@/lib/auth'
 import { getUserOrganization, isInstanceAdmin } from '@/lib/queries'
 import { recordAudit } from './shared'
 import { acceptInvitation, createInvitationToken, hashInvitationToken } from '@/lib/invitations'
+import { ORG_COOKIE_NAME } from '@/lib/constants'
 
 export async function updateOrganizationAction(
   formData: FormData,
@@ -289,6 +291,18 @@ export async function acceptInvitationAction(token: string): Promise<{ error?: s
   if (!user) return { error: 'Not authenticated.' }
   const result = await acceptInvitation(token, user.id)
   if (result.error) return result
+  if (result.orgId) {
+    const cookieStore = await cookies()
+    cookieStore.set({
+      name: ORG_COOKIE_NAME,
+      value: result.orgId,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 365,
+    })
+  }
   revalidatePath('/settings/members')
   return { success: true }
 }

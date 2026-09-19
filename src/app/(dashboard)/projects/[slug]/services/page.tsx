@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { getUserOrganization, getProjectBySlug, getServicesByProject } from '@/lib/queries'
+import { requireProject } from '@/lib/actions/shared'
 import { Panel, SectionTitle } from '@/components/ui/panel'
 import { EmptyState } from '@/components/ui/empty-state'
 import { CreateServiceDialog } from '@/components/create-service-dialog'
@@ -21,6 +22,7 @@ export default async function ServicesPage({
   const { slug } = await params
   const project = await getProjectBySlug(ctx.org.id, slug)
   if (!project) redirect('/projects')
+  const access = await requireProject(project.id)
 
   const services = await getServicesByProject(project.id)
 
@@ -31,7 +33,7 @@ export default async function ServicesPage({
           <SectionTitle>Services</SectionTitle>
           <p className="mt-1 text-[13px] text-ink-muted">Manage the workloads deployed by this project.</p>
         </div>
-        <CreateServiceDialog projectSlug={slug} />
+        {access.projectRole === 'admin' ? <CreateServiceDialog projectSlug={slug} /> : null}
       </div>
 
       {services.length === 0 ? (
@@ -40,7 +42,7 @@ export default async function ServicesPage({
             icon={<Server className="h-4 w-4" />}
             title="No services yet"
             body="Create your first service to start deploying."
-            action={<CreateServiceDialog projectSlug={slug} />}
+            action={access.projectRole === 'admin' ? <CreateServiceDialog projectSlug={slug} /> : undefined}
           />
         </Panel>
       ) : (

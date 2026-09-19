@@ -83,10 +83,14 @@ export default async function DashboardPage() {
     getDeploymentsForOrg(orgCtx.org.id, 250),
     getAuditLog(orgCtx.org.id, 8),
   ])
+  const accessibleProjectIds = new Set(projectList.map((project) => project.id))
+  const accessibleProjectSlugs = new Set(projectList.map((project) => project.slug))
+  const visibleServices = orgServices.filter(({ project }) => accessibleProjectIds.has(project.id))
+  const visibleDeployments = allDeployments.filter((deployment) => accessibleProjectSlugs.has(deployment.projectSlug))
 
   // Deployment stats
-  const recentDeployments = allDeployments.slice(0, 8)
-  const activeDeployments = allDeployments.filter(
+  const recentDeployments = visibleDeployments.slice(0, 8)
+  const activeDeployments = visibleDeployments.filter(
     (d) => d.deployment.status === 'pending' || d.deployment.status === 'planning' || d.deployment.status === 'deploying'
   )
   const hasActive = activeDeployments.length > 0
@@ -125,7 +129,7 @@ export default async function DashboardPage() {
 
   // Summary description
   const parts: string[] = []
-  parts.push(`${projectList.length} project${projectList.length === 1 ? '' : 's'} and ${orgServices.length} service${orgServices.length === 1 ? '' : 's'}`)
+  parts.push(`${projectList.length} project${projectList.length === 1 ? '' : 's'} and ${visibleServices.length} service${visibleServices.length === 1 ? '' : 's'}`)
   if (hasActive) {
     parts.push(`${activeDeployments.length} deployment${activeDeployments.length === 1 ? '' : 's'} in flight`)
   }
@@ -148,7 +152,7 @@ export default async function DashboardPage() {
           memoryAllocated: allocatedMem,
           memoryTotal: totalMem,
         }}
-        deployments={allDeployments.map((row) => ({
+        deployments={visibleDeployments.map((row) => ({
           createdAt: row.deployment.createdAt,
           status: row.deployment.status,
         }))}

@@ -141,6 +141,7 @@ export interface TrellisJobSpec {
 // -- Allocations ------------------------------------------------------------
 
 export type TrellisAllocationPhase =
+  | 'pending'
   | 'placed'
   | 'starting'
   | 'running'

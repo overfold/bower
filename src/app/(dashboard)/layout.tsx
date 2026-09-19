@@ -29,6 +29,8 @@ export default async function DashboardLayout({
   const teams = await getUserTeams(user.id, orgCtx.org.id)
   const userProjects = await getProjectsForUser(orgCtx.org.id, user.id, orgCtx.role as 'owner' | 'admin' | 'member')
   const orgServices = await getServicesForOrg(orgCtx.org.id)
+  const accessibleProjectIds = new Set(userProjects.map((project) => project.id))
+  const visibleServices = orgServices.filter(({ project }) => accessibleProjectIds.has(project.id))
   const instanceAdmin = await isInstanceAdmin(user.id)
   let trellisError: string | null = null
   try {
@@ -79,7 +81,7 @@ export default async function DashboardLayout({
               slug: p.slug,
               teamName: teams.find((t) => t.id === p.owningTeamId)?.name,
             })),
-            services: orgServices.map(({ service, project }) => ({
+            services: visibleServices.map(({ service, project }) => ({
               id: service.id,
               name: service.name,
               slug: service.slug,
