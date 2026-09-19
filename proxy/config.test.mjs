@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { renderCaddyfile } from './config.mjs'
+import { renderBootstrapCaddyfile, renderCaddyfile } from './config.mjs'
 
 const allocation = {
   phase: 'running',
@@ -45,4 +45,25 @@ test('leaves public routes unprotected', () => {
 test('renders the no-route fallback as a multiline Caddy site block', () => {
   const config = renderCaddyfile([], [], { httpPort: '8080' })
   assert.match(config, /:8080 \{\n  respond "Bower proxy ready" 200\n\}$/)
+})
+
+
+test('bootstrap config exposes known routes as unavailable without auth', () => {
+  const config = renderBootstrapCaddyfile([
+    { ...route, protectionMode: 'password', authOrigin: 'https://bower.example.com' },
+  ])
+  assert.match(config, /preview\.example\.com \{/)
+  assert.match(config, /respond "No healthy upstream allocations" 503/)
+  assert.doesNotMatch(config, /forward_auth|\.bower\/auth\/callback/)
+  assert.doesNotMatch(config, /Bower proxy is discovering routes/)
+})
+
+test('bootstrap config preserves custom TLS so HTTPS can start before discovery', () => {
+  const config = renderBootstrapCaddyfile([{
+    ...route,
+    tlsMode: 'custom',
+    tlsCertSecret: 'route-cert',
+    tlsKeySecret: 'route-key',
+  }])
+  assert.match(config, /tls \/run\/trellis-secrets\/route-cert \/run\/trellis-secrets\/route-key/)
 })

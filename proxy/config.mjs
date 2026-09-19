@@ -64,3 +64,15 @@ export function renderCaddyfile(routes, allocations, { adminPort = '2019', httpP
   })
   return `{\n  admin 0.0.0.0:${adminPort}\n  http_port ${httpPort}\n  https_port ${httpsPort}\n}\n\n${blocks.length ? blocks.join('\n\n') : `:${httpPort} {\n  respond "Bower proxy ready" 200\n}`}`
 }
+
+
+export function renderBootstrapCaddyfile(routes, options = {}) {
+  const bootstrapRoutes = routes.map((route) => ({
+    ...route,
+    protectionMode: 'none',
+    authOrigin: null,
+    redirects: [],
+    rateLimit: null,
+  }))
+  return renderCaddyfile(bootstrapRoutes, [], options)
+}

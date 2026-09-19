@@ -19,9 +19,10 @@ When a route is created or updated, Bower:
 1. Validates that the hostname is covered by a verified organization domain and is not claimed by another project/environment
 2. Generates a Caddyfile for the route configuration and writes it as a Trellis namespace secret
 3. Deploys (or updates) a two-task task group in the namespace: a Caddy instance and a route-sync agent
-4. The sync agent uses `api_access: namespace/read` to watch healthy allocations via labels, renders upstream addresses, and reloads Caddy through its admin API whenever allocations change
+4. The sync agent uses `api_access: namespace/read` to watch healthy allocations via labels, renders upstream addresses, and reloads Caddy through its admin API
+5. The proxy is considered healthy only after route-sync has recently fetched Trellis state and Caddy has accepted the generated configuration
 
-The proxy job is managed infrastructure — it appears in the Bower UI but is not shown as a user service.
+The proxy job is managed infrastructure — it appears in the Bower UI but is not shown as a user service. Bower writes an initial Caddy configuration containing the known hostnames and TLS settings before route discovery succeeds. Until healthy upstreams are discovered, those routes return `503 No healthy upstream allocations` rather than a generic HTTP 200 placeholder, so HTTPS can initialize without making a broken proxy look ready.
 
 ## TLS
 
