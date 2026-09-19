@@ -10,6 +10,9 @@ function authLines(route) {
       `    forward_auth ${route.authOrigin} {`,
       `      uri /api/route-auth/verify/${route.id}`,
       '      header_up Host {upstream_hostport}',
+      '      header_up X-Bower-Forwarded-Host {http.request.host}',
+      '      header_up X-Bower-Forwarded-Uri {uri}',
+      '      header_up X-Bower-Forwarded-Proto {scheme}',
       '    }',
     ]
   }
