@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { renderBootstrapCaddyfile } from '../../proxy/config.mjs'
 import { and, eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { environments, managedProxies, projects, routes, services, serviceConfigs } from '@/db/schema'
@@ -45,7 +46,11 @@ export async function syncManagedProxy(projectId: string, environmentId: string,
   const httpPort = proxyPort('BOWER_PROXY_HTTP_PORT', 80)
   const httpsPort = proxyPort('BOWER_PROXY_HTTPS_PORT', 443)
   const adminPort = 20_000 + (parseInt(createHash('sha256').update(environment.id).digest('hex').slice(0, 4), 16) % 10_000)
-  const caddyfile = `{\n  admin 0.0.0.0:${adminPort}\n  http_port ${httpPort}\n  https_port ${httpsPort}\n}\n\n:${httpPort} {\n  respond "Bower proxy is discovering routes" 200\n}`
+  const caddyfile = renderBootstrapCaddyfile(controllerRoutes, {
+    adminPort: String(adminPort),
+    httpPort: String(httpPort),
+    httpsPort: String(httpsPort),
+  })
   const hash = createHash('sha256').update(JSON.stringify(controllerRoutes)).digest('hex')
   const secretName = 'BOWER_CADDYFILE'
   await client.setSecret(environment.trellisNamespace, secretName, caddyfile)
