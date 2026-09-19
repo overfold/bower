@@ -62,7 +62,7 @@ export function renderCaddyfile(routes, allocations, { adminPort = '2019', httpP
     }
     lines.push('}'); return lines.join('\n')
   })
-  return `{\n  admin 0.0.0.0:${adminPort}\n  http_port ${httpPort}\n  https_port ${httpsPort}\n}\n\n${blocks.length ? blocks.join('\n\n') : `:${httpPort} {\n  respond "Bower proxy ready" 200\n}`}`
+  return `{\n  admin 127.0.0.1:${adminPort}\n  http_port ${httpPort}\n  https_port ${httpsPort}\n}\n\n${blocks.length ? blocks.join('\n\n') : `:${httpPort} {\n  respond "Bower proxy ready" 200\n}`}`
 }
 
 
