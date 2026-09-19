@@ -75,7 +75,8 @@ export async function syncManagedProxy(projectId: string, environmentId: string,
       }, {
         name: 'route-sync', image: process.env.BOWER_PROXY_SYNC_IMAGE || 'ghcr.io/overfold/bower-proxy-sync:latest',
         resources: { cpu: 50, memory: 67108864 }, networking: { mode: 'host' },
-        env: { BOWER_ROUTES: JSON.stringify(controllerRoutes), CADDY_ADMIN_URL: `http://127.0.0.1:${adminPort}/load`, CADDY_ADMIN_PORT: String(adminPort), CADDY_HTTP_PORT: String(httpPort), CADDY_HTTPS_PORT: String(httpsPort), BOWER_SYNC_INTERVAL: '5' },
+        env: { BOWER_ROUTES: JSON.stringify(controllerRoutes), CADDY_ADMIN_URL: `http://127.0.0.1:${adminPort}/load`, CADDY_ADMIN_PORT: String(adminPort), CADDY_HTTP_PORT: String(httpPort), CADDY_HTTPS_PORT: String(httpsPort), BOWER_SYNC_INTERVAL: '5', BOWER_SYNC_HEALTH_MAX_AGE: '15' },
+        health_check: { type: 'script', command: ['/usr/local/bin/node', '/app/healthcheck.mjs'], interval: 5_000_000_000, timeout: 2_000_000_000, threshold: 2 },
       }],
     }],
   }
