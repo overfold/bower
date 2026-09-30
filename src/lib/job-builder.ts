@@ -249,19 +249,14 @@ function buildUpdateStrategy(
 ): TrellisUpdateStrategy | null {
   switch (config.deploymentStrategy) {
     case 'rolling':
-      return config.replicas >= 2
-        ? { strategy: 'rolling', max_parallel: 1 }
-        : { strategy: 'recreate' }
+      return { strategy: 'rolling', max_parallel: 1 }
     case 'recreate':
       return { strategy: 'recreate' }
     case 'blue_green':
     case 'canary':
-      // blue-green and canary are orchestrated at the Bower level;
-      // the underlying Trellis job still has to satisfy Trellis's rule that
-      // rolling updates require at least two desired allocations.
-      return config.replicas >= 2
-        ? { strategy: 'rolling', max_parallel: 1 }
-        : { strategy: 'recreate' }
+      // Bower orchestrates traffic between separate jobs. Updates within each
+      // job use rolling, even at count 1; Trellis can surge one replacement.
+      return { strategy: 'rolling', max_parallel: 1 }
     default:
       return null
   }

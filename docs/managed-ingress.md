@@ -58,10 +58,10 @@ The sync agent reads the `trellis/weight` label on allocations and passes the va
 
 ## Overriding proxy images
 
-The proxy images are published alongside Bower releases. Override them when pulling from a private registry:
+The release workflow publishes `ghcr.io/overfold/bower-proxy` (Caddy) and `ghcr.io/overfold/bower-proxy-sync` (route-sync) alongside Bower, with matching release tags and `latest`. These are also the runtime and `.env.example` defaults. Override them when pulling from a private registry:
 
 ```bash
-BOWER_CADDY_IMAGE=registry.example.com/bower-caddy:latest
+BOWER_CADDY_IMAGE=registry.example.com/bower-proxy:latest
 BOWER_PROXY_SYNC_IMAGE=registry.example.com/bower-proxy-sync:latest
 ```
 

@@ -76,11 +76,11 @@ export function CreateServiceDialog({ projectSlug }: { projectSlug: string }) {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="cpu">CPU (millicores)</Label>
-                <Input id="cpu" name="cpu" type="number" defaultValue={100} min={0} required />
+                <Input id="cpu" name="cpu" type="number" defaultValue={100} min={1} step={1} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="memory">Memory (MB)</Label>
-                <Input id="memory" name="memory" type="number" defaultValue={128} min={0} required />
+                <Input id="memory" name="memory" type="number" defaultValue={128} min={1 / 1048576} step="any" required />
               </div>
             </div>
             <Button variant="primary" type="submit" className="w-full" disabled={loading}>

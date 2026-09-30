@@ -13,6 +13,7 @@ import { syncManagedProxy } from '@/lib/managed-proxy'
 import { createDeploymentSpec, notifyDeployment, recordDeploymentEvent } from '@/lib/deployment-runtime'
 import { reconcileProjectDeployments } from '@/lib/deployment-reconciler'
 import type { TrellisExecSession, TrellisExecSessionOutput, TrellisJobSpec } from '@/types/trellis'
+import { parseDeploymentStrategy, parseResourceInputs, positiveInteger } from '@/lib/service-config-input'
 
 type Trigger = 'manual' | 'webhook' | 'rollback' | 'auto_rollback'
 
@@ -72,14 +73,20 @@ export async function createServiceAction(projectSlug: string, formData: FormDat
   if (!name || !image) return { error: 'Name and image are required.' }
   const slug = slugify(name); const [duplicate] = await db.select().from(services).where(and(eq(services.projectId, project.id), eq(services.slug, slug))).limit(1)
   if (duplicate) return { error: 'A service with this name already exists.' }
-  const cpu = Number(formData.get('cpu')) || 100
-  const memoryMB = Number(formData.get('memory')) || 128
-  const memory = memoryMB * 1048576
-  const strategy = (String(formData.get('strategy') ?? '') || 'recreate') as 'rolling' | 'recreate' | 'blue_green' | 'canary'
-  const replicas = Number(formData.get('replicas'))
+  let resources: ReturnType<typeof parseResourceInputs>
+  let strategy: ReturnType<typeof parseDeploymentStrategy>
+  let replicas: number | null
+  try {
+    resources = parseResourceInputs(String(formData.get('cpu') ?? '100'), String(formData.get('memory') ?? '128'))
+    strategy = parseDeploymentStrategy(String(formData.get('strategy') ?? 'recreate'))
+    replicas = formData.has('replicas') ? positiveInteger(Number(formData.get('replicas')), 'Replicas') : null
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Invalid workload configuration.' }
+  }
+  const { cpu, memory } = resources
   const [service] = await db.insert(services).values({ projectId: project.id, name, slug }).returning()
   const environment = await getProjectEnvironment(project.id)
-  const baseReplicas = Number.isInteger(replicas) && replicas >= 1 ? replicas : 1
+  const baseReplicas = replicas ?? 1
   await db.insert(baseServiceConfigs).values({
     serviceId: service.id, image, replicas: baseReplicas, cpu, memory,
     resourceTier: (environment?.resourceTier ?? 'small') as 'small' | 'medium' | 'large' | 'xl' | 'custom',
@@ -87,7 +94,7 @@ export async function createServiceAction(projectSlug: string, formData: FormDat
   })
   if (environment) await db.insert(serviceConfigs).values({
     serviceId: service.id, environmentId: environment.id, image,
-    replicas: Number.isInteger(replicas) && replicas >= 1 ? replicas : Math.max(1, environment.defaultReplicas),
+    replicas: replicas ?? Math.max(1, environment.defaultReplicas),
     cpu, memory,
     resourceTier: environment.resourceTier as 'small' | 'medium' | 'large' | 'xl' | 'custom',
     deploymentStrategy: strategy,

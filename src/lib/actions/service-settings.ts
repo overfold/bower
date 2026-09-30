@@ -9,18 +9,7 @@ import { getBaseServiceConfig } from '@/lib/queries'
 import { recordAudit, requireService } from '@/lib/actions/shared'
 import type { BowerSecretBinding } from '@/lib/job-builder'
 import type { TrellisApiAccess, TrellisRuntime } from '@/types/trellis'
-
-function parseLines(value: string) {
-  const result: Record<string, string> = {}
-  for (const line of value.split('\n').map((item) => item.trim()).filter(Boolean)) {
-    const split = line.indexOf('=')
-    if (split < 1) throw new Error(`Invalid key/value line: ${line}`)
-    const key = line.slice(0, split).trim()
-    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) throw new Error(`Invalid environment variable name: ${key}`)
-    result[key] = line.slice(split + 1).trim()
-  }
-  return result
-}
+import { parseKeyValueLines } from '@/lib/service-config-input'
 
 function parseJson<T>(formData: FormData, key: string, fallback: T): T {
   const raw = String(formData.get(key) ?? '').trim()
@@ -301,7 +290,7 @@ export async function updateServiceEnvironmentOverridesAction(serviceId: string,
   )).limit(1)
   if (!environment) throw new Error('Environment not found.')
 
-  const envVars = parseLines(String(formData.get('envVars') ?? ''))
+  const envVars = parseKeyValueLines(String(formData.get('envVars') ?? ''), 'env')
   const secretBindings = normalizeSecretBindings(parseJson<unknown[]>(formData, 'secretBindings', []))
   const environmentEnv = environment.envVars && typeof environment.envVars === 'object' && !Array.isArray(environment.envVars)
     ? environment.envVars as Record<string, string>

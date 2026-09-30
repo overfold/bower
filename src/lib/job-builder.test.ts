@@ -32,9 +32,28 @@ test('defaults unqualified container images to Docker Hub', () => {
   assert.equal(normalizeContainerImage('localhost:5000/acme/api:v2'), 'localhost:5000/acme/api:v2')
 })
 
-test('one-replica rolling deployments use a Trellis-valid recreate strategy', () => {
-  const group = buildJobSpec({ ...base, replicas: 1 }).task_groups[0]
-  assert.deepEqual(group.update, { strategy: 'recreate' })
-  const canaryGroup = buildJobSpec({ ...base, replicas: 1, deploymentStrategy: 'canary' }).task_groups[0]
-  assert.deepEqual(canaryGroup.update, { strategy: 'recreate' })
+test('rolling and Bower-orchestrated strategies retain rolling within jobs at any replica count', () => {
+  for (const deploymentStrategy of ['rolling', 'blue_green', 'canary'] as const) {
+    for (const replicas of [1, 4]) {
+      const group = buildJobSpec({ ...base, replicas, deploymentStrategy }).task_groups[0]
+      assert.equal(group.count, replicas)
+      assert.deepEqual(group.update, { strategy: 'rolling', max_parallel: 1 })
+    }
+  }
+})
+
+test('explicit recreate remains recreate, even when rolling could be used', () => {
+  for (const replicas of [1, 4]) {
+    const group = buildJobSpec({ ...base, replicas, deploymentStrategy: 'recreate' }).task_groups[0]
+    assert.deepEqual(group.update, { strategy: 'recreate' })
+  }
+})
+
+test('preserves Bower health and restart defaults and converts asymmetric health inputs to nanoseconds', () => {
+  const group = buildJobSpec({ ...base, healthCheckInterval: undefined, healthCheckTimeout: undefined, healthCheckThreshold: undefined }).task_groups[0]
+  assert.deepEqual(group.restart, { max_restarts: 3, window: 300_000_000_000 })
+  assert.deepEqual(group.tasks[0].health_check, { type: 'http', port: 9090, path: '/ready', interval: 10_000_000_000, timeout: 2_000_000_000, threshold: 3 })
+  assert.deepEqual(buildJobSpec(base).task_groups[0].tasks[0].health_check, {
+    type: 'http', port: 9090, path: '/ready', interval: 7_000_000_000, timeout: 3_000_000_000, threshold: 4,
+  })
 })

@@ -31,7 +31,7 @@ export function ConfigurationForm({ serviceId, environmentId, config }: Configur
     image: config?.image ?? '',
     replicas: config?.replicas ?? 1,
     cpu: config?.cpu ?? 100,
-    memory: config ? Math.round(config.memory / 1048576) : 128,
+    memory: config ? config.memory / 1048576 : 128,
     deploymentStrategy: config?.deploymentStrategy ?? 'rolling',
     healthCheckPath: config?.healthCheckPath ?? '',
     healthCheckType: config?.healthCheckType ?? '',
@@ -111,11 +111,11 @@ export function ConfigurationForm({ serviceId, environmentId, config }: Configur
         <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="cpu">CPU (millicores)</Label>
-            <Input id="cpu" name="cpu" type="number" defaultValue={d.cpu} min={0} required />
+            <Input id="cpu" name="cpu" type="number" defaultValue={d.cpu} min={1} step={1} required />
           </div>
           <div className="space-y-2">
             <Label htmlFor="memory">Memory (MB)</Label>
-            <Input id="memory" name="memory" type="number" defaultValue={d.memory} min={0} required />
+            <Input id="memory" name="memory" type="number" defaultValue={d.memory} min={1 / 1048576} step="any" required />
           </div>
         </div>
       </Panel>
@@ -166,9 +166,9 @@ export function ConfigurationForm({ serviceId, environmentId, config }: Configur
           {healthType && (
             <>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div className="space-y-2"><Label htmlFor="healthInterval">Check interval (seconds)</Label><Input id="healthInterval" name="healthInterval" type="number" min={0} defaultValue={d.healthCheckInterval} /></div>
-              <div className="space-y-2"><Label htmlFor="healthTimeout">Check timeout (seconds)</Label><Input id="healthTimeout" name="healthTimeout" type="number" min={0} defaultValue={d.healthCheckTimeout} /></div>
-              <div className="space-y-2"><Label htmlFor="healthThreshold">Failure threshold</Label><Input id="healthThreshold" name="healthThreshold" type="number" min={0} defaultValue={d.healthCheckThreshold} /></div>
+              <div className="space-y-2"><Label htmlFor="healthInterval">Check interval (seconds)</Label><Input id="healthInterval" name="healthInterval" type="number" min={1} step={1} defaultValue={d.healthCheckInterval} /></div>
+              <div className="space-y-2"><Label htmlFor="healthTimeout">Check timeout (seconds)</Label><Input id="healthTimeout" name="healthTimeout" type="number" min={1} step={1} defaultValue={d.healthCheckTimeout} /></div>
+              <div className="space-y-2"><Label htmlFor="healthThreshold">Failure threshold</Label><Input id="healthThreshold" name="healthThreshold" type="number" min={1} step={1} defaultValue={d.healthCheckThreshold} /></div>
             </div>
 
             <div className="space-y-2">
