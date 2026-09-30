@@ -25,8 +25,11 @@ COPY --from=builder --chown=bower:bower /app/.next/standalone ./
 COPY --from=builder --chown=bower:bower /app/.next/static ./.next/static
 COPY --from=builder --chown=bower:bower /app/drizzle ./drizzle
 COPY --from=builder --chown=bower:bower /app/entrypoint.sh ./entrypoint.sh
+COPY --from=builder --chown=bower:bower /app/exec ./exec
+COPY --from=builder --chown=bower:bower /app/node_modules/ws ./node_modules/ws
+COPY --from=builder --chown=bower:bower /app/node_modules/@next/env ./node_modules/@next/env
 RUN chmod +x entrypoint.sh
 
 USER bower
 EXPOSE 3000
-CMD ["./entrypoint.sh"]
+CMD ["./entrypoint.sh", "exec/server.mjs"]

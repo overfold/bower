@@ -263,33 +263,6 @@ export interface TrellisAllocationMetrics {
   collected_at: string // ISO 8601
 }
 
-// -- Exec -------------------------------------------------------------------
-
-export interface TrellisExecResponse {
-  stdout: string
-  stderr: string
-  exit_code: number
-}
-
-export interface TrellisExecSessionCreateRequest {
-  task?: string
-  command: string[]
-  term?: string
-  cols?: number
-  rows?: number
-}
-
-export interface TrellisExecSession {
-  id: string
-}
-
-export interface TrellisExecSessionOutput {
-  data_base64?: string
-  next_offset: number
-  exited: boolean
-  exit_code?: number
-}
-
 // -- Cluster events (SSE) ---------------------------------------------------
 
 export type TrellisClusterEventType =

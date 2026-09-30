@@ -8,7 +8,7 @@ export function normalizeTrellisAddress(address) {
   return `https://${value}`
 }
 
-export function buildTrellisRequest(address, path, { token, namespace, caCert = '' }) {
+export function buildTrellisRequest(address, path, { token, caCert = '' }) {
   const base = normalizeTrellisAddress(address)
   if (!base) throw new Error('TRELLIS_ADDR is required.')
 
@@ -21,7 +21,6 @@ export function buildTrellisRequest(address, path, { token, namespace, caCert = 
     method: 'GET',
     headers: {
       authorization: `Bearer ${token}`,
-      'x-trellis-namespace': namespace,
       accept: 'application/json',
     },
   }

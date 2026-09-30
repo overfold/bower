@@ -9,6 +9,8 @@ import {
   getAuditLog,
 } from '@/lib/queries'
 import { getTrellisClient } from '@/lib/trellis-instance'
+import { trellisReadError } from '@/lib/trellis-runtime'
+import { TrellisReadError } from '@/components/trellis-read-error'
 import { parseNodeAllocatedResources } from '@/lib/trellis-resource-metrics'
 import { PageHeading } from '@/components/page-heading'
 import { Panel, PanelHeader } from '@/components/ui/panel'
@@ -100,18 +102,24 @@ export default async function DashboardPage() {
   let allocations: TrellisAllocation[] = []
   let allocatedByNode = new Map<string, { cpu: number; memory: number }>()
   let clusterError: string | null = null
+  let allocationsError: string | null = null
+  let metricsError: string | null = null
   try {
     const client = await getTrellisClient(orgCtx.org.id)
-    const [listedNodes, listedAllocations, metrics] = await Promise.all([
+    const [listedNodes, listedAllocations, metrics] = await Promise.allSettled([
       client.listNodes(),
       client.listAllocations(),
       client.getMetrics(),
     ])
-    nodes = listedNodes
-    allocations = listedAllocations
-    allocatedByNode = parseNodeAllocatedResources(metrics)
-  } catch {
-    clusterError = 'Not configured'
+    if (listedNodes.status === 'fulfilled') nodes = listedNodes.value
+    else clusterError = trellisReadError(listedNodes.reason)
+    if (listedAllocations.status === 'fulfilled') allocations = listedAllocations.value
+    else allocationsError = trellisReadError(listedAllocations.reason)
+    if (metrics.status === 'fulfilled') allocatedByNode = parseNodeAllocatedResources(metrics.value)
+    else metricsError = trellisReadError(metrics.reason)
+  } catch (error) {
+    clusterError = allocationsError = metricsError = !orgCtx.org.trellisApiUrl || !orgCtx.org.trellisApiToken
+      ? 'Trellis is not configured. Set the connection in organization settings.' : trellisReadError(error)
   }
 
   const healthyNodes = nodes.filter((n) => n.status === 'healthy').length
@@ -145,7 +153,8 @@ export default async function DashboardPage() {
 
       <DashboardStatsBar
         allocations={allocations}
-        clusterAvailable={!clusterError}
+        clusterAvailable={!allocationsError}
+        capacityAvailable={!clusterError && !metricsError}
         capacity={{
           cpuAllocated: allocatedCpu,
           cpuTotal: totalCpu,
@@ -157,6 +166,11 @@ export default async function DashboardPage() {
           status: row.deployment.status,
         }))}
       />
+      {(clusterError || allocationsError || metricsError) && <Panel>
+        {clusterError && <TrellisReadError title="Nodes unavailable" message={clusterError} />}
+        {allocationsError && <TrellisReadError title="Allocations unavailable" message={allocationsError} />}
+        {metricsError && <TrellisReadError title="Capacity data unavailable" message={metricsError} />}
+      </Panel>}
 
       {/* Active deployments alert */}
       {hasActive && (
@@ -295,7 +309,7 @@ export default async function DashboardPage() {
                   </Chip>
                 }
               />
-              <div className="space-y-3 px-4 py-3.5">
+              {metricsError ? <TrellisReadError title="Capacity data unavailable" message={metricsError} /> : <div className="space-y-3 px-4 py-3.5">
                 <div className="flex items-center justify-between gap-4">
                   <span className="text-[13px] text-ink-soft">CPU allocated</span>
                   <span className="flex items-center gap-3">
@@ -314,7 +328,7 @@ export default async function DashboardPage() {
                     <Meter value={memPct} label="Cluster memory allocated" />
                   </span>
                 </div>
-              </div>
+              </div>}
               <ul className="divide-y divide-line border-t border-line">
                 {nodes.map((node) => (
                   <li key={node.id} className="flex items-center justify-between gap-3 px-4 py-2.5">

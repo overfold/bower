@@ -8,6 +8,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { getUserOrganization } from '@/lib/queries'
 import { getTrellisClient } from '@/lib/trellis-instance'
 import { recordAudit, requireProject } from './shared'
+import { cleanupTrellisResources } from '@/lib/trellis-cleanup'
 
 function slugify(name: string): string {
   return name
@@ -159,7 +160,11 @@ export async function deleteProjectAction(
     }
   }
 
-  await Promise.allSettled(cleanup)
+  try {
+    await cleanupTrellisResources(cleanup)
+  } catch {
+    return { error: 'Trellis cleanup failed. The project was not deleted. Check connectivity and permissions, then retry.' }
+  }
 
   await db
     .delete(projects)

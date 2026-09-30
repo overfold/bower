@@ -1,40 +1,21 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { FitAddon } from '@xterm/addon-fit'
 import { Terminal as XTerm } from '@xterm/xterm'
 import { Terminal } from 'lucide-react'
-import {
-  closeExecSessionAction,
-  readExecSessionAction,
-  resizeExecSessionAction,
-  startExecSessionAction,
-  writeExecSessionAction,
-} from '@/lib/actions/services'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 type TerminalStatus = 'idle' | 'connecting' | 'connected' | 'exited' | 'error'
 
-function stringToBase64(value: string) {
-  const bytes = new TextEncoder().encode(value)
-  let binary = ''
-  for (const byte of bytes) binary += String.fromCharCode(byte)
-  return btoa(binary)
-}
-
-function base64ToBytes(value: string) {
-  const binary = atob(value)
-  const bytes = new Uint8Array(binary.length)
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index)
-  }
-  return bytes
-}
-
-function wait(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
+function frame(type: number, payload: Uint8Array = new Uint8Array()) {
+  const result = new Uint8Array(5 + payload.length)
+  result[0] = type
+  new DataView(result.buffer).setUint32(1, payload.length)
+  result.set(payload, 5)
+  return result
 }
 
 export function ExecDialog({
@@ -50,16 +31,17 @@ export function ExecDialog({
   const [selectedTask, setSelectedTask] = useState(tasks[0] ?? '')
   const [status, setStatus] = useState<TerminalStatus>('idle')
   const [error, setError] = useState<string | null>(null)
-  const terminalElementRef = useRef<HTMLDivElement | null>(null)
-  const sessionIdRef = useRef<string | null>(null)
+  const [terminalElement, setTerminalElement] = useState<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    if (!open || !terminalElementRef.current) return
+    // The animated portal mounts after open changes. Start on actual mount,
+    // not the render that merely requests an open dialog.
+    if (!open || !terminalElement) return
 
     let active = true
     let resizeTimer: ReturnType<typeof setTimeout> | null = null
     let lastSize = { cols: 0, rows: 0 }
-    const element = terminalElementRef.current
+    const element = terminalElement
     const fitAddon = new FitAddon()
     const terminal = new XTerm({
       cursorBlink: true,
@@ -106,126 +88,102 @@ export function ExecDialog({
 
     fit()
     terminal.focus()
-    setStatus('connecting')
-    setError(null)
 
-    let pendingInput = ''
-    let writingInput = false
-
-    async function flushInput() {
-      if (writingInput || !active || !sessionIdRef.current || !pendingInput) return
-      const sessionId = sessionIdRef.current
-      const chunk = pendingInput
-      pendingInput = ''
-      writingInput = true
-      try {
-        await writeExecSessionAction(serviceConfigId, allocationId, sessionId, stringToBase64(chunk))
-      } catch (reason) {
-        if (active) {
-          setStatus('error')
-          setError(reason instanceof Error ? reason.message : 'Failed to send terminal input.')
-        }
-      } finally {
-        writingInput = false
-        if (active && pendingInput) void flushInput()
-      }
+    const url = new URL('/api/exec/stream', window.location.href)
+    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+    url.search = new URLSearchParams({ serviceConfigId, allocationId, task: selectedTask,
+      cols: String(Math.min(Math.max(terminal.cols, 1), 1000)), rows: String(Math.min(Math.max(terminal.rows, 1), 1000)) }).toString()
+    const socket = new WebSocket(url)
+    socket.binaryType = 'arraybuffer'
+    let finished = false
+    const fail = (message: string) => {
+      if (!active || finished) return
+      finished = true
+      setStatus('error')
+      setError(message)
+      socket.close()
     }
-
-    const dataDisposable = terminal.onData((data) => {
-      if (!sessionIdRef.current || !active) return
-      pendingInput += data
-      void flushInput()
-    })
+    const send = (type: number, payload: Uint8Array = new Uint8Array()) => {
+      if (!active || finished || socket.readyState !== WebSocket.OPEN) return
+      // Browser WebSockets cannot await drain. Bound queued input rather than
+      // retaining an arbitrarily large paste while Trellis is blocked.
+      if (socket.bufferedAmount + payload.length + 5 > 128 * 1024) {
+        fail('Terminal input buffer exceeded; reconnect and send smaller input.')
+        return
+      }
+      socket.send(frame(type, payload))
+    }
+    const encoder = new TextEncoder()
+    const writeInput = (bytes: Uint8Array) => {
+      for (let offset = 0; offset < bytes.length; offset += 32768) send(1, bytes.subarray(offset, offset + 32768))
+    }
+    const dataDisposable = terminal.onData((data) => writeInput(encoder.encode(data)))
+    const binaryDisposable = terminal.onBinary((data) => writeInput(Uint8Array.from(data, (char) => char.charCodeAt(0))))
+    socket.onopen = () => {
+      if (!active) { socket.close(); return }
+      setStatus('connected')
+      terminal.focus()
+      fit()
+      send(3, encoder.encode(JSON.stringify({ cols: Math.min(terminal.cols, 1000), rows: Math.min(terminal.rows, 1000) })))
+    }
+    socket.onmessage = (event: MessageEvent<ArrayBuffer>) => {
+      if (!active || finished) return
+      try {
+        const bytes = new Uint8Array(event.data)
+        if (bytes.length < 5 || bytes.length > 32773 || new DataView(event.data).getUint32(1) !== bytes.length - 5) throw new Error('Malformed terminal frame')
+        const type = bytes[0]
+        const payload = bytes.subarray(5)
+        if (type === 4 || type === 5) {
+          // xterm preserves raw bytes and split UTF-8 sequences. Acknowledging
+          // only after rendering bounds output all the way back to Trellis.
+          terminal.write(payload, () => send(8))
+        } else {
+          const result = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(payload))
+          if (type === 6 && Number.isInteger(result.exit_code)) {
+            finished = true
+            terminal.write(`\r\n\x1b[90m[process exited with code ${result.exit_code}]\x1b[0m\r\n`)
+            setStatus('exited')
+            socket.close()
+          } else if ((type === 7 || type === 10) && typeof result.message === 'string') {
+            fail(`${type === 7 ? 'Exec error' : 'Connection error'}: ${result.message}`)
+          } else throw new Error('Unexpected terminal frame')
+        }
+      } catch (reason) { fail(reason instanceof Error ? reason.message : 'Terminal stream failed') }
+    }
+    socket.onerror = () => fail('Unable to open terminal. Check permissions and Trellis connectivity.')
+    socket.onclose = () => fail('Terminal disconnected without an exit status.')
+    const disconnect = () => socket.close()
+    window.addEventListener('pagehide', disconnect)
 
     const resizeObserver = new ResizeObserver(() => {
       if (!active) return
       fit()
-      const sessionId = sessionIdRef.current
-      if (!sessionId || terminal.cols < 1 || terminal.rows < 1) return
-      if (terminal.cols === lastSize.cols && terminal.rows === lastSize.rows) return
-      lastSize = { cols: terminal.cols, rows: terminal.rows }
+      if (terminal.cols < 1 || terminal.rows < 1) return
+      const cols = Math.min(terminal.cols, 1000)
+      const rows = Math.min(terminal.rows, 1000)
+      if (cols === lastSize.cols && rows === lastSize.rows) return
+      lastSize = { cols, rows }
       if (resizeTimer) clearTimeout(resizeTimer)
-      resizeTimer = setTimeout(() => {
-        if (!active || !sessionIdRef.current) return
-        void resizeExecSessionAction(
-          serviceConfigId,
-          allocationId,
-          sessionIdRef.current,
-          lastSize.cols,
-          lastSize.rows,
-        ).catch(() => undefined)
-      }, 120)
+      resizeTimer = setTimeout(() => send(3, encoder.encode(JSON.stringify(lastSize))), 120)
     })
     resizeObserver.observe(element)
-
-    async function start() {
-      try {
-        fit()
-        const session = await startExecSessionAction(
-          serviceConfigId,
-          allocationId,
-          selectedTask || undefined,
-          Math.max(terminal.cols, 1),
-          Math.max(terminal.rows, 1),
-        )
-        if (!active) {
-          await closeExecSessionAction(serviceConfigId, allocationId, session.id).catch(() => undefined)
-          return
-        }
-
-        sessionIdRef.current = session.id
-        lastSize = { cols: terminal.cols, rows: terminal.rows }
-        setStatus('connected')
-        terminal.focus()
-
-        let offset = 0
-        while (active && sessionIdRef.current === session.id) {
-          const output = await readExecSessionAction(serviceConfigId, allocationId, session.id, offset)
-          if (!active || sessionIdRef.current !== session.id) break
-
-          if (output.data_base64) terminal.write(base64ToBytes(output.data_base64))
-          offset = output.next_offset
-
-          if (output.exited) {
-            const code = output.exit_code
-            terminal.write(`\r\n\x1b[90m[process exited${code === undefined ? '' : ` with code ${code}`}]\x1b[0m\r\n`)
-            setStatus('exited')
-            sessionIdRef.current = null
-            await closeExecSessionAction(serviceConfigId, allocationId, session.id).catch(() => undefined)
-            break
-          }
-
-          await wait(output.data_base64 ? 30 : 120)
-        }
-      } catch (reason) {
-        if (!active) return
-        setStatus('error')
-        setError(reason instanceof Error ? reason.message : 'Unable to open an interactive terminal.')
-      }
-    }
-
-    void start()
 
     return () => {
       active = false
       dataDisposable.dispose()
+      binaryDisposable.dispose()
       resizeObserver.disconnect()
       if (resizeTimer) clearTimeout(resizeTimer)
-      const sessionId = sessionIdRef.current
-      sessionIdRef.current = null
-      if (sessionId) {
-        void closeExecSessionAction(serviceConfigId, allocationId, sessionId).catch(() => undefined)
-      }
+      window.removeEventListener('pagehide', disconnect)
+      socket.close()
       terminal.dispose()
     }
-  }, [allocationId, open, selectedTask, serviceConfigId])
+  }, [allocationId, open, selectedTask, serviceConfigId, terminalElement])
 
   function handleOpenChange(nextOpen: boolean) {
     setOpen(nextOpen)
-    if (!nextOpen) {
-      setStatus('idle')
-      setError(null)
-    }
+    setStatus(nextOpen ? 'connecting' : 'idle')
+    setError(null)
   }
 
   return (
@@ -244,7 +202,11 @@ export function ExecDialog({
           {tasks.length > 1 && (
             <div className="flex items-center justify-between gap-3">
               <span className="text-xs font-medium text-ink-soft">Task</span>
-              <Select value={selectedTask} onValueChange={setSelectedTask}>
+              <Select value={selectedTask} onValueChange={(task) => {
+                setSelectedTask(task)
+                setStatus('connecting')
+                setError(null)
+              }}>
                 <SelectTrigger className="h-8 w-48 font-mono text-xs">
                   <SelectValue />
                 </SelectTrigger>
@@ -260,10 +222,10 @@ export function ExecDialog({
           )}
           <div
             className="overflow-hidden rounded-md border border-line-strong bg-[#0b1113] p-2"
-            onMouseDown={() => terminalElementRef.current?.focus()}
+            onMouseDown={() => terminalElement?.querySelector('textarea')?.focus()}
           >
             <div
-              ref={terminalElementRef}
+              ref={setTerminalElement}
               className="h-[420px] min-h-[280px] w-full"
               aria-label="Interactive allocation terminal"
             />

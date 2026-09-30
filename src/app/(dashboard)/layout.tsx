@@ -8,6 +8,7 @@ import { HeaderBar } from '@/components/header-bar'
 import { PageTransition } from '@/components/page-transition'
 import { FeedbackProvider, PageBanner } from '@/components/ui/feedback'
 import { getTrellisClient } from '@/lib/trellis-instance'
+import { trellisReadError } from '@/lib/trellis-runtime'
 
 export default async function DashboardLayout({
   children,
@@ -37,7 +38,7 @@ export default async function DashboardLayout({
     const client = await getTrellisClient(orgCtx.org.id)
     await client.listNodes()
   } catch (error) {
-    trellisError = error instanceof Error ? error.message : 'Trellis could not be reached.'
+    trellisError = trellisReadError(error)
   }
 
   const orgs = allOrgs.map((entry) => ({

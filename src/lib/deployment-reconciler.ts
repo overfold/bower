@@ -29,7 +29,8 @@ export async function reconcileProjectDeployments(projectId: string, orgId: stri
     if (!env || !config) continue
     try {
       const jobName = deployment.trellisJobName || item.serviceSlug
-      const allocations = await client.listAllocations({ namespace: env.trellisNamespace, job: jobName })
+      const allocations = (await client.listAllocations({ namespace: env.trellisNamespace, job: jobName }))
+        .filter((allocation) => allocation.namespace === env.trellisNamespace && allocation.job === jobName)
       const latestRevision = allocations.length ? Math.max(...allocations.map((allocation) => allocation.job_revision)) : 0
       const currentAllocations = allocations.filter((allocation) => allocation.job_revision === latestRevision && allocation.phase !== 'stopped')
       const failed = currentAllocations.some((allocation) => allocation.phase === 'failed' || allocation.phase === 'lost' || allocation.health === 'unhealthy')

@@ -2,6 +2,9 @@ import { redirect, notFound } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { getUserOrganization, getProjectBySlug, getProjectEnvironment, getServiceBySlug, getServiceConfigsWithEnvironments } from '@/lib/queries'
 import { getTrellisClient } from '@/lib/trellis-instance'
+import { getProjectRole } from '@/lib/actions/shared'
+import { trellisReadError } from '@/lib/trellis-runtime'
+import { TrellisReadError } from '@/components/trellis-read-error'
 import { Panel, SectionTitle } from '@/components/ui/panel'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -17,6 +20,7 @@ export default async function RevisionsPage({ params }: { params: Promise<{ slug
   if (!orgCtx) redirect('/login')
   const project = await getProjectBySlug(orgCtx.org.id, slug)
   if (!project) notFound()
+  if (!await getProjectRole(user.id, orgCtx.role, project.id)) notFound()
   const service = await getServiceBySlug(project.id, serviceSlug)
   if (!service) notFound()
 
@@ -28,12 +32,13 @@ export default async function RevisionsPage({ params }: { params: Promise<{ slug
   const activeConfig = configs.find((row) => row.environment.id === environment.id)
 
   let revisions: TrellisJobRevision[] = []
+  let historyError: string | null = null
   if (activeConfig) {
     try {
       const client = await getTrellisClient(orgCtx.org.id)
       revisions = await client.getJobRevisions(activeConfig.config.activeJobName || service.slug, activeConfig.environment.trellisNamespace)
-    } catch {
-      // Trellis may be unreachable
+    } catch (error) {
+      historyError = trellisReadError(error)
     }
   }
 
@@ -54,7 +59,7 @@ export default async function RevisionsPage({ params }: { params: Promise<{ slug
             body="Configure this service before viewing deployment history."
           />
         </Panel>
-      ) : revisions.length === 0 ? (
+      ) : historyError ? <Panel><TrellisReadError title="History unavailable" message={historyError} /></Panel> : revisions.length === 0 ? (
         <Panel>
           <EmptyState
             icon={<History className="h-4 w-4" />}

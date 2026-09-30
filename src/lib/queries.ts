@@ -253,7 +253,7 @@ export async function getManagedProxies(projectId: string) {
 }
 
 export async function getManagedProxiesForOrg(orgId: string) {
-  return db.select({ proxy: managedProxies, environmentName: environments.name, projectName: projects.name }).from(managedProxies)
+  return db.select({ proxy: managedProxies, environmentName: environments.name, namespace: environments.trellisNamespace, projectName: projects.name }).from(managedProxies)
     .innerJoin(environments, eq(environments.id, managedProxies.environmentId))
     .innerJoin(projects, eq(projects.id, environments.projectId))
     .where(eq(projects.orgId, orgId)).orderBy(environments.createdAt)

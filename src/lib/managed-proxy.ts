@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto'
 import { renderBootstrapCaddyfile } from '../../proxy/config.mjs'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, ne } from 'drizzle-orm'
 import { db } from '@/db'
 import { environments, managedProxies, projects, routes, services, serviceConfigs } from '@/db/schema'
 import { getTrellisClient } from '@/lib/trellis-instance'
+import { cleanupTrellisResources } from '@/lib/trellis-cleanup'
 import type { TrellisJobSpec } from '@/types/trellis'
 
 function proxyPort(name: 'BOWER_PROXY_HTTP_PORT' | 'BOWER_PROXY_HTTPS_PORT', fallback: number) {
@@ -12,7 +13,7 @@ function proxyPort(name: 'BOWER_PROXY_HTTP_PORT' | 'BOWER_PROXY_HTTPS_PORT', fal
   return value
 }
 
-export async function syncManagedProxy(projectId: string, environmentId: string, orgId: string) {
+export async function syncManagedProxy(projectId: string, environmentId: string, orgId: string, removedServiceId?: string) {
   const [environment] = await db.select().from(environments).where(and(eq(environments.id, environmentId), eq(environments.projectId, projectId))).limit(1)
   const [project] = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1)
   if (!environment || !project) throw new Error('Proxy environment was not found.')
@@ -21,11 +22,13 @@ export async function syncManagedProxy(projectId: string, environmentId: string,
     .from(routes)
     .innerJoin(services, eq(services.id, routes.serviceId))
     .innerJoin(serviceConfigs, and(eq(serviceConfigs.serviceId, services.id), eq(serviceConfigs.environmentId, environmentId)))
-    .where(and(eq(routes.projectId, projectId), eq(routes.environmentId, environmentId)))
+    .where(and(eq(routes.projectId, projectId), eq(routes.environmentId, environmentId), removedServiceId ? ne(routes.serviceId, removedServiceId) : undefined))
   const client = await getTrellisClient(orgId)
   if (definitions.length === 0) {
-    await client.deleteJob('bower-proxy', environment.trellisNamespace).catch(() => undefined)
-    await client.deleteSecret(environment.trellisNamespace, 'BOWER_CADDYFILE').catch(() => undefined)
+    await cleanupTrellisResources([
+      client.deleteJob('bower-proxy', environment.trellisNamespace),
+      client.deleteSecret(environment.trellisNamespace, 'BOWER_CADDYFILE'),
+    ])
     await db.delete(managedProxies).where(eq(managedProxies.environmentId, environmentId))
     return
   }
@@ -85,7 +88,6 @@ export async function syncManagedProxy(projectId: string, environmentId: string,
     .onConflictDoUpdate({ target: managedProxies.environmentId, set: { status: 'pending', port: httpPort, configHash: hash, updatedAt: new Date() } })
   try {
     await client.applyJob(spec, environment.trellisNamespace)
-    await db.update(managedProxies).set({ status: 'running', updatedAt: new Date() }).where(eq(managedProxies.environmentId, environmentId))
   } catch (error) {
     await db.update(managedProxies).set({ status: 'error', updatedAt: new Date() }).where(eq(managedProxies.environmentId, environmentId))
     throw error

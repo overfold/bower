@@ -14,16 +14,16 @@ test('preserves explicit HTTP and HTTPS Trellis addresses', () => {
 
 test('uses the injected cluster CA for HTTPS requests', () => {
   const caCert = '-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----'
-  const { url, options } = buildTrellisRequest('trellis.internal:8128', '/v1/allocations', {
+  const { url, options } = buildTrellisRequest('trellis.internal:8128', '/v1/namespaces/production/allocations', {
     token: 'token',
-    namespace: 'production',
     caCert,
   })
 
-  assert.equal(url.href, 'https://trellis.internal:8128/v1/allocations')
+  assert.equal(url.href, 'https://trellis.internal:8128/v1/namespaces/production/allocations')
   assert.equal(options.ca, caCert)
   assert.equal(options.headers.authorization, 'Bearer token')
-  assert.equal(options.headers['x-trellis-namespace'], 'production')
+  assert.equal(options.headers['x-trellis-namespace'], undefined)
+  assert.equal(options.rejectUnauthorized, undefined)
 })
 
 test('does not attach a CA override to plaintext HTTP requests', () => {

@@ -12,7 +12,8 @@ import { recordAudit, requireProject, requireService } from '@/lib/actions/share
 import { syncManagedProxy } from '@/lib/managed-proxy'
 import { createDeploymentSpec, notifyDeployment, recordDeploymentEvent } from '@/lib/deployment-runtime'
 import { reconcileProjectDeployments } from '@/lib/deployment-reconciler'
-import type { TrellisExecSession, TrellisExecSessionOutput, TrellisJobSpec } from '@/types/trellis'
+import { cleanupTrellisResources } from '@/lib/trellis-cleanup'
+import type { TrellisJobSpec } from '@/types/trellis'
 import { parseDeploymentStrategy, parseResourceInputs, positiveInteger } from '@/lib/service-config-input'
 
 type Trigger = 'manual' | 'webhook' | 'rollback' | 'auto_rollback'
@@ -161,104 +162,20 @@ export async function restartServiceAction(serviceId: string, environmentId: str
   revalidatePath(`/projects/${access.project.slug}/services/${access.service.slug}`)
 }
 
-async function getExecSessionContext(serviceConfigId: string, allocationId?: string) {
-  const [row] = await db
-    .select({ config: serviceConfigs, environment: environments })
-    .from(serviceConfigs)
-    .innerJoin(environments, eq(environments.id, serviceConfigs.environmentId))
-    .where(eq(serviceConfigs.id, serviceConfigId))
-    .limit(1)
-  if (!row) throw new Error('Service configuration not found.')
-
-  const access = await requireService(row.config.serviceId)
-  if (access.projectRole === 'viewer') throw new Error('Insufficient permissions.')
-
-  const client = await getTrellisClient(access.org.id)
-  if (allocationId) {
-    const allocations = await client.listAllocations({ namespace: row.environment.trellisNamespace })
-    const knownJobs = new Set([access.service.slug, row.config.activeJobName].filter(Boolean) as string[])
-    const allocation = allocations.find((item) => (
-      item.id === allocationId
-      && (item.labels?.['bower/service'] === access.service.slug || knownJobs.has(item.job))
-    ))
-    if (!allocation) throw new Error('Allocation does not belong to this service environment.')
-  }
-
-  return { access, client, namespace: row.environment.trellisNamespace }
-}
-
-export async function startExecSessionAction(
-  serviceConfigId: string,
-  allocationId: string,
-  task: string | undefined,
-  cols: number,
-  rows: number,
-): Promise<TrellisExecSession> {
-  const { access, client, namespace } = await getExecSessionContext(serviceConfigId, allocationId)
-  const session = await client.createExecSession(
-    allocationId,
-    { task, command: ['/bin/sh'], term: 'xterm-256color', cols, rows },
-    namespace,
-  )
-  await recordAudit({
-    orgId: access.org.id,
-    userId: access.user.id,
-    action: 'allocation.terminal.opened',
-    resourceType: 'service',
-    resourceId: access.service.id,
-    details: { allocationId, task },
-  })
-  return session
-}
-
-export async function writeExecSessionAction(
-  serviceConfigId: string,
-  allocationId: string,
-  sessionId: string,
-  dataBase64: string,
-): Promise<void> {
-  const { client, namespace } = await getExecSessionContext(serviceConfigId)
-  await client.writeExecSession(allocationId, sessionId, dataBase64, namespace)
-}
-
-export async function readExecSessionAction(
-  serviceConfigId: string,
-  allocationId: string,
-  sessionId: string,
-  offset: number,
-): Promise<TrellisExecSessionOutput> {
-  const { client, namespace } = await getExecSessionContext(serviceConfigId)
-  return client.readExecSession(allocationId, sessionId, offset, namespace)
-}
-
-export async function resizeExecSessionAction(
-  serviceConfigId: string,
-  allocationId: string,
-  sessionId: string,
-  cols: number,
-  rows: number,
-): Promise<void> {
-  const { client, namespace } = await getExecSessionContext(serviceConfigId)
-  await client.resizeExecSession(allocationId, sessionId, cols, rows, namespace)
-}
-
-export async function closeExecSessionAction(
-  serviceConfigId: string,
-  allocationId: string,
-  sessionId: string,
-): Promise<void> {
-  const { client, namespace } = await getExecSessionContext(serviceConfigId)
-  await client.closeExecSession(allocationId, sessionId, namespace)
-}
-
 export async function deleteServiceAction(serviceId: string, projectSlug: string): Promise<{ error?: string }> {
   const access = await requireService(serviceId); if (access.projectRole !== 'admin') return { error: 'Insufficient permissions.' }
   const configs = await db.select({ config: serviceConfigs, environment: environments }).from(serviceConfigs).innerJoin(environments, eq(environments.id, serviceConfigs.environmentId)).where(eq(serviceConfigs.serviceId, serviceId))
   const client = await getTrellisClient(access.org.id)
-  for (const { config, environment } of configs) {
-    const names = new Set([access.service.slug, config.activeJobName, `${access.service.slug}-blue`, `${access.service.slug}-green`, `${access.service.slug}-canary-a`, `${access.service.slug}-canary-b`].filter(Boolean) as string[])
-    await Promise.allSettled([...names].map((name) => client.deleteJob(name, environment.trellisNamespace)))
+  try {
+    for (const { config, environment } of configs) {
+      const names = new Set([access.service.slug, config.activeJobName, `${access.service.slug}-blue`, `${access.service.slug}-green`, `${access.service.slug}-canary-a`, `${access.service.slug}-canary-b`].filter(Boolean) as string[])
+      await cleanupTrellisResources([...names].map((name) => client.deleteJob(name, environment.trellisNamespace)))
+      // Remove ingress routes before discarding the records needed to retry cleanup.
+      await syncManagedProxy(access.project.id, environment.id, access.org.id, serviceId)
+    }
+  } catch {
+    return { error: 'Trellis cleanup failed. The service was not deleted. Check connectivity and permissions, then retry.' }
   }
-  await db.delete(services).where(eq(services.id, serviceId)); await Promise.allSettled(configs.map(({ environment }) => syncManagedProxy(access.project.id, environment.id, access.org.id)))
+  await db.delete(services).where(eq(services.id, serviceId))
   await recordAudit({ orgId: access.org.id, userId: access.user.id, action: 'service.deleted', resourceType: 'service', resourceId: serviceId }); redirect(`/projects/${projectSlug}`)
 }

@@ -3,6 +3,9 @@ import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
 import { getUserOrganization, getProjectBySlug, getProjectEnvironment, getServiceBySlug, getServiceConfigsWithEnvironments, getDeploymentsByService } from '@/lib/queries'
 import { getTrellisClient } from '@/lib/trellis-instance'
+import { allocationBelongsToService, trellisReadError } from '@/lib/trellis-runtime'
+import { TrellisReadError } from '@/components/trellis-read-error'
+import { getProjectRole } from '@/lib/actions/shared'
 import { Panel, SectionTitle } from '@/components/ui/panel'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -26,6 +29,7 @@ export default async function ServiceDetailPage({
   if (!orgCtx) redirect('/login')
   const project = await getProjectBySlug(orgCtx.org.id, slug)
   if (!project) notFound()
+  if (!await getProjectRole(user.id, orgCtx.role, project.id)) notFound()
   const service = await getServiceBySlug(project.id, serviceSlug)
   if (!service) notFound()
 
@@ -39,14 +43,16 @@ export default async function ServiceDetailPage({
   const selectedDeployments = deployments.filter((deployment) => deployment.environmentId === environment.id)
 
   const allocationRows: TrellisAllocation[] = []
+  let allocationError: string | null = null
   try {
     const client = await getTrellisClient(orgCtx.org.id)
     if (selectedConfig) {
-      const allocations = await client.listAllocations({ namespace: environment.trellisNamespace }).catch(() => [])
-      allocationRows.push(...allocations.filter((allocation) => allocation.phase !== 'stopped' && allocation.labels?.['bower/service'] === service.slug))
+      const allocations = await client.listAllocations({ namespace: environment.trellisNamespace })
+      allocationRows.push(...allocations.filter((allocation) => allocation.phase !== 'stopped'
+        && allocationBelongsToService(allocation, environment.trellisNamespace, service.slug, [service.slug, selectedConfig.config.activeJobName])))
     }
-  } catch {
-    // Runtime visibility is best-effort; service configuration remains usable if Trellis is temporarily unreachable.
+  } catch (error) {
+    allocationError = trellisReadError(error)
   }
   allocationRows.sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
 
@@ -67,7 +73,7 @@ export default async function ServiceDetailPage({
 
       <div className="space-y-5">
         <SectionTitle>Current allocations</SectionTitle>
-        {allocationRows.length === 0 ? (
+        {allocationError ? <Panel><TrellisReadError title="Allocations unavailable" message={allocationError} /></Panel> : allocationRows.length === 0 ? (
           <Panel>
             <EmptyState
               icon={<Boxes className="h-4 w-4" />}
@@ -96,7 +102,10 @@ export default async function ServiceDetailPage({
                           {allocation.id.slice(0, 8)}
                         </Link>
                       </TableCell>
-                      <TableCell><StatusDot status={allocation.phase} /></TableCell>
+                      <TableCell>
+                        <StatusDot status={allocation.phase} />
+                        {allocation.phase === 'pending' && <p className="mt-1 max-w-64 text-xs text-ink-muted">{allocation.message || allocation.reason || 'Awaiting placement'}</p>}
+                      </TableCell>
                       <TableCell><StatusDot status={allocation.health} /></TableCell>
                       <TableCell className="max-w-40 truncate font-mono text-xs text-ink-muted">{allocation.node_id}</TableCell>
                       <TableCell className="whitespace-nowrap text-ink-muted">{new Date(allocation.created_at).toLocaleString()}</TableCell>

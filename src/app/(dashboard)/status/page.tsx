@@ -6,6 +6,8 @@ import {
   getRouteCountsByEnvironment,
 } from '@/lib/queries'
 import { getTrellisClient } from '@/lib/trellis-instance'
+import { observedProxyStatus, trellisReadError } from '@/lib/trellis-runtime'
+import { TrellisReadError } from '@/components/trellis-read-error'
 import { parseNodeAllocatedResources } from '@/lib/trellis-resource-metrics'
 import { PageHeading } from '@/components/page-heading'
 import { Panel, PanelHeader, KeyValue } from '@/components/ui/panel'
@@ -52,23 +54,37 @@ export default async function StatusPage() {
   let nodes: TrellisNode[] = []
   let allocatedByNode = new Map<string, { cpu: number; memory: number }>()
   let clusterError: string | null = null
+  let metricsError: string | null = null
 
   try {
     const client = await getTrellisClient(orgCtx.org.id)
-    const [listedNodes, metrics] = await Promise.all([
+    const [listedNodes, metrics] = await Promise.allSettled([
       client.listNodes(),
       client.getMetrics(),
     ])
-    nodes = listedNodes
-    allocatedByNode = parseNodeAllocatedResources(metrics)
+    if (listedNodes.status === 'fulfilled') nodes = listedNodes.value
+    else clusterError = trellisReadError(listedNodes.reason)
+    if (metrics.status === 'fulfilled') allocatedByNode = parseNodeAllocatedResources(metrics.value)
+    else metricsError = trellisReadError(metrics.reason)
   } catch (err) {
-    clusterError = err instanceof Error ? err.message : 'Failed to connect to cluster.'
+    clusterError = metricsError = trellisReadError(err)
   }
 
   const [proxies, routeCounts] = await Promise.all([
     getManagedProxiesForOrg(orgCtx.org.id),
     getRouteCountsByEnvironment(orgCtx.org.id),
   ])
+  const observedProxies = await Promise.all(proxies.map(async (row) => {
+    try {
+      const client = await getTrellisClient(orgCtx.org.id)
+      const allocations = await client.listAllocations({ namespace: row.namespace, job: row.proxy.trellisJobName })
+      const diagnostic = allocations.find((allocation) => allocation.namespace === row.namespace && allocation.job === row.proxy.trellisJobName
+        && (allocation.phase === 'pending' || allocation.health === 'unhealthy'))
+      return { ...row, observedStatus: observedProxyStatus(allocations, row.namespace, row.proxy.trellisJobName), diagnostic: diagnostic?.message || diagnostic?.reason, observationError: null }
+    } catch (error) {
+      return { ...row, observedStatus: 'unknown', diagnostic: undefined, observationError: trellisReadError(error) }
+    }
+  }))
 
   const routeCountMap = new Map(routeCounts.map((r) => [r.environmentId, r.count]))
 
@@ -78,24 +94,6 @@ export default async function StatusPage() {
   const allocatedMem = nodes.reduce((sum, n) => sum + (allocatedByNode.get(n.id)?.memory ?? 0), 0)
   const cpuPct = totalCpu > 0 ? Math.round((allocatedCpu / totalCpu) * 100) : 0
   const memPct = totalMem > 0 ? Math.round((allocatedMem / totalMem) * 100) : 0
-
-  if (clusterError) {
-    return (
-      <div className="space-y-6">
-        <PageHeading
-          title="Cluster"
-          description="Monitor cluster connectivity, capacity, nodes, and managed ingress."
-        />
-        <Panel>
-          <EmptyState
-            icon={<Server className="h-4 w-4" />}
-            title="Unable to reach cluster"
-            body={clusterError}
-          />
-        </Panel>
-      </div>
-    )
-  }
 
   return (
     <div className="space-y-6">
@@ -110,8 +108,8 @@ export default async function StatusPage() {
             title="Connection"
             action={
               <span className="flex items-center gap-1.5 text-xs font-medium text-ink-soft">
-                <Dot tone="brand" />
-                Connected
+                <Dot tone={clusterError ? 'danger' : 'brand'} />
+                {clusterError ? 'Unavailable' : 'Connected'}
               </span>
             }
           />
@@ -120,11 +118,12 @@ export default async function StatusPage() {
               {orgCtx.org.trellisApiUrl ?? '—'}
             </KeyValue>
           </dl>
+          {clusterError && <TrellisReadError title="Node data unavailable" message={clusterError} />}
         </Panel>
 
         <Panel>
           <PanelHeader title="Capacity" hint={`${nodes.length} node${nodes.length === 1 ? '' : 's'}`} />
-          <div className="grid gap-5 p-4 sm:grid-cols-2">
+          {metricsError || clusterError ? <TrellisReadError title="Capacity data unavailable" message={metricsError || clusterError!} /> : <div className="grid gap-5 p-4 sm:grid-cols-2">
             <div>
               <span className="text-[13px] text-ink-soft">CPU allocated</span>
               <div className="mt-2">
@@ -137,13 +136,13 @@ export default async function StatusPage() {
                 <Meter value={memPct} label="Cluster memory allocated" />
               </div>
             </div>
-          </div>
+          </div>}
         </Panel>
       </div>
 
       <Panel>
         <PanelHeader title="Nodes" />
-        {nodes.length === 0 ? (
+        {clusterError ? <TrellisReadError title="Nodes unavailable" message={clusterError} /> : nodes.length === 0 ? (
           <EmptyState
             icon={<Server className="h-4 w-4" />}
             title="No nodes"
@@ -189,10 +188,10 @@ export default async function StatusPage() {
                       <Mono>{formatNodeAddress(node)}</Mono>
                     </TableCell>
                     <TableCell>
-                      <Meter value={nodeCpuPct} label={`${node.id} CPU allocated`} />
+                      {metricsError ? <span className="text-ink-muted">Unavailable</span> : <Meter value={nodeCpuPct} label={`${node.id} CPU allocated`} />}
                     </TableCell>
                     <TableCell>
-                      <Meter value={nodeMemPct} label={`${node.id} memory allocated`} />
+                      {metricsError ? <span className="text-ink-muted">Unavailable</span> : <Meter value={nodeMemPct} label={`${node.id} memory allocated`} />}
                     </TableCell>
                     <TableCell>
                       <Chip tone="neutral">{node.arch}</Chip>
@@ -216,7 +215,7 @@ export default async function StatusPage() {
 
       {proxies.length > 0 && (
         <Panel>
-          <PanelHeader title="Managed ingress" />
+          <PanelHeader title="Managed ingress" hint="Observed allocation health includes listener and route-sync checks." />
           <Table>
             <TableHeader>
               <TableRow>
@@ -226,11 +225,11 @@ export default async function StatusPage() {
                 <TableHead>Routes</TableHead>
                 <TableHead>Port</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="text-right">Updated</TableHead>
+                <TableHead className="text-right">Last submitted</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {proxies.map((row) => (
+              {observedProxies.map((row) => (
                 <TableRow key={row.proxy.id}>
                   <TableCell>
                     <Mono className="text-ink">{row.proxy.trellisJobName}</Mono>
@@ -247,16 +246,19 @@ export default async function StatusPage() {
                     <span className="flex items-center gap-1.5 capitalize">
                       <Dot
                         tone={
-                          row.proxy.status === 'running'
+                          row.observedStatus === 'running'
                             ? 'brand'
-                            : row.proxy.status === 'pending'
+                            : row.observedStatus === 'pending'
                               ? 'warn'
-                              : 'danger'
+                              : row.observedStatus === 'unknown' ? 'neutral' : 'danger'
                         }
-                        pulse={row.proxy.status === 'pending'}
+                        pulse={row.observedStatus === 'pending'}
                       />
-                      {row.proxy.status}
+                      {row.observedStatus}
                     </span>
+                    {row.diagnostic && <p className="mt-1 max-w-64 text-xs text-ink-muted">{row.diagnostic}</p>}
+                    {row.proxy.status === 'error' && <p className="mt-1 text-xs text-danger-500">Last apply failed</p>}
+                    {row.observationError && <TrellisReadError title="Ingress observation unavailable" message={row.observationError} />}
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-right text-ink-muted">
                     {relTime(row.proxy.updatedAt)}

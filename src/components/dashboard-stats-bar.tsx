@@ -18,6 +18,7 @@ interface DashboardStatsBarProps {
   allocations: TrellisAllocation[]
   deployments: DeploymentPoint[]
   clusterAvailable: boolean
+  capacityAvailable?: boolean
   capacity: {
     cpuAllocated: number
     cpuTotal: number
@@ -116,9 +117,11 @@ export function DashboardStatsBar({
   allocations,
   deployments,
   clusterAvailable,
+  capacityAvailable = clusterAvailable,
   capacity,
 }: DashboardStatsBarProps) {
   const liveAllocations = allocations.filter((allocation) =>
+    allocation.phase === 'pending' ||
     allocation.phase === 'placed' ||
     allocation.phase === 'starting' ||
     allocation.phase === 'running' ||
@@ -134,6 +137,7 @@ export function DashboardStatsBar({
     0,
     liveAllocations.length - healthyAllocations - unhealthyAllocations
   )
+  const pendingAllocations = liveAllocations.filter((allocation) => allocation.phase === 'pending').length
 
   const cpuPct = capacity.cpuTotal > 0
     ? Math.round((capacity.cpuAllocated / capacity.cpuTotal) * 100)
@@ -154,6 +158,8 @@ export function DashboardStatsBar({
     ? 'Cluster unavailable'
     : liveAllocations.length === 0
       ? 'No active allocations'
+      : pendingAllocations > 0
+        ? `${pendingAllocations} blocked / awaiting placement${unhealthyAllocations > 0 ? ` · ${unhealthyAllocations} unhealthy` : ''}`
       : unhealthyAllocations > 0
         ? `${unhealthyAllocations} unhealthy${transitioningAllocations > 0 ? ` · ${transitioningAllocations} transitioning` : ''}`
         : transitioningAllocations > 0
@@ -170,15 +176,15 @@ export function DashboardStatsBar({
         />
         <StatCell
           label="CPU allocated"
-          value={clusterAvailable ? `${cpuPct}%` : '—'}
-          detail={clusterAvailable ? `${formatCpu(capacity.cpuAllocated)} / ${formatCpu(capacity.cpuTotal)} cores` : 'Cluster unavailable'}
-          meter={clusterAvailable ? cpuPct : undefined}
+          value={capacityAvailable ? `${cpuPct}%` : '—'}
+          detail={capacityAvailable ? `${formatCpu(capacity.cpuAllocated)} / ${formatCpu(capacity.cpuTotal)} cores` : 'Capacity data unavailable'}
+          meter={capacityAvailable ? cpuPct : undefined}
         />
         <StatCell
           label="Memory allocated"
-          value={clusterAvailable ? `${memoryPct}%` : '—'}
-          detail={clusterAvailable ? `${formatMemGiB(capacity.memoryAllocated)} / ${formatMemGiB(capacity.memoryTotal)} GiB` : 'Cluster unavailable'}
-          meter={clusterAvailable ? memoryPct : undefined}
+          value={capacityAvailable ? `${memoryPct}%` : '—'}
+          detail={capacityAvailable ? `${formatMemGiB(capacity.memoryAllocated)} / ${formatMemGiB(capacity.memoryTotal)} GiB` : 'Capacity data unavailable'}
+          meter={capacityAvailable ? memoryPct : undefined}
         />
 
         <section className="min-w-0 bg-surface px-4 py-4 sm:px-5">

@@ -13,10 +13,6 @@ import type {
   TrellisSecret,
   TrellisJobRevision,
   TrellisAllocationMetrics,
-  TrellisExecResponse,
-  TrellisExecSession,
-  TrellisExecSessionCreateRequest,
-  TrellisExecSessionOutput,
 } from '@/types/trellis'
 
 // ---------------------------------------------------------------------------
@@ -55,8 +51,8 @@ export class TrellisClient {
   private readonly token: string
 
   constructor(apiUrl: string, token: string) {
-    // Normalise: strip trailing slashes so callers don't need to worry
-    this.baseUrl = apiUrl.replace(/\/+$/, '')
+    const address = apiUrl.trim().replace(/\/+$/, '')
+    this.baseUrl = /^https?:\/\//i.test(address) ? address : `https://${address}`
     this.token = token
   }
 
@@ -64,21 +60,23 @@ export class TrellisClient {
   // Internal helpers
   // -------------------------------------------------------------------------
 
-  private headers(namespace?: string): Record<string, string> {
+  private headers(): Record<string, string> {
     const h: Record<string, string> = {
       Authorization: `Bearer ${this.token}`,
-    }
-    if (namespace) {
-      h['X-Trellis-Namespace'] = namespace
     }
     return h
   }
 
-  private headersJson(namespace?: string): Record<string, string> {
+  private headersJson(): Record<string, string> {
     return {
-      ...this.headers(namespace),
+      ...this.headers(),
       'Content-Type': 'application/json',
     }
+  }
+
+  private resourcePath(namespace: string, path: string): string {
+    if (!namespace) throw new Error('A Trellis namespace is required.')
+    return `/v1/namespaces/${encodeURIComponent(namespace)}${path}`
   }
 
   /** Perform a request and throw TrellisApiError on non-2xx responses. */
@@ -87,7 +85,6 @@ export class TrellisClient {
     path: string,
     options?: {
       body?: unknown
-      namespace?: string
       headers?: Record<string, string>
       rawText?: boolean
     },
@@ -96,8 +93,8 @@ export class TrellisClient {
     const hasBody = options?.body !== undefined
 
     const fetchHeaders = hasBody
-      ? this.headersJson(options?.namespace)
-      : this.headers(options?.namespace)
+      ? this.headersJson()
+      : this.headers()
 
     if (options?.headers) {
       Object.assign(fetchHeaders, options.headers)
@@ -160,48 +157,42 @@ export class TrellisClient {
   // Jobs
   // -------------------------------------------------------------------------
 
-  async listJobs(namespace?: string): Promise<TrellisJob[]> {
-    return this.request<TrellisJob[]>('GET', '/v1/jobs', { namespace })
+  async listJobs(namespace: string): Promise<TrellisJob[]> {
+    return this.request<TrellisJob[]>('GET', this.resourcePath(namespace, '/jobs'))
   }
 
-  async getJob(name: string, namespace?: string): Promise<TrellisJob> {
-    return this.request<TrellisJob>('GET', `/v1/jobs/${encodeURIComponent(name)}`, {
-      namespace,
-    })
+  async getJob(name: string, namespace: string): Promise<TrellisJob> {
+    return this.request<TrellisJob>('GET', this.resourcePath(namespace, `/jobs/${encodeURIComponent(name)}`))
   }
 
   async applyJob(
     spec: TrellisJobSpec,
-    namespace?: string,
+    namespace: string,
   ): Promise<void> {
-    await this.request<void>('POST', '/v1/jobs', {
+    await this.request<void>('POST', this.resourcePath(namespace, '/jobs'), {
       body: { spec },
-      namespace,
     })
   }
 
   async planJob(
     spec: TrellisJobSpec,
-    namespace?: string,
+    namespace: string,
   ): Promise<TrellisPlan> {
-    return this.request<TrellisPlan>('POST', '/v1/jobs/plan', {
+    return this.request<TrellisPlan>('POST', this.resourcePath(namespace, '/jobs/plan'), {
       body: { spec },
-      namespace,
     })
   }
 
-  async deleteJob(name: string, namespace?: string): Promise<void> {
-    await this.request<void>('DELETE', `/v1/jobs/${encodeURIComponent(name)}`, {
-      namespace,
-    })
+  async deleteJob(name: string, namespace: string): Promise<void> {
+    await this.request<void>('DELETE', this.resourcePath(namespace, `/jobs/${encodeURIComponent(name)}`))
   }
 
-  async restartJob(name: string, namespace?: string): Promise<void> {
-    await this.request<void>('POST', `/v1/jobs/${encodeURIComponent(name)}/restart`, { namespace })
+  async restartJob(name: string, namespace: string): Promise<void> {
+    await this.request<void>('POST', this.resourcePath(namespace, `/jobs/${encodeURIComponent(name)}/restart`))
   }
 
-  async getJobRevisions(name: string, namespace?: string): Promise<TrellisJobRevision[]> {
-    return this.request<TrellisJobRevision[]>('GET', `/v1/jobs/${encodeURIComponent(name)}/revisions`, { namespace })
+  async getJobRevisions(name: string, namespace: string): Promise<TrellisJobRevision[]> {
+    return this.request<TrellisJobRevision[]>('GET', this.resourcePath(namespace, `/jobs/${encodeURIComponent(name)}/versions`))
   }
 
   // -------------------------------------------------------------------------
@@ -225,76 +216,43 @@ export class TrellisClient {
     }
     if (filters?.job) params.set('job', filters.job)
     const qs = params.toString()
-    const path = qs ? `/v1/allocations?${qs}` : '/v1/allocations'
-    return this.request<TrellisAllocation[]>('GET', path, {
-      namespace: filters?.namespace,
-    })
+    // Omitting namespace is an intentional cluster-wide read (dashboard).
+    const path = filters?.namespace !== undefined
+      ? this.resourcePath(filters.namespace, '/allocations')
+      : '/v1/allocations'
+    return this.request<TrellisAllocation[]>('GET', qs ? `${path}?${qs}` : path)
   }
 
-  async getAllocationEvents(id: string): Promise<TrellisEvent[]> {
+  async getAllocationEvents(id: string, namespace: string): Promise<TrellisEvent[]> {
     return this.request<TrellisEvent[]>(
       'GET',
-      `/v1/allocations/${encodeURIComponent(id)}/events`,
+      this.resourcePath(namespace, `/allocations/${encodeURIComponent(id)}/events`),
     )
   }
 
-  async stopAllocation(id: string): Promise<void> {
-    await this.request<void>('DELETE', `/v1/allocations/${encodeURIComponent(id)}`)
+  async stopAllocation(id: string, namespace: string): Promise<void> {
+    await this.request<void>('DELETE', this.resourcePath(namespace, `/allocations/${encodeURIComponent(id)}`))
   }
 
-  async execAllocation(id: string, task: string, command: string[]): Promise<TrellisExecResponse> {
-    return this.request<TrellisExecResponse>('POST', `/v1/allocations/${encodeURIComponent(id)}/exec`, {
-      body: { task, command },
-    })
+  /** Server-only connection descriptor for the HTTP/1.1 exec bridge. */
+  getExecConnection(id: string, namespace: string, task: string | undefined, cols: number, rows: number) {
+    const params = new URLSearchParams({ stdin: 'true', tty: 'true', term: 'xterm-256color', cols: String(cols), rows: String(rows) })
+    params.append('command', '/bin/sh')
+    if (task) params.set('task', task)
+    return {
+      url: `${this.baseUrl}${this.resourcePath(namespace, `/allocations/${encodeURIComponent(id)}/exec`)}?${params}`,
+      headers: { Authorization: `Bearer ${this.token}`, Connection: 'Upgrade', Upgrade: 'trellis-exec.v1' },
+    }
   }
 
-  async createExecSession(id: string, request: TrellisExecSessionCreateRequest, namespace: string): Promise<TrellisExecSession> {
-    return this.request<TrellisExecSession>('POST', `/v1/allocations/${encodeURIComponent(id)}/exec/sessions`, {
-      body: request,
-      namespace,
-    })
-  }
-
-  async writeExecSession(id: string, sessionId: string, dataBase64: string, namespace: string): Promise<void> {
-    await this.request<void>(
-      'POST',
-      `/v1/allocations/${encodeURIComponent(id)}/exec/sessions/${encodeURIComponent(sessionId)}/input`,
-      { body: { data_base64: dataBase64 }, namespace },
-    )
-  }
-
-  async readExecSession(id: string, sessionId: string, offset: number, namespace: string): Promise<TrellisExecSessionOutput> {
-    const params = new URLSearchParams({ offset: String(offset) })
-    return this.request<TrellisExecSessionOutput>(
-      'GET',
-      `/v1/allocations/${encodeURIComponent(id)}/exec/sessions/${encodeURIComponent(sessionId)}/output?${params.toString()}`,
-      { namespace },
-    )
-  }
-
-  async resizeExecSession(id: string, sessionId: string, cols: number, rows: number, namespace: string): Promise<void> {
-    await this.request<void>(
-      'POST',
-      `/v1/allocations/${encodeURIComponent(id)}/exec/sessions/${encodeURIComponent(sessionId)}/resize`,
-      { body: { cols, rows }, namespace },
-    )
-  }
-
-  async closeExecSession(id: string, sessionId: string, namespace: string): Promise<void> {
-    await this.request<void>(
-      'DELETE',
-      `/v1/allocations/${encodeURIComponent(id)}/exec/sessions/${encodeURIComponent(sessionId)}`,
-      { namespace },
-    )
-  }
-
-  async getAllocationMetrics(id: string): Promise<TrellisAllocationMetrics[]> {
-    return this.request<TrellisAllocationMetrics[]>('GET', `/v1/allocations/${encodeURIComponent(id)}/metrics`)
+  async getAllocationMetrics(id: string, namespace: string): Promise<TrellisAllocationMetrics[]> {
+    return this.request<TrellisAllocationMetrics[]>('GET', this.resourcePath(namespace, `/allocations/${encodeURIComponent(id)}/metrics`))
   }
 
   async getAllocationLogs(
     id: string,
     task: string,
+    namespace: string,
     tail?: number,
   ): Promise<string> {
     const params = new URLSearchParams()
@@ -304,7 +262,7 @@ export class TrellisClient {
     }
     return this.request<string>(
       'GET',
-      `/v1/allocations/${encodeURIComponent(id)}/logs?${params.toString()}`,
+      `${this.resourcePath(namespace, `/allocations/${encodeURIComponent(id)}/logs`)}?${params.toString()}`,
       { rawText: true },
     )
   }
@@ -358,8 +316,8 @@ export class TrellisClient {
   }
 
   /** Return a raw fetch Response for the SSE event stream. Caller is responsible for piping or consuming the body. */
-  async streamEvents(namespace?: string): Promise<Response> {
-    const url = `${this.baseUrl}/v1/events`
-    return fetch(url, { headers: this.headers(namespace) })
+  async streamEvents(namespace: string, signal?: AbortSignal): Promise<Response> {
+    const url = `${this.baseUrl}${this.resourcePath(namespace, '/events')}`
+    return fetch(url, { headers: this.headers(), signal })
   }
 }

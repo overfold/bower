@@ -4,6 +4,9 @@ import { ArrowLeft, Clock3 } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth'
 import { getUserOrganization, getProjectBySlug, getProjectEnvironment, getServiceBySlug, getServiceConfigsWithEnvironments } from '@/lib/queries'
 import { getTrellisClient } from '@/lib/trellis-instance'
+import { allocationBelongsToService, trellisReadError } from '@/lib/trellis-runtime'
+import { getProjectRole } from '@/lib/actions/shared'
+import { TrellisReadError } from '@/components/trellis-read-error'
 import { PageHeading, MetaItem } from '@/components/page-heading'
 import { Panel, PanelHeader, KeyValue, SectionTitle } from '@/components/ui/panel'
 import { Badge } from '@/components/ui/badge'
@@ -11,17 +14,7 @@ import { Chip, StatusDot } from '@/components/status'
 import { ExecDialog } from '@/components/exec-dialog'
 import { AllocationMetrics } from './allocation-metrics'
 import { AllocationStopButton } from './allocation-stop-button'
-import type { TrellisAllocation, TrellisEvent } from '@/types/trellis'
-
-function eventHistory(allocation: TrellisAllocation, events: TrellisEvent[]) {
-  const result = [...events]
-  const createdAt = Date.parse(allocation.created_at)
-  const hasCreatedEvent = result.some((event) => Math.abs(Date.parse(event.at) - createdAt) < 1000)
-  if (!hasCreatedEvent) {
-    result.push({ phase: 'placed', message: 'Allocation created and placed.', at: allocation.created_at })
-  }
-  return result.sort((a, b) => Date.parse(a.at) - Date.parse(b.at))
-}
+import type { TrellisAllocation } from '@/types/trellis'
 
 export default async function AllocationDetailPage({
   params,
@@ -35,6 +28,7 @@ export default async function AllocationDetailPage({
   if (!orgCtx) redirect('/login')
   const project = await getProjectBySlug(orgCtx.org.id, slug)
   if (!project) notFound()
+  if (!await getProjectRole(user.id, orgCtx.role, project.id)) notFound()
   const service = await getServiceBySlug(project.id, serviceSlug)
   if (!service) notFound()
 
@@ -44,33 +38,31 @@ export default async function AllocationDetailPage({
   ])
   const selectedConfig = environment ? configs.find((row) => row.environment.id === environment.id) : null
   if (!selectedConfig) notFound()
-  const client = await getTrellisClient(orgCtx.org.id)
   let allocation: TrellisAllocation | null = null
+  let client: Awaited<ReturnType<typeof getTrellisClient>>
 
   try {
+    client = await getTrellisClient(orgCtx.org.id)
     const allocs = await client.listAllocations({ namespace: selectedConfig.environment.trellisNamespace })
-    const knownJobs = new Set([service.slug, selectedConfig.config.activeJobName].filter((value): value is string => Boolean(value)))
-    allocation = allocs.find((item) => {
-      if (item.id !== allocationId) return false
-      return item.labels?.['bower/service'] === service.slug || knownJobs.has(item.job)
-    }) ?? null
-  } catch {
-    notFound()
+    allocation = allocs.find((item) => item.id === allocationId
+      && allocationBelongsToService(item, selectedConfig.environment.trellisNamespace, service.slug, [service.slug, selectedConfig.config.activeJobName])) ?? null
+  } catch (error) {
+    return <Panel><TrellisReadError title="Allocation unavailable" message={trellisReadError(error)} /></Panel>
   }
   if (!allocation) notFound()
 
   const matchingConfig = configs.find(({ environment }) => environment.trellisNamespace === allocation?.namespace)
-  const [events, metrics, revisions] = await Promise.all([
-    client.getAllocationEvents(allocationId).catch(() => []),
-    client.getAllocationMetrics(allocationId).catch(() => []),
-    client.getJobRevisions(allocation.job, allocation.namespace).catch(() => []),
+  const [events, metrics, revisions] = await Promise.allSettled([
+    client.getAllocationEvents(allocationId, allocation.namespace),
+    client.getAllocationMetrics(allocationId, allocation.namespace),
+    client.getJobRevisions(allocation.job, allocation.namespace),
   ])
-  const allocationSpec = revisions.find((revision) => revision.revision === allocation.job_revision)?.spec
+  const allocationSpec = revisions.status === 'fulfilled' ? revisions.value.find((revision) => revision.revision === allocation.job_revision)?.spec : undefined
   const terminalTasks = allocationSpec?.task_groups
     .find((group) => group.name === allocation.group)
     ?.tasks.map((task) => task.name) ?? []
-  const logs = await Promise.all(terminalTasks.map(async (task) => ({ task, output: await client.getAllocationLogs(allocationId, task).catch(() => '') })))
-  const history = eventHistory(allocation, events)
+  const logs = await Promise.allSettled(terminalTasks.map((task) => client.getAllocationLogs(allocationId, task, allocation.namespace)))
+  const history = events.status === 'fulfilled' ? [...events.value].sort((a, b) => Date.parse(a.at) - Date.parse(b.at)) : []
   const stoppable = !['stopping', 'stopped', 'lost'].includes(allocation.phase)
 
   return (
@@ -100,7 +92,7 @@ export default async function AllocationDetailPage({
         </div>
       </div>
 
-      <AllocationMetrics serviceId={service.id} allocationId={allocationId} initialMetrics={metrics} />
+      <AllocationMetrics serviceId={service.id} allocationId={allocationId} initialMetrics={metrics.status === 'fulfilled' ? metrics.value : []} initialError={metrics.status === 'rejected' ? trellisReadError(metrics.reason) : null} />
 
       <Panel>
         <PanelHeader title="Allocation details" />
@@ -128,7 +120,7 @@ export default async function AllocationDetailPage({
       <div className="space-y-4">
         <SectionTitle>Lifecycle history</SectionTitle>
         <Panel>
-          {history.length === 0 ? (
+          {events.status === 'rejected' ? <TrellisReadError title="Lifecycle events unavailable" message={trellisReadError(events.reason)} /> : history.length === 0 ? (
             <div className="p-5 text-[13px] text-ink-muted">No lifecycle events have been recorded.</div>
           ) : (
             <ol className="px-4 py-2">
@@ -156,12 +148,12 @@ export default async function AllocationDetailPage({
 
       <div className="space-y-4">
         <SectionTitle>Logs</SectionTitle>
-        {logs.length ? logs.map(({ task, output }) => (
-          <Panel key={task}>
-            <PanelHeader title={task} />
-            <pre className="max-h-96 overflow-auto p-4 font-mono text-xs leading-relaxed text-ink-soft">{output || 'No output'}</pre>
+        {logs.length ? logs.map((result, index) => (
+          <Panel key={terminalTasks[index]}>
+            <PanelHeader title={terminalTasks[index]} />
+            {result.status === 'rejected' ? <TrellisReadError title="Logs unavailable" message={trellisReadError(result.reason)} /> : <pre className="max-h-96 overflow-auto p-4 font-mono text-xs leading-relaxed text-ink-soft">{result.value || 'No output'}</pre>}
           </Panel>
-        )) : <Panel><div className="p-4 text-[13px] text-ink-muted">Task metadata is unavailable for this revision.</div></Panel>}
+        )) : <Panel>{revisions.status === 'rejected' ? <TrellisReadError title="Task metadata unavailable" message={trellisReadError(revisions.reason)} /> : <div className="p-4 text-[13px] text-ink-muted">Task metadata is unavailable for this revision.</div>}</Panel>}
       </div>
     </div>
   )

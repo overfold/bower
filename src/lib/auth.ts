@@ -98,6 +98,14 @@ export async function validateSession(
 
 export async function deleteSession(token: string): Promise<void> {
   await db.delete(sessions).where(eq(sessions.token, token))
+  // Immediately tear down terminals in this instance, including other tabs.
+  // Other instances also check persisted session validity every 15 seconds.
+  if (process.env.BOWER_EXEC_BRIDGE_URL && process.env.BOWER_EXEC_INTERNAL_SECRET) {
+    await fetch(`${process.env.BOWER_EXEC_BRIDGE_URL}/_bower/exec/revoke`, {
+      method: 'POST', headers: { 'x-bower-exec-secret': process.env.BOWER_EXEC_INTERNAL_SECRET },
+      body: token, signal: AbortSignal.timeout(2000),
+    }).catch(() => undefined)
+  }
 }
 
 export async function getCurrentUser(): Promise<User | null> {

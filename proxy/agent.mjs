@@ -22,7 +22,7 @@ console.log(`using Trellis API ${new URL(trellis).origin}`)
 let last = ''
 
 async function reconcile() {
-  const allocations = await fetchTrellisJson(trellis, '/v1/allocations', { token, namespace, caCert })
+  const allocations = await fetchTrellisJson(trellis, `/v1/namespaces/${encodeURIComponent(namespace)}/allocations`, { token, caCert })
   const config = renderCaddyfile(routes, allocations, { adminPort, httpPort, httpsPort })
   await loadCaddyConfig(caddy, config)
   if (config !== last) {

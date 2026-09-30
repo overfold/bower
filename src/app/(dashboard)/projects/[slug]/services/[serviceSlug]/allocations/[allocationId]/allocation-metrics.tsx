@@ -28,15 +28,17 @@ export function AllocationMetrics({
   serviceId,
   allocationId,
   initialMetrics,
+  initialError,
 }: {
   serviceId: string
   allocationId: string
   initialMetrics: TrellisAllocationMetrics[]
+  initialError: string | null
 }) {
   const previousRef = useRef(initialMetrics)
   const [metrics, setMetrics] = useState(initialMetrics)
   const [cpuMillicores, setCpuMillicores] = useState<number | null>(null)
-  const [error, setError] = useState(false)
+  const [error, setError] = useState(Boolean(initialError))
 
   useEffect(() => {
     let cancelled = false
@@ -89,7 +91,7 @@ export function AllocationMetrics({
           <div>
             <p className="text-xs font-medium text-ink-muted">CPU usage</p>
             <p className="nums mt-1.5 text-2xl font-semibold tracking-tight text-ink">
-              {cpuMillicores === null ? 'Sampling…' : `${Math.max(0, cpuMillicores).toFixed(cpuMillicores >= 100 ? 0 : 1)} mCPU`}
+              {cpuMillicores === null ? (taskCount ? 'Sampling…' : error ? 'Unavailable' : 'No samples') : `${Math.max(0, cpuMillicores).toFixed(cpuMillicores >= 100 ? 0 : 1)} mCPU`}
             </p>
           </div>
           <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-sunken text-ink-muted">
@@ -97,7 +99,7 @@ export function AllocationMetrics({
           </div>
         </div>
         <p className="mt-3 text-2xs text-ink-muted">
-          {error ? 'Latest sample unavailable; showing last known data.' : `Across ${taskCount} ${taskCount === 1 ? 'task' : 'tasks'} · sampled ${sampledAt}`}
+          {error ? (taskCount ? 'Latest sample unavailable; showing last known data.' : initialError || 'Metrics unavailable; retrying automatically.') : taskCount ? `Across ${taskCount} ${taskCount === 1 ? 'task' : 'tasks'} · sampled ${sampledAt}` : 'No metrics samples returned; retrying automatically.'}
         </p>
       </Panel>
 
@@ -105,14 +107,14 @@ export function AllocationMetrics({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-medium text-ink-muted">Memory usage</p>
-            <p className="nums mt-1.5 text-2xl font-semibold tracking-tight text-ink">{taskCount ? formatBytes(memoryBytes) : 'Unavailable'}</p>
+            <p className="nums mt-1.5 text-2xl font-semibold tracking-tight text-ink">{taskCount ? formatBytes(memoryBytes) : error ? 'Unavailable' : 'No samples'}</p>
           </div>
           <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-sunken text-ink-muted">
             <MemoryStick className="h-4 w-4" />
           </div>
         </div>
         <p className="mt-3 text-2xs text-ink-muted">
-          {error ? 'Latest sample unavailable; showing last known data.' : `Current resident usage · sampled ${sampledAt}`}
+          {error ? (taskCount ? 'Latest sample unavailable; showing last known data.' : initialError || 'Metrics unavailable; retrying automatically.') : taskCount ? `Current resident usage · sampled ${sampledAt}` : 'No metrics samples returned; retrying automatically.'}
         </p>
       </Panel>
     </div>
