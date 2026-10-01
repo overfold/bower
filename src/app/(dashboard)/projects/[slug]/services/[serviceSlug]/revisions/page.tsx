@@ -46,7 +46,7 @@ export default async function RevisionsPage({ params }: { params: Promise<{ slug
 
   return (
     <div className="space-y-6">
-      <ServiceHeader slug={slug} serviceSlug={serviceSlug} serviceName={service.name} />
+      <ServiceHeader slug={slug} serviceSlug={serviceSlug} serviceName={service.name} serviceId={service.id} environmentId={environment.id} hasConfig={Boolean(activeConfig)} />
 
       <div>
         <SectionTitle>Deployment history</SectionTitle>

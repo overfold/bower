@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
-import { ChevronDown, Plus, ShieldCheck, Trash2 } from 'lucide-react'
+import { Plus, ShieldCheck, Trash2 } from 'lucide-react'
 import { createManagedRouteAction, deleteManagedRouteAction, updateRouteProtectionAction } from '@/lib/actions/routes'
 import {
   AlertDialog,
@@ -30,11 +30,10 @@ import {
 import { InlineNotice } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 type Option = { id: string; name: string }
 type ManagedDomain = { id: string; domain: string }
-
-const selectClass = 'flex h-9 w-full appearance-none rounded-lg border border-line bg-surface px-3 pr-9 text-[13px] text-ink shadow-card transition-[border-color,box-shadow] duration-150 ease-enter focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100'
 
 export function AddRouteDialog({
   projectId,
@@ -115,20 +114,14 @@ export function AddRouteDialog({
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="managedDomainId">Managed domain</Label>
-                  <div className="relative">
-                    <select
-                      id="managedDomainId"
-                      name="managedDomainId"
-                      className={selectClass}
-                      value={domainId}
-                      onChange={(event) => setDomainId(event.target.value)}
-                    >
+                  <Select name="managedDomainId" value={domainId} onValueChange={setDomainId}>
+                    <SelectTrigger id="managedDomainId"><SelectValue /></SelectTrigger>
+                    <SelectContent>
                       {domains.map((domain) => (
-                        <option key={domain.id} value={domain.id}>{domain.domain}</option>
+                        <SelectItem key={domain.id} value={domain.id}>{domain.domain}</SelectItem>
                       ))}
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
-                  </div>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="hostnamePrefix">Hostname prefix</Label>
@@ -149,14 +142,14 @@ export function AddRouteDialog({
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="serviceId">Target service</Label>
-                  <div className="relative">
-                    <select id="serviceId" name="serviceId" className={selectClass} required>
+                  <Select name="serviceId" defaultValue={services[0]?.id} required>
+                    <SelectTrigger id="serviceId"><SelectValue /></SelectTrigger>
+                    <SelectContent>
                       {services.map((service) => (
-                        <option key={service.id} value={service.id}>{service.name}</option>
+                        <SelectItem key={service.id} value={service.id}>{service.name}</SelectItem>
                       ))}
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
-                  </div>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
@@ -174,13 +167,13 @@ export function AddRouteDialog({
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="tlsMode">TLS</Label>
-                  <div className="relative">
-                    <select id="tlsMode" name="tlsMode" className={selectClass} defaultValue="auto">
-                      <option value="auto">Automatic HTTPS</option>
-                      <option value="none">HTTP only</option>
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
-                  </div>
+                  <Select name="tlsMode" defaultValue="auto">
+                    <SelectTrigger id="tlsMode"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">Automatic HTTPS</SelectItem>
+                      <SelectItem value="none">HTTP only</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="rateLimit">Rate limit</Label>
@@ -191,20 +184,14 @@ export function AddRouteDialog({
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="protectionMode">Access protection</Label>
-                  <div className="relative">
-                    <select
-                      id="protectionMode"
-                      name="protectionMode"
-                      className={selectClass}
-                      value={protectionMode}
-                      onChange={(event) => setProtectionMode(event.target.value)}
-                    >
-                      <option value="none">Public</option>
-                      <option value="password">Password</option>
-                      <option value="bower_auth">Bower account (Viewer+)</option>
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
-                  </div>
+                  <Select name="protectionMode" value={protectionMode} onValueChange={setProtectionMode}>
+                    <SelectTrigger id="protectionMode"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Public</SelectItem>
+                      <SelectItem value="password">Password</SelectItem>
+                      <SelectItem value="bower_auth">Bower account (Viewer+)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 {protectionMode === 'password' ? (
                   <div className="space-y-2">
@@ -284,14 +271,14 @@ export function RouteProtectionButton({
               {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
               <div className="space-y-2">
                 <Label htmlFor={`protection-${routeId}`}>Access protection</Label>
-                <div className="relative">
-                  <select id={`protection-${routeId}`} name="protectionMode" className={selectClass} value={mode} onChange={(event) => setMode(event.target.value as typeof mode)}>
-                    <option value="none">Public</option>
-                    <option value="password">Password</option>
-                    <option value="bower_auth">Bower account (Viewer+)</option>
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
-                </div>
+                <Select name="protectionMode" value={mode} onValueChange={(value) => setMode(value as typeof mode)}>
+                  <SelectTrigger id={`protection-${routeId}`}><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Public</SelectItem>
+                    <SelectItem value="password">Password</SelectItem>
+                    <SelectItem value="bower_auth">Bower account (Viewer+)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               {mode === 'password' ? (
                 <div className="space-y-2">

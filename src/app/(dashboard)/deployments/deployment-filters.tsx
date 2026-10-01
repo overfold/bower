@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Panel, PanelHeader } from '@/components/ui/panel'
 import { StatusDot, Chip, Mono } from '@/components/status'
 import { EmptyState } from '@/components/ui/empty-state'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   Table,
   TableBody,
@@ -110,28 +111,24 @@ export function DeploymentFilters({ items, projects, environments }: DeploymentF
           title={`${filtered.length} deployment${filtered.length === 1 ? '' : 's'}`}
           action={
             <div className="flex w-full flex-col gap-0.5 sm:w-auto sm:flex-row">
-              <select
-                aria-label="Filter by project"
-                className="h-10 w-full appearance-none rounded-lg sm:h-8 sm:w-[150px] border border-line bg-surface px-2.5 pr-8 text-[12.5px] text-ink shadow-card transition-[border-color,box-shadow] duration-150 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
-                value={projectFilter}
-                onChange={(e) => setProjectFilter(e.target.value)}
-              >
-                <option value="all">All projects</option>
-                {projects.map((p) => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
-              <select
-                aria-label="Filter by environment"
-                className="h-10 w-full appearance-none rounded-lg sm:h-8 sm:w-[160px] border border-line bg-surface px-2.5 pr-8 text-[12.5px] text-ink shadow-card transition-[border-color,box-shadow] duration-150 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
-                value={envFilter}
-                onChange={(e) => setEnvFilter(e.target.value)}
-              >
-                <option value="all">All environments</option>
-                {environments.map((e) => (
-                  <option key={e} value={e}>{e}</option>
-                ))}
-              </select>
+              <Select value={projectFilter} onValueChange={setProjectFilter}>
+                <SelectTrigger aria-label="Filter by project" className="h-10 w-full sm:h-8 sm:w-[150px] text-[12.5px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All projects</SelectItem>
+                  {projects.map((project) => <SelectItem key={project} value={project}>{project}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={envFilter} onValueChange={setEnvFilter}>
+                <SelectTrigger aria-label="Filter by environment" className="h-10 w-full sm:h-8 sm:w-[160px] text-[12.5px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All environments</SelectItem>
+                  {environments.map((environment) => <SelectItem key={environment} value={environment}>{environment}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
           }
         />

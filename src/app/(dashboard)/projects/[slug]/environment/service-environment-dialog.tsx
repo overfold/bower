@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import type { BowerSecretBinding } from '@/lib/job-builder'
 
@@ -143,31 +144,29 @@ export function ServiceEnvironmentDialog({
                       <div key={index} className="grid gap-3 rounded-xl border border-line bg-sunken p-3 sm:grid-cols-[1fr_120px_1fr_auto] sm:items-end">
                         <div className="space-y-1.5">
                           <Label htmlFor={`secret-${serviceId}-${index}`}>Secret</Label>
-                          <select
-                            id={`secret-${serviceId}-${index}`}
+                          <Select
                             value={binding.name}
-                            onChange={(event) => {
-                              const name = event.target.value
+                            onValueChange={(name) => {
                               updateBinding(index, binding.target === 'env'
                                 ? { name, env: binding.env || name }
                                 : { name, path: binding.path || `/run/trellis-secrets/${name}` })
                             }}
-                            className="flex h-9 w-full appearance-none rounded-lg border border-line bg-surface px-3 text-[13px] text-ink shadow-card focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
                           >
-                            {secretNames.map((name) => <option key={name} value={name}>{name}</option>)}
-                          </select>
+                            <SelectTrigger id={`secret-${serviceId}-${index}`}><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {secretNames.map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div className="space-y-1.5">
                           <Label htmlFor={`target-${serviceId}-${index}`}>Target</Label>
-                          <select
-                            id={`target-${serviceId}-${index}`}
-                            value={binding.target}
-                            onChange={(event) => changeTarget(index, event.target.value as 'env' | 'file')}
-                            className="flex h-9 w-full appearance-none rounded-lg border border-line bg-surface px-3 text-[13px] text-ink shadow-card focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
-                          >
-                            <option value="env">Env var</option>
-                            <option value="file">File</option>
-                          </select>
+                          <Select value={binding.target} onValueChange={(value) => changeTarget(index, value as 'env' | 'file')}>
+                            <SelectTrigger id={`target-${serviceId}-${index}`}><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="env">Env var</SelectItem>
+                              <SelectItem value="file">File</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div className="space-y-1.5">
                           <Label htmlFor={`destination-${serviceId}-${index}`}>{binding.target === 'env' ? 'Variable' : 'Path'}</Label>

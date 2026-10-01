@@ -6,8 +6,8 @@ import { motion } from 'motion/react'
 import { cn } from '@/lib/utils'
 
 const orgTabs = [
-  { label: 'Cluster', href: '/settings/cluster' },
   { label: 'Organization', href: '/settings/organization' },
+  { label: 'Cluster', href: '/settings/cluster' },
   { label: 'Teams', href: '/settings/teams' },
   { label: 'Members', href: '/settings/members' },
   { label: 'Domains', href: '/settings/domains' },

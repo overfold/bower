@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogBody, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Plus, ChevronDown } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Plus } from 'lucide-react'
 
 export function CreateServiceDialog({ projectSlug }: { projectSlug: string }) {
   const [open, setOpen] = useState(false)
@@ -57,20 +58,15 @@ export function CreateServiceDialog({ projectSlug }: { projectSlug: string }) {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="strategy">Deployment strategy</Label>
-                <div className="relative">
-                  <select
-                    id="strategy"
-                    name="strategy"
-                    defaultValue="recreate"
-                    className="flex h-9 w-full appearance-none rounded-lg border border-line bg-surface px-3 pr-9 text-[13px] text-ink shadow-card transition-[border-color,box-shadow] duration-150 ease-enter focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
-                  >
-                    <option value="recreate">recreate</option>
-                    <option value="rolling">rolling</option>
-                    <option value="blue_green">blue_green</option>
-                    <option value="canary">canary</option>
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-muted" aria-hidden="true" />
-                </div>
+                <Select name="strategy" defaultValue="recreate" required>
+                  <SelectTrigger id="strategy"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="recreate">recreate</SelectItem>
+                    <SelectItem value="rolling">rolling</SelectItem>
+                    <SelectItem value="blue_green">blue_green</SelectItem>
+                    <SelectItem value="canary">canary</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

@@ -21,7 +21,6 @@ import {
   Activity,
   ScrollText,
   Settings,
-  Ellipsis,
   UserCircle,
   LogOut,
 } from 'lucide-react'
@@ -104,27 +103,26 @@ export function SidebarContent({ user, onNavigate }: { user: SidebarUser; onNavi
       <Separator className="bg-line" />
 
       <div className="shrink-0 p-2">
-        <div className="flex items-center gap-2.5 rounded-lg px-2.5 py-2">
-          <Avatar className="h-6 w-6">
-            {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={user.name} />}
-            <AvatarFallback className="bg-ink text-2xs font-semibold text-white">
-              {getInitials(user.name)}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[12.5px] font-medium text-ink">{user.name}</p>
-            <p className="truncate text-2xs text-ink-muted">{user.email}</p>
-          </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="rounded-md p-1.5 text-ink-muted transition-colors hover:bg-black/[0.035] hover:text-ink"
+                aria-label="Profile menu"
+                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-sunken focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 data-[state=open]:bg-sunken"
               >
-                <Ellipsis className="h-4 w-4" />
+                <Avatar className="h-6 w-6">
+                  {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={user.name} />}
+                  <AvatarFallback className="bg-ink text-2xs font-semibold text-white">
+                    {getInitials(user.name)}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[12.5px] font-medium text-ink">{user.name}</span>
+                  <span className="block truncate text-2xs text-ink-muted">{user.email}</span>
+                </span>
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent side="top" align="end" className="w-44">
+            <DropdownMenuContent side="top" align="start" sideOffset={8} className="w-[var(--radix-dropdown-menu-trigger-width)]">
               <DropdownMenuItem asChild>
                 <Link href="/settings/account" onClick={onNavigate} className="flex items-center gap-2">
                   <UserCircle className="h-4 w-4" />
@@ -142,7 +140,6 @@ export function SidebarContent({ user, onNavigate }: { user: SidebarUser; onNavi
               </form>
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
       </div>
     </div>
   )

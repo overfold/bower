@@ -28,7 +28,7 @@ export default async function AdvancedPage({
 
   return (
     <div className="space-y-6">
-      <ServiceHeader slug={slug} serviceSlug={serviceSlug} serviceName={service.name} />
+      <ServiceHeader slug={slug} serviceSlug={serviceSlug} serviceName={service.name} serviceId={service.id} environmentId={environment.id} hasConfig={Boolean(mergedConfig)} />
 
       <div className="space-y-2">
         <SectionTitle>Advanced execution</SectionTitle>

@@ -21,7 +21,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Server } from 'lucide-react'
 import { DrainToggle } from './drain-toggle'
 import { ResetBackoffButton } from './reset-backoff-button'
-import type { TrellisAllocation, TrellisClusterSettings, TrellisJob, TrellisNode } from '@/types/trellis'
+import type { TrellisAllocation, TrellisJob, TrellisNode } from '@/types/trellis'
 
 function relTime(value: string | Date): string {
   const date = value instanceof Date ? value : new Date(value)
@@ -60,40 +60,6 @@ function formatBytes(value: number) {
   return `${amount.toFixed(unit > 1 && amount < 10 ? 1 : 0)} ${units[unit]}`
 }
 
-function formatDuration(value: number) {
-  const seconds = value / 1_000_000_000
-  if (seconds < 60) return `${seconds}s`
-  if (seconds < 3600) return `${seconds / 60}m`
-  return `${seconds / 3600}h`
-}
-
-function PolicyPanel({ settings }: { settings: TrellisClusterSettings }) {
-  const limits = settings.job_limits
-  const reconciliation = settings.reconciliation
-  return (
-    <Panel>
-      <PanelHeader title="Effective cluster policy" hint="Read-only values enforced by Trellis at admission and reconciliation." />
-      <div className="grid gap-x-8 px-4 sm:grid-cols-2 lg:grid-cols-3">
-        <dl>
-          <KeyValue label="Replica / job allocation bounds">{limits.max_replicas_per_task_group} per group · {limits.max_desired_allocations} per job</KeyValue>
-          <KeyValue label="Namespace allocation bound">{limits.max_desired_allocations_per_namespace}</KeyValue>
-          <KeyValue label="Job shape">{limits.max_task_groups_per_job} groups · {limits.max_tasks_per_task_group} tasks/group</KeyValue>
-        </dl>
-        <dl>
-          <KeyValue label="Default task resources">{formatCpu(limits.default_task_cpu)} · {formatBytes(limits.default_task_memory)}</KeyValue>
-          <KeyValue label="Maximum task resources">{formatCpu(limits.max_task_cpu)} · {formatBytes(limits.max_task_memory)}</KeyValue>
-          <KeyValue label="Allocation loss timeout">{formatDuration(reconciliation.allocation_loss_timeout)}</KeyValue>
-        </dl>
-        <dl>
-          <KeyValue label="Replacement backoff">{formatDuration(reconciliation.replacement_backoff_base)}–{formatDuration(reconciliation.replacement_backoff_max)}</KeyValue>
-          <KeyValue label="Stable failure reset">{formatDuration(reconciliation.replacement_stable_after)}</KeyValue>
-          <KeyValue label="Terminal records retained">{reconciliation.terminal_allocation_retention} per task group</KeyValue>
-        </dl>
-      </div>
-    </Panel>
-  )
-}
-
 export default async function StatusPage() {
   const user = await getCurrentUser()
   if (!user) redirect('/login')
@@ -108,29 +74,24 @@ export default async function StatusPage() {
   const namespaces = [...new Set([...targets.map((target) => target.namespace), ...proxies.map((proxy) => proxy.namespace)])]
 
   let nodes: TrellisNode[] = []
-  let settings: TrellisClusterSettings | null = null
   const allocations: TrellisAllocation[] = []
   const jobs: Array<{ namespace: string; job: TrellisJob }> = []
   let allocatedByNode = new Map<string, { cpu: number; memory: number }>()
   let clusterError: string | null = null
   let metricsError: string | null = null
-  let settingsError: string | null = null
   let operationsError: string | null = null
 
   try {
     const client = await getTrellisClient(orgCtx.org.id)
-    const [nodeResult, metricsResult, settingsResult, ...namespaceResults] = await Promise.allSettled([
+    const [nodeResult, metricsResult, ...namespaceResults] = await Promise.allSettled([
       client.listNodes(),
       client.getMetrics(),
-      client.getClusterSettings(),
       ...namespaces.flatMap((namespace) => [client.listAllocations({ namespace }), client.listJobs(namespace)]),
     ])
     if (nodeResult.status === 'fulfilled') nodes = nodeResult.value
     else clusterError = trellisReadError(nodeResult.reason)
     if (metricsResult.status === 'fulfilled') allocatedByNode = parseNodeAllocatedResources(metricsResult.value)
     else metricsError = trellisReadError(metricsResult.reason)
-    if (settingsResult.status === 'fulfilled') settings = settingsResult.value
-    else settingsError = trellisReadError(settingsResult.reason)
     namespaces.forEach((namespace, index) => {
       const allocationResult = namespaceResults[index * 2]
       const jobResult = namespaceResults[index * 2 + 1]
@@ -140,7 +101,7 @@ export default async function StatusPage() {
       else if (jobResult?.status === 'rejected') operationsError ??= trellisReadError(jobResult.reason)
     })
   } catch (error) {
-    clusterError = metricsError = settingsError = operationsError = trellisReadError(error)
+    clusterError = metricsError = operationsError = trellisReadError(error)
   }
 
   const routeCountMap = new Map(routeCounts.map((row) => [row.environmentId, row.count]))
@@ -167,7 +128,7 @@ export default async function StatusPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeading title="Cluster" description="Monitor cluster capacity, placement, replacement backoff, policy, and managed ingress." />
+      <PageHeading title="Cluster" description="Monitor cluster capacity, placement, replacement backoff, and managed ingress." />
 
       <div className="grid gap-5 lg:grid-cols-2">
         <Panel>
@@ -219,8 +180,6 @@ export default async function StatusPage() {
           })}
         </TableBody></Table>
       </Panel> : null}
-
-      {settings ? <PolicyPanel settings={settings} /> : settingsError ? <Panel><PanelHeader title="Effective cluster policy" hint="Read-only" /><TrellisReadError title="Policy unavailable" message={settingsError} /></Panel> : null}
 
       <Panel>
         <PanelHeader title="Nodes" />

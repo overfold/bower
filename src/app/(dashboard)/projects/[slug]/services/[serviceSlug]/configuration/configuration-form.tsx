@@ -7,7 +7,7 @@ import { Panel, PanelHeader } from '@/components/ui/panel'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { ChevronDown } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { MergedServiceConfig } from '@/lib/queries'
 
 interface ConfigurationFormProps {
@@ -70,6 +70,10 @@ export function ConfigurationForm({ serviceId, environmentId, config }: Configur
         <input type="hidden" name="volumes" value={JSON.stringify(config?.volumes ?? [])} />
         <input type="hidden" name="secretBindings" value={JSON.stringify(config?.secretBindings ?? [])} />
         <input type="hidden" name="canarySteps" value={JSON.stringify(config?.canarySteps ?? [10, 25, 50, 100])} />
+        <input type="hidden" name="healthInterval" value={d.healthCheckInterval} />
+        <input type="hidden" name="healthTimeout" value={d.healthCheckTimeout} />
+        <input type="hidden" name="healthThreshold" value={d.healthCheckThreshold} />
+        <input type="hidden" name="autoRollbackSeconds" value={d.autoRollbackSeconds} />
       </div>
 
       <Panel>
@@ -87,20 +91,15 @@ export function ConfigurationForm({ serviceId, environmentId, config }: Configur
             </div>
             <div className="space-y-2">
               <Label htmlFor="strategy">Deployment strategy</Label>
-              <div className="relative">
-                <select
-                  id="strategy"
-                  name="strategy"
-                  defaultValue={d.deploymentStrategy}
-                  className="flex h-9 w-full appearance-none rounded-lg border border-line bg-surface px-3 pr-9 text-[13px] text-ink shadow-card transition-[border-color,box-shadow] duration-150 ease-enter focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
-                >
-                  <option value="rolling">Rolling</option>
-                  <option value="recreate">Recreate</option>
-                  <option value="blue_green">Blue/green</option>
-                  <option value="canary">Canary</option>
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-muted" />
-              </div>
+              <Select name="strategy" defaultValue={d.deploymentStrategy}>
+                <SelectTrigger id="strategy"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="rolling">Rolling</SelectItem>
+                  <SelectItem value="recreate">Recreate</SelectItem>
+                  <SelectItem value="blue_green">Blue/green</SelectItem>
+                  <SelectItem value="canary">Canary</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>
@@ -126,21 +125,16 @@ export function ConfigurationForm({ serviceId, environmentId, config }: Configur
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="healthType">Health check type</Label>
-              <div className="relative">
-                <select
-                  id="healthType"
-                  name="healthType"
-                  defaultValue={d.healthCheckType}
-                  onChange={(e) => setHealthType(e.target.value)}
-                  className="flex h-9 w-full appearance-none rounded-lg border border-line bg-surface px-3 pr-9 text-[13px] text-ink shadow-card transition-[border-color,box-shadow] duration-150 ease-enter focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
-                >
-                  <option value="">None</option>
-                  <option value="http">HTTP</option>
-                  <option value="tcp">TCP</option>
-                  <option value="script">Script</option>
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-muted" />
-              </div>
+              <input type="hidden" name="healthType" value={healthType} />
+              <Select value={healthType || 'none'} onValueChange={(value) => setHealthType(value === 'none' ? '' : value)}>
+                <SelectTrigger id="healthType"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="http">HTTP</SelectItem>
+                  <SelectItem value="tcp">TCP</SelectItem>
+                  <SelectItem value="script">Script</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             {healthType === 'http' && (
               <div className="space-y-2">
@@ -161,21 +155,6 @@ export function ConfigurationForm({ serviceId, environmentId, config }: Configur
               <Label htmlFor="healthCommand">Health check command</Label>
               <Input id="healthCommand" name="healthCommand" defaultValue={d.healthCheckCommand} required mono />
             </div>
-          )}
-
-          {healthType && (
-            <>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div className="space-y-2"><Label htmlFor="healthInterval">Check interval (seconds)</Label><Input id="healthInterval" name="healthInterval" type="number" min={1} step={1} defaultValue={d.healthCheckInterval} /></div>
-              <div className="space-y-2"><Label htmlFor="healthTimeout">Check timeout (seconds)</Label><Input id="healthTimeout" name="healthTimeout" type="number" min={1} step={1} defaultValue={d.healthCheckTimeout} /></div>
-              <div className="space-y-2"><Label htmlFor="healthThreshold">Failure threshold</Label><Input id="healthThreshold" name="healthThreshold" type="number" min={1} step={1} defaultValue={d.healthCheckThreshold} /></div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="autoRollbackSeconds">Failure grace period (seconds)</Label>
-              <Input id="autoRollbackSeconds" name="autoRollbackSeconds" type="number" min={30} defaultValue={d.autoRollbackSeconds} className="max-w-48" />
-            </div>
-            </>
           )}
         </div>
       </Panel>

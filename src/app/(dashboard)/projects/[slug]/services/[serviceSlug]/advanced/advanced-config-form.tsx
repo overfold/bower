@@ -6,6 +6,7 @@ import { ShieldAlert } from 'lucide-react'
 import { updateServiceAdvancedAction } from '@/lib/actions/service-settings'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 export function AdvancedConfigForm({
   serviceId,
@@ -51,47 +52,38 @@ export function AdvancedConfigForm({
       <div className="grid gap-5 md:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor={`runtime-${environmentId}`}>Isolation</Label>
-          <select
-            id={`runtime-${environmentId}`}
-            name="runtime"
-            value={runtime}
-            onChange={(event) => setRuntime(event.target.value as 'runc' | 'runsc')}
-            className="flex h-9 w-full appearance-none rounded-lg border border-line bg-surface px-3 text-[13px] text-ink shadow-card focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
-          >
-            <option value="runc">None</option>
-            <option value="runsc">Sandboxed</option>
-          </select>
+          <Select name="runtime" value={runtime} onValueChange={(value) => setRuntime(value as 'runc' | 'runsc')}>
+            <SelectTrigger id={`runtime-${environmentId}`}><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="runc">None</SelectItem>
+              <SelectItem value="runsc">Sandboxed</SelectItem>
+            </SelectContent>
+          </Select>
           <p className="text-2xs leading-relaxed text-ink-muted">
             Sandboxed workloads use stronger process isolation for the whole service.
           </p>
         </div>
         <div className="space-y-2">
           <Label htmlFor={`api-access-${environmentId}`}>Workload API access</Label>
-          <select
-            id={`api-access-${environmentId}`}
-            name="apiAccess"
-            value={apiAccess}
-            onChange={(event) => setApiAccess(event.target.value)}
-            className="flex h-9 w-full appearance-none rounded-lg border border-line bg-surface px-3 text-[13px] text-ink shadow-card focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
-          >
-            <option value="none">None</option>
-            <option value="namespace:read">Namespace · read</option>
-            <option value="namespace:write" disabled={!mayBypassMultitenancy}>Namespace · write{mayBypassMultitenancy ? '' : ' · instance admin only'}</option>
-            <option value="cluster:read" disabled={!mayBypassMultitenancy}>Cluster · read{mayBypassMultitenancy ? '' : ' · instance admin only'}</option>
-            <option value="cluster:write" disabled={!mayBypassMultitenancy}>Cluster · write{mayBypassMultitenancy ? '' : ' · instance admin only'}</option>
-          </select>
-          <p className="text-2xs leading-relaxed text-ink-muted">
-            Namespace read is available to project admins. Mutating or cluster-scoped credentials require an instance admin and the multitenancy bypass.
-          </p>
+          <Select name="apiAccess" value={apiAccess} onValueChange={setApiAccess}>
+            <SelectTrigger id={`api-access-${environmentId}`}><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">None</SelectItem>
+              <SelectItem value="namespace:read">Namespace · read</SelectItem>
+              {mayBypassMultitenancy && <>
+                <SelectItem value="namespace:write">Namespace · write</SelectItem>
+                <SelectItem value="cluster:read">Cluster · read</SelectItem>
+                <SelectItem value="cluster:write">Cluster · write</SelectItem>
+              </>}
+            </SelectContent>
+          </Select>
         </div>
       </div>
-      {(sensitive || !mayBypassMultitenancy) && (
+      {sensitive && (
         <div className="flex gap-2 rounded-lg border border-warn-200 bg-warn-50 p-3 text-[12px] leading-relaxed text-warn-500">
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
-            {sensitive
-              ? 'This service has elevated workload API access. The instance-admin multitenancy bypass must remain enabled to save or deploy it.'
-              : 'Only instance admins are cluster operators, and elevated workload API grants are disabled unless the operator enables the multitenancy bypass.'}
+            This service has elevated workload API access. The instance-admin multitenancy bypass must remain enabled to save or deploy it.
           </span>
         </div>
       )}

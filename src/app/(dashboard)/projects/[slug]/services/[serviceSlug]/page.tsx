@@ -12,7 +12,6 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { StatusDot } from '@/components/status'
 import { DeploymentPoller } from '@/components/deployment-poller'
 import { ServiceHeader } from './service-header'
-import { ServiceActions } from './service-actions'
 import { Boxes, Rocket } from 'lucide-react'
 import type { TrellisAllocation } from '@/types/trellis'
 
@@ -63,13 +62,7 @@ export default async function ServiceDetailPage({
   return (
     <div className="space-y-6">
       <DeploymentPoller active={hasActiveDeployment} />
-      <ServiceHeader slug={slug} serviceSlug={serviceSlug} serviceName={service.name} />
-      {selectedConfig ? (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-[13px] text-ink-muted">Runtime allocations and recent deployment activity.</p>
-          <ServiceActions serviceId={service.id} environmentId={environment.id} hasDeployments={selectedDeployments.some((deployment) => Boolean(deployment.previousJobSpec))} />
-        </div>
-      ) : null}
+      <ServiceHeader slug={slug} serviceSlug={serviceSlug} serviceName={service.name} serviceId={service.id} environmentId={environment.id} hasConfig={Boolean(selectedConfig)} />
 
       <div className="space-y-5">
         <SectionTitle>Current allocations</SectionTitle>

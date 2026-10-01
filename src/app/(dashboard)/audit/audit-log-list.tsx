@@ -58,9 +58,9 @@ function DiffColumns({ details }: { details: Record<string, unknown> }) {
       <p className="text-2xs font-semibold uppercase tracking-wide text-ink-faint">Details</p>
       <dl className="mt-2 space-y-1.5">
         {entries.map(([k, v]) => (
-          <div key={k} className="flex items-baseline justify-between gap-3">
-            <dt className="font-mono text-[11.5px] text-ink-muted">{k}</dt>
-            <dd className="font-mono text-[11.5px] text-ink-soft">{String(v)}</dd>
+          <div key={k} className="flex items-start justify-between gap-3">
+            <dt className="shrink-0 font-mono text-[11.5px] text-ink-muted">{k}</dt>
+            <dd className="min-w-0 whitespace-pre-wrap break-words font-mono text-[11.5px] text-ink-soft">{typeof v === 'object' ? JSON.stringify(v, null, 2) : String(v)}</dd>
           </div>
         ))}
       </dl>
