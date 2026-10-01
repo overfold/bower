@@ -4,6 +4,22 @@ const jobFor = (route, allocation) => route.strategy === 'canary'
   ? allocation.labels?.['bower/service'] === route.service
   : allocation.job === route.activeJob
 
+// Bower creates one routable task per service job and names it after the job.
+// Do not guess among endpoints from arbitrary multi-task workloads.
+function allocationUpstream(allocation, containerPort) {
+  const endpoints = Array.isArray(allocation.endpoints) ? allocation.endpoints : []
+  const endpoint = endpoints.find((item) => item.task === allocation.job)
+  if (endpoints.length > 0) {
+    if (!endpoint) return null
+    const mapping = endpoint.ports?.find((item) => item.container_port === containerPort)
+    return endpoint.address && mapping ? `${endpoint.address}:${mapping.host_port}` : null
+  }
+
+  // Compatibility for allocations written before task endpoints were added.
+  const mapping = allocation.ports?.find((item) => item.container_port === containerPort)
+  return allocation.address && mapping ? `${allocation.address}:${mapping.host_port}` : null
+}
+
 function authLines(route) {
   if ((route.protectionMode === 'password' || route.protectionMode === 'bower_auth') && route.authOrigin) {
     return [
@@ -26,8 +42,8 @@ export function renderCaddyfile(routes, allocations, { adminPort = '2019', httpP
       : []
     const canaryWeight = candidates.reduce((weight, allocation) => Math.max(weight, Number(allocation.labels?.['trellis/weight'] || 0)), 0)
     const upstreams = allocations.filter((allocation) => allocation.phase === 'running' && allocation.health === 'healthy' && jobFor(route, allocation)).flatMap((allocation) => {
-      const port = allocation.ports?.find((item) => item.port === route.port)?.host_port || route.port
-      const upstream = `${allocation.address}:${port}`
+      const upstream = allocationUpstream(allocation, route.port)
+      if (!upstream) return []
       const weight = allocation.labels?.['bower/canary'] === 'true'
         ? Number(allocation.labels?.['trellis/weight'] || 0)
         : route.strategy === 'canary' && canaryWeight > 0

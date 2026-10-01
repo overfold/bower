@@ -105,6 +105,32 @@ test('allocation actions deny foreign namespaces/jobs and viewer stops, and use 
   assert.deepEqual(operations, [['a', 'production'], ['a', 'production']])
 })
 
+test('replacement backoff reset requires an organization operator and an owned namespace', async () => {
+  let role = 'member'
+  let owned: unknown[] = [{ id: 'environment' }]
+  const resets: unknown[][] = []
+  const audits: unknown[] = []
+  const actions = load<typeof import('./actions/operations')>('src/lib/actions/operations.ts', {
+    'next/cache': { revalidatePath() {} },
+    '@/db': { db: { select: () => query(owned) } },
+    '@/lib/auth': {},
+    './shared': {
+      requireContext: async () => ({ ...context, role, user: { id: 'user' } }),
+      recordAudit: async (entry: unknown) => { audits.push(entry) },
+    },
+    '@/lib/trellis-instance': { getTrellisClient: async () => ({ resetReplacementBackoff: async (...args: unknown[]) => { resets.push(args) } }) },
+    '@/lib/managed-proxy': {},
+  })
+  await assert.rejects(actions.resetReplacementBackoffAction('production', 'web', 'api'), /owners and admins/)
+  role = 'admin'
+  owned = []
+  await assert.rejects(actions.resetReplacementBackoffAction('foreign', 'web', 'api'), /Namespace not found/)
+  owned = [{ id: 'environment' }]
+  await actions.resetReplacementBackoffAction('production', 'web', 'api')
+  assert.deepEqual(resets, [['web', 'api', 'production']])
+  assert.equal(audits.length, 1)
+})
+
 test('service deletion retains records on job or ingress cleanup failure; absent jobs permit deletion', async () => {
   let deleted = 0
   let failure: Error | null = new TrellisApiError(403, 'Forbidden', 'denied')
@@ -295,9 +321,10 @@ test('pending allocations count against runtime health rather than declaring all
 
 test('metrics failure keeps node and independently observed ingress status visible', async () => {
   const page = load<{ default: () => Promise<ReactElement> }>('src/app/(dashboard)/status/page.tsx', {
-    ...pageDependencies({ listNodes: async () => [{ id: 'node-a', status: 'healthy', cpu: 1000, memory: 1024, host: 'node', port: 8128 }], getMetrics: async () => { throw new Error('offline') }, listAllocations: async () => [{ namespace: 'production', job: 'bower-proxy', phase: 'running', health: 'unhealthy', message: 'Route-sync freshness check failed.' }] }),
-    '@/lib/queries': { getUserOrganization: async () => context, getManagedProxiesForOrg: async () => [{ namespace: 'production', proxy: { id: 'proxy', environmentId: 'env', trellisJobName: 'bower-proxy', status: 'running', updatedAt: new Date() } }], getRouteCountsByEnvironment: async () => [] },
+    ...pageDependencies({ listNodes: async () => [{ id: 'node-a', status: 'healthy', cpu: 1000, memory: 1024, host: 'node', port: 8128 }], getMetrics: async () => { throw new Error('offline') }, getClusterSettings: async () => { throw new Error('offline') }, listJobs: async () => [], listAllocations: async () => [{ namespace: 'production', job: 'bower-proxy', phase: 'running', health: 'unhealthy', message: 'Route-sync freshness check failed.' }] }),
+    '@/lib/queries': { getUserOrganization: async () => context, getManagedProxiesForOrg: async () => [{ namespace: 'production', proxy: { id: 'proxy', environmentId: 'env', trellisJobName: 'bower-proxy', status: 'running', configHash: null, updatedAt: new Date() } }], getRouteCountsByEnvironment: async () => [], getOperationalTargetsForOrg: async () => [] },
     './drain-toggle': { DrainToggle: () => null },
+    './reset-backoff-button': { ResetBackoffButton: () => null },
   })
   const html = renderToStaticMarkup(await page.default())
   assert.match(html, /node-a/)

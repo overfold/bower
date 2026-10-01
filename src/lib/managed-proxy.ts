@@ -67,7 +67,7 @@ export async function syncManagedProxy(projectId: string, environmentId: string,
     namespace: environment.trellisNamespace,
     task_groups: [{
       name: 'proxy', count: 1, api_access: { scope: 'namespace', access: 'read' },
-      labels: { 'bower/managed': 'true', 'bower/infrastructure': 'proxy' },
+      labels: { 'bower/managed': 'true', 'bower/infrastructure': 'proxy', 'bower/config-hash': hash },
       update: { strategy: 'recreate' },
       tasks: [{
         name: 'caddy', image: process.env.BOWER_CADDY_IMAGE || 'ghcr.io/overfold/bower-proxy:latest',

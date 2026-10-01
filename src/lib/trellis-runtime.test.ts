@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { allocationBelongsToService, observedProxyStatus, trellisReadError } from './trellis-runtime'
+import { allocationBelongsToService, managedProxyObservation, nodeAllocatable, nodeCapacity, observationFreshness, observedProxyStatus, pendingReasonCounts, trellisReadError } from './trellis-runtime'
 import { cleanupTrellisResources } from './trellis-cleanup'
 import { TrellisApiError } from './trellis'
 import type { TrellisAllocation } from '@/types/trellis'
@@ -24,6 +24,40 @@ test('proxy observation distinguishes accepted, starting, unknown, unhealthy and
   assert.equal(status([{ ...proxy, phase: 'failed' }]), 'unhealthy')
   assert.equal(status([proxy, { ...proxy, phase: 'failed' }]), 'running')
   assert.equal(status([{ ...proxy, namespace: 'staging' }]), 'pending')
+})
+
+test('target proxy convergence does not confuse a healthy old revision with the submitted target', () => {
+  const proxy = { ...allocation, job: 'bower-proxy' }
+  const old = { ...proxy, labels: { 'bower/config-hash': 'old' } }
+  const target = { ...proxy, phase: 'starting', health: 'unknown', labels: { 'bower/config-hash': 'new' } } as TrellisAllocation
+  assert.deepEqual(managedProxyObservation([old, target], 'production', 'bower-proxy', 'new'), {
+    status: 'pending', convergence: 'updating', diagnostic: undefined,
+  })
+  assert.deepEqual(managedProxyObservation([{ ...target, phase: 'running', health: 'healthy' }], 'production', 'bower-proxy', 'new'), {
+    status: 'running', convergence: 'converged',
+  })
+  assert.equal(managedProxyObservation([{ ...target, health: 'unhealthy', message: 'route-sync discovery failed' }], 'production', 'bower-proxy', 'new').failureKind, 'route-sync')
+})
+
+test('node resources preserve allocatable scheduling semantics and mark absent or old samples', () => {
+  const node = { cpu: 1800, memory: 8_000, cpu_capacity: 2000, memory_capacity: 10_000, cpu_allocatable: 1750, memory_allocatable: 7_500 } as never
+  assert.deepEqual(nodeAllocatable(node), { cpu: 1750, memory: 7_500 })
+  assert.deepEqual(nodeCapacity(node), { cpu: 2000, memory: 10_000 })
+  assert.equal(observationFreshness(undefined), 'unknown')
+  assert.equal(observationFreshness('2026-10-01T10:00:00Z', Date.parse('2026-10-01T10:00:59Z')), 'fresh')
+  assert.equal(observationFreshness('2026-10-01T10:00:00Z', Date.parse('2026-10-01T10:01:01Z')), 'stale')
+})
+
+test('pending reason summaries count explicit reasons separately from unknown placement', () => {
+  assert.deepEqual(pendingReasonCounts([
+    { phase: 'pending', reason: 'insufficient_cpu' },
+    { phase: 'pending', reason: 'insufficient_cpu' },
+    { phase: 'pending' },
+    { phase: 'running', reason: 'insufficient_cpu' },
+  ] as TrellisAllocation[]), [
+    { reason: 'insufficient_cpu', count: 2 },
+    { reason: 'awaiting_placement', count: 1 },
+  ])
 })
 
 test('cleanup tolerates absent resources but rejects forbidden/unreachable resources after settling all requests', async () => {

@@ -15,6 +15,7 @@ import type {
   TrellisJobVersion,
   TrellisJobApplyResult,
   TrellisAllocationMetrics,
+  TrellisClusterSettings,
 } from '@/types/trellis'
 
 const caDispatchers = new Map<string, Dispatcher>()
@@ -163,6 +164,10 @@ export class TrellisClient {
     return this.request<string>('GET', '/metrics', { rawText: true })
   }
 
+  async getClusterSettings(): Promise<TrellisClusterSettings> {
+    return this.request<TrellisClusterSettings>('GET', '/v1/cluster/settings')
+  }
+
   async drainNode(id: string): Promise<void> {
     await this.request<void>('POST', `/v1/nodes/${encodeURIComponent(id)}/drain`)
   }
@@ -227,6 +232,10 @@ export class TrellisClient {
 
   async restartJob(name: string, namespace: string): Promise<void> {
     await this.request<void>('POST', this.resourcePath(namespace, `/jobs/${encodeURIComponent(name)}/restart`))
+  }
+
+  async resetReplacementBackoff(name: string, group: string, namespace: string): Promise<void> {
+    await this.request<void>('POST', this.resourcePath(namespace, `/jobs/${encodeURIComponent(name)}/groups/${encodeURIComponent(group)}/replacement-backoff/reset`))
   }
 
   async getJobVersions(name: string, namespace: string): Promise<TrellisJobVersion[]> {

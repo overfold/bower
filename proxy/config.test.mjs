@@ -7,7 +7,7 @@ const allocation = {
   health: 'healthy',
   job: 'web',
   address: '10.0.0.2',
-  ports: [{ port: 8080, host_port: 32100 }],
+  ports: [{ container_port: 8080, host_port: 32100 }],
 }
 
 const route = {
@@ -76,4 +76,31 @@ test('binds the Caddy admin API to loopback for route-sync reloads', () => {
   const config = renderCaddyfile([{ ...route, protectionMode: 'none' }], [allocation], { adminPort: '22909' })
   assert.match(config, /admin 127\.0\.0\.1:22909/)
   assert.doesNotMatch(config, /admin 0\.0\.0\.0:/)
+})
+
+test('uses the Bower task endpoint and matches its container port', () => {
+  const config = renderCaddyfile([route], [{
+    ...allocation,
+    address: '',
+    ports: [],
+    endpoints: [
+      { task: 'sidecar', address: '10.0.0.8', ports: [{ container_port: 8080, host_port: 39000 }] },
+      { task: 'web', address: '10.0.0.9', ports: [{ container_port: 8080, host_port: 32080 }] },
+    ],
+  }])
+  assert.match(config, /reverse_proxy 10\.0\.0\.9:32080/)
+  assert.doesNotMatch(config, /10\.0\.0\.8|39000/)
+})
+
+test('does not invent a route for an unmatched port or ambiguous multi-task workload', () => {
+  const unmatched = renderCaddyfile([route], [{ ...allocation, ports: [{ container_port: 9090, host_port: 32100 }] }])
+  assert.match(unmatched, /No healthy upstream allocations/)
+
+  const ambiguous = renderCaddyfile([{ ...route, strategy: 'canary' }], [{
+    ...allocation,
+    job: 'external',
+    labels: { 'bower/service': 'web' },
+    endpoints: [{ task: 'api', address: '10.0.0.8', ports: [{ container_port: 8080, host_port: 8080 }] }],
+  }])
+  assert.match(ambiguous, /No healthy upstream allocations/)
 })

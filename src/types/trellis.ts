@@ -24,14 +24,24 @@ export interface TrellisNode {
   host: string
   port: number
   status: 'healthy' | 'unhealthy' | 'draining'
-  cpu: number // millicores capacity
-  memory: number // bytes capacity
+  cpu: number // legacy allocatable millicores
+  memory: number // legacy allocatable bytes
+  cpu_capacity?: number
+  memory_capacity?: number
+  cpu_allocatable?: number
+  memory_allocatable?: number
+  cpu_usage?: number // ratio from 0 to 1
+  memory_used?: number
+  memory_available?: number
+  metrics_at?: string
   os?: string
   arch?: string
   labels?: Record<string, string>
   volumes?: string[]
+  capabilities?: string[]
   version?: string
-  last_heartbeat: string // ISO 8601
+  last_heartbeat?: string // absent before the first heartbeat to this leader
+  control_plane?: 'voter' | 'nonvoter'
 }
 
 // -- Constraints ------------------------------------------------------------
@@ -157,6 +167,12 @@ export interface TrellisAllocationPort {
   container_port: number
 }
 
+export interface TrellisAllocationEndpoint {
+  task: string
+  address?: string
+  ports?: TrellisAllocationPort[]
+}
+
 export interface TrellisAllocation {
   id: string
   job: string
@@ -176,6 +192,7 @@ export interface TrellisAllocation {
   attempt: number
   next_retry_at?: string
   ports: TrellisAllocationPort[]
+  endpoints?: TrellisAllocationEndpoint[]
   labels: Record<string, string>
 }
 
@@ -212,6 +229,33 @@ export interface TrellisReplacementBackoff {
   reason?: string
   message?: string
   next_replacement_at: string
+}
+
+// -- Cluster settings -------------------------------------------------------
+
+export interface TrellisClusterSettings {
+  job_limits: {
+    max_replicas_per_task_group: number
+    max_task_groups_per_job: number
+    max_tasks_per_task_group: number
+    max_desired_allocations: number
+    max_desired_allocations_per_namespace: number
+    default_task_cpu: number
+    default_task_memory: number
+    max_task_cpu: number
+    max_task_memory: number
+  }
+  reconciliation: {
+    allocation_loss_timeout: number
+    replacement_backoff_base: number
+    replacement_backoff_max: number
+    replacement_stable_after: number
+    terminal_allocation_retention: number
+  }
+  network: {
+    wireguard_pool: string
+    wireguard_port_count: number
+  }
 }
 
 // -- Plan (response from POST /v1/jobs/plan) --------------------------------

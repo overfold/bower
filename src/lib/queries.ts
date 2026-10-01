@@ -264,6 +264,22 @@ export async function getRouteCountsByEnvironment(orgId: string) {
     .innerJoin(projects, eq(projects.id, routes.projectId)).where(eq(projects.orgId, orgId)).groupBy(routes.environmentId)
 }
 
+export async function getOperationalTargetsForOrg(orgId: string) {
+  return db.select({
+    namespace: environments.trellisNamespace,
+    job: serviceConfigs.activeJobName,
+    serviceSlug: services.slug,
+    serviceName: services.name,
+    projectSlug: projects.slug,
+    projectName: projects.name,
+    environmentName: environments.name,
+  }).from(serviceConfigs)
+    .innerJoin(services, eq(services.id, serviceConfigs.serviceId))
+    .innerJoin(projects, eq(projects.id, services.projectId))
+    .innerJoin(environments, eq(environments.id, serviceConfigs.environmentId))
+    .where(eq(projects.orgId, orgId))
+}
+
 export async function getDeploymentEvents(deploymentIds: string[]) {
   if (!deploymentIds.length) return []
   const { inArray } = await import('drizzle-orm')

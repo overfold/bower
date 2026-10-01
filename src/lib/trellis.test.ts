@@ -19,6 +19,7 @@ test('non-exec resources use encoded namespace paths without namespace headers',
   await client.applyJob(spec, ns)
   await client.deleteJob(name, ns)
   await client.restartJob(name, ns)
+  await client.resetReplacementBackoff(name, 'api/group', ns)
   await client.getJobVersions(name, ns)
   await client.listAllocations({ namespace: ns, job: name, label: 'bower/service=web app' })
   await client.stopAllocation('alloc/id', ns)
@@ -29,18 +30,30 @@ test('non-exec resources use encoded namespace paths without namespace headers',
   await client.streamEvents(ns, controller.signal)
   assert.deepEqual(requests.map(({ url, options }) => [options?.method ?? 'GET', url.replace('https://trellis:8128/v1/namespaces/project%2Fstaging', '')]), [
     ['GET', '/jobs'], ['GET', '/jobs/web%2Fapp'], ['POST', '/jobs/plan'], ['POST', '/jobs'],
-    ['DELETE', '/jobs/web%2Fapp'], ['POST', '/jobs/web%2Fapp/restart'], ['GET', '/jobs/web%2Fapp/versions'],
+    ['DELETE', '/jobs/web%2Fapp'], ['POST', '/jobs/web%2Fapp/restart'], ['POST', '/jobs/web%2Fapp/groups/api%2Fgroup/replacement-backoff/reset'], ['GET', '/jobs/web%2Fapp/versions'],
     ['GET', '/allocations?label=bower%2Fservice%3Dweb+app&job=web%2Fapp'], ['DELETE', '/allocations/alloc%2Fid'],
     ['GET', '/allocations/alloc%2Fid/events'], ['GET', '/allocations/alloc%2Fid/metrics'],
     ['GET', '/allocations/alloc%2Fid/logs?task=task+name&tail=17'], ['GET', '/events'],
   ])
-  assert.equal(requests[12].options?.signal, controller.signal)
+  assert.equal(requests[13].options?.signal, controller.signal)
   for (const { options } of requests) {
     const headers = new Headers(options?.headers)
     assert.equal(headers.get('authorization'), 'Bearer test-token')
     assert.equal(headers.has('x-trellis-namespace'), false)
   }
   assert.deepEqual(JSON.parse(String(requests[3].options?.body)), { spec })
+})
+
+test('cluster settings are read with GET and never expose a write client method', async (t) => {
+  const requests: Array<[string, string]> = []
+  t.mock.method(globalThis, 'fetch', async (url: string, options?: RequestInit) => {
+    requests.push([options?.method ?? 'GET', new URL(url).pathname])
+    return Response.json({ job_limits: {}, reconciliation: {}, network: {} })
+  })
+  const client = new TrellisClient('https://api:8128', 'token')
+  await client.getClusterSettings()
+  assert.deepEqual(requests, [['GET', '/v1/cluster/settings']])
+  assert.equal('updateClusterSettings' in client, false)
 })
 
 test('exec descriptors share normalized addresses and encoded resource ownership paths', () => {

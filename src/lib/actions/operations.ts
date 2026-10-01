@@ -161,7 +161,30 @@ export async function setNodeDrainAction(nodeId: string, drain: boolean) {
     await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id,
       action: drain ? 'node.drained' : 'node.undrained', resourceType: 'node', resourceId: nodeId })
   } catch (error) { throw new Error(error instanceof Error ? error.message : 'Node action failed.') }
-  revalidatePath('/cluster')
+  revalidatePath('/status')
+}
+
+export async function resetReplacementBackoffAction(namespace: string, job: string, group: string) {
+  const ctx = await requireContext()
+  if (ctx.role !== 'owner' && ctx.role !== 'admin') throw new Error('Only organization owners and admins can reset replacement backoff.')
+  if (!namespace || !job || !group) throw new Error('Namespace, job, and task group are required.')
+
+  const [owned] = await db.select({ id: environments.id }).from(environments)
+    .innerJoin(projects, eq(projects.id, environments.projectId))
+    .where(and(eq(environments.trellisNamespace, namespace), eq(projects.orgId, ctx.org.id))).limit(1)
+  if (!owned) throw new Error('Namespace not found.')
+
+  const client = await getTrellisClient(ctx.org.id)
+  await client.resetReplacementBackoff(job, group, namespace)
+  await recordAudit({
+    orgId: ctx.org.id,
+    userId: ctx.user.id,
+    action: 'job.replacement_backoff.reset',
+    resourceType: 'job',
+    resourceId: `${namespace}/${job}/${group}`,
+    details: { namespace, job, group },
+  })
+  revalidatePath('/status')
 }
 
 export async function createTeamAction(formData: FormData) {
