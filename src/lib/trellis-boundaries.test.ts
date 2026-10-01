@@ -141,25 +141,29 @@ test('project deletion retains records on required cleanup failure', async () =>
   assert.equal(deleted, false)
 })
 
-test('reconciler ignores identically named jobs from other namespaces before selecting observed revision', async () => {
-  const updates: Array<{ status: string; trellisRevision: number }> = []
+test('reconciler targets the persisted accepted job identity rather than inferring an allocation revision', async () => {
+  const updates: Array<{ status: string }> = []
   let selects = 0
   const reconciler = load<typeof import('./deployment-reconciler')>('src/lib/deployment-reconciler.ts', {
     '@/db': { db: {
       select: () => query(selects++ === 0 ? [{ id: 'env', trellisNamespace: 'production' }] : [{ autoRollbackSeconds: 300, deploymentStrategy: 'rolling' }]),
-      update: () => ({ set: (value: { status: string; trellisRevision: number }) => { updates.push(value); return query([]) } }),
+      update: () => ({ set: (value: { status: string }) => { updates.push(value); return query([]) } }),
     } },
-    '@/lib/queries': { getDeploymentsByProject: async () => [{ serviceSlug: 'web', deployment: { id: 'deployment', serviceId: 'service', environmentId: 'env', status: 'deploying', strategy: 'rolling', startedAt: new Date() } }] },
-    '@/lib/trellis-instance': { getTrellisClient: async () => ({ listAllocations: async () => [
-      { namespace: 'production', job: 'web', job_revision: 2, phase: 'running', health: 'healthy' },
-      { namespace: 'staging', job: 'web', job_revision: 99, phase: 'running', health: 'healthy' },
-    ] }) },
+    '@/lib/queries': { getDeploymentsByProject: async () => [{ serviceSlug: 'web', deployment: {
+      id: 'deployment', serviceId: 'service', environmentId: 'env', status: 'deploying', strategy: 'rolling', startedAt: new Date(),
+      trellisJobName: 'web', trellisIncarnation: 'inc-a', trellisVersion: 4, trellisRevision: 2,
+      jobSpec: { name: 'web', namespace: 'production', task_groups: [{ name: 'web', count: 1, tasks: [] }] },
+    } }] },
+    '@/lib/trellis-instance': { getTrellisClient: async () => ({ getJob: async () => ({
+      name: 'web', incarnation: 'inc-a', version: 4, revision: 2, desired: 1, running: 1, healthy: 1,
+      allocations: [{ id: 'current', group: 'web', job_revision: 2, phase: 'running', health: 'healthy', draining: false }],
+    }) }) },
     '@/lib/managed-proxy': {},
     '@/lib/deployment-runtime': { recordDeploymentEvent: async () => {}, createDeploymentSpec: async () => ({}), notifyDeployment: async () => {} },
   })
   await reconciler.reconcileProjectDeployments('project', 'org')
   assert.equal(updates.length, 1)
-  assert.equal(updates[0].trellisRevision, 2)
+  assert.equal(updates[0].status, 'healthy')
 })
 
 test('managed proxy acceptance stays pending with namespace/read; failed cleanup retains its record', async () => {
@@ -175,7 +179,8 @@ test('managed proxy acceptance stays pending with namespace/read; failed cleanup
       delete: () => { deleted = true; return query([]) },
     } },
     '@/lib/trellis-instance': { getTrellisClient: async () => ({
-      setSecret: async () => {}, applyJob: async (spec: { task_groups: Array<{ api_access: unknown }> }) => assert.deepEqual(JSON.parse(JSON.stringify(spec.task_groups[0].api_access)), { scope: 'namespace', access: 'read' }),
+      setSecret: async () => {}, planJob: async () => ({ action: 'create' }),
+      applyJobPlan: async (spec: { task_groups: Array<{ api_access: unknown }> }) => assert.deepEqual(JSON.parse(JSON.stringify(spec.task_groups[0].api_access)), { scope: 'namespace', access: 'read' }),
       deleteJob: async () => { throw new TrellisApiError(403, 'Forbidden', 'denied') }, deleteSecret: async () => {},
     }) },
   })
@@ -231,7 +236,8 @@ test('allocation panels preserve successful logs and distinguish empty events/me
       listAllocations: async () => [{ id: 'a', namespace: 'production', job: 'web', group: 'main', job_revision: 1, phase: 'pending', health: 'unknown', created_at: '2026-09-30T00:00:00Z', last_transition_at: '2026-09-30T00:00:00Z' }],
       getAllocationEvents: async () => { if (eventsFail) throw new Error('offline'); return [] },
       getAllocationMetrics: async () => { if (metricsFail) throw new Error('offline'); return [] },
-      getJobRevisions: async () => [{ revision: 1, spec: { task_groups: [{ name: 'main', tasks: [{ name: 'app' }] }] } }],
+      getJob: async () => ({ revision: 1, spec: { task_groups: [{ name: 'main', tasks: [{ name: 'app' }] }] } }),
+      getJobVersions: async () => [{ version: 1, revision: 1, spec: { task_groups: [{ name: 'main', tasks: [{ name: 'app' }] }] } }],
       getAllocationLogs: async () => 'independent log output',
     }), './allocation-metrics': metrics,
   })
@@ -245,6 +251,35 @@ test('allocation panels preserve successful logs and distinguish empty events/me
   assert.match(html, /No lifecycle events have been recorded/)
   assert.match(html, /No samples/)
   assert.doesNotMatch(html, /created and placed|Lifecycle events unavailable/)
+})
+
+test('version history renders the durable deployment journal separately from bounded Trellis versions', async () => {
+  const page = load<Page>(`${servicePath}/revisions/page.tsx`, {
+    'next/navigation': navigation,
+    '@/lib/auth': { getCurrentUser: async () => ({ id: 'user' }) },
+    '@/lib/queries': {
+      getUserOrganization: async () => context,
+      getProjectBySlug: async () => ({ id: 'project' }),
+      getProjectEnvironment: async () => environment,
+      getServiceBySlug: async () => ({ id: 'service', slug: 'web', name: 'Web' }),
+      getServiceConfigsWithEnvironments: async () => [{ config: { activeJobName: 'web' }, environment }],
+      getDeploymentsByService: async () => [{ id: 'deployment', environmentId: 'env', trellisVersion: 12, trellisRevision: 7, trellisJobName: 'web', status: 'healthy', createdAt: '2026-10-01T10:00:00Z' }],
+    },
+    '@/lib/actions/shared': { getProjectRole: async () => 'admin' },
+    '@/lib/trellis-instance': { getTrellisClient: async () => ({ getJobVersions: async () => [
+      { version: 5, revision: 3, spec: { name: 'web' }, created_at: '2026-09-30T10:00:00Z' },
+      { version: 6, revision: 3, spec: { name: 'web' }, created_at: '2026-09-30T11:00:00Z' },
+    ] }) },
+    '@/lib/trellis-runtime': { trellisReadError: () => 'unavailable' },
+    '@/components/trellis-read-error': readError,
+    '../service-header': { ServiceHeader: () => null },
+  })
+  const html = renderToStaticMarkup(await page.default({ params: Promise.resolve({ slug: 'demo', serviceSlug: 'web', allocationId: '' }) }))
+  assert.match(html, /Bower’s deployment journal is the durable history/)
+  assert.match(html, /Retained Trellis versions/)
+  assert.match(html, />12<\/td><td[^>]*>7</)
+  assert.match(html, />5<\/td><td[^>]*>3</)
+  assert.match(html, />6<\/td><td[^>]*>3</)
 })
 
 test('pending allocations count against runtime health rather than declaring all healthy', () => {

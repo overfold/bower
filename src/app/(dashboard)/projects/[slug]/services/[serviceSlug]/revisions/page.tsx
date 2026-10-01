@@ -1,6 +1,6 @@
 import { redirect, notFound } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
-import { getUserOrganization, getProjectBySlug, getProjectEnvironment, getServiceBySlug, getServiceConfigsWithEnvironments } from '@/lib/queries'
+import { getUserOrganization, getProjectBySlug, getProjectEnvironment, getServiceBySlug, getServiceConfigsWithEnvironments, getDeploymentsByService } from '@/lib/queries'
 import { getTrellisClient } from '@/lib/trellis-instance'
 import { getProjectRole } from '@/lib/actions/shared'
 import { trellisReadError } from '@/lib/trellis-runtime'
@@ -10,7 +10,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ServiceHeader } from '../service-header'
 import { History } from 'lucide-react'
-import type { TrellisJobRevision } from '@/types/trellis'
+import type { TrellisJobVersion } from '@/types/trellis'
 
 export default async function RevisionsPage({ params }: { params: Promise<{ slug: string; serviceSlug: string }> }) {
   const { slug, serviceSlug } = await params
@@ -24,19 +24,21 @@ export default async function RevisionsPage({ params }: { params: Promise<{ slug
   const service = await getServiceBySlug(project.id, serviceSlug)
   if (!service) notFound()
 
-  const [configs, environment] = await Promise.all([
+  const [configs, environment, deployments] = await Promise.all([
     getServiceConfigsWithEnvironments(service.id),
     getProjectEnvironment(project.id),
+    getDeploymentsByService(service.id, 100),
   ])
   if (!environment) notFound()
   const activeConfig = configs.find((row) => row.environment.id === environment.id)
+  const journal = deployments.filter((deployment) => deployment.environmentId === environment.id)
 
-  let revisions: TrellisJobRevision[] = []
+  let versions: TrellisJobVersion[] = []
   let historyError: string | null = null
   if (activeConfig) {
     try {
       const client = await getTrellisClient(orgCtx.org.id)
-      revisions = await client.getJobRevisions(activeConfig.config.activeJobName || service.slug, activeConfig.environment.trellisNamespace)
+      versions = await client.getJobVersions(activeConfig.config.activeJobName || service.slug, activeConfig.environment.trellisNamespace)
     } catch (error) {
       historyError = trellisReadError(error)
     }
@@ -48,23 +50,15 @@ export default async function RevisionsPage({ params }: { params: Promise<{ slug
 
       <div>
         <SectionTitle>Deployment history</SectionTitle>
-        <p className="mt-1 max-w-3xl text-[13px] text-ink-muted">Review previous deployed versions of this service.</p>
+        <p className="mt-1 max-w-3xl text-[13px] text-ink-muted">Bower’s deployment journal is the durable history. Trellis retains only the 10 newest versions of the current live job and removes that history when the job is deleted.</p>
       </div>
 
-      {!activeConfig ? (
+      {journal.length === 0 ? (
         <Panel>
           <EmptyState
             icon={<History className="h-4 w-4" />}
-            title="No service configuration"
-            body="Configure this service before viewing deployment history."
-          />
-        </Panel>
-      ) : historyError ? <Panel><TrellisReadError title="History unavailable" message={historyError} /></Panel> : revisions.length === 0 ? (
-        <Panel>
-          <EmptyState
-            icon={<History className="h-4 w-4" />}
-            title="No history yet"
-            body="Previous versions will appear here after this service has been deployed."
+            title="No deployment history"
+            body="Deploy this service to create a durable Bower journal entry."
           />
         </Panel>
       ) : (
@@ -73,18 +67,22 @@ export default async function RevisionsPage({ params }: { params: Promise<{ slug
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Version</TableHead>
                   <TableHead>Revision</TableHead>
                   <TableHead>Job</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {revisions.map((rev) => (
-                  <TableRow key={rev.revision}>
-                    <TableCell className="font-mono">{rev.revision}</TableCell>
-                    <TableCell className="font-mono text-xs text-ink-muted">{rev.spec.name}</TableCell>
+                {journal.map((deployment) => (
+                  <TableRow key={deployment.id}>
+                    <TableCell className="font-mono">{deployment.trellisVersion ?? '—'}</TableCell>
+                    <TableCell className="font-mono">{deployment.trellisRevision ?? '—'}</TableCell>
+                    <TableCell className="font-mono text-xs text-ink-muted">{deployment.trellisJobName ?? service.slug}</TableCell>
+                    <TableCell className="capitalize">{deployment.status.replace('_', ' ')}</TableCell>
                     <TableCell className="text-ink-muted">
-                      {new Date(rev.created_at).toLocaleString()}
+                      {new Date(deployment.createdAt).toLocaleString()}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -93,6 +91,17 @@ export default async function RevisionsPage({ params }: { params: Promise<{ slug
           </div>
         </Panel>
       )}
+
+      <div>
+        <SectionTitle>Retained Trellis versions</SectionTitle>
+        <p className="mt-1 text-[13px] text-ink-muted">Version advances for every accepted spec change; revision advances only when execution content changes.</p>
+      </div>
+      {!activeConfig ? <Panel><EmptyState icon={<History className="h-4 w-4" />} title="No service configuration" body="Configure this service before viewing live Trellis history." /></Panel>
+        : historyError ? <Panel><TrellisReadError title="Trellis history unavailable" message={historyError} /></Panel>
+          : versions.length === 0 ? <Panel><EmptyState icon={<History className="h-4 w-4" />} title="No retained versions" body="The current Trellis job has no retained version history." /></Panel>
+            : <Panel><div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Version</TableHead><TableHead>Revision</TableHead><TableHead>Job</TableHead><TableHead>Created</TableHead></TableRow></TableHeader><TableBody>
+              {versions.map((entry) => <TableRow key={`${entry.version}-${entry.revision}`}><TableCell className="font-mono">{entry.version}</TableCell><TableCell className="font-mono">{entry.revision}</TableCell><TableCell className="font-mono text-xs text-ink-muted">{entry.spec.name}</TableCell><TableCell className="text-ink-muted">{new Date(entry.created_at).toLocaleString()}</TableCell></TableRow>)}
+            </TableBody></Table></div></Panel>}
     </div>
   )
 }

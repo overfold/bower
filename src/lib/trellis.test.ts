@@ -19,7 +19,7 @@ test('non-exec resources use encoded namespace paths without namespace headers',
   await client.applyJob(spec, ns)
   await client.deleteJob(name, ns)
   await client.restartJob(name, ns)
-  await client.getJobRevisions(name, ns)
+  await client.getJobVersions(name, ns)
   await client.listAllocations({ namespace: ns, job: name, label: 'bower/service=web app' })
   await client.stopAllocation('alloc/id', ns)
   await client.getAllocationEvents('alloc/id', ns)
@@ -81,4 +81,24 @@ test('successful empty mutations and API failures retain their distinct contract
   await client.applyJob({ name: 'web', namespace: 'production', task_groups: [] }, 'production')
   fetch.mock.mockImplementation(async () => new Response('denied', { status: 403, statusText: 'Forbidden' }))
   await assert.rejects(client.getAllocationMetrics('a', 'production'), (error: unknown) => error instanceof TrellisApiError && error.status === 403 && error.body === 'denied')
+})
+
+test('plan-derived applies fence competing writers with incarnation and version', async (t) => {
+  const bodies: unknown[] = []
+  let applies = 0
+  t.mock.method(globalThis, 'fetch', async (_url: string, options?: RequestInit) => {
+    bodies.push(JSON.parse(String(options?.body)))
+    applies++
+    if (applies === 2) return new Response('{"message":"version conflict"}', { status: 409, statusText: 'Conflict' })
+    return Response.json({ namespace: 'production', name: 'web', incarnation: 'inc-a', version: 5, revision: 3 }, { status: 202 })
+  })
+  const client = new TrellisClient('https://api', 'token')
+  const spec: TrellisJobSpec = { name: 'web', namespace: 'production', task_groups: [] }
+  const plan = { action: 'update' as const, namespace: 'production', job: 'web', base_incarnation: 'inc-a', base_version: 4, base_revision: 3, desired_allocations: 0, changes: [] }
+  assert.deepEqual(await client.applyJobPlan(spec, 'production', plan), { namespace: 'production', name: 'web', incarnation: 'inc-a', version: 5, revision: 3 })
+  await assert.rejects(client.applyJobPlan(spec, 'production', plan), (error: unknown) => error instanceof TrellisApiError && error.status === 409)
+  assert.deepEqual(bodies, [
+    { spec, expected_version: 4, expected_incarnation: 'inc-a' },
+    { spec, expected_version: 4, expected_incarnation: 'inc-a' },
+  ])
 })

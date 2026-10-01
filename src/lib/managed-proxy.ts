@@ -87,7 +87,8 @@ export async function syncManagedProxy(projectId: string, environmentId: string,
   await db.insert(managedProxies).values({ environmentId, trellisJobName: spec.name, status: 'pending', port: httpPort, configHash: hash })
     .onConflictDoUpdate({ target: managedProxies.environmentId, set: { status: 'pending', port: httpPort, configHash: hash, updatedAt: new Date() } })
   try {
-    await client.applyJob(spec, environment.trellisNamespace)
+    const plan = await client.planJob(spec, environment.trellisNamespace)
+    await client.applyJobPlan(spec, environment.trellisNamespace, plan)
   } catch (error) {
     await db.update(managedProxies).set({ status: 'error', updatedAt: new Date() }).where(eq(managedProxies.environmentId, environmentId))
     throw error

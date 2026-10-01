@@ -8,6 +8,7 @@ import { baseServiceConfigs, deployments, environments, serviceConfigs, services
 import { getCurrentUser } from '@/lib/auth'
 import { getProjectBySlug, getProjectEnvironment, getUserOrganization } from '@/lib/queries'
 import { getTrellisClient } from '@/lib/trellis-instance'
+import { TrellisApiError } from '@/lib/trellis'
 import { recordAudit, requireProject, requireService } from '@/lib/actions/shared'
 import { syncManagedProxy } from '@/lib/managed-proxy'
 import { createDeploymentSpec, notifyDeployment, recordDeploymentEvent } from '@/lib/deployment-runtime'
@@ -17,6 +18,13 @@ import type { TrellisJobSpec } from '@/types/trellis'
 import { parseDeploymentStrategy, parseResourceInputs, positiveInteger } from '@/lib/service-config-input'
 
 type Trigger = 'manual' | 'webhook' | 'rollback' | 'auto_rollback'
+
+function deploymentApplyError(error: unknown) {
+  if (error instanceof TrellisApiError && error.status === 409) {
+    return new Error('The Trellis job changed after Bower planned this deployment. Review the competing change and deploy again.')
+  }
+  return error
+}
 
 function slugify(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 63) || 'service'
@@ -50,17 +58,25 @@ async function executeDeployment(serviceId: string, environmentId: string, trigg
   try {
     const client = await getTrellisClient(row.project.orgId)
     const plan = await client.planJob(spec, row.environment.trellisNamespace)
-    await db.update(deployments).set({ status: 'deploying', planDiff: plan }).where(eq(deployments.id, deployment.id))
+    await db.update(deployments).set({ planDiff: plan }).where(eq(deployments.id, deployment.id))
     await recordDeploymentEvent(deployment.id, 'deploying', `Applying ${jobName}.`, { plan })
-    await client.applyJob(spec, row.environment.trellisNamespace)
+    const applied = await client.applyJobPlan(spec, row.environment.trellisNamespace, plan)
+    await db.update(deployments).set({
+      status: 'deploying',
+      trellisIncarnation: applied.incarnation,
+      trellisVersion: applied.version,
+      trellisRevision: applied.revision,
+    }).where(eq(deployments.id, deployment.id))
+    await recordDeploymentEvent(deployment.id, 'apply_accepted', `Trellis accepted ${jobName} version ${applied.version}, revision ${applied.revision}.`, { ...applied })
     if (initialCanary) await recordDeploymentEvent(deployment.id, 'canary_step', `Canary started at ${initialCanary.weight}%.`, initialCanary)
     await recordAudit({ orgId: row.project.orgId, userId: userId ?? null, action: `deployment.${triggerType}`, resourceType: 'deployment', resourceId: deployment.id, details: { serviceId, environmentId, image: row.config.image, strategy: row.config.deploymentStrategy } })
     await notifyDeployment(row, 'deploying', userId)
   } catch (error) {
+    const reported = deploymentApplyError(error)
     await db.update(deployments).set({ status: 'failed', completedAt: new Date() }).where(eq(deployments.id, deployment.id))
-    await recordDeploymentEvent(deployment.id, 'failed', error instanceof Error ? error.message : 'Deployment failed.')
+    await recordDeploymentEvent(deployment.id, 'failed', reported instanceof Error ? reported.message : 'Deployment failed.')
     await notifyDeployment(row, 'failed', userId)
-    throw error
+    throw reported
   }
   return { deployment, row }
 }
@@ -126,21 +142,26 @@ export async function rollbackServiceAction(serviceId: string, environmentId: st
   if (!last?.previousJobSpec) throw new Error('No stored previous JobSpec is available.')
   const spec = last.previousJobSpec as TrellisJobSpec; const [config] = await db.select().from(serviceConfigs).where(and(eq(serviceConfigs.serviceId, serviceId), eq(serviceConfigs.environmentId, environmentId))).limit(1)
   if (!config) throw new Error('Configuration not found.')
-  const replacedJob = config.activeJobName
   const image = spec.task_groups[0]?.tasks[0]?.image
-  if (image) {
-    const overrides = { ...((config.overrides ?? {}) as Record<string, unknown>), image }
-    await db.update(serviceConfigs).set({ image, overrides, updatedAt: new Date() }).where(eq(serviceConfigs.id, config.id))
+  const [deployment] = await db.insert(deployments).values({ serviceId, environmentId, imageBefore: config.image, imageAfter: image || config.image, strategy: config.deploymentStrategy, status: 'planning', triggeredByUserId: access.user.id, triggerType: 'rollback', jobSpec: spec, previousJobSpec: last.jobSpec, trellisJobName: spec.name }).returning()
+  await recordDeploymentEvent(deployment.id, 'planning', 'Planning the exact stored JobSpec for manual rollback.')
+  try {
+    const client = await getTrellisClient(access.org.id)
+    const plan = await client.planJob(spec, spec.namespace)
+    await db.update(deployments).set({ planDiff: plan }).where(eq(deployments.id, deployment.id))
+    const applied = await client.applyJobPlan(spec, spec.namespace, plan)
+    await db.update(deployments).set({ status: 'deploying', trellisIncarnation: applied.incarnation, trellisVersion: applied.version, trellisRevision: applied.revision }).where(eq(deployments.id, deployment.id))
+    if (image) {
+      const overrides = { ...((config.overrides ?? {}) as Record<string, unknown>), image }
+      await db.update(serviceConfigs).set({ image, overrides, updatedAt: new Date() }).where(eq(serviceConfigs.id, config.id))
+    }
+    await recordDeploymentEvent(deployment.id, 'rollback', `Trellis accepted rollback version ${applied.version}, revision ${applied.revision}.`, { ...applied })
+  } catch (error) {
+    const reported = deploymentApplyError(error)
+    await db.update(deployments).set({ status: 'failed', completedAt: new Date() }).where(eq(deployments.id, deployment.id))
+    await recordDeploymentEvent(deployment.id, 'failed', reported instanceof Error ? reported.message : 'Rollback failed.')
+    throw reported
   }
-  const client = await getTrellisClient(access.org.id); const plan = await client.planJob(spec, spec.namespace)
-  const [deployment] = await db.insert(deployments).values({ serviceId, environmentId, imageBefore: config.image, imageAfter: image || config.image, strategy: config.deploymentStrategy, status: 'deploying', triggeredByUserId: access.user.id, triggerType: 'rollback', planDiff: plan, jobSpec: spec, previousJobSpec: last.jobSpec, trellisJobName: spec.name }).returning()
-  await client.applyJob(spec, spec.namespace)
-  if (config.deploymentStrategy === 'blue_green' || config.deploymentStrategy === 'canary') {
-    await db.update(serviceConfigs).set({ activeJobName: spec.name, updatedAt: new Date() }).where(eq(serviceConfigs.id, config.id))
-    await syncManagedProxy(access.project.id, environmentId, access.org.id)
-    if (replacedJob && replacedJob !== spec.name) await client.deleteJob(replacedJob, spec.namespace).catch(() => undefined)
-  }
-  await recordDeploymentEvent(deployment.id, 'rollback', 'Re-applied the exact previous JobSpec.')
   await notifyDeployment(await createDeploymentSpec(serviceId, environmentId), 'deploying', access.user.id)
   await recordAudit({ orgId: access.org.id, userId: access.user.id, action: 'service.rollback.requested', resourceType: 'deployment', resourceId: deployment.id, details: { environmentId } })
 }

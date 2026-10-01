@@ -11,7 +11,8 @@ import type {
   TrellisAllocation,
   TrellisEvent,
   TrellisSecret,
-  TrellisJobRevision,
+  TrellisJobVersion,
+  TrellisJobApplyResult,
   TrellisAllocationMetrics,
 } from '@/types/trellis'
 
@@ -168,9 +169,29 @@ export class TrellisClient {
   async applyJob(
     spec: TrellisJobSpec,
     namespace: string,
-  ): Promise<void> {
-    await this.request<void>('POST', this.resourcePath(namespace, '/jobs'), {
-      body: { spec },
+    precondition?: { expectedVersion: number; expectedIncarnation?: string },
+  ): Promise<TrellisJobApplyResult> {
+    return this.request<TrellisJobApplyResult>('POST', this.resourcePath(namespace, '/jobs'), {
+      body: {
+        spec,
+        ...(precondition ? { expected_version: precondition.expectedVersion } : {}),
+        ...(precondition?.expectedIncarnation ? { expected_incarnation: precondition.expectedIncarnation } : {}),
+      },
+    })
+  }
+
+  async applyJobPlan(spec: TrellisJobSpec, namespace: string, plan: TrellisPlan): Promise<TrellisJobApplyResult> {
+    if (plan.namespace !== namespace || plan.job !== spec.name) throw new Error('The Trellis plan does not match the requested job.')
+    if (plan.action === 'none') {
+      if (!plan.base_incarnation || !plan.base_version || !plan.base_revision) throw new Error('An unchanged Trellis plan is missing its job identity.')
+      return { namespace, name: spec.name, incarnation: plan.base_incarnation, version: plan.base_version, revision: plan.base_revision }
+    }
+    if (plan.action === 'update' && (!plan.base_incarnation || !plan.base_version || !plan.base_revision)) {
+      throw new Error('An update Trellis plan is missing its job identity.')
+    }
+    return this.applyJob(spec, namespace, {
+      expectedVersion: plan.action === 'create' ? 0 : plan.base_version ?? 0,
+      expectedIncarnation: plan.action === 'update' ? plan.base_incarnation : undefined,
     })
   }
 
@@ -191,8 +212,8 @@ export class TrellisClient {
     await this.request<void>('POST', this.resourcePath(namespace, `/jobs/${encodeURIComponent(name)}/restart`))
   }
 
-  async getJobRevisions(name: string, namespace: string): Promise<TrellisJobRevision[]> {
-    return this.request<TrellisJobRevision[]>('GET', this.resourcePath(namespace, `/jobs/${encodeURIComponent(name)}/versions`))
+  async getJobVersions(name: string, namespace: string): Promise<TrellisJobVersion[]> {
+    return this.request<TrellisJobVersion[]>('GET', this.resourcePath(namespace, `/jobs/${encodeURIComponent(name)}/versions`))
   }
 
   // -------------------------------------------------------------------------

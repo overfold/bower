@@ -192,12 +192,26 @@ export interface TrellisEvent {
 
 export interface TrellisJob {
   name: string
+  incarnation: string
+  version: number
   revision: number
   desired: number
   running: number
   healthy: number
   allocations: TrellisAllocation[]
+  replacement_backoff?: TrellisReplacementBackoff[]
   spec?: TrellisJobSpec
+}
+
+export interface TrellisReplacementBackoff {
+  group: string
+  job_revision: number
+  failures: number
+  last_failure_at: string
+  last_allocation_id?: string
+  reason?: string
+  message?: string
+  next_replacement_at: string
 }
 
 // -- Plan (response from POST /v1/jobs/plan) --------------------------------
@@ -213,6 +227,8 @@ export interface TrellisPlan {
   action: 'create' | 'none' | 'update'
   namespace: string
   job: string
+  base_incarnation?: string
+  base_version?: number
   base_revision?: number
   desired_allocations: number
   changes: TrellisPlanDiff[]
@@ -239,6 +255,8 @@ export interface TrellisSetSecretRequest {
 
 export interface TrellisApplyJobRequest {
   spec: TrellisJobSpec
+  expected_version?: number
+  expected_incarnation?: string
 }
 
 export interface TrellisPlanJobRequest {
@@ -247,10 +265,19 @@ export interface TrellisPlanJobRequest {
 
 // -- Job revisions ----------------------------------------------------------
 
-export interface TrellisJobRevision {
+export interface TrellisJobVersion {
+  version: number
   revision: number
   spec: TrellisJobSpec
   created_at: string // ISO 8601
+}
+
+export interface TrellisJobApplyResult {
+  namespace: string
+  name: string
+  incarnation: string
+  version: number
+  revision: number
 }
 
 // -- Allocation metrics -----------------------------------------------------

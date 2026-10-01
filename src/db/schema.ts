@@ -428,6 +428,8 @@ export const deployments = pgTable("deployments", {
     onDelete: "set null",
   }),
   triggerType: triggerTypeEnum("trigger_type").notNull(),
+  trellisIncarnation: text("trellis_incarnation"),
+  trellisVersion: integer("trellis_version"),
   trellisRevision: integer("trellis_revision"),
   planDiff: jsonb("plan_diff"),
   jobSpec: jsonb("job_spec"),

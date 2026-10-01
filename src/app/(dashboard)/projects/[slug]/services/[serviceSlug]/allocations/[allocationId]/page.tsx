@@ -52,12 +52,17 @@ export default async function AllocationDetailPage({
   if (!allocation) notFound()
 
   const matchingConfig = configs.find(({ environment }) => environment.trellisNamespace === allocation?.namespace)
-  const [events, metrics, revisions] = await Promise.allSettled([
+  const [events, metrics, job, versions] = await Promise.allSettled([
     client.getAllocationEvents(allocationId, allocation.namespace),
     client.getAllocationMetrics(allocationId, allocation.namespace),
-    client.getJobRevisions(allocation.job, allocation.namespace),
+    client.getJob(allocation.job, allocation.namespace),
+    client.getJobVersions(allocation.job, allocation.namespace),
   ])
-  const allocationSpec = revisions.status === 'fulfilled' ? revisions.value.find((revision) => revision.revision === allocation.job_revision)?.spec : undefined
+  const allocationSpec = job.status === 'fulfilled' && job.value.revision === allocation.job_revision
+    ? job.value.spec
+    : versions.status === 'fulfilled'
+      ? versions.value.find((entry) => entry.revision === allocation.job_revision)?.spec
+      : undefined
   const terminalTasks = allocationSpec?.task_groups
     .find((group) => group.name === allocation.group)
     ?.tasks.map((task) => task.name) ?? []
@@ -153,7 +158,7 @@ export default async function AllocationDetailPage({
             <PanelHeader title={terminalTasks[index]} />
             {result.status === 'rejected' ? <TrellisReadError title="Logs unavailable" message={trellisReadError(result.reason)} /> : <pre className="max-h-96 overflow-auto p-4 font-mono text-xs leading-relaxed text-ink-soft">{result.value || 'No output'}</pre>}
           </Panel>
-        )) : <Panel>{revisions.status === 'rejected' ? <TrellisReadError title="Task metadata unavailable" message={trellisReadError(revisions.reason)} /> : <div className="p-4 text-[13px] text-ink-muted">Task metadata is unavailable for this revision.</div>}</Panel>}
+        )) : <Panel>{job.status === 'rejected' && versions.status === 'rejected' ? <TrellisReadError title="Task metadata unavailable" message={trellisReadError(job.reason)} /> : <div className="p-4 text-[13px] text-ink-muted">Task metadata is unavailable for this revision.</div>}</Panel>}
       </div>
     </div>
   )
