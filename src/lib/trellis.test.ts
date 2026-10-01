@@ -1,6 +1,19 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { TrellisApiError, TrellisClient } from './trellis'
+
+test('Trellis validation responses preserve paths and categories in the presented error', () => {
+  const error = new TrellisApiError(422, 'Unprocessable Entity', JSON.stringify({
+    error: 'job is invalid',
+    issues: [
+      { path: 'task_groups[web].count', code: 'limit_exceeded', message: 'exceeds operator limit of 2 replicas' },
+      { path: 'task_groups[web].tasks[web].volumes[0].container_path', code: 'reserved', message: 'volume path is reserved' },
+    ],
+  }))
+  assert.match(error.message, /task_groups\[web\]\.count: \[limit_exceeded\]/)
+  assert.match(error.message, /container_path: \[reserved\]/)
+  assert.equal(error.json?.error, 'job is invalid')
+})
 import type { TrellisJobSpec } from '@/types/trellis'
 
 test('non-exec resources use encoded namespace paths without namespace headers', async (t) => {

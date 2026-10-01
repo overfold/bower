@@ -1,32 +1,24 @@
 import { and, eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { deploymentEvents, environments, projects, projectVolumes, serviceConfigs, services, users } from '@/db/schema'
-import { buildJobSpec, type BowerSecretBinding } from '@/lib/job-builder'
+import { buildJobSpec } from '@/lib/job-builder'
 import { sendDeploymentNotifications } from '@/lib/notifications'
 import type { TrellisApiAccess, TrellisRuntime, TrellisVolume } from '@/types/trellis'
+import { positiveInteger } from '@/lib/service-config-input'
+import { validateSecretBindings, validateVolumeMounts } from '@/lib/workload-input'
+import { assertStoredHostPathAllowed, assertStoredWorkloadApiAccessAllowed } from '@/lib/workload-policy'
 
 function buildAttachedVolumes(value: unknown, definitions: Array<{ name: string; hostPath: string }>): TrellisVolume[] {
-  if (!Array.isArray(value)) return []
   const byName = new Map(definitions.map((definition) => [definition.name, definition.hostPath]))
 
-  return value.map((entry) => {
-    if (!entry || typeof entry !== 'object') throw new Error('A stored volume mount is invalid.')
-    const item = entry as Record<string, unknown>
-    const name = typeof item.name === 'string' ? item.name.trim() : ''
-    const containerPath = typeof item.container_path === 'string'
-      ? item.container_path.trim()
-      : typeof item.path === 'string'
-        ? item.path.trim()
-        : ''
-
-    const hostPath = byName.get(name) ?? ''
-
-    if (!name || !containerPath) throw new Error('A stored volume mount is incomplete.')
-    if (!hostPath) throw new Error(`Volume ${name} is not defined in this environment.`)
+  return validateVolumeMounts(value).map((item) => {
+    const hostPath = byName.get(item.name) ?? ''
+    if (!hostPath) throw new Error(`Volume ${item.name} is not defined in this environment.`)
+    assertStoredHostPathAllowed(hostPath)
     return {
-      name,
+      name: item.name,
       host_path: hostPath,
-      container_path: containerPath,
+      container_path: item.container_path,
       ...(item.read_only === true ? { read_only: true } : {}),
     }
   })
@@ -50,17 +42,24 @@ export async function createDeploymentSpec(serviceId: string, environmentId: str
     (row.config.apiAccessLevel === 'read' || row.config.apiAccessLevel === 'write')
       ? { scope: row.config.apiAccessScope, access: row.config.apiAccessLevel }
       : undefined
+  assertStoredWorkloadApiAccessAllowed(apiAccess)
+  const replicas = positiveInteger(overrides?.replicas ?? row.config.replicas, 'Stored replicas')
+  const cpu = positiveInteger(row.config.cpu, 'Stored CPU')
+  const memory = positiveInteger(row.config.memory, 'Stored memory')
+  const environmentSecrets = Object.entries(row.environment.envVars as Record<string, string>)
+    .map(([env, name]) => ({ name, target: 'env' as const, env }))
+  const secrets = validateSecretBindings([...environmentSecrets, ...validateSecretBindings(row.config.secretBindings)])
 
   const spec = buildJobSpec({
     name: jobName || row.service.slug, serviceLabel: row.service.slug, namespace: row.environment.trellisNamespace,
-    image: row.config.image, replicas: overrides?.replicas ?? row.config.replicas,
-    cpu: row.config.cpu, memory: row.config.memory, healthCheckPath: row.config.healthCheckPath ?? undefined,
+    image: row.config.image, replicas,
+    cpu, memory, healthCheckPath: row.config.healthCheckPath ?? undefined,
     healthCheckType: row.config.healthCheckType ?? undefined, healthCheckPort: row.config.healthCheckPort ?? undefined,
     healthCheckCommand: row.config.healthCheckCommand as string[],
     healthCheckInterval: row.config.healthCheckInterval, healthCheckTimeout: row.config.healthCheckTimeout,
     healthCheckThreshold: row.config.healthCheckThreshold, deploymentStrategy: row.config.deploymentStrategy,
     envVars: row.config.envVars as Record<string, string>, labels: { ...(row.config.labels as Record<string, string>), ...overrides?.labels },
-    secrets: [...Object.entries(row.environment.envVars as Record<string, string>).map(([env, name]) => ({ name, target: 'env' as const, env })), ...(row.config.secretBindings as BowerSecretBinding[])],
+    secrets,
     volumes: buildAttachedVolumes(row.config.volumes, definitions),
     runtime,
     apiAccess,

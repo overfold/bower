@@ -14,11 +14,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 type Volume = { id: string; name: string; hostPath: string }
 
-export function VolumeManager({ projectId, environmentId, volumes, canManage }: {
+export function VolumeManager({ projectId, environmentId, volumes, canManage, allowAbsoluteHostPaths }: {
   projectId: string
   environmentId: string
   volumes: Volume[]
   canManage: boolean
+  allowAbsoluteHostPaths: boolean
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -84,7 +85,7 @@ export function VolumeManager({ projectId, environmentId, volumes, canManage }: 
             <DialogBody><div className="space-y-4">
               {error && <div className="rounded-lg border border-danger-200 bg-danger-50 p-3 text-[13px] text-danger-500">{error}</div>}
               <div className="space-y-2"><Label htmlFor="volume-name">Name</Label><Input id="volume-name" name="name" defaultValue={editing?.name} readOnly={Boolean(editing)} required mono /></div>
-              <div className="space-y-2"><Label htmlFor="volume-path">Backing path</Label><Input id="volume-path" name="hostPath" defaultValue={editing?.hostPath ?? '@/data'} required mono /><p className="text-xs text-ink-muted">Use <span className="font-mono">@/name</span> for Trellis-managed local storage or an existing absolute host directory.</p></div>
+              <div className="space-y-2"><Label htmlFor="volume-path">Backing path</Label><Input id="volume-path" name="hostPath" defaultValue={editing?.hostPath ?? '@/data'} required mono /><p className="text-xs text-ink-muted">{allowAbsoluteHostPaths ? <>Use <span className="font-mono">@/name</span> for Trellis-managed local storage or an operator-approved absolute host directory.</> : <>Use a Trellis-managed local path below <span className="font-mono">@/</span>. Absolute host paths are disabled by operator policy.</>}</p></div>
             </div></DialogBody>
             <DialogFooter><Button type="button" onClick={() => setOpen(false)}>Cancel</Button><Button type="submit" variant="primary" disabled={busy}>{busy ? 'Saving…' : 'Save volume'}</Button></DialogFooter>
           </form>

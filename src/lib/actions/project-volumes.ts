@@ -1,22 +1,12 @@
 'use server'
 
-import { posix } from 'node:path'
 import { and, eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/db'
 import { environments, projectVolumes, serviceConfigs } from '@/db/schema'
 import { recordAudit, requireProject, text } from '@/lib/actions/shared'
-
-function validateHostPath(path: string) {
-  if (path.startsWith('@/')) {
-    const relative = path.slice(2)
-    if (!relative || posix.isAbsolute(relative) || posix.normalize(relative) !== relative || relative === '..' || relative.startsWith('../')) {
-      throw new Error('Managed paths must contain a clean relative path below @/.')
-    }
-    return
-  }
-  if (!posix.isAbsolute(path) || posix.normalize(path) !== path) throw new Error('Host paths must be clean absolute paths.')
-}
+import { validateHostPath } from '@/lib/workload-input'
+import { assertHostPathAllowed } from '@/lib/workload-policy'
 
 export async function upsertProjectVolumeAction(projectId: string, environmentId: string, formData: FormData) {
   const access = await requireProject(projectId)
@@ -31,6 +21,7 @@ export async function upsertProjectVolumeAction(projectId: string, environmentId
   const hostPath = text(formData, 'hostPath')
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$/.test(name)) throw new Error('Volume names must be valid Trellis identifiers.')
   validateHostPath(hostPath)
+  assertHostPathAllowed(hostPath, access.user.isInstanceAdmin)
   await db.insert(projectVolumes).values({ projectId, environmentId, name, hostPath }).onConflictDoUpdate({
     target: [projectVolumes.environmentId, projectVolumes.name],
     set: { hostPath, updatedAt: new Date() },

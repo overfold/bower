@@ -1,25 +1,15 @@
 'use server'
 
-import { posix } from 'node:path'
 import { and, eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/db'
 import { baseServiceConfigs, environments, projectVolumes, secretsMetadata, serviceConfigs } from '@/db/schema'
 import { getBaseServiceConfig } from '@/lib/queries'
 import { recordAudit, requireService } from '@/lib/actions/shared'
-import type { BowerSecretBinding } from '@/lib/job-builder'
 import type { TrellisApiAccess, TrellisRuntime } from '@/types/trellis'
 import { parseKeyValueLines } from '@/lib/service-config-input'
-
-function parseJson<T>(formData: FormData, key: string, fallback: T): T {
-  const raw = String(formData.get(key) ?? '').trim()
-  if (!raw) return fallback
-  try {
-    return JSON.parse(raw) as T
-  } catch {
-    throw new Error(`${key} must contain valid JSON.`)
-  }
-}
+import { parseJsonInput, validateSecretBindings, validateVolumeMounts } from '@/lib/workload-input'
+import { assertWorkloadApiAccessAllowed } from '@/lib/workload-policy'
 
 async function getOwnedConfig(serviceId: string, environmentId: string) {
   const [config] = await db.select().from(serviceConfigs).where(and(
@@ -30,39 +20,10 @@ async function getOwnedConfig(serviceId: string, environmentId: string) {
   return config
 }
 
-type VolumeMount = { name: string; container_path: string; read_only?: boolean }
-
-function normalizeVolumeMounts(input: unknown): VolumeMount[] {
-  if (!Array.isArray(input)) throw new Error('Volume mounts must be a list.')
-  if (input.length > 32) throw new Error('A service may attach at most 32 volumes.')
-
-  const names = new Set<string>()
-  return input.map((value, index) => {
-    if (!value || typeof value !== 'object') throw new Error(`Volume mount ${index + 1} is invalid.`)
-    const row = value as Record<string, unknown>
-    const name = typeof row.name === 'string' ? row.name.trim() : ''
-    const containerPath = typeof row.container_path === 'string' ? row.container_path.trim() : ''
-
-    if (!name || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$/.test(name)) throw new Error(`Volume mount ${index + 1} needs a valid name.`)
-    if (names.has(name)) throw new Error(`Volume name ${name} is duplicated.`)
-    names.add(name)
-
-    if (!posix.isAbsolute(containerPath) || posix.normalize(containerPath) !== containerPath) {
-      throw new Error(`Mount path for ${name} must be a clean absolute path.`)
-    }
-
-    return {
-      name,
-      container_path: containerPath,
-      ...(row.read_only === true ? { read_only: true } : {}),
-    }
-  })
-}
-
 export async function updateServiceVolumeMountsAction(serviceId: string, environmentId: string | null, formData: FormData) {
   const access = await requireService(serviceId)
   if (access.projectRole !== 'admin') throw new Error('Insufficient permissions.')
-  const mounts = normalizeVolumeMounts(parseJson<unknown[]>(formData, 'volumes', []))
+  const mounts = validateVolumeMounts(parseJsonInput(formData, 'volumes', []))
   const environmentIds = environmentId
     ? [environmentId]
     : (await db.select({ id: environments.id }).from(environments).where(eq(environments.projectId, access.project.id))).map((row) => row.id)
@@ -128,10 +89,11 @@ type AdvancedConfigValues = {
 
 const ADVANCED_OVERRIDE_FIELDS = ['runtime', 'apiAccessScope', 'apiAccessLevel'] as const
 
-function parseAdvancedConfig(formData: FormData): AdvancedConfigValues {
+function parseAdvancedConfig(formData: FormData, isInstanceAdmin: boolean): AdvancedConfigValues {
   const runtimeValue = String(formData.get('runtime') ?? 'runc')
   if (runtimeValue !== 'runc' && runtimeValue !== 'runsc') throw new Error('Runtime must be runc or runsc.')
   const apiAccess = parseApiAccess(String(formData.get('apiAccess') ?? 'none'))
+  assertWorkloadApiAccessAllowed(apiAccess, isInstanceAdmin)
   return {
     runtime: runtimeValue,
     apiAccessScope: apiAccess?.scope ?? null,
@@ -144,7 +106,7 @@ export async function updateBaseServiceAdvancedAction(serviceId: string, formDat
   if (access.projectRole !== 'admin') throw new Error('Insufficient permissions.')
   const base = await getBaseServiceConfig(serviceId)
   if (!base) throw new Error('No base service configuration exists.')
-  const values = parseAdvancedConfig(formData)
+  const values = parseAdvancedConfig(formData, access.user.isInstanceAdmin)
 
   await db.update(baseServiceConfigs).set({ ...values, updatedAt: new Date() })
     .where(eq(baseServiceConfigs.serviceId, serviceId))
@@ -183,7 +145,7 @@ export async function updateServiceAdvancedAction(serviceId: string, environment
   if (access.projectRole !== 'admin') throw new Error('Insufficient permissions.')
   const config = await getOwnedConfig(serviceId, environmentId)
   const base = await getBaseServiceConfig(serviceId)
-  const desired = parseAdvancedConfig(formData)
+  const desired = parseAdvancedConfig(formData, access.user.isInstanceAdmin)
 
   const existingOverrides = (config.overrides ?? {}) as Record<string, unknown>
   const newOverrides: Record<string, unknown> = { ...existingOverrides }
@@ -225,6 +187,12 @@ export async function resetServiceAdvancedOverridesAction(serviceId: string, env
   const config = await getOwnedConfig(serviceId, environmentId)
   const base = await getBaseServiceConfig(serviceId)
   if (!base) throw new Error('No base service configuration exists.')
+  const baseApiAccess =
+    (base.apiAccessScope === 'namespace' || base.apiAccessScope === 'cluster') &&
+    (base.apiAccessLevel === 'read' || base.apiAccessLevel === 'write')
+      ? { scope: base.apiAccessScope, access: base.apiAccessLevel } as TrellisApiAccess
+      : undefined
+  assertWorkloadApiAccessAllowed(baseApiAccess, access.user.isInstanceAdmin)
 
   const newOverrides = { ...((config.overrides ?? {}) as Record<string, unknown>) }
   for (const field of ADVANCED_OVERRIDE_FIELDS) delete newOverrides[field]
@@ -248,38 +216,6 @@ export async function resetServiceAdvancedOverridesAction(serviceId: string, env
   revalidatePath(`/projects/${access.project.slug}/services/${access.service.slug}/advanced`)
 }
 
-function normalizeSecretBindings(input: unknown): BowerSecretBinding[] {
-  if (!Array.isArray(input)) throw new Error('Secret bindings must be a list.')
-  if (input.length > 64) throw new Error('A service may define at most 64 secret bindings.')
-
-  const destinations = new Set<string>()
-  return input.map((value, index) => {
-    if (!value || typeof value !== 'object') throw new Error(`Secret binding ${index + 1} is invalid.`)
-    const row = value as Record<string, unknown>
-    const name = typeof row.name === 'string' ? row.name.trim() : ''
-    const target = row.target === 'file' ? 'file' : row.target === 'env' ? 'env' : null
-    if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$/.test(name) || !target) throw new Error(`Secret binding ${index + 1} is incomplete or has an invalid Trellis secret name.`)
-
-    if (target === 'env') {
-      const env = typeof row.env === 'string' ? row.env.trim() : ''
-      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(env)) throw new Error(`Secret ${name} needs a valid environment variable target.`)
-      const destination = `env:${env}`
-      if (destinations.has(destination)) throw new Error(`Environment target ${env} is used more than once.`)
-      destinations.add(destination)
-      return { name, target, env }
-    }
-
-    const path = typeof row.path === 'string' ? row.path.trim() : ''
-    if (!path.startsWith('/run/trellis-secrets/') || posix.normalize(path) !== path) {
-      throw new Error(`Secret ${name} file targets must be below /run/trellis-secrets/.`)
-    }
-    const destination = `file:${path}`
-    if (destinations.has(destination)) throw new Error(`File target ${path} is used more than once.`)
-    destinations.add(destination)
-    return { name, target, path }
-  })
-}
-
 export async function updateServiceEnvironmentOverridesAction(serviceId: string, environmentId: string, formData: FormData) {
   const access = await requireService(serviceId)
   if (access.projectRole !== 'admin') throw new Error('Insufficient permissions.')
@@ -291,7 +227,7 @@ export async function updateServiceEnvironmentOverridesAction(serviceId: string,
   if (!environment) throw new Error('Environment not found.')
 
   const envVars = parseKeyValueLines(String(formData.get('envVars') ?? ''), 'env')
-  const secretBindings = normalizeSecretBindings(parseJson<unknown[]>(formData, 'secretBindings', []))
+  const secretBindings = validateSecretBindings(parseJsonInput(formData, 'secretBindings', []))
   const environmentEnv = environment.envVars && typeof environment.envVars === 'object' && !Array.isArray(environment.envVars)
     ? environment.envVars as Record<string, string>
     : {}

@@ -17,6 +17,22 @@ export interface TrellisWhoAmI {
   created_at?: string // ISO 8601
 }
 
+export interface TrellisJobLimits {
+  max_replicas_per_task_group: number
+  max_task_groups_per_job: number
+  max_tasks_per_task_group: number
+  max_desired_allocations: number
+  max_desired_allocations_per_namespace: number
+  default_task_cpu: number
+  default_task_memory: number
+  max_task_cpu: number
+  max_task_memory: number
+}
+
+export interface TrellisClusterSettings {
+  job_limits: TrellisJobLimits
+}
+
 // -- Nodes ------------------------------------------------------------------
 
 export interface TrellisNode {

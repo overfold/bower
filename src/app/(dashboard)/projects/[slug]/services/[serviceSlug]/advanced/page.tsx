@@ -4,6 +4,7 @@ import { getProjectBySlug, getProjectEnvironment, getServiceBySlug, getMergedSer
 import { Panel, PanelHeader, SectionTitle } from '@/components/ui/panel'
 import { ServiceHeader } from '../service-header'
 import { AdvancedConfigForm } from './advanced-config-form'
+import { instanceAdminMayBypassMultitenancy } from '@/lib/workload-policy'
 
 export default async function AdvancedPage({
   params,
@@ -49,6 +50,7 @@ export default async function AdvancedPage({
             runtime={mergedConfig.runtime}
             apiAccessScope={mergedConfig.apiAccessScope}
             apiAccessLevel={mergedConfig.apiAccessLevel}
+            mayBypassMultitenancy={instanceAdminMayBypassMultitenancy(user.isInstanceAdmin)}
           />
         ) : (
           <div className="p-4 text-[13px] text-ink-muted">No service configuration found.</div>

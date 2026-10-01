@@ -1,6 +1,6 @@
-import type { BowerSecretBinding, BowerServiceConfig } from './job-builder'
-
-type VolumeMount = { name: string; container_path: string; read_only?: boolean }
+import type { BowerServiceConfig } from './job-builder'
+import type { TrellisJobLimits } from '@/types/trellis'
+import { parseJsonInput, validateCanarySteps, validateSecretBindings, validateVolumeMounts } from './workload-input'
 
 const TIERS = { small: [100, 134217728], medium: [250, 268435456], large: [500, 536870912], xl: [1000, 1073741824] } as const
 
@@ -43,18 +43,21 @@ export function parseKeyValueLines(value: string, kind: 'env' | 'label') {
   return Object.fromEntries(entries)
 }
 
-function jsonField<T>(formData: FormData, key: string, fallback: T): T {
-  const value = String(formData.get(key) ?? '').trim()
-  if (!value) return fallback
-  try { return JSON.parse(value) as T } catch { throw new Error(`${key} must contain valid JSON.`) }
-}
-
 function integerField(formData: FormData, key: string, label: string, fallback: number) {
   const value = String(formData.get(key) ?? '').trim()
   return positiveInteger(value ? Number(value) : fallback, label)
 }
 
-export function parseServiceConfigInput(formData: FormData) {
+export function validateWorkloadAdmissionBounds(replicas: number, cpu: number, memory: number, limits?: TrellisJobLimits) {
+  if (!limits) return
+  if (replicas > limits.max_replicas_per_task_group || replicas > limits.max_desired_allocations) {
+    throw new Error(`Replicas exceed the Trellis operator limit of ${Math.min(limits.max_replicas_per_task_group, limits.max_desired_allocations)}.`)
+  }
+  if (cpu > limits.max_task_cpu) throw new Error(`CPU exceeds the Trellis operator limit of ${limits.max_task_cpu} millicores.`)
+  if (memory > limits.max_task_memory) throw new Error(`Memory exceeds the Trellis operator limit of ${limits.max_task_memory} bytes.`)
+}
+
+export function parseServiceConfigInput(formData: FormData, limits?: TrellisJobLimits) {
   const image = String(formData.get('image') ?? '').trim()
   if (!image) throw new Error('An image is required.')
   const replicas = positiveInteger(Number(formData.get('replicas')), 'Replicas')
@@ -65,6 +68,7 @@ export function parseServiceConfigInput(formData: FormData) {
   const { cpu, memory } = tier === 'custom'
     ? parseResourceInputs(String(formData.get('cpu') ?? ''), String(formData.get('memory') ?? ''))
     : { cpu: TIERS[tier][0], memory: TIERS[tier][1] }
+  validateWorkloadAdmissionBounds(replicas, cpu, memory, limits)
   const healthCheckType = String(formData.get('healthType') ?? '') || null
   if (healthCheckType !== null && healthCheckType !== 'http' && healthCheckType !== 'tcp' && healthCheckType !== 'script') {
     throw new Error('Invalid health check type.')
@@ -96,10 +100,10 @@ export function parseServiceConfigInput(formData: FormData) {
     healthCheckThreshold: integerField(formData, 'healthThreshold', 'Health check threshold', 3),
     envVars: parseKeyValueLines(String(formData.get('envVars') ?? ''), 'env'),
     labels: parseKeyValueLines(String(formData.get('labels') ?? ''), 'label'),
-    volumes: jsonField<VolumeMount[]>(formData, 'volumes', []),
-    secretBindings: jsonField<BowerSecretBinding[]>(formData, 'secretBindings', []),
+    volumes: validateVolumeMounts(parseJsonInput(formData, 'volumes', [])),
+    secretBindings: validateSecretBindings(parseJsonInput(formData, 'secretBindings', [])),
     autoRollbackSeconds: Math.max(30, Number(formData.get('autoRollbackSeconds')) || 300),
-    canarySteps: jsonField<number[]>(formData, 'canarySteps', [10, 25, 50, 100]),
+    canarySteps: validateCanarySteps(parseJsonInput(formData, 'canarySteps', [10, 25, 50, 100])),
     updatedAt: new Date(),
   } as const
 }

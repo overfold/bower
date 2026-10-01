@@ -7,6 +7,7 @@ import { baseServiceConfigs, serviceConfigs } from '@/db/schema'
 import { getBaseServiceConfig } from '@/lib/queries'
 import { recordAudit, requireService } from '@/lib/actions/shared'
 import { parseServiceConfigInput } from '@/lib/service-config-input'
+import { getTrellisJobLimits } from '@/lib/trellis-instance'
 
 function deepEqual(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b)
@@ -27,7 +28,7 @@ export async function upsertBaseServiceConfigAction(serviceId: string, formData:
   const access = await requireService(serviceId)
   if (access.projectRole !== 'admin') throw new Error('Insufficient permissions.')
 
-  const values = parseServiceConfigInput(formData)
+  const values = parseServiceConfigInput(formData, await getTrellisJobLimits(access.org.id))
   const before = await getBaseServiceConfig(serviceId)
 
   await db.insert(baseServiceConfigs)
@@ -67,7 +68,7 @@ export async function updateServiceConfigOverridesAction(serviceId: string, envi
     .limit(1)
   if (!envConfig) throw new Error('Configuration not found.')
 
-  const desired = parseServiceConfigInput(formData)
+  const desired = parseServiceConfigInput(formData, await getTrellisJobLimits(access.org.id))
   const base = await getBaseServiceConfig(serviceId)
 
   const newOverrides: Record<string, unknown> = preserveAdvancedOverrides(envConfig.overrides)

@@ -38,6 +38,34 @@ test('validates replica counts and existing tier/strategy/health enums before sa
   assert.equal(medium.memory, 268_435_456)
 })
 
+test('enforces Trellis cluster admission resource limits when they are readable', () => {
+  const limits = {
+    max_replicas_per_task_group: 3, max_task_groups_per_job: 2, max_tasks_per_task_group: 2,
+    max_desired_allocations: 2, max_desired_allocations_per_namespace: 5,
+    default_task_cpu: 100, default_task_memory: 128, max_task_cpu: 500, max_task_memory: 2_000_000,
+  }
+  assert.equal(parseServiceConfigInput(form({ replicas: '2', cpu: '500', memory: '1' }), limits).replicas, 2)
+  assert.throws(() => parseServiceConfigInput(form({ replicas: '3', cpu: '500', memory: '1' }), limits), /operator limit of 2/)
+  assert.throws(() => parseServiceConfigInput(form({ replicas: '2', cpu: '501', memory: '1' }), limits), /CPU.*500/)
+  assert.throws(() => parseServiceConfigInput(form({ replicas: '2', cpu: '500', memory: '2' }), limits), /Memory.*2000000/)
+})
+
+test('service configuration validates hidden workload JSON instead of asserting its types', () => {
+  const config = parseServiceConfigInput(form({
+    volumes: JSON.stringify([{ name: 'cache', container_path: '/cache', read_only: true }]),
+    secretBindings: JSON.stringify([{ name: 'token', target: 'env', env: '_TOKEN' }]),
+    canarySteps: JSON.stringify([5, 40, 100]),
+  }))
+  assert.deepEqual(config.volumes, [{ name: 'cache', container_path: '/cache', read_only: true }])
+  assert.deepEqual(config.secretBindings, [{ name: 'token', target: 'env', env: '_TOKEN' }])
+  assert.deepEqual(config.canarySteps, [5, 40, 100])
+  for (const [key, value] of [
+    ['volumes', { name: 'cache' }],
+    ['secretBindings', [{ name: 'token', target: 'env', env: 42 }]],
+    ['canarySteps', [50, 10, 100]],
+  ] as const) assert.throws(() => parseServiceConfigInput(form({ [key]: JSON.stringify(value) })))
+})
+
 test('env and labels use distinct key rules and retain empty, Unicode, and equals-containing values', () => {
   assert.deepEqual(parseKeyValueLines(' _TOKEN2=a=b=c\nEMPTY=\nGREETING=mañana ', 'env'), {
     _TOKEN2: 'a=b=c', EMPTY: '', GREETING: 'mañana',

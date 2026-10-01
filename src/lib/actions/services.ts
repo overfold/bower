@@ -7,7 +7,7 @@ import { db } from '@/db'
 import { baseServiceConfigs, deployments, environments, serviceConfigs, services } from '@/db/schema'
 import { getCurrentUser } from '@/lib/auth'
 import { getProjectBySlug, getProjectEnvironment, getUserOrganization } from '@/lib/queries'
-import { getTrellisClient } from '@/lib/trellis-instance'
+import { getTrellisClient, getTrellisJobLimits } from '@/lib/trellis-instance'
 import { TrellisApiError } from '@/lib/trellis'
 import { recordAudit, requireProject, requireService } from '@/lib/actions/shared'
 import { syncManagedProxy } from '@/lib/managed-proxy'
@@ -15,7 +15,8 @@ import { createDeploymentSpec, notifyDeployment, recordDeploymentEvent } from '@
 import { reconcileProjectDeployments } from '@/lib/deployment-reconciler'
 import { cleanupTrellisResources } from '@/lib/trellis-cleanup'
 import type { TrellisJobSpec } from '@/types/trellis'
-import { parseDeploymentStrategy, parseResourceInputs, positiveInteger } from '@/lib/service-config-input'
+import { parseDeploymentStrategy, parseResourceInputs, positiveInteger, validateWorkloadAdmissionBounds } from '@/lib/service-config-input'
+import { validateCanarySteps } from '@/lib/workload-input'
 
 type Trigger = 'manual' | 'webhook' | 'rollback' | 'auto_rollback'
 
@@ -43,7 +44,7 @@ async function executeDeployment(serviceId: string, environmentId: string, trigg
   } else if (row.config.deploymentStrategy === 'canary') {
     const active = row.config.activeJobName || row.service.slug
     jobName = active.endsWith('-canary-a') ? `${row.service.slug}-canary-b` : `${row.service.slug}-canary-a`
-    const steps = [...new Set(row.config.canarySteps as number[])].filter((step) => step > 0 && step <= 100).sort((a, b) => a - b)
+    const steps = validateCanarySteps(row.config.canarySteps)
     const weight = steps[0] ?? 10
     const replicas = Math.max(1, Math.ceil(row.config.replicas * weight / 100))
     initialCanary = { weight, replicas }
@@ -90,6 +91,7 @@ export async function createServiceAction(projectSlug: string, formData: FormDat
   if (!name || !image) return { error: 'Name and image are required.' }
   const slug = slugify(name); const [duplicate] = await db.select().from(services).where(and(eq(services.projectId, project.id), eq(services.slug, slug))).limit(1)
   if (duplicate) return { error: 'A service with this name already exists.' }
+  const environment = await getProjectEnvironment(project.id)
   let resources: ReturnType<typeof parseResourceInputs>
   let strategy: ReturnType<typeof parseDeploymentStrategy>
   let replicas: number | null
@@ -97,12 +99,12 @@ export async function createServiceAction(projectSlug: string, formData: FormDat
     resources = parseResourceInputs(String(formData.get('cpu') ?? '100'), String(formData.get('memory') ?? '128'))
     strategy = parseDeploymentStrategy(String(formData.get('strategy') ?? 'recreate'))
     replicas = formData.has('replicas') ? positiveInteger(Number(formData.get('replicas')), 'Replicas') : null
+    validateWorkloadAdmissionBounds(replicas ?? Math.max(1, environment?.defaultReplicas ?? 1), resources.cpu, resources.memory, await getTrellisJobLimits(ctx.org.id))
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'Invalid workload configuration.' }
   }
   const { cpu, memory } = resources
   const [service] = await db.insert(services).values({ projectId: project.id, name, slug }).returning()
-  const environment = await getProjectEnvironment(project.id)
   const baseReplicas = replicas ?? 1
   await db.insert(baseServiceConfigs).values({
     serviceId: service.id, image, replicas: baseReplicas, cpu, memory,

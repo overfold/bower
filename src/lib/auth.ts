@@ -82,6 +82,7 @@ export async function validateSession(
     email: userRow.email,
     name: userRow.name,
     avatarUrl: userRow.avatarUrl,
+    isInstanceAdmin: userRow.isInstanceAdmin,
     createdAt: new Date(userRow.createdAt),
   }
 

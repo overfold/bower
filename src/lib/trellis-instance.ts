@@ -3,6 +3,7 @@ import { db } from '@/db'
 import { organizations } from '@/db/schema'
 import { TrellisClient } from '@/lib/trellis'
 import { resolveTrellisConnection } from '@/lib/trellis-connection'
+import type { TrellisJobLimits } from '@/types/trellis'
 
 export { hasTrellisConnection } from '@/lib/trellis-connection'
 
@@ -20,6 +21,16 @@ export async function getTrellisClient(orgId: string): Promise<TrellisClient> {
   const org = rows[0]
   const connection = resolveTrellisConnection(org)
   return new TrellisClient(connection.apiUrl, connection.apiToken, connection.caCert)
+}
+
+export async function getTrellisJobLimits(orgId: string): Promise<TrellisJobLimits | undefined> {
+  try {
+    return (await (await getTrellisClient(orgId)).getClusterSettings()).job_limits
+  } catch {
+    // Namespace-scoped credentials cannot read cluster settings. Trellis still
+    // enforces the same limits during plan/apply, so local validation is best-effort.
+    return undefined
+  }
 }
 
 export function getTrellisClientFromEnv(): TrellisClient {

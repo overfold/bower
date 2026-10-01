@@ -4,6 +4,7 @@ import { getProjectBySlug, getProjectEnvironment, getProjectVolumes, getUserOrga
 import { requireProject } from '@/lib/actions/shared'
 import { SectionTitle } from '@/components/ui/panel'
 import { VolumeManager } from './volume-manager'
+import { instanceAdminMayBypassMultitenancy } from '@/lib/workload-policy'
 
 export default async function ProjectVolumesPage({ params }: {
   params: Promise<{ slug: string }>
@@ -28,7 +29,13 @@ export default async function ProjectVolumesPage({ params }: {
           Define persistent storage that can be attached by multiple services. Managed local storage remains pinned to its Trellis node.
         </p>
       </div>
-      <VolumeManager projectId={project.id} environmentId={environment.id} volumes={volumes} canManage={access.projectRole === 'admin'} />
+      <VolumeManager
+        projectId={project.id}
+        environmentId={environment.id}
+        volumes={volumes}
+        canManage={access.projectRole === 'admin'}
+        allowAbsoluteHostPaths={instanceAdminMayBypassMultitenancy(user.isInstanceAdmin)}
+      />
     </div>
   )
 }

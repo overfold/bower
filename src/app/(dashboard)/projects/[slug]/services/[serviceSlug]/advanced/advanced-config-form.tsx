@@ -13,12 +13,14 @@ export function AdvancedConfigForm({
   runtime: initialRuntime,
   apiAccessScope,
   apiAccessLevel,
+  mayBypassMultitenancy,
 }: {
   serviceId: string
   environmentId: string
   runtime: 'runc' | 'runsc'
   apiAccessScope: 'namespace' | 'cluster' | null
   apiAccessLevel: 'read' | 'write' | null
+  mayBypassMultitenancy: boolean
 }) {
   const router = useRouter()
   const [runtime, setRuntime] = useState(initialRuntime)
@@ -74,20 +76,22 @@ export function AdvancedConfigForm({
           >
             <option value="none">None</option>
             <option value="namespace:read">Namespace · read</option>
-            <option value="namespace:write">Namespace · write</option>
-            <option value="cluster:read">Cluster · read</option>
-            <option value="cluster:write">Cluster · write</option>
+            <option value="namespace:write" disabled={!mayBypassMultitenancy}>Namespace · write{mayBypassMultitenancy ? '' : ' · instance admin only'}</option>
+            <option value="cluster:read" disabled={!mayBypassMultitenancy}>Cluster · read{mayBypassMultitenancy ? '' : ' · instance admin only'}</option>
+            <option value="cluster:write" disabled={!mayBypassMultitenancy}>Cluster · write{mayBypassMultitenancy ? '' : ' · instance admin only'}</option>
           </select>
           <p className="text-2xs leading-relaxed text-ink-muted">
-            Enabling API access gives the workload a scoped credential.
+            Namespace read is available to project admins. Mutating or cluster-scoped credentials require an instance admin and the multitenancy bypass.
           </p>
         </div>
       </div>
-      {sensitive && (
+      {(sensitive || !mayBypassMultitenancy) && (
         <div className="flex gap-2 rounded-lg border border-warn-200 bg-warn-50 p-3 text-[12px] leading-relaxed text-warn-500">
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
-            This grants the workload elevated API access. Prefer namespace read access unless it genuinely needs broader or mutating permissions.
+            {sensitive
+              ? 'This service has elevated workload API access. The instance-admin multitenancy bypass must remain enabled to save or deploy it.'
+              : 'Only instance admins are cluster operators, and elevated workload API grants are disabled unless the operator enables the multitenancy bypass.'}
           </span>
         </div>
       )}

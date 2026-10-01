@@ -39,7 +39,7 @@ export class TrellisApiError extends Error {
   public readonly body: string
 
   constructor(status: number, statusText: string, body: string) {
-    super(`Trellis API error ${status} (${statusText}): ${body}`)
+    super(formatTrellisError(status, statusText, body))
     this.name = 'TrellisApiError'
     this.status = status
     this.statusText = statusText
@@ -54,6 +54,27 @@ export class TrellisApiError extends Error {
       return undefined
     }
   }
+}
+
+function formatTrellisError(status: number, statusText: string, body: string) {
+  try {
+    const parsed = JSON.parse(body) as { error?: unknown; issues?: unknown }
+    if (Array.isArray(parsed.issues) && parsed.issues.length > 0) {
+      const issues = parsed.issues.flatMap((value) => {
+        if (!value || typeof value !== 'object') return []
+        const issue = value as Record<string, unknown>
+        if (typeof issue.message !== 'string') return []
+        const path = typeof issue.path === 'string' && issue.path ? `${issue.path}: ` : ''
+        const category = typeof issue.code === 'string' && issue.code ? `[${issue.code}] ` : ''
+        return `${path}${category}${issue.message}`
+      })
+      if (issues.length > 0) return `Trellis rejected the workload:\n${issues.map((issue) => `- ${issue}`).join('\n')}`
+    }
+    if (typeof parsed.error === 'string') return `Trellis API error ${status} (${statusText}): ${parsed.error}`
+  } catch {
+    // Non-JSON API failures keep their original response body.
+  }
+  return `Trellis API error ${status} (${statusText}): ${body}`
 }
 
 // ---------------------------------------------------------------------------

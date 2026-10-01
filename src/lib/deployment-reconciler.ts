@@ -8,6 +8,7 @@ import { getTrellisClient } from '@/lib/trellis-instance'
 import type { TrellisJobSpec } from '@/types/trellis'
 import { deploymentConvergence, deploymentDeadlineReached, sameJobIdentity } from '@/lib/deployment-convergence'
 import { TrellisApiError } from '@/lib/trellis'
+import { validateCanarySteps } from '@/lib/workload-input'
 
 const ACTIVE_STATUSES = ['pending', 'planning', 'deploying'] as const
 let reconciliationRunning = false
@@ -105,7 +106,7 @@ export async function reconcileProjectDeployments(projectId: string, orgId: stri
         continue
       }
       if (deployment.strategy === 'canary') {
-        const steps = [...new Set([...(config.canarySteps as number[]), 100])].filter((step) => step > 0 && step <= 100).sort((a, b) => a - b)
+        const steps = validateCanarySteps(config.canarySteps)
         const existing = await db.select().from(deploymentEvents).where(eq(deploymentEvents.deploymentId, deployment.id)).orderBy(desc(deploymentEvents.createdAt))
         const previousWeight = Number((existing.find((entry) => entry.type === 'canary_step')?.details as { weight?: number } | undefined)?.weight ?? 0)
         const nextWeight = steps.find((step) => step > previousWeight)
