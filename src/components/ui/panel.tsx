@@ -1,13 +1,8 @@
 import * as React from 'react'
 import { cn } from '@/lib/utils'
+import { Card, CardHeader } from '@/components/ui/card'
 
-export function Panel({ className, children, ...rest }: React.HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div className={cn('rounded-xl border border-line bg-surface shadow-card', className)} {...rest}>
-      {children}
-    </div>
-  )
-}
+export const Panel = Card
 
 interface PanelHeaderProps {
   title: string
@@ -19,15 +14,15 @@ interface PanelHeaderProps {
 
 export function PanelHeader({ title, hint, action, className, as: Heading = 'h2' }: PanelHeaderProps) {
   return (
-    <div className={cn('flex min-h-[52px] items-center justify-between gap-4 border-b border-line px-4', className)}>
-      <div className="min-w-0">
-        <Heading className="truncate text-[13px] font-semibold tracking-tight text-ink">
+    <CardHeader className={cn('flex-col items-stretch sm:flex-row sm:items-center', className)}>
+      <div className="min-w-0 flex-1">
+        <Heading className="break-words text-[13px] font-semibold tracking-tight text-ink">
           {title}
         </Heading>
-        {hint ? <p className="mt-0.5 truncate text-xs text-ink-muted">{hint}</p> : null}
+        {hint ? <p className="mt-0.5 break-words text-xs text-ink-muted">{hint}</p> : null}
       </div>
-      {action ? <div className="flex shrink-0 items-center gap-2">{action}</div> : null}
-    </div>
+      {action ? <div className="flex flex-wrap items-center gap-2 sm:shrink-0">{action}</div> : null}
+    </CardHeader>
   )
 }
 

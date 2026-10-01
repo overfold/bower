@@ -13,17 +13,13 @@ export default async function AccountSettingsPage() {
   const apiKeysList = await getApiKeys(user.id)
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <PageHeading title="Account" description="Manage your profile and API keys." />
 
       <AccountSettingsForm
         user={{ name: user.name, email: user.email, avatarUrl: user.avatarUrl }}
       />
-
-
       <ChangePasswordForm />
-
-
       <ApiKeysSection
         keys={apiKeysList.map((k) => ({
           id: k.id,

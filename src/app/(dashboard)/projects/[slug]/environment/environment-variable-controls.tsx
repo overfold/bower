@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { actionErrorMessage } from '@/lib/action-error'
 import { useRouter } from 'next/navigation'
 import { Plus, Trash2 } from 'lucide-react'
 import { deleteEnvironmentVariableAction, setEnvironmentVariableAction } from '@/lib/actions/environment-variables'
@@ -9,12 +10,18 @@ import {
   Dialog,
   DialogBody,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { InlineNotice } from '@/components/ui/feedback'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 
 export function CreateEnvironmentVariableDialog({
   projectId,
@@ -36,14 +43,14 @@ export function CreateEnvironmentVariableDialog({
       setOpen(false)
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save environment variable.')
+      setError(actionErrorMessage(err, 'Could not save environment variable.'))
     } finally {
       setSaving(false)
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(next) => { if (!saving) { setOpen(next); if (next) setError(null) } }}>
       <DialogTrigger asChild>
         <Button variant="primary" size="sm">
           <Plus className="h-4 w-4" />
@@ -54,13 +61,9 @@ export function CreateEnvironmentVariableDialog({
         <DialogHeader>
           <DialogTitle>Add environment variable</DialogTitle>
         </DialogHeader>
-        <DialogBody>
-          <form action={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="rounded-lg border border-danger-200 bg-danger-50 p-3 text-[13px] text-danger-500">
-                {error}
-              </div>
-            )}
+        <form action={handleSubmit}>
+          <DialogBody className="space-y-4">
+            {error && <InlineNotice tone="error">{error}</InlineNotice>}
             <div className="space-y-2">
               <Label htmlFor="environmentVariableName">Name</Label>
               <Input
@@ -83,16 +86,12 @@ export function CreateEnvironmentVariableDialog({
                 className="font-mono"
               />
             </div>
-            <div className="flex justify-end gap-2 pt-1">
-              <Button type="button" onClick={() => setOpen(false)}>
-                Cancel
-              </Button>
-              <Button variant="primary" type="submit" disabled={saving}>
-                {saving ? 'Saving…' : 'Save variable'}
-              </Button>
-            </div>
-          </form>
-        </DialogBody>
+          </DialogBody>
+          <DialogFooter>
+            <Button type="button" onClick={() => setOpen(false)} disabled={saving}>Cancel</Button>
+            <Button variant="primary" type="submit" disabled={saving} aria-busy={saving}>{saving ? 'Saving…' : 'Save variable'}</Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )
@@ -107,11 +106,34 @@ export function DeleteEnvironmentVariableButton({
   environmentId: string
   name: string
 }) {
+  const router = useRouter()
+  const [open, setOpen] = useState(false)
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function remove(event: React.MouseEvent) {
+    event.preventDefault()
+    setPending(true)
+    setError(null)
+    try {
+      await deleteEnvironmentVariableAction(projectId, environmentId, name)
+      setOpen(false)
+      router.refresh()
+    } catch (cause) {
+      setError(actionErrorMessage(cause, 'Could not delete environment variable.'))
+    } finally {
+      setPending(false)
+    }
+  }
+
   return (
-    <form action={deleteEnvironmentVariableAction.bind(null, projectId, environmentId, name)}>
-      <Button variant="ghost" size="sm" type="submit" className="text-danger-500 hover:text-danger-500" aria-label={`Delete ${name}`}>
-        <Trash2 className="h-3.5 w-3.5" />
-      </Button>
-    </form>
+    <AlertDialog open={open} onOpenChange={(next) => { if (!pending) { setOpen(next); if (next) setError(null) } }}>
+      <AlertDialogTrigger asChild><Button variant="ghost" size="sm" aria-label={`Delete ${name}`}><Trash2 className="h-3.5 w-3.5" /></Button></AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader><AlertDialogTitle>Delete {name}?</AlertDialogTitle><AlertDialogDescription>This permanently removes the environment variable. Services that use it may fail on their next deployment.</AlertDialogDescription></AlertDialogHeader>
+        {error ? <InlineNotice tone="error" className="mx-5">{error}</InlineNotice> : null}
+        <AlertDialogFooter><AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel><AlertDialogAction onClick={remove} disabled={pending} aria-busy={pending}>{pending ? 'Deleting…' : 'Delete variable'}</AlertDialogAction></AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }

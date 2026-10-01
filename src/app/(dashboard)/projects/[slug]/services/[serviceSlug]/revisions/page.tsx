@@ -11,6 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ServiceHeader } from '../service-header'
 import { History } from 'lucide-react'
 import type { TrellisJobVersion } from '@/types/trellis'
+import { StatusDot } from '@/components/status'
+import { formatTimestamp } from '@/lib/format'
 
 export default async function RevisionsPage({ params }: { params: Promise<{ slug: string; serviceSlug: string }> }) {
   const { slug, serviceSlug } = await params
@@ -80,9 +82,9 @@ export default async function RevisionsPage({ params }: { params: Promise<{ slug
                     <TableCell className="font-mono">{deployment.trellisVersion ?? '—'}</TableCell>
                     <TableCell className="font-mono">{deployment.trellisRevision ?? '—'}</TableCell>
                     <TableCell className="font-mono text-xs text-ink-muted">{deployment.trellisJobName ?? service.slug}</TableCell>
-                    <TableCell className="capitalize">{deployment.status.replace('_', ' ')}</TableCell>
+                    <TableCell><StatusDot status={deployment.status} /></TableCell>
                     <TableCell className="text-ink-muted">
-                      {new Date(deployment.createdAt).toLocaleString()}
+                      {formatTimestamp(deployment.createdAt)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -100,7 +102,7 @@ export default async function RevisionsPage({ params }: { params: Promise<{ slug
         : historyError ? <Panel><TrellisReadError title="Trellis history unavailable" message={historyError} /></Panel>
           : versions.length === 0 ? <Panel><EmptyState icon={<History className="h-4 w-4" />} title="No retained versions" body="The current Trellis job has no retained version history." /></Panel>
             : <Panel><div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Version</TableHead><TableHead>Revision</TableHead><TableHead>Job</TableHead><TableHead>Created</TableHead></TableRow></TableHeader><TableBody>
-              {versions.map((entry) => <TableRow key={`${entry.version}-${entry.revision}`}><TableCell className="font-mono">{entry.version}</TableCell><TableCell className="font-mono">{entry.revision}</TableCell><TableCell className="font-mono text-xs text-ink-muted">{entry.spec.name}</TableCell><TableCell className="text-ink-muted">{new Date(entry.created_at).toLocaleString()}</TableCell></TableRow>)}
+              {versions.map((entry) => <TableRow key={`${entry.version}-${entry.revision}`}><TableCell className="font-mono">{entry.version}</TableCell><TableCell className="font-mono">{entry.revision}</TableCell><TableCell className="font-mono text-xs text-ink-muted">{entry.spec.name}</TableCell><TableCell className="text-ink-muted">{formatTimestamp(entry.created_at)}</TableCell></TableRow>)}
             </TableBody></Table></div></Panel>}
     </div>
   )

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition, useActionState } from 'react'
+import { actionErrorMessage } from '@/lib/action-error'
 import { useRouter } from 'next/navigation'
 import { Plus, Trash2, Copy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -32,6 +33,7 @@ export function CreateWebhookDialog({ projectId, services, environmentId }: Crea
   const { toast } = useFeedback()
   const boundAction = createWebhookAction.bind(null, projectId)
   const [state, formAction, isPending] = useActionState<WebhookCreationState, FormData>(boundAction, {})
+  const [hideStaleError, setHideStaleError] = useState(false)
 
   function handleClose() {
     setOpen(false)
@@ -48,7 +50,7 @@ export function CreateWebhookDialog({ projectId, services, environmentId }: Crea
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else setOpen(true) }}>
+    <Dialog open={open} onOpenChange={(v) => { if (isPending) return; if (!v) handleClose(); else { setHideStaleError(true); setOpen(true) } }}>
       <DialogTrigger asChild>
         <Button variant="primary" size="sm">
           <Plus className="h-4 w-4" />
@@ -79,9 +81,9 @@ export function CreateWebhookDialog({ projectId, services, environmentId }: Crea
             </DialogFooter>
           </>
         ) : (
-          <form action={formAction}>
+          <form action={formAction} onSubmit={() => setHideStaleError(false)}>
             <DialogBody className="space-y-4">
-              {state.error ? <InlineNotice tone="error">{state.error}</InlineNotice> : null}
+              {state.error && !hideStaleError ? <InlineNotice tone="error">{state.error}</InlineNotice> : null}
               <input type="hidden" name="environmentId" value={environmentId} />
               <div className="space-y-2">
                 <Label htmlFor="wh-service">Service</Label>
@@ -121,7 +123,7 @@ export function CreateWebhookDialog({ projectId, services, environmentId }: Crea
             </DialogBody>
             <DialogFooter>
               <Button variant="default" type="button" size="sm" onClick={handleClose} disabled={isPending}>Cancel</Button>
-              <Button variant="primary" type="submit" size="sm" disabled={isPending}>
+              <Button variant="primary" type="submit" size="sm" disabled={isPending} aria-busy={isPending}>
                 {isPending ? 'Creating…' : 'Create webhook'}
               </Button>
             </DialogFooter>
@@ -136,9 +138,24 @@ export function DeleteWebhookButton({ projectId, hookId, serviceName }: {
   projectId: string; hookId: string; serviceName: string
 }) {
   const [isPending, startTransition] = useTransition()
+  const [open, setOpen] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  function remove(event: React.MouseEvent) {
+    event.preventDefault()
+    setError(null)
+    startTransition(async () => {
+      try {
+        await deleteWebhookAction(projectId, hookId)
+        setOpen(false)
+      } catch (err) {
+        setError(actionErrorMessage(err, 'Could not delete webhook.'))
+      }
+    })
+  }
 
   return (
-    <AlertDialog>
+    <AlertDialog open={open} onOpenChange={(next) => { if (!isPending) { setOpen(next); if (next) setError(null) } }}>
       <AlertDialogTrigger asChild>
         <Button variant="ghost" size="icon" disabled={isPending} aria-label={`Delete webhook for ${serviceName}`}>
           <Trash2 className="h-3.5 w-3.5 text-ink-muted" />
@@ -146,18 +163,20 @@ export function DeleteWebhookButton({ projectId, hookId, serviceName }: {
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete webhook?</AlertDialogTitle>
+          <AlertDialogTitle>Delete webhook for {serviceName}?</AlertDialogTitle>
           <AlertDialogDescription>
             This will permanently delete the webhook endpoint for {serviceName}. Incoming deploy triggers will stop working.
           </AlertDialogDescription>
         </AlertDialogHeader>
+        {error ? <InlineNotice tone="error" className="mx-5">{error}</InlineNotice> : null}
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
           <AlertDialogAction
-            onClick={() => startTransition(() => deleteWebhookAction(projectId, hookId))}
-            className="bg-danger-500 text-white hover:bg-danger-500/90"
+            disabled={isPending}
+            aria-busy={isPending}
+            onClick={remove}
           >
-            Delete
+            {isPending ? 'Deleting…' : 'Delete webhook'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -185,13 +204,13 @@ export function CreateNotificationDialog({ projectId }: { projectId: string }) {
         handleClose()
         router.refresh()
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to create channel.')
+        setError(actionErrorMessage(err, 'Failed to create channel.'))
       }
     })
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else setOpen(true) }}>
+    <Dialog open={open} onOpenChange={(v) => { if (isPending) return; if (!v) handleClose(); else { setError(null); setOpen(true) } }}>
       <DialogTrigger asChild>
         <Button variant="primary" size="sm">
           <Plus className="h-4 w-4" />
@@ -204,7 +223,7 @@ export function CreateNotificationDialog({ projectId }: { projectId: string }) {
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <DialogBody className="space-y-4">
-            {error ? <div className="rounded-md bg-danger-50 p-3 text-sm text-danger-500">{error}</div> : null}
+            {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
             <div className="space-y-2">
               <Label htmlFor="nc-name">Name</Label>
               <Input id="nc-name" name="name" placeholder="e.g. Slack deploys" required />
@@ -227,7 +246,7 @@ export function CreateNotificationDialog({ projectId }: { projectId: string }) {
           </DialogBody>
           <DialogFooter>
             <Button variant="default" type="button" size="sm" onClick={handleClose} disabled={isPending}>Cancel</Button>
-            <Button variant="primary" type="submit" size="sm" disabled={isPending}>
+            <Button variant="primary" type="submit" size="sm" disabled={isPending} aria-busy={isPending}>
               {isPending ? 'Creating…' : 'Add channel'}
             </Button>
           </DialogFooter>
@@ -241,9 +260,24 @@ export function DeleteNotificationButton({ projectId, channelId, channelName }: 
   projectId: string; channelId: string; channelName: string
 }) {
   const [isPending, startTransition] = useTransition()
+  const [open, setOpen] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  function remove(event: React.MouseEvent) {
+    event.preventDefault()
+    setError(null)
+    startTransition(async () => {
+      try {
+        await deleteNotificationChannelAction(projectId, channelId)
+        setOpen(false)
+      } catch (err) {
+        setError(actionErrorMessage(err, 'Could not delete notification channel.'))
+      }
+    })
+  }
 
   return (
-    <AlertDialog>
+    <AlertDialog open={open} onOpenChange={(next) => { if (!isPending) { setOpen(next); if (next) setError(null) } }}>
       <AlertDialogTrigger asChild>
         <Button variant="ghost" size="icon" disabled={isPending} aria-label={`Delete ${channelName}`}>
           <Trash2 className="h-3.5 w-3.5 text-ink-muted" />
@@ -256,13 +290,15 @@ export function DeleteNotificationButton({ projectId, channelId, channelName }: 
             This notification channel will be permanently removed. Deployment notifications will stop being sent to it.
           </AlertDialogDescription>
         </AlertDialogHeader>
+        {error ? <InlineNotice tone="error" className="mx-5">{error}</InlineNotice> : null}
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
           <AlertDialogAction
-            onClick={() => startTransition(() => deleteNotificationChannelAction(projectId, channelId))}
-            className="bg-danger-500 text-white hover:bg-danger-500/90"
+            disabled={isPending}
+            aria-busy={isPending}
+            onClick={remove}
           >
-            Delete
+            {isPending ? 'Deleting…' : 'Delete channel'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

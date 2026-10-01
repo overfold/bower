@@ -35,7 +35,7 @@ const AlertDialogOverlay = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Overlay>
 >(({ className, ...props }, ref) => (
   <AlertDialogPrimitive.Overlay
-    className={cn('fixed inset-0 z-50 bg-ink/25', className)}
+    className={cn('fixed inset-0 z-50 bg-black/30', className)}
     {...props}
     ref={ref}
   />
@@ -55,7 +55,7 @@ const AlertDialogContent = React.forwardRef<
         <AlertDialogPortal forceMount>
           <AlertDialogPrimitive.Overlay asChild forceMount>
             <motion.div
-              className="fixed inset-0 z-50 bg-ink/25"
+              className="fixed inset-0 z-50 bg-black/30"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -116,7 +116,7 @@ const AlertDialogAction = React.forwardRef<
   React.ComponentRef<typeof AlertDialogPrimitive.Action>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Action>
 >(({ className, ...props }, ref) => (
-  <AlertDialogPrimitive.Action ref={ref} className={cn(buttonVariants({ variant: 'primary' }), className)} {...props} />
+  <AlertDialogPrimitive.Action ref={ref} className={cn(buttonVariants({ variant: 'danger' }), className)} {...props} />
 ))
 AlertDialogAction.displayName = AlertDialogPrimitive.Action.displayName
 

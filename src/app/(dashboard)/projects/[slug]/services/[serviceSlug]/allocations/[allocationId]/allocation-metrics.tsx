@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Cpu, MemoryStick } from 'lucide-react'
 import { getAllocationMetricsAction } from '@/lib/actions/allocation-actions'
 import { Panel } from '@/components/ui/panel'
+import { formatTimestamp } from '@/lib/format'
 import type { TrellisAllocationMetrics } from '@/types/trellis'
 
 function formatBytes(bytes: number) {
@@ -21,7 +22,7 @@ function formatBytes(bytes: number) {
 
 function latestTimestamp(metrics: TrellisAllocationMetrics[]) {
   const timestamps = metrics.map((item) => Date.parse(item.collected_at)).filter(Number.isFinite)
-  return timestamps.length ? new Date(Math.max(...timestamps)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—'
+  return timestamps.length ? formatTimestamp(new Date(Math.max(...timestamps))) : '—'
 }
 
 export function AllocationMetrics({

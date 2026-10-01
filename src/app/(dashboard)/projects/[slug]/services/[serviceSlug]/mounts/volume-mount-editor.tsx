@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { actionErrorMessage } from '@/lib/action-error'
 import { useRouter } from 'next/navigation'
 import { Search, Trash2 } from 'lucide-react'
 import { updateServiceVolumeMountsAction } from '@/lib/actions/service-settings'
@@ -8,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { InlineNotice } from '@/components/ui/feedback'
 
 type Mount = { name: string; container_path: string; read_only?: boolean }
 
@@ -41,18 +43,26 @@ export function VolumeMountEditor({ serviceId, environmentId, mounts: initial, v
         setOpen(false)
         router.refresh()
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : 'Could not update mounts.')
+        setError(actionErrorMessage(cause, 'Could not update mounts.'))
       }
     })
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(next) => {
+      if (busy) return
+      setOpen(next)
+      if (next) {
+        setError(null)
+        setMounts(initial)
+        setQuery('')
+      }
+    }}>
       <DialogTrigger asChild><Button size="sm">Attach volume</Button></DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader><DialogTitle>Volume mounts</DialogTitle></DialogHeader>
         <DialogBody><div className="space-y-4">
-          {error && <div className="rounded-lg border border-danger-200 bg-danger-50 p-3 text-[13px] text-danger-500">{error}</div>}
+          {error && <InlineNotice tone="error">{error}</InlineNotice>}
           <div className="space-y-2">
             <Label htmlFor="volume-search">Find a project volume</Label>
             <div className="relative">
@@ -80,7 +90,7 @@ export function VolumeMountEditor({ serviceId, environmentId, mounts: initial, v
             </div>
           ))}
         </div></DialogBody>
-        <DialogFooter><Button type="button" onClick={() => setOpen(false)}>Cancel</Button><Button type="button" variant="primary" disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Save mounts'}</Button></DialogFooter>
+        <DialogFooter><Button type="button" onClick={() => setOpen(false)} disabled={busy}>Cancel</Button><Button type="button" variant="primary" disabled={busy} aria-busy={busy} onClick={save}>{busy ? 'Saving…' : 'Save mounts'}</Button></DialogFooter>
       </DialogContent>
     </Dialog>
   )

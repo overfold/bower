@@ -1,49 +1,57 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { changePasswordAction } from '@/lib/actions/settings'
 import { Button } from '@/components/ui/button'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { FieldError, InlineNotice, useFeedback } from '@/components/ui/feedback'
 
 export function ChangePasswordForm() {
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [confirmationError, setConfirmationError] = useState<string | null>(null)
+  const confirmationRef = useRef<HTMLInputElement>(null)
+  const { toast } = useFeedback()
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    const form = e.currentTarget
+    const formData = new FormData(form)
     setError(null)
-    setSuccess(false)
+    setConfirmationError(null)
     setLoading(true)
-    const formData = new FormData(e.currentTarget)
     const newPw = formData.get('newPassword') as string
     const confirm = formData.get('confirmPassword') as string
     if (newPw !== confirm) {
-      setError('Passwords do not match.')
+      setConfirmationError('Passwords do not match.')
       setLoading(false)
+      confirmationRef.current?.focus()
       return
     }
-    const result = await changePasswordAction(formData)
-    if (result?.error) {
-      setError(result.error)
-    } else {
-      setSuccess(true)
-      e.currentTarget.reset()
+    try {
+      const result = await changePasswordAction(formData)
+      if (result?.error) setError(result.error)
+      else if (result?.success) {
+        toast({ tone: 'success', title: 'Password updated.' })
+        form.reset()
+      } else setError('Password could not be updated. Please try again.')
+    } catch {
+      setError('Password could not be updated. Please try again.')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Change password</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && <div className="rounded-md bg-danger-50 p-3 text-sm text-danger-500">{error}</div>}
-          {success && <div className="rounded-md bg-brand-50 p-3 text-sm text-brand-700">Password updated.</div>}
+      <form onSubmit={handleSubmit}>
+        <CardHeader>
+          <CardTitle>Change password</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
           <div className="space-y-2">
             <Label htmlFor="currentPassword">Current password</Label>
             <Input id="currentPassword" name="currentPassword" type="password" required />
@@ -54,13 +62,16 @@ export function ChangePasswordForm() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="confirmPassword">Confirm new password</Label>
-            <Input id="confirmPassword" name="confirmPassword" type="password" required minLength={8} />
+            <Input ref={confirmationRef} id="confirmPassword" name="confirmPassword" type="password" required minLength={8} aria-invalid={Boolean(confirmationError)} aria-describedby={confirmationError ? 'confirm-password-error' : undefined} />
+            <div id="confirm-password-error"><FieldError>{confirmationError}</FieldError></div>
           </div>
-          <Button variant="primary" type="submit" disabled={loading}>
-            {loading ? 'Updating…' : 'Update password'}
+        </CardContent>
+        <CardFooter>
+          <Button variant="primary" type="submit" disabled={loading} aria-busy={loading}>
+            {loading ? 'Saving…' : 'Update password'}
           </Button>
-        </form>
-      </CardContent>
+        </CardFooter>
+      </form>
     </Card>
   )
 }

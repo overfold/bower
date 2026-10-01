@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { actionErrorMessage } from '@/lib/action-error'
 import { Copy, Plus, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -16,12 +17,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { FieldError, useFeedback } from '@/components/ui/feedback'
+import { InlineNotice, useFeedback } from '@/components/ui/feedback'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { createInvitationAction, revokeInvitationAction } from '@/lib/actions/settings'
+import { formatDate } from '@/lib/format'
 
 type Invitation = {
   id: string
@@ -68,28 +74,28 @@ export function InviteTokensSection({
   async function create() {
     setPending(true)
     setError(null)
-    const result = await createInvitationAction({
-      role: roleValue,
-      grantInstanceAdmin: admin,
-      maxUses: uses === 'unlimited' ? null : uses === 'limited' ? Number(maxUses) : 1,
-      teamIds,
-      note,
-      expiresAt,
-    })
-    if (result.error) setError(result.error)
-    else setLink(result.inviteUrl ?? null)
-    setPending(false)
+    try {
+      const result = await createInvitationAction({
+        role: roleValue,
+        grantInstanceAdmin: admin,
+        maxUses: uses === 'unlimited' ? null : uses === 'limited' ? Number(maxUses) : 1,
+        teamIds,
+        note,
+        expiresAt,
+      })
+      if (result.error) setError(result.error)
+      else setLink(result.inviteUrl ?? null)
+    } catch (cause) {
+      setError(actionErrorMessage(cause, 'Could not create invitation.'))
+    } finally {
+      setPending(false)
+    }
   }
 
   async function copy() {
     if (!link) return
     await navigator.clipboard.writeText(new URL(link, window.location.origin).toString())
     toast({ title: 'Invitation link copied', tone: 'success' })
-  }
-
-  async function revoke(id: string) {
-    await revokeInvitationAction(id)
-    window.location.reload()
   }
 
   function status(invitation: Invitation) {
@@ -112,7 +118,12 @@ export function InviteTokensSection({
           <CardDescription>Share invitation links with the roles and number of uses you choose.</CardDescription>
         </div>
         {canInvite ? (
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog open={open} onOpenChange={(next) => {
+            if (pending) return
+            setOpen(next)
+            if (next) setError(null)
+            else setLink(null)
+          }}>
             <DialogTrigger asChild>
               <Button variant="primary" size="sm">
                 <Plus />
@@ -208,7 +219,7 @@ export function InviteTokensSection({
                     <div className="space-y-2">
                       <Label htmlFor="invitation-uses">Uses</Label>
                       <Select value={uses} onValueChange={setUses} disabled={roleValue !== 'member' || admin}>
-                        <SelectTrigger id="invitation-uses"><SelectValue /></SelectTrigger>
+                        <SelectTrigger id="invitation-uses" aria-describedby="invitation-uses-help"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="single">Single use</SelectItem>
                           <SelectItem value="limited">Limited uses</SelectItem>
@@ -221,7 +232,7 @@ export function InviteTokensSection({
                           <Input id="invitation-max-uses" type="number" min={2} max={2147483647} value={maxUses} onChange={(event) => setMaxUses(event.target.value)} />
                         </div>
                       ) : null}
-                      <p className="text-xs text-ink-muted">
+                      <p id="invitation-uses-help" className="text-xs text-ink-muted">
                         {roleValue !== 'member' || admin
                           ? 'Invitations granting elevated access are single-use.'
                           : uses === 'single'
@@ -240,11 +251,11 @@ export function InviteTokensSection({
                       <Label htmlFor="invitation-note">Note <span className="font-normal text-ink-muted">(optional)</span></Label>
                       <Input id="invitation-note" value={note} onChange={(event) => setNote(event.target.value)} />
                     </div>
-                    <FieldError>{error}</FieldError>
+                    {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
                   </DialogBody>
                   <DialogFooter>
                     <Button onClick={() => setOpen(false)}>Cancel</Button>
-                    <Button variant="primary" onClick={create} disabled={pending}>
+                    <Button variant="primary" onClick={create} disabled={pending} aria-busy={pending}>
                       {pending ? 'Creating…' : 'Create invitation'}
                     </Button>
                   </DialogFooter>
@@ -256,6 +267,7 @@ export function InviteTokensSection({
       </CardHeader>
 
       <CardContent className="p-0">
+        <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -286,14 +298,12 @@ export function InviteTokensSection({
                   </TableCell>
                   <TableCell>{invitation.useCount} / {invitation.maxUses ?? 'Unlimited'}</TableCell>
                   <TableCell><Badge variant={invitationStatus === 'Active' ? 'success' : 'secondary'}>{invitationStatus}</Badge></TableCell>
-                  <TableCell>{invitation.expiresAt ? new Date(invitation.expiresAt).toLocaleDateString() : 'Never'}</TableCell>
+                  <TableCell className="whitespace-nowrap">{invitation.expiresAt ? formatDate(invitation.expiresAt) : 'Never'}</TableCell>
                   <TableCell>{invitation.createdByName ?? '—'}</TableCell>
                   {canInvite ? (
                     <TableCell>
                       {invitationStatus === 'Active' ? (
-                        <Button variant="ghost" size="icon" onClick={() => revoke(invitation.id)} aria-label="Revoke invitation">
-                          <Trash2 />
-                        </Button>
+                        <RevokeInvitationButton invitation={invitation} />
                       ) : null}
                     </TableCell>
                   ) : null}
@@ -302,7 +312,42 @@ export function InviteTokensSection({
             })}
           </TableBody>
         </Table>
+        </div>
       </CardContent>
     </Card>
+  )
+}
+
+function RevokeInvitationButton({ invitation }: { invitation: Invitation }) {
+  const [open, setOpen] = useState(false)
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const { toast } = useFeedback()
+
+  async function revoke(event: React.MouseEvent) {
+    event.preventDefault()
+    setPending(true)
+    setError(null)
+    try {
+      await revokeInvitationAction(invitation.id)
+      setOpen(false)
+      toast({ tone: 'success', title: 'Invitation revoked.' })
+    } catch (cause) {
+      setError(actionErrorMessage(cause, 'Could not revoke invitation.'))
+    } finally {
+      setPending(false)
+    }
+  }
+
+  const target = invitation.note ? `“${invitation.note}”` : `created ${formatDate(invitation.createdAt)}`
+  return (
+    <AlertDialog open={open} onOpenChange={(next) => { if (!pending) { setOpen(next); if (next) setError(null) } }}>
+      <AlertDialogTrigger asChild><Button variant="ghost" size="icon" disabled={pending} aria-label={`Revoke invitation ${target}`}><Trash2 /></Button></AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader><AlertDialogTitle>Revoke invitation?</AlertDialogTitle><AlertDialogDescription>The invitation {target} will stop accepting new members. Existing members keep their access.</AlertDialogDescription></AlertDialogHeader>
+        {error ? <InlineNotice tone="error" className="mx-5">{error}</InlineNotice> : null}
+        <AlertDialogFooter><AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel><AlertDialogAction onClick={revoke} disabled={pending} aria-busy={pending}>{pending ? 'Revoking…' : 'Revoke invitation'}</AlertDialogAction></AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }

@@ -1,18 +1,21 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
+import { unstable_rethrow, useRouter } from 'next/navigation'
 import { updateProjectAction, deleteProjectAction } from '@/lib/actions/projects'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { InlineNotice, useFeedback } from '@/components/ui/feedback'
 import { Separator } from '@/components/ui/separator'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { Trash2 } from 'lucide-react'
+import { formatDate } from '@/lib/format'
 
 interface Props {
   project: {
@@ -25,43 +28,57 @@ interface Props {
 
 export function ProjectSettingsForm({ project }: Props) {
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [deleting, startDelete] = useTransition()
+  const [deleting, setDeleting] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const router = useRouter()
+  const { toast } = useFeedback()
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    const formData = new FormData(e.currentTarget)
     setError(null)
-    setSuccess(false)
     setLoading(true)
     try {
-      const formData = new FormData(e.currentTarget)
-      await updateProjectAction(project.id, formData)
-    } catch {
-      setError('Failed to update project.')
+      const result = await updateProjectAction(project.id, formData)
+      if (result?.error) setError(result.error)
+      else if (result?.success) {
+        toast({ tone: 'success', title: 'Project settings saved.' })
+        router.refresh()
+      } else setError('Project settings could not be saved. Please try again.')
+    } catch (err) {
+      unstable_rethrow(err)
+      setError('Project settings could not be saved. Please try again.')
+    } finally {
       setLoading(false)
     }
   }
 
-  function handleDelete() {
+  async function handleDelete(event: React.MouseEvent<HTMLButtonElement>) {
+    event.preventDefault()
     setDeleteError(null)
-    startDelete(async () => {
+    setDeleting(true)
+    try {
       const result = await deleteProjectAction(project.id)
       if (result?.error) setDeleteError(result.error)
-    })
+    } catch (err) {
+      unstable_rethrow(err)
+      setDeleteError('The project could not be deleted. Please try again.')
+    } finally {
+      setDeleting(false)
+    }
   }
 
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Project details</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && <div className="rounded-md bg-danger-50 p-3 text-sm text-danger-500">{error}</div>}
-            {success && <div className="rounded-md bg-brand-50 p-3 text-sm text-brand-700">Settings updated.</div>}
+        <form onSubmit={handleSubmit}>
+          <CardHeader>
+            <CardTitle className="text-base">Project details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
               <Input id="name" name="name" defaultValue={project.name} required />
@@ -71,13 +88,15 @@ export function ProjectSettingsForm({ project }: Props) {
               <Textarea id="description" name="description" defaultValue={project.description ?? ''} rows={3} />
             </div>
             <div className="text-xs text-ink-muted">
-              Created {new Date(project.createdAt).toLocaleDateString()}
+              Created {formatDate(project.createdAt)}
             </div>
-            <Button variant="primary" type="submit" disabled={loading}>
-              {loading ? 'Saving...' : 'Save changes'}
+          </CardContent>
+          <CardFooter>
+            <Button variant="primary" type="submit" disabled={loading} aria-busy={loading}>
+              {loading ? 'Saving…' : 'Save changes'}
             </Button>
-          </form>
-        </CardContent>
+          </CardFooter>
+        </form>
       </Card>
 
       <Separator />
@@ -90,8 +109,12 @@ export function ProjectSettingsForm({ project }: Props) {
           <p className="mb-4 text-sm text-ink-muted">
             Deleting a project removes all services, environments, deployments, and configurations permanently.
           </p>
-          {deleteError && <div className="mb-4 rounded-md bg-danger-50 p-3 text-sm text-danger-500">{deleteError}</div>}
-          <AlertDialog>
+          <AlertDialog open={deleteOpen} onOpenChange={(nextOpen) => {
+            if (!deleting) {
+              setDeleteOpen(nextOpen)
+              if (nextOpen) setDeleteError(null)
+            }
+          }}>
             <AlertDialogTrigger asChild>
               <Button variant="danger" size="sm" disabled={deleting}>
                 <Trash2 className="mr-1.5 h-3.5 w-3.5" />
@@ -105,10 +128,11 @@ export function ProjectSettingsForm({ project }: Props) {
                   This action cannot be undone. All services, environments, and deployment history will be permanently deleted.
                 </AlertDialogDescription>
               </AlertDialogHeader>
+              {deleteError ? <InlineNotice tone="error">{deleteError}</InlineNotice> : null}
               <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-danger-500 text-white hover:bg-danger-500/90">
-                  Delete
+                <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete} disabled={deleting} aria-busy={deleting}>
+                  {deleting ? 'Deleting…' : 'Delete project'}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

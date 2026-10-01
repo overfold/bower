@@ -23,18 +23,7 @@ import { DrainToggle } from './drain-toggle'
 import { ResetBackoffButton } from './reset-backoff-button'
 import { formatBytes, formatCpu } from './format'
 import type { TrellisAllocation, TrellisJob, TrellisNode } from '@/types/trellis'
-
-function relTime(value: string | Date): string {
-  const date = value instanceof Date ? value : new Date(value)
-  if (!Number.isFinite(date.getTime())) return 'unknown'
-  const seconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000))
-  if (seconds < 60) return `${seconds}s ago`
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  return `${Math.floor(hours / 24)}d ago`
-}
+import { formatRelativeTime, formatTimestamp } from '@/lib/format'
 
 function untilTime(value: string): string {
   const seconds = Math.max(0, Math.ceil((new Date(value).getTime() - Date.now()) / 1000))
@@ -142,7 +131,7 @@ export default async function StatusPage() {
                 <TableCell>{href ? <Link href={href} className="font-mono text-xs font-medium text-brand-500 underline decoration-brand-200 underline-offset-2 hover:decoration-brand-500">{allocation.id.length > 12 ? `${allocation.id.slice(0, 12)}…` : allocation.id}</Link> : <Mono>{allocation.id.length > 12 ? `${allocation.id.slice(0, 12)}…` : allocation.id}</Mono>}</TableCell>
                 <TableCell><div className="text-ink">{target?.serviceName ?? allocation.job}</div><div className="text-xs text-ink-muted">{target ? `${target.projectName} · ${target.environmentName}` : allocation.namespace}</div></TableCell>
                 <TableCell><Chip tone="warn">{(allocation.reason || 'awaiting_placement').replaceAll('_', ' ')}</Chip>{allocation.message ? <p className="mt-1 max-w-md text-xs text-ink-muted">{allocation.message}</p> : null}</TableCell>
-                <TableCell className="text-ink-muted">{relTime(allocation.created_at)}</TableCell>
+                <TableCell className="text-ink-muted">{formatRelativeTime(allocation.created_at)}</TableCell>
               </TableRow>
             })}
           </TableBody></Table>
@@ -157,8 +146,8 @@ export default async function StatusPage() {
             return <TableRow key={`${namespace}/${job}/${backoff.group}`}>
               <TableCell>{target ? <Link href={`/projects/${target.projectSlug}/services/${target.serviceSlug}`} className="font-medium text-brand-500 hover:underline">{job} / {backoff.group}</Link> : <Mono>{job} / {backoff.group}</Mono>}<p className="mt-1 text-xs text-ink-muted">{namespace}</p></TableCell>
               <TableCell className="nums">{backoff.failures}</TableCell>
-              <TableCell><span className="whitespace-nowrap">{relTime(backoff.last_failure_at)}</span><p className="mt-1 max-w-sm text-xs text-ink-muted">{backoff.message || backoff.reason || 'Allocation failed'}</p></TableCell>
-              <TableCell><span className="whitespace-nowrap">{new Date(backoff.next_replacement_at).toLocaleString()}</span><p className="mt-1 text-xs text-ink-muted">in {untilTime(backoff.next_replacement_at)}</p></TableCell>
+              <TableCell><span className="whitespace-nowrap">{formatRelativeTime(backoff.last_failure_at)}</span><p className="mt-1 max-w-sm text-xs text-ink-muted">{backoff.message || backoff.reason || 'Allocation failed'}</p></TableCell>
+              <TableCell><span className="whitespace-nowrap">{formatTimestamp(backoff.next_replacement_at)}</span><p className="mt-1 text-xs text-ink-muted">in {untilTime(backoff.next_replacement_at)}</p></TableCell>
               <TableCell className="text-right">{canResetBackoff ? <ResetBackoffButton namespace={namespace} job={job} group={backoff.group} /> : <span className="text-xs text-ink-muted">Owner/admin required</span>}</TableCell>
             </TableRow>
           })}
@@ -196,7 +185,7 @@ export default async function StatusPage() {
             <TableCell className="nums">{routeCountMap.get(row.proxy.environmentId) ?? 0}</TableCell>
             <TableCell><Chip tone={row.proxy.status === 'error' ? 'danger' : 'neutral'}>{row.proxy.status === 'error' ? 'Apply failed' : 'Accepted'}</Chip><p className="mt-1 font-mono text-2xs text-ink-muted">target {row.proxy.configHash?.slice(0, 10) || 'unknown'}</p></TableCell>
             <TableCell><span className="flex items-center gap-1.5 capitalize"><Dot tone={row.observation.status === 'running' ? 'brand' : row.observation.status === 'pending' ? 'warn' : 'danger'} pulse={row.observation.status === 'pending'} />{row.observation.convergence === 'converged' ? 'Converged' : row.observation.status}</span>{row.observation.failureKind ? <p className="mt-1 text-xs font-medium text-danger-500">{row.observation.failureKind === 'route-sync' ? 'Route discovery / sync failed' : row.observation.failureKind === 'listener' ? 'Listener check failed' : 'Managed listener or route-sync health check failed'}</p> : null}{row.observation.diagnostic ? <p className="mt-1 max-w-md text-xs text-ink-muted">{row.observation.diagnostic}</p> : null}</TableCell>
-            <TableCell className="whitespace-nowrap text-right text-ink-muted">{relTime(row.proxy.updatedAt)}</TableCell>
+            <TableCell className="whitespace-nowrap text-right text-ink-muted">{formatRelativeTime(row.proxy.updatedAt)}</TableCell>
           </TableRow>)}
         </TableBody></Table>
       </Panel> : null}

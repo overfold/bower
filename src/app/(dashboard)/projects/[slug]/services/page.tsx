@@ -7,6 +7,7 @@ import { Panel, SectionTitle } from '@/components/ui/panel'
 import { EmptyState } from '@/components/ui/empty-state'
 import { CreateServiceDialog } from '@/components/create-service-dialog'
 import { Server, Box } from 'lucide-react'
+import { formatDate } from '@/lib/format'
 
 export default async function ServicesPage({
   params,
@@ -28,7 +29,7 @@ export default async function ServicesPage({
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <SectionTitle>Services</SectionTitle>
           <p className="mt-1 text-[13px] text-ink-muted">Manage the workloads deployed by this project.</p>
@@ -66,11 +67,7 @@ export default async function ServicesPage({
                       </div>
                       <p className="mt-1.5 text-xs text-ink-muted">
                         Created{' '}
-                        {new Date(service.createdAt).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                        })}
+                        {formatDate(service.createdAt)}
                       </p>
                     </div>
                   </div>

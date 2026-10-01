@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { actionErrorMessage } from '@/lib/action-error'
 import { useRouter } from 'next/navigation'
 import { HardDrive, Plus, Trash2 } from 'lucide-react'
 import { deleteProjectVolumeAction, upsertProjectVolumeAction } from '@/lib/actions/project-volumes'
@@ -11,6 +12,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Panel, PanelHeader } from '@/components/ui/panel'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { InlineNotice } from '@/components/ui/feedback'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 
 type Volume = { id: string; name: string; hostPath: string }
 
@@ -24,6 +30,7 @@ export function VolumeManager({ projectId, environmentId, volumes, canManage, al
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Volume | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, startTransition] = useTransition()
 
@@ -42,19 +49,21 @@ export function VolumeManager({ projectId, environmentId, volumes, canManage, al
         setOpen(false)
         router.refresh()
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : 'Could not save volume.')
+        setError(actionErrorMessage(cause, 'Could not save volume.'))
       }
     })
   }
 
-  function remove(volume: Volume) {
+  function remove(volume: Volume, event: React.MouseEvent) {
+    event.preventDefault()
     setError(null)
     startTransition(async () => {
       try {
         await deleteProjectVolumeAction(projectId, environmentId, volume.id)
+        setDeletingId(null)
         router.refresh()
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : 'Could not delete volume.')
+        setError(actionErrorMessage(cause, 'Could not delete volume.'))
       }
     })
   }
@@ -62,7 +71,6 @@ export function VolumeManager({ projectId, environmentId, volumes, canManage, al
   return (
     <Panel>
       <PanelHeader title="Volumes" hint={`${volumes.length} ${volumes.length === 1 ? 'volume' : 'volumes'}`} action={canManage ? <Button size="sm" variant="primary" onClick={() => edit()}><Plus />Add volume</Button> : undefined} />
-      {error && <div className="mx-4 mt-4 rounded-lg border border-danger-200 bg-danger-50 p-3 text-[13px] text-danger-500">{error}</div>}
       {volumes.length === 0 ? (
         <EmptyState icon={<HardDrive className="h-4 w-4" />} title="No volumes" body="Create a namespace-scoped volume, then attach it from a service’s Mounts tab." />
       ) : (
@@ -73,21 +81,21 @@ export function VolumeManager({ projectId, environmentId, volumes, canManage, al
               <TableCell className="font-mono text-xs font-medium">{volume.name}</TableCell>
               <TableCell className="font-mono text-xs text-ink-muted">{volume.hostPath}</TableCell>
               <TableCell className="text-ink-muted">{volume.hostPath.startsWith('@/') ? 'Managed local' : 'Host path'}</TableCell>
-              <TableCell><div className="flex justify-end gap-1">{canManage && <><Button size="sm" variant="ghost" onClick={() => edit(volume)}>Edit</Button><IconButton label={`Delete ${volume.name}`} disabled={busy} onClick={() => remove(volume)}><Trash2 /></IconButton></>}</div></TableCell>
+              <TableCell><div className="flex justify-end gap-1">{canManage && <><Button size="sm" variant="ghost" onClick={() => edit(volume)}>Edit</Button><AlertDialog open={deletingId === volume.id} onOpenChange={(next) => { if (!busy) { setDeletingId(next ? volume.id : null); if (next) setError(null) } }}><AlertDialogTrigger asChild><IconButton label={`Delete ${volume.name}`} disabled={busy}><Trash2 /></IconButton></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete {volume.name}?</AlertDialogTitle><AlertDialogDescription>This permanently removes the volume definition for <span className="font-mono text-ink">{volume.hostPath}</span>. Services must stop using it before it can be deleted.</AlertDialogDescription></AlertDialogHeader>{error ? <InlineNotice tone="error" className="mx-5">{error}</InlineNotice> : null}<AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel><AlertDialogAction disabled={busy} aria-busy={busy} onClick={(event) => remove(volume, event)}>{busy ? 'Deleting…' : 'Delete volume'}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></>}</div></TableCell>
             </TableRow>
           ))}</TableBody>
         </Table>
       )}
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(next) => { if (!busy) { setOpen(next); if (next) setError(null) } }}>
         <DialogContent>
           <DialogHeader><DialogTitle>{editing ? 'Edit volume' : 'Add volume'}</DialogTitle></DialogHeader>
           <form onSubmit={save}>
             <DialogBody><div className="space-y-4">
-              {error && <div className="rounded-lg border border-danger-200 bg-danger-50 p-3 text-[13px] text-danger-500">{error}</div>}
+              {error && <InlineNotice tone="error">{error}</InlineNotice>}
               <div className="space-y-2"><Label htmlFor="volume-name">Name</Label><Input id="volume-name" name="name" defaultValue={editing?.name} readOnly={Boolean(editing)} required mono /></div>
-              <div className="space-y-2"><Label htmlFor="volume-path">Backing path</Label><Input id="volume-path" name="hostPath" defaultValue={editing?.hostPath ?? '@/data'} required mono /><p className="text-xs text-ink-muted">{allowAbsoluteHostPaths ? <>Use <span className="font-mono">@/name</span> for Trellis-managed local storage or an operator-approved absolute host directory.</> : <>Use a Trellis-managed local path below <span className="font-mono">@/</span>. Absolute host paths are disabled by operator policy.</>}</p></div>
+              <div className="space-y-2"><Label htmlFor="volume-path">Backing path</Label><Input id="volume-path" name="hostPath" defaultValue={editing?.hostPath ?? '@/data'} required mono aria-describedby="volume-path-help" /><p id="volume-path-help" className="text-xs text-ink-muted">{allowAbsoluteHostPaths ? <>Use <span className="font-mono">@/name</span> for Trellis-managed local storage or an operator-approved absolute host directory.</> : <>Use a Trellis-managed local path below <span className="font-mono">@/</span>. Absolute host paths are disabled by operator policy.</>}</p></div>
             </div></DialogBody>
-            <DialogFooter><Button type="button" onClick={() => setOpen(false)}>Cancel</Button><Button type="submit" variant="primary" disabled={busy}>{busy ? 'Saving…' : 'Save volume'}</Button></DialogFooter>
+            <DialogFooter><Button type="button" onClick={() => setOpen(false)} disabled={busy}>Cancel</Button><Button type="submit" variant="primary" disabled={busy} aria-busy={busy}>{busy ? 'Saving…' : 'Save volume'}</Button></DialogFooter>
           </form>
         </DialogContent>
       </Dialog>

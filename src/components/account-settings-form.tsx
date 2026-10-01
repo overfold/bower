@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { InlineNotice, useFeedback } from '@/components/ui/feedback'
@@ -25,26 +25,30 @@ export function AccountSettingsForm({ user }: AccountSettingsFormProps) {
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    const formData = new FormData(e.currentTarget)
     setLoading(true)
     setError(null)
-    const formData = new FormData(e.currentTarget)
-    const result = await updateAccountAction(formData)
-    if (result?.error) {
-      setError(result.error)
-    } else if (result?.success) {
-      toast({ tone: 'success', title: 'Account updated.' })
-      router.refresh()
+    try {
+      const result = await updateAccountAction(formData)
+      if (result?.error) setError(result.error)
+      else if (result?.success) {
+        toast({ tone: 'success', title: 'Account updated.' })
+        router.refresh()
+      } else setError('Account settings could not be saved. Please try again.')
+    } catch {
+      setError('Account settings could not be saved. Please try again.')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Profile</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit}>
+        <CardHeader>
+          <CardTitle>Profile</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
           {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
@@ -52,18 +56,20 @@ export function AccountSettingsForm({ user }: AccountSettingsFormProps) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" defaultValue={user.email} disabled className="bg-sunken" />
-            <p className="text-xs text-ink-muted">Email cannot be changed.</p>
+            <Input id="email" type="email" defaultValue={user.email} disabled className="bg-sunken" aria-describedby="email-help" />
+            <p id="email-help" className="text-xs text-ink-muted">Email cannot be changed.</p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="avatarUrl">Avatar URL</Label>
             <Input id="avatarUrl" name="avatarUrl" defaultValue={user.avatarUrl ?? ''} placeholder="https://example.com/avatar.png" mono />
           </div>
-          <Button variant="primary" type="submit" disabled={loading}>
-            {loading ? 'Saving...' : 'Save changes'}
+        </CardContent>
+        <CardFooter>
+          <Button variant="primary" type="submit" disabled={loading} aria-busy={loading}>
+            {loading ? 'Saving…' : 'Save changes'}
           </Button>
-        </form>
-      </CardContent>
+        </CardFooter>
+      </form>
     </Card>
   )
 }

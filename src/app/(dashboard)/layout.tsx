@@ -6,7 +6,8 @@ import { getUserOrganizations, getUserOrganization, getUserTeams, getProjectsFor
 import { Sidebar } from '@/components/sidebar'
 import { HeaderBar } from '@/components/header-bar'
 import { PageTransition } from '@/components/page-transition'
-import { FeedbackProvider, PageBanner } from '@/components/ui/feedback'
+import { FeedbackProvider } from '@/components/ui/feedback'
+import { TrellisReadErrorProvider } from '@/components/trellis-read-error'
 import { getTrellisClient } from '@/lib/trellis-instance'
 import { trellisReadError } from '@/lib/trellis-runtime'
 
@@ -93,12 +94,13 @@ export default async function DashboardLayout({
             instanceAdmin,
           }}
         />
-        {trellisError ? <PageBanner tone="warning" title="Trellis is unavailable.">{trellisError}</PageBanner> : null}
+        <TrellisReadErrorProvider message={trellisError}>
         <main className="min-w-0 flex-1 px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
           <div className="mx-auto max-w-6xl">
             <PageTransition>{children}</PageTransition>
           </div>
         </main>
+        </TrellisReadErrorProvider>
       </div>
     </div>
     </FeedbackProvider>

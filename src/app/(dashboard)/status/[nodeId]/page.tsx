@@ -13,6 +13,7 @@ import { Chip, Meter, StatusDot } from '@/components/status'
 import { DrainToggle } from '../drain-toggle'
 import { formatBytes, formatCpu } from '../format'
 import type { TrellisNode } from '@/types/trellis'
+import { formatTimestamp } from '@/lib/format'
 
 export default async function NodePage({ params }: { params: Promise<{ nodeId: string }> }) {
   const user = await getCurrentUser()
@@ -55,7 +56,7 @@ export default async function NodePage({ params }: { params: Promise<{ nodeId: s
           <KeyValue label="Version" mono>{node.version || '—'}</KeyValue>
           <KeyValue label="OS">{node.os || '—'} / {node.arch || '—'}</KeyValue>
           <KeyValue label="Control-plane membership">{node.control_plane || 'Not reported'}</KeyValue>
-          <KeyValue label="Last heartbeat">{node.last_heartbeat ? new Date(node.last_heartbeat).toLocaleString() : 'Unknown'}</KeyValue>
+          <KeyValue label="Last heartbeat">{formatTimestamp(node.last_heartbeat)}</KeyValue>
           <KeyValue label="Heartbeat freshness"><Chip tone={heartbeat === 'fresh' ? 'brand' : heartbeat === 'stale' ? 'danger' : 'neutral'}>{heartbeat}</Chip></KeyValue>
         </dl>
       </Panel>
@@ -73,7 +74,7 @@ export default async function NodePage({ params }: { params: Promise<{ nodeId: s
         </dl>
       </Panel>
       <Panel>
-        <PanelHeader title="Live observation" hint={metrics === 'unknown' ? 'No observation reported' : `${metrics === 'fresh' ? 'Fresh' : 'Stale'} · ${new Date(node.metrics_at!).toLocaleString()}`} />
+        <PanelHeader title="Live observation" hint={metrics === 'unknown' ? 'No observation reported' : `${metrics === 'fresh' ? 'Fresh' : 'Stale'} · ${formatTimestamp(node.metrics_at)}`} />
         <dl className="grid gap-x-8 p-4 sm:grid-cols-3">
           <KeyValue label="CPU usage">{node.cpu_usage == null ? 'Unknown' : `${Math.round(node.cpu_usage * 100)}%`}</KeyValue>
           <KeyValue label="Memory used">{node.memory_used == null ? 'Unknown' : formatBytes(node.memory_used)}</KeyValue>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useId, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
@@ -35,16 +35,16 @@ const pages: SearchEntry[] = [
   { id: 'pg-overview', label: 'Overview', hint: 'Page', href: '/dashboard', kind: 'page' },
   { id: 'pg-projects', label: 'Projects', hint: 'Page', href: '/projects', kind: 'page' },
   { id: 'pg-deploys', label: 'Deployments', hint: 'Page', href: '/deployments', kind: 'page' },
-  { id: 'pg-status', label: 'Status', hint: 'Page', href: '/status', kind: 'page' },
+  { id: 'pg-status', label: 'Cluster', hint: 'Page', href: '/status', kind: 'page' },
   { id: 'pg-audit', label: 'Audit log', hint: 'Page', href: '/audit', kind: 'page' },
   { id: 'pg-settings', label: 'Settings', hint: 'Page', href: '/settings', kind: 'page' },
-  { id: 'pg-settings-account', label: 'Account Settings', hint: 'Page', href: '/settings/account', kind: 'page' },
-  { id: 'pg-settings-instance', label: 'Instance Settings', hint: 'Page', href: '/settings/instance', kind: 'page' },
-  { id: 'pg-settings-cluster', label: 'Cluster Settings', hint: 'Page', href: '/settings/cluster', kind: 'page' },
-  { id: 'pg-settings-organization', label: 'Organization Settings', hint: 'Page', href: '/settings/organization', kind: 'page' },
-  { id: 'pg-settings-teams', label: 'Teams Settings', hint: 'Page', href: '/settings/teams', kind: 'page' },
-  { id: 'pg-settings-members', label: 'Members Settings', hint: 'Page', href: '/settings/members', kind: 'page' },
-  { id: 'pg-settings-domains', label: 'Domains Settings', hint: 'Page', href: '/settings/domains', kind: 'page' },
+  { id: 'pg-settings-account', label: 'Account settings', hint: 'Page', href: '/settings/account', kind: 'page' },
+  { id: 'pg-settings-instance', label: 'Instance settings', hint: 'Page', href: '/settings/instance', kind: 'page' },
+  { id: 'pg-settings-cluster', label: 'Cluster settings', hint: 'Page', href: '/settings/cluster', kind: 'page' },
+  { id: 'pg-settings-organization', label: 'Organization settings', hint: 'Page', href: '/settings/organization', kind: 'page' },
+  { id: 'pg-settings-teams', label: 'Teams settings', hint: 'Page', href: '/settings/teams', kind: 'page' },
+  { id: 'pg-settings-members', label: 'Members settings', hint: 'Page', href: '/settings/members', kind: 'page' },
+  { id: 'pg-settings-domains', label: 'Domains settings', hint: 'Page', href: '/settings/domains', kind: 'page' },
 ]
 
 const kindIcon = {
@@ -59,6 +59,7 @@ export function CommandPalette({ open, onOpenChange, projects, services, orgName
   const [cursor, setCursor] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLUListElement>(null)
+  const resultsId = useId()
 
   const entries = useMemo<SearchEntry[]>(() => {
     const projectEntries: SearchEntry[] = projects.map((p) => ({
@@ -105,7 +106,7 @@ export function CommandPalette({ open, onOpenChange, projects, services, orgName
       if (e.key === 'ArrowDown') {
         e.preventDefault()
         setCursor((c) => {
-          const next = Math.min(results.length - 1, c + 1)
+          const next = Math.max(0, Math.min(results.length - 1, c + 1))
           scrollActiveIntoView(next)
           return next
         })
@@ -133,7 +134,7 @@ export function CommandPalette({ open, onOpenChange, projects, services, orgName
           <DialogPrimitive.Portal forceMount>
             <DialogPrimitive.Overlay asChild>
               <motion.div
-                className="fixed inset-0 z-50 bg-ink/25"
+                className="fixed inset-0 z-50 bg-black/30"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -143,6 +144,7 @@ export function CommandPalette({ open, onOpenChange, projects, services, orgName
             <DialogPrimitive.Content
               asChild
               aria-label="Search Bower"
+              aria-describedby={undefined}
               onKeyDown={onKeyDown}
               onOpenAutoFocus={(e) => {
                 e.preventDefault()
@@ -152,7 +154,7 @@ export function CommandPalette({ open, onOpenChange, projects, services, orgName
               }}
             >
               <motion.div
-                className="fixed left-[50%] top-[12vh] z-50 w-full max-w-lg -translate-x-1/2 overflow-hidden rounded-xl border border-line bg-surface shadow-pop"
+                className="fixed left-[50%] top-[12vh] z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 overflow-hidden rounded-xl border border-line bg-surface shadow-pop"
                 initial={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: -6 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.98 }}
@@ -170,6 +172,11 @@ export function CommandPalette({ open, onOpenChange, projects, services, orgName
               }}
               placeholder="Search projects, services, pages…"
               aria-label="Search projects, services, pages"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded={open}
+              aria-controls={resultsId}
+              aria-activedescendant={results[cursor] ? `${resultsId}-${cursor}` : undefined}
               className="h-12 w-full bg-transparent text-[14px] text-ink placeholder:text-ink-faint focus:outline-none"
             />
             <kbd className="shrink-0 rounded border border-line bg-sunken px-1.5 py-0.5 text-2xs text-ink-muted">
@@ -179,6 +186,7 @@ export function CommandPalette({ open, onOpenChange, projects, services, orgName
 
           <ul
             ref={listRef}
+            id={resultsId}
             className="max-h-72 overflow-y-auto p-1.5 scroll-thin"
             role="listbox"
             aria-label="Results"
@@ -191,6 +199,8 @@ export function CommandPalette({ open, onOpenChange, projects, services, orgName
                   <button
                     type="button"
                     role="option"
+                    id={`${resultsId}-${i}`}
+                    tabIndex={-1}
                     aria-selected={active}
                     onMouseEnter={() => setCursor(i)}
                     onClick={() => go(entry.href)}
@@ -209,23 +219,24 @@ export function CommandPalette({ open, onOpenChange, projects, services, orgName
                       </span>
                     </span>
                     {active && (
-                      <CornerDownLeft className="h-3.5 w-3.5 shrink-0 text-brand-500" />
+                      <CornerDownLeft className="h-3.5 w-3.5 shrink-0 text-brand-700" />
                     )}
                   </button>
                 </li>
               )
             })}
             {results.length === 0 && (
-              <li className="px-3 py-6 text-center text-[13px] text-ink-muted">
+              <li role="presentation" className="px-3 py-6 text-center text-[13px] text-ink-muted">
                 Nothing matches &ldquo;{query}&rdquo;.
               </li>
             )}
           </ul>
 
-          <div className="flex items-center justify-between border-t border-line bg-sunken px-4 py-2 text-2xs text-ink-muted">
-            <span className="flex items-center gap-1.5">
+          <p className="sr-only" role="status">{results.length} results available.</p>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line bg-sunken px-4 py-2 text-2xs text-ink-muted">
+            <span className="flex min-w-0 items-center gap-1.5">
               <Users className="h-3 w-3" />
-              Scoped to {orgName}
+              <span className="truncate">Scoped to {orgName}</span>
             </span>
             <span>&uarr;&darr; to move &middot; &crarr; to open</span>
           </div>

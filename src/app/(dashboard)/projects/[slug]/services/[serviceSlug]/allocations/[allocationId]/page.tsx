@@ -16,6 +16,7 @@ import { ExecDialog } from '@/components/exec-dialog'
 import { AllocationMetrics } from './allocation-metrics'
 import { AllocationStopButton } from './allocation-stop-button'
 import type { TrellisAllocation } from '@/types/trellis'
+import { formatTimestamp } from '@/lib/format'
 
 export default async function AllocationDetailPage({
   params,
@@ -110,8 +111,8 @@ export default async function AllocationDetailPage({
             <KeyValue label="Revision">{allocation.job_revision}</KeyValue>
             <KeyValue label="Generation">{allocation.generation}</KeyValue>
             <KeyValue label="Attempt">{allocation.attempt}</KeyValue>
-            <KeyValue label="Created">{new Date(allocation.created_at).toLocaleString()}</KeyValue>
-            <KeyValue label="Last transition">{new Date(allocation.last_transition_at).toLocaleString()}</KeyValue>
+            <KeyValue label="Created">{formatTimestamp(allocation.created_at)}</KeyValue>
+            <KeyValue label="Last transition">{formatTimestamp(allocation.last_transition_at)}</KeyValue>
           </dl>
           {(allocation.reason || allocation.message || allocation.draining) && (
             <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-4">
@@ -143,7 +144,7 @@ export default async function AllocationDetailPage({
                   </div>
                   <div className="flex shrink-0 items-center gap-1.5 text-2xs text-ink-muted">
                     <Clock3 className="h-3 w-3" />
-                    <time dateTime={event.at}>{new Date(event.at).toLocaleString()}</time>
+                    <time dateTime={event.at}>{formatTimestamp(event.at)}</time>
                   </div>
                 </li>
               ))}

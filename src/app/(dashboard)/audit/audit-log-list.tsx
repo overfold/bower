@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Bot, ChevronDown, User } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import { formatRelativeTime, formatTimestamp } from '@/lib/format'
 
 type AuditEntry = {
   id: string
@@ -19,35 +20,6 @@ const actorIcons = {
   user: User,
   system: Bot,
 } as const
-
-function formatAbsTime(date: Date | string): string {
-  const d = new Date(date)
-  return d.toLocaleDateString('en-US', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  }) + ' at ' + d.toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  })
-}
-
-function formatRelTime(date: Date | string): string {
-  const d = new Date(date)
-  const now = Date.now()
-  const diffMs = now - d.getTime()
-  const diffSec = Math.floor(diffMs / 1000)
-  if (diffSec < 60) return 'just now'
-  const diffMin = Math.floor(diffSec / 60)
-  if (diffMin < 60) return `${diffMin} minute${diffMin === 1 ? '' : 's'} ago`
-  const diffHr = Math.floor(diffMin / 60)
-  if (diffHr < 24) return `${diffHr} hour${diffHr === 1 ? '' : 's'} ago`
-  const diffDay = Math.floor(diffHr / 24)
-  if (diffDay < 30) return `${diffDay} day${diffDay === 1 ? '' : 's'} ago`
-  const diffMon = Math.floor(diffDay / 30)
-  return `${diffMon} month${diffMon === 1 ? '' : 's'} ago`
-}
 
 function DiffColumns({ details }: { details: Record<string, unknown> }) {
   const entries = Object.entries(details)
@@ -102,7 +74,7 @@ export function AuditLogList({ entries }: { entries: AuditEntry[] }) {
                   {entry.resourceType} / {entry.resourceId.slice(0, 8)}
                 </span>
                 <span className="mt-1 block text-xs text-ink-muted">
-                  {entry.userName ?? 'System'} · {formatAbsTime(entry.createdAt)} · {formatRelTime(entry.createdAt)}
+                  {entry.userName ?? 'System'} · {formatTimestamp(entry.createdAt)} · {formatRelativeTime(entry.createdAt)}
                 </span>
               </span>
               <ChevronDown

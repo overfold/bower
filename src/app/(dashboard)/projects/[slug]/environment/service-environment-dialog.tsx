@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { actionErrorMessage } from '@/lib/action-error'
 import { useRouter } from 'next/navigation'
 import { Plus, Trash2 } from 'lucide-react'
 import { updateServiceEnvironmentOverridesAction } from '@/lib/actions/service-settings'
@@ -19,6 +20,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import type { BowerSecretBinding } from '@/lib/job-builder'
+import { InlineNotice } from '@/components/ui/feedback'
 
 function recordToLines(value: unknown) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return ''
@@ -93,14 +95,14 @@ export function ServiceEnvironmentDialog({
       setOpen(false)
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not update service configuration.')
+      setError(actionErrorMessage(err, 'Could not update service configuration.'))
     } finally {
       setSaving(false)
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(next) => { if (!saving) { setOpen(next); if (next) setError(null) } }}>
       <DialogTrigger asChild>
         <Button variant="default" size="sm">Edit configuration</Button>
       </DialogTrigger>
@@ -109,7 +111,7 @@ export function ServiceEnvironmentDialog({
         <form onSubmit={submit}>
           <DialogBody>
             <div className="space-y-6">
-              {error && <div className="rounded-lg border border-danger-200 bg-danger-50 p-3 text-[13px] text-danger-500">{error}</div>}
+              {error && <InlineNotice tone="error">{error}</InlineNotice>}
               <div className="space-y-2">
                 <Label htmlFor={`env-vars-${serviceId}`}>Service variables</Label>
                 <Textarea
@@ -120,8 +122,9 @@ export function ServiceEnvironmentDialog({
                   placeholder={'LOG_LEVEL=info\nFEATURE_FLAG=true'}
                   className="text-xs"
                   mono
+                  aria-describedby={`env-vars-help-${serviceId}`}
                 />
-                <p className="text-2xs leading-relaxed text-ink-muted">Plain values for this service. Use secret bindings below for sensitive values.</p>
+                <p id={`env-vars-help-${serviceId}`} className="text-2xs leading-relaxed text-ink-muted">Plain values for this service. Use secret bindings below for sensitive values.</p>
               </div>
 
               <div className="space-y-3">
@@ -188,8 +191,8 @@ export function ServiceEnvironmentDialog({
             </div>
           </DialogBody>
           <DialogFooter>
-            <Button variant="default" type="button" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button variant="primary" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save configuration'}</Button>
+            <Button variant="default" type="button" onClick={() => setOpen(false)} disabled={saving}>Cancel</Button>
+            <Button variant="primary" type="submit" disabled={saving} aria-busy={saving}>{saving ? 'Saving…' : 'Save configuration'}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

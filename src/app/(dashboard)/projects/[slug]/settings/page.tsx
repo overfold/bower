@@ -2,6 +2,7 @@ import { redirect, notFound } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { getUserOrganization, getProjectBySlug } from '@/lib/queries'
 import { ProjectSettingsForm } from './project-settings-form'
+import { SectionTitle } from '@/components/ui/panel'
 
 export default async function ProjectSettingsPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
@@ -13,13 +14,19 @@ export default async function ProjectSettingsPage({ params }: { params: Promise<
   if (!project) notFound()
 
   return (
-    <ProjectSettingsForm
-      project={{
-        id: project.id,
-        name: project.name,
-        description: project.description,
-        createdAt: project.createdAt.toISOString(),
-      }}
-    />
+    <div className="space-y-6">
+      <div>
+        <SectionTitle>Settings</SectionTitle>
+        <p className="mt-1 max-w-3xl text-[13px] text-ink-muted">Update project details or permanently remove this project.</p>
+      </div>
+      <ProjectSettingsForm
+        project={{
+          id: project.id,
+          name: project.name,
+          description: project.description,
+          createdAt: project.createdAt.toISOString(),
+        }}
+      />
+    </div>
   )
 }

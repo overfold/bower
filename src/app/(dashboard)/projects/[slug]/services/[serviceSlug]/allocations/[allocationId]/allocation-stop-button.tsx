@@ -1,12 +1,15 @@
 'use client'
 
 import { useState } from 'react'
+import { actionErrorMessage } from '@/lib/action-error'
 import { useRouter } from 'next/navigation'
 import { Square } from 'lucide-react'
 import { stopAllocationDetailAction } from '@/lib/actions/allocation-actions'
 import { Button } from '@/components/ui/button'
+import { InlineNotice } from '@/components/ui/feedback'
 import {
   AlertDialog,
+  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -30,7 +33,8 @@ export function AllocationStopButton({
   const [stopping, setStopping] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function stop() {
+  async function stop(event: React.MouseEvent) {
+    event.preventDefault()
     setStopping(true)
     setError(null)
     try {
@@ -38,14 +42,14 @@ export function AllocationStopButton({
       setOpen(false)
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not stop allocation.')
+      setError(actionErrorMessage(err, 'Could not stop allocation.'))
     } finally {
       setStopping(false)
     }
   }
 
   return (
-    <AlertDialog open={open} onOpenChange={(value) => { setOpen(value); if (!value) setError(null) }}>
+    <AlertDialog open={open} onOpenChange={(value) => { if (!stopping) { setOpen(value); if (value) setError(null) } }}>
       <AlertDialogTrigger asChild>
         <Button variant="danger" size="sm" type="button" disabled={disabled}>
           <Square className="h-3.5 w-3.5" />
@@ -54,17 +58,17 @@ export function AllocationStopButton({
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Stop allocation?</AlertDialogTitle>
+          <AlertDialogTitle>Stop allocation {allocationId.slice(0, 8)}?</AlertDialogTitle>
           <AlertDialogDescription>
             Stop allocation <span className="font-mono text-ink">{allocationId.slice(0, 8)}</span>. A replacement may be created if the service still requires this replica.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        {error && <div className="mx-5 rounded-lg border border-danger-200 bg-danger-50 p-3 text-[13px] text-danger-500">{error}</div>}
+        {error ? <InlineNotice tone="error" className="mx-5">{error}</InlineNotice> : null}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={stopping}>Cancel</AlertDialogCancel>
-          <Button variant="danger" type="button" onClick={stop} disabled={stopping}>
+          <AlertDialogAction onClick={stop} disabled={stopping} aria-busy={stopping}>
             {stopping ? 'Stopping…' : 'Stop allocation'}
-          </Button>
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

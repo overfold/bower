@@ -1,12 +1,14 @@
 'use client'
 
 import { useState } from 'react'
+import { actionErrorMessage } from '@/lib/action-error'
 import { useRouter } from 'next/navigation'
 import { setSecretAction } from '@/lib/actions/operations'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogBody,
   DialogTitle,
@@ -15,6 +17,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Plus } from 'lucide-react'
+import { InlineNotice } from '@/components/ui/feedback'
 
 export function CreateSecretDialog({
   projectId,
@@ -36,14 +39,14 @@ export function CreateSecretDialog({
       setOpen(false)
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save secret.')
+      setError(actionErrorMessage(err, 'Could not save secret.'))
     } finally {
       setSaving(false)
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(next) => { if (!saving) { setOpen(next); if (next) setError(null) } }}>
       <DialogTrigger asChild>
         <Button variant="primary" size="sm">
           <Plus className="h-4 w-4" />
@@ -54,13 +57,9 @@ export function CreateSecretDialog({
         <DialogHeader>
           <DialogTitle>Add secret</DialogTitle>
         </DialogHeader>
-        <DialogBody>
-          <form action={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="rounded-lg border border-danger-200 bg-danger-50 p-3 text-[13px] text-danger-500">
-                {error}
-              </div>
-            )}
+        <form action={handleSubmit}>
+          <DialogBody className="space-y-4">
+            {error && <InlineNotice tone="error">{error}</InlineNotice>}
             <input type="hidden" name="environmentId" value={environmentId} />
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
@@ -83,16 +82,12 @@ export function CreateSecretDialog({
                 mono
               />
             </div>
-            <div className="flex justify-end gap-2 pt-1">
-              <Button type="button" onClick={() => setOpen(false)}>
-                Cancel
-              </Button>
-              <Button variant="primary" type="submit" disabled={saving}>
-                {saving ? 'Saving…' : 'Save secret'}
-              </Button>
-            </div>
-          </form>
-        </DialogBody>
+          </DialogBody>
+          <DialogFooter>
+            <Button type="button" onClick={() => setOpen(false)} disabled={saving}>Cancel</Button>
+            <Button variant="primary" type="submit" disabled={saving} aria-busy={saving}>{saving ? 'Saving…' : 'Save secret'}</Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )

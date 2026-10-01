@@ -1,6 +1,7 @@
 'use server'
 
 import { redirect } from 'next/navigation'
+import { revalidatePath } from 'next/cache'
 import { eq, and } from 'drizzle-orm'
 import { db } from '@/db'
 import { projects, environments, services, serviceConfigs, secretsMetadata, teams, teamProjectAccess } from '@/db/schema'
@@ -76,16 +77,18 @@ export async function createProjectAction(
   redirect(`/projects/${project.slug}`)
 }
 
-export async function updateProjectAction(projectId: string, formData: FormData) {
+export async function updateProjectAction(projectId: string, formData: FormData): Promise<{ error?: string; success?: boolean }> {
   const ctx = await requireProject(projectId); if (ctx.projectRole !== 'admin') throw new Error('Insufficient permissions.')
-  const owningTeamId = String(formData.get('owningTeamId') ?? '') || null
+  const hasOwningTeam = formData.has('owningTeamId')
+  const owningTeamId = hasOwningTeam ? String(formData.get('owningTeamId') ?? '') || null : ctx.project.owningTeamId
   if (owningTeamId) {
     const [team] = await db.select().from(teams).where(and(eq(teams.id, owningTeamId), eq(teams.orgId, ctx.org.id))).limit(1); if (!team) throw new Error('Owning team not found.')
   }
   const after = { name: String(formData.get('name') ?? '').trim() || ctx.project.name, description: String(formData.get('description') ?? '').trim() || null, owningTeamId, updatedAt: new Date() }
   await db.update(projects).set(after).where(eq(projects.id, projectId)); await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'project.updated', resourceType: 'project', resourceId: projectId, details: { before: ctx.project, after } })
-  if (owningTeamId) await db.insert(teamProjectAccess).values({ teamId: owningTeamId, projectId, role: 'admin' }).onConflictDoUpdate({ target: [teamProjectAccess.teamId, teamProjectAccess.projectId], set: { role: 'admin' } })
-  redirect(`/projects/${ctx.project.slug}/settings`)
+  if (hasOwningTeam && owningTeamId) await db.insert(teamProjectAccess).values({ teamId: owningTeamId, projectId, role: 'admin' }).onConflictDoUpdate({ target: [teamProjectAccess.teamId, teamProjectAccess.projectId], set: { role: 'admin' } })
+  revalidatePath(`/projects/${ctx.project.slug}`, 'layout')
+  return { success: true }
 }
 
 export async function deleteProjectAction(

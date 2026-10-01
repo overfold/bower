@@ -8,7 +8,7 @@ import {
   getServicesForOrg,
   getAuditLog,
 } from '@/lib/queries'
-import { getTrellisClient, hasTrellisConnection } from '@/lib/trellis-instance'
+import { getTrellisClient } from '@/lib/trellis-instance'
 import { trellisReadError } from '@/lib/trellis-runtime'
 import { TrellisReadError } from '@/components/trellis-read-error'
 import { NodeLink } from '@/components/node-link'
@@ -37,6 +37,7 @@ import {
   BotIcon,
 } from 'lucide-react'
 import type { TrellisAllocation, TrellisNode } from '@/types/trellis'
+import { formatRelativeTime } from '@/lib/format'
 
 const triggerMeta: Record<string, { icon: React.ComponentType<{ className?: string }>; label: string }> = {
   manual: { icon: UserIcon, label: 'Manual' },
@@ -50,18 +51,6 @@ function shortImage(image: string | null): string {
   if (!image) return '—'
   const parts = image.split('/')
   return parts[parts.length - 1]
-}
-
-function relTime(date: Date): string {
-  const now = Date.now()
-  const diff = now - date.getTime()
-  const minutes = Math.floor(diff / 60000)
-  if (minutes < 1) return 'just now'
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  return `${days}d ago`
 }
 
 function formatCpu(millicores: number) {
@@ -119,8 +108,7 @@ export default async function DashboardPage() {
     if (metrics.status === 'fulfilled') allocatedByNode = parseNodeAllocatedResources(metrics.value)
     else metricsError = trellisReadError(metrics.reason)
   } catch (error) {
-    clusterError = allocationsError = metricsError = !hasTrellisConnection(orgCtx.org)
-      ? 'Trellis is not configured. Set the connection in organization settings.' : trellisReadError(error)
+    clusterError = allocationsError = metricsError = trellisReadError(error)
   }
 
   const healthyNodes = nodes.filter((n) => n.status === 'healthy').length
@@ -131,9 +119,6 @@ export default async function DashboardPage() {
   const cpuPct = totalCpu > 0 ? Math.round((allocatedCpu / totalCpu) * 100) : 0
   const memPct = totalMem > 0 ? Math.round((allocatedMem / totalMem) * 100) : 0
 
-  // Greeting based on time
-  const hour = new Date().getUTCHours()
-  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
   const firstName = user.name.split(' ')[0]
 
   // Summary description
@@ -148,7 +133,7 @@ export default async function DashboardPage() {
       <DeploymentPoller active={hasActive} />
 
       <PageHeading
-        title={`${greeting}, ${firstName}.`}
+        title={`Welcome, ${firstName}.`}
         description={`${parts.join('. ')}.`}
       />
 
@@ -212,7 +197,7 @@ export default async function DashboardPage() {
                     {meta.label} by {row.userName ?? 'System'}
                   </span>
                   <span className="ml-auto text-[12.5px] text-ink-muted">
-                    started {relTime(row.deployment.createdAt)}
+                    started {formatRelativeTime(row.deployment.createdAt)}
                   </span>
                 </li>
               )
@@ -284,7 +269,7 @@ export default async function DashboardPage() {
                           </span>
                         </TableCell>
                         <TableCell className="text-right whitespace-nowrap text-ink-muted">
-                          {relTime(row.deployment.createdAt)}
+                          {formatRelativeTime(row.deployment.createdAt)}
                         </TableCell>
                       </TableRow>
                     )
@@ -387,7 +372,7 @@ export default async function DashboardPage() {
                             </code>
                           </span>
                           <p className="mt-0.5 truncate text-xs text-ink-muted">
-                            {entry.userName ?? 'System'} · {relTime(entry.entry.createdAt)}
+                            {entry.userName ?? 'System'} · {formatRelativeTime(entry.entry.createdAt)}
                           </p>
                         </div>
                       </div>

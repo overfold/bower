@@ -1,13 +1,14 @@
 import { cn } from '@/lib/utils'
+import { badgeVariants } from '@/components/ui/badge'
 
 export type Tone = 'brand' | 'warn' | 'danger' | 'info' | 'neutral'
 
 const toneChip: Record<Tone, string> = {
-  brand: 'bg-brand-50 text-brand-700 border-brand-100',
-  warn: 'bg-warn-50 text-warn-500 border-warn-200',
-  danger: 'bg-danger-50 text-danger-500 border-danger-200',
-  info: 'bg-info-50 text-info-500 border-info-200',
-  neutral: 'bg-sunken text-ink-soft border-line',
+  brand: badgeVariants({ variant: 'success' }),
+  warn: badgeVariants({ variant: 'warning' }),
+  danger: badgeVariants({ variant: 'danger' }),
+  info: badgeVariants({ variant: 'info' }),
+  neutral: badgeVariants({ variant: 'secondary' }),
 }
 
 const toneDot: Record<Tone, string> = {
@@ -60,7 +61,7 @@ export function Dot({ tone = 'neutral', pulse }: { tone?: Tone; pulse?: boolean 
 
 export function Chip({ tone = 'neutral', children, className }: { tone?: Tone; children: React.ReactNode; className?: string }) {
   return (
-    <span className={cn('inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-2xs font-medium', toneChip[tone], className)}>
+    <span className={cn(toneChip[tone], className)}>
       {children}
     </span>
   )

@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
+import { actionErrorMessage } from '@/lib/action-error'
 import { Plus, ShieldCheck, Trash2 } from 'lucide-react'
 import { createManagedRouteAction, deleteManagedRouteAction, updateRouteProtectionAction } from '@/lib/actions/routes'
 import {
@@ -68,7 +69,7 @@ export function AddRouteDialog({
       setPrefix('')
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not create route.')
+      setError(actionErrorMessage(err, 'Could not create route.'))
     } finally {
       setBusy(false)
     }
@@ -249,7 +250,7 @@ export function RouteProtectionButton({
       setOpen(false)
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not update route protection.')
+      setError(actionErrorMessage(err, 'Could not update route protection.'))
     } finally {
       setBusy(false)
     }
@@ -312,17 +313,20 @@ export function DeleteRouteButton({
   hostname: string
 }) {
   const router = useRouter()
+  const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function remove() {
+  async function remove(event: React.MouseEvent) {
+    event.preventDefault()
     setBusy(true)
     setError(null)
     try {
       await deleteManagedRouteAction(projectId, routeId)
+      setOpen(false)
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not delete route.')
+      setError(actionErrorMessage(err, 'Could not delete route.'))
     } finally {
       setBusy(false)
     }
@@ -330,8 +334,7 @@ export function DeleteRouteButton({
 
   return (
     <div className="flex items-center justify-end gap-2">
-      {error ? <span className="max-w-[180px] text-right text-2xs text-danger-500">{error}</span> : null}
-      <AlertDialog>
+      <AlertDialog open={open} onOpenChange={(next) => { if (!busy) { setOpen(next); if (next) setError(null) } }}>
         <AlertDialogTrigger asChild>
           <IconButton label={`Delete route ${hostname}`} disabled={busy}>
             <Trash2 />
@@ -339,18 +342,20 @@ export function DeleteRouteButton({
         </AlertDialogTrigger>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete route?</AlertDialogTitle>
+            <AlertDialogTitle>Delete route {hostname}?</AlertDialogTitle>
             <AlertDialogDescription>
               Traffic to <span className="font-mono text-[12px] text-ink">{hostname}</span> will stop being routed by this project.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {error ? <InlineNotice tone="danger" className="mx-5">{error}</InlineNotice> : null}
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="border border-danger-200 bg-surface text-danger-500 hover:bg-danger-50"
+              disabled={busy}
+              aria-busy={busy}
               onClick={remove}
             >
-              Delete route
+              {busy ? 'Deleting…' : 'Delete route'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

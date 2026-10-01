@@ -1,9 +1,12 @@
 'use client'
 
 import { useState } from 'react'
+import { actionErrorMessage } from '@/lib/action-error'
+import { unstable_rethrow } from 'next/navigation'
 import { createServiceAction } from '@/lib/actions/services'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogBody, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogBody, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { InlineNotice } from '@/components/ui/feedback'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -18,16 +21,29 @@ export function CreateServiceDialog({ projectSlug }: { projectSlug: string }) {
     e.preventDefault()
     setError(null)
     setLoading(true)
-    const formData = new FormData(e.currentTarget)
-    const result = await createServiceAction(projectSlug, formData)
-    if (result?.error) {
-      setError(result.error)
+    try {
+      const formData = new FormData(e.currentTarget)
+      const result = await createServiceAction(projectSlug, formData)
+      if (result?.error) setError(result.error)
+    } catch (err) {
+      unstable_rethrow(err)
+      setError(actionErrorMessage(err, 'Could not create the service.'))
+    } finally {
       setLoading(false)
     }
   }
 
+  function handleOpenChange(nextOpen: boolean) {
+    if (loading) return
+    if (nextOpen) {
+      setError(null)
+      setLoading(false)
+    }
+    setOpen(nextOpen)
+  }
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button variant="primary" size="sm">
           <Plus className="mr-1.5 h-4 w-4" />
@@ -38,11 +54,9 @@ export function CreateServiceDialog({ projectSlug }: { projectSlug: string }) {
         <DialogHeader>
           <DialogTitle>Create service</DialogTitle>
         </DialogHeader>
-        <DialogBody>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="rounded-md bg-danger-50 p-3 text-sm text-danger-500">{error}</div>
-            )}
+        <form onSubmit={handleSubmit} aria-busy={loading}>
+          <DialogBody className="space-y-4">
+            {error && <InlineNotice tone="error">{error}</InlineNotice>}
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
               <Input id="name" name="name" placeholder="api-server" required />
@@ -61,10 +75,10 @@ export function CreateServiceDialog({ projectSlug }: { projectSlug: string }) {
                 <Select name="strategy" defaultValue="recreate" required>
                   <SelectTrigger id="strategy"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="recreate">recreate</SelectItem>
-                    <SelectItem value="rolling">rolling</SelectItem>
-                    <SelectItem value="blue_green">blue_green</SelectItem>
-                    <SelectItem value="canary">canary</SelectItem>
+                    <SelectItem value="recreate">Recreate</SelectItem>
+                    <SelectItem value="rolling">Rolling</SelectItem>
+                    <SelectItem value="blue_green">Blue/green</SelectItem>
+                    <SelectItem value="canary">Canary</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -79,11 +93,14 @@ export function CreateServiceDialog({ projectSlug }: { projectSlug: string }) {
                 <Input id="memory" name="memory" type="number" defaultValue={128} min={1 / 1048576} step="any" required />
               </div>
             </div>
-            <Button variant="primary" type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Creating...' : 'Create service'}
+          </DialogBody>
+          <DialogFooter>
+            <Button type="button" size="sm" onClick={() => setOpen(false)} disabled={loading}>Cancel</Button>
+            <Button variant="primary" type="submit" size="sm" disabled={loading} aria-busy={loading}>
+              {loading ? 'Creating…' : 'Create service'}
             </Button>
-          </form>
-        </DialogBody>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )

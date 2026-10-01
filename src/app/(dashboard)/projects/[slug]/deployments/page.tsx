@@ -16,19 +16,9 @@ import { StatusDot } from '@/components/status'
 import { DeploymentPoller } from '@/components/deployment-poller'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Rocket } from 'lucide-react'
+import { formatDisplayToken, formatTimestamp } from '@/lib/format'
 
 const activeStatuses = ['pending', 'planning', 'deploying']
-
-function formatTime(date: Date | string | null): string {
-  if (!date) return '-'
-  const d = new Date(date)
-  return d.toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
 
 function imageShort(image: string | null): string {
   if (!image) return '-'
@@ -100,15 +90,15 @@ export default async function DeploymentsPage({
                     {imageShort(row.deployment.imageAfter)}
                   </TableCell>
                   <TableCell className="text-ink-muted">
-                    {row.userName ?? row.deployment.triggerType}
+                    {row.userName ?? formatDisplayToken(row.deployment.triggerType)}
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline">
-                      {row.deployment.strategy.replace(/_/g, ' ')}
+                      {formatDisplayToken(row.deployment.strategy)}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-ink-muted text-sm">
-                    {formatTime(row.deployment.createdAt)}
+                    {formatTimestamp(row.deployment.createdAt)}
                   </TableCell>
                 </TableRow>
               ))}

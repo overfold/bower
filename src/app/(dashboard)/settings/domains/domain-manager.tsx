@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import { actionErrorMessage } from '@/lib/action-error'
 import { Check, Copy, Globe2, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import {
   createOrganizationDomainAction,
@@ -59,6 +60,8 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   function openAddDialog() {
     setError(null)
@@ -86,13 +89,23 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
     else router.refresh()
   }
 
-  async function deleteDomain(id: string) {
-    setError(null)
+  async function deleteDomain(id: string, event: React.MouseEvent) {
+    event.preventDefault()
+    setDeleteError(null)
     setBusy(`delete:${id}`)
-    const result = await deleteOrganizationDomainAction(id)
-    setBusy(null)
-    if (result.error) setError(result.error)
-    else router.refresh()
+    try {
+      const result = await deleteOrganizationDomainAction(id)
+      if (result.error) {
+        setDeleteError(result.error)
+        return
+      }
+      setDeletingId(null)
+      router.refresh()
+    } catch (err) {
+      setDeleteError(actionErrorMessage(err, 'Could not delete domain.'))
+    } finally {
+      setBusy(null)
+    }
   }
 
   async function copy(value: string, id: string) {
@@ -236,7 +249,15 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
                     <TableCell>
                       <div className="flex justify-end">
                         {canManage ? (
-                          <AlertDialog>
+                          <AlertDialog
+                            open={deletingId === item.id}
+                            onOpenChange={(next) => {
+                              if (!isDeleting) {
+                                setDeletingId(next ? item.id : null)
+                                if (next) setDeleteError(null)
+                              }
+                            }}
+                          >
                             <AlertDialogTrigger asChild>
                               <IconButton
                                 label={isInUse ? 'Remove project routes before deleting this domain' : 'Delete domain'}
@@ -252,13 +273,15 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
                                   This removes the domain from Bower. DNS records are left untouched.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
+                              {deleteError ? <InlineNotice tone="danger" className="mx-5">{deleteError}</InlineNotice> : null}
                               <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
                                 <AlertDialogAction
-                                  className="border border-danger-200 bg-surface text-danger-500 hover:bg-danger-50"
-                                  onClick={() => deleteDomain(item.id)}
+                                  disabled={isDeleting}
+                                  aria-busy={isDeleting}
+                                  onClick={(event) => deleteDomain(item.id, event)}
                                 >
-                                  Delete domain
+                                  {isDeleting ? 'Deleting…' : 'Delete domain'}
                                 </AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
@@ -290,6 +313,7 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
                   <Label htmlFor="domain">Domain</Label>
                   <Input
                     id="domain"
+                    aria-describedby="domain-help"
                     value={domain}
                     onChange={(event) => setDomain(event.target.value)}
                     placeholder="example.com"
@@ -297,7 +321,7 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
                     autoComplete="off"
                     required
                   />
-                  <p className="text-xs leading-relaxed text-ink-muted">
+                  <p id="domain-help" className="text-xs leading-relaxed text-ink-muted">
                     Use <span className="font-mono">internal.example.com</span> if you only want to manage that delegated subtree.
                   </p>
                 </div>

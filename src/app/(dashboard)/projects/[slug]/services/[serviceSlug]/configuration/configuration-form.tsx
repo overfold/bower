@@ -1,12 +1,14 @@
 'use client'
 
 import { useState } from 'react'
+import { actionErrorMessage } from '@/lib/action-error'
 import { useRouter } from 'next/navigation'
 import { updateServiceConfigOverridesAction } from '@/lib/actions/base-service-config'
 import { Panel, PanelHeader } from '@/components/ui/panel'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import { InlineNotice, useFeedback } from '@/components/ui/feedback'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { MergedServiceConfig } from '@/lib/queries'
 
@@ -23,6 +25,7 @@ function recordToLines(value: unknown) {
 
 export function ConfigurationForm({ serviceId, environmentId, config }: ConfigurationFormProps) {
   const router = useRouter()
+  const { toast } = useFeedback()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [healthType, setHealthType] = useState(config?.healthCheckType ?? '')
@@ -50,19 +53,18 @@ export function ConfigurationForm({ serviceId, environmentId, config }: Configur
     try {
       const formData = new FormData(e.currentTarget)
       await updateServiceConfigOverridesAction(serviceId, environmentId, formData)
+      toast({ tone: 'success', title: 'Service configuration saved.' })
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong.')
+      setError(actionErrorMessage(err, 'Something went wrong.'))
     } finally {
       setSaving(false)
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {error && (
-        <div className="rounded-md bg-danger-50 p-3 text-[13px] text-danger-500">{error}</div>
-      )}
+    <form onSubmit={handleSubmit} className="space-y-4" aria-busy={saving}>
+      {error && <InlineNotice tone="error">{error}</InlineNotice>}
       <div className="hidden">
         <input type="hidden" name="resourceTier" value="custom" />
         <input type="hidden" name="envVars" value={recordToLines(config?.envVars)} />
@@ -160,7 +162,7 @@ export function ConfigurationForm({ serviceId, environmentId, config }: Configur
       </Panel>
 
       <div className="flex justify-end">
-        <Button variant="primary" type="submit" disabled={saving}>
+        <Button variant="primary" type="submit" disabled={saving} aria-busy={saving}>
           {saving ? 'Saving…' : 'Save configuration'}
         </Button>
       </div>

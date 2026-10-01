@@ -99,7 +99,7 @@
   --secondary: hsl(180 14% 97%);
   --secondary-foreground: hsl(191 15% 29%);
   --muted: hsl(180 14% 97%);
-  --muted-foreground: hsl(191 9% 50%);
+  --muted-foreground: hsl(191 9% 40%);
   --accent: hsl(180 14% 97%);
   --accent-foreground: hsl(192 29% 7%);
   --destructive: hsl(4 76% 40%);
@@ -116,7 +116,7 @@
   --sidebar-border: hsl(192 10% 90%);
   --sidebar-accent: hsl(167 33% 95%);
   --sidebar-accent-foreground: hsl(173 79% 15%);
-  --sidebar-muted: hsl(191 9% 65%);
+  --sidebar-muted: hsl(191 9% 42%);
 
   --canvas: hsl(180 8% 95%);
   --surface: hsl(0 0% 100%);
@@ -125,8 +125,8 @@
   --line-strong: hsl(193 10% 83%);
   --ink: hsl(192 29% 7%);
   --ink-soft: hsl(191 15% 29%);
-  --ink-muted: hsl(191 9% 50%);
-  --ink-faint: hsl(191 9% 65%);
+  --ink-muted: hsl(191 9% 40%);
+  --ink-faint: hsl(191 9% 42%);
   --brand-50: hsl(167 33% 95%);
   --brand-100: hsl(169 33% 87%);
   --brand-200: hsl(170 33% 74%);
@@ -155,7 +155,7 @@
     --card-foreground: hsl(185 15% 90%);
     --popover: hsl(186 18% 10%);
     --popover-foreground: hsl(185 15% 90%);
-    --primary: hsl(172 60% 36%);
+    --primary: hsl(172 60% 30%);
     --primary-foreground: hsl(0 0% 100%);
     --secondary: hsl(186 16% 15%);
     --secondary-foreground: hsl(185 15% 80%);
@@ -177,7 +177,7 @@
     --sidebar-border: hsl(186 18% 14%);
     --sidebar-accent: hsl(186 18% 14%);
     --sidebar-accent-foreground: hsl(0 0% 100%);
-    --sidebar-muted: hsl(191 10% 45%);
+    --sidebar-muted: hsl(191 10% 55%);
 
     --canvas: hsl(186 20% 7%);
     --surface: hsl(186 18% 10%);
@@ -187,14 +187,14 @@
     --ink: hsl(185 15% 90%);
     --ink-soft: hsl(185 12% 72%);
     --ink-muted: hsl(191 10% 55%);
-    --ink-faint: hsl(191 8% 40%);
+    --ink-faint: hsl(191 8% 55%);
     --brand-50: hsl(172 30% 14%);
     --brand-100: hsl(172 28% 18%);
     --brand-200: hsl(172 30% 28%);
     --brand-300: hsl(172 33% 42%);
     --brand-400: hsl(172 52% 36%);
-    --brand-500: hsl(172 60% 36%);
-    --brand-600: hsl(172 55% 42%);
+    --brand-500: hsl(172 45% 55%);
+    --brand-600: hsl(172 45% 60%);
     --brand-700: hsl(172 45% 55%);
     --brand-900: hsl(172 30% 75%);
     --warn-50: hsl(30 30% 14%);
@@ -202,7 +202,7 @@
     --warn-500: hsl(30 85% 50%);
     --danger-50: hsl(4 30% 14%);
     --danger-200: hsl(5 40% 40%);
-    --danger-500: hsl(4 63% 50%);
+    --danger-500: hsl(4 75% 68%);
     --info-50: hsl(254 25% 16%);
     --info-200: hsl(254 30% 40%);
     --info-500: hsl(258 50% 60%);
@@ -216,7 +216,7 @@
   --card-foreground: hsl(185 15% 90%);
   --popover: hsl(186 18% 10%);
   --popover-foreground: hsl(185 15% 90%);
-  --primary: hsl(172 60% 36%);
+  --primary: hsl(172 60% 30%);
   --primary-foreground: hsl(0 0% 100%);
   --secondary: hsl(186 16% 15%);
   --secondary-foreground: hsl(185 15% 80%);
@@ -238,7 +238,7 @@
   --sidebar-border: hsl(186 18% 14%);
   --sidebar-accent: hsl(186 18% 14%);
   --sidebar-accent-foreground: hsl(0 0% 100%);
-  --sidebar-muted: hsl(191 10% 45%);
+  --sidebar-muted: hsl(191 10% 55%);
 
   --canvas: hsl(186 20% 7%);
   --surface: hsl(186 18% 10%);
@@ -248,14 +248,14 @@
   --ink: hsl(185 15% 90%);
   --ink-soft: hsl(185 12% 72%);
   --ink-muted: hsl(191 10% 55%);
-  --ink-faint: hsl(191 8% 40%);
+  --ink-faint: hsl(191 8% 55%);
   --brand-50: hsl(172 30% 14%);
   --brand-100: hsl(172 28% 18%);
   --brand-200: hsl(172 30% 28%);
   --brand-300: hsl(172 33% 42%);
   --brand-400: hsl(172 52% 36%);
-  --brand-500: hsl(172 60% 36%);
-  --brand-600: hsl(172 55% 42%);
+  --brand-500: hsl(172 45% 55%);
+  --brand-600: hsl(172 45% 60%);
   --brand-700: hsl(172 45% 55%);
   --brand-900: hsl(172 30% 75%);
   --warn-50: hsl(30 30% 14%);
@@ -263,7 +263,7 @@
   --warn-500: hsl(30 85% 50%);
   --danger-50: hsl(4 30% 14%);
   --danger-200: hsl(5 40% 40%);
-  --danger-500: hsl(4 63% 50%);
+  --danger-500: hsl(4 75% 68%);
   --info-50: hsl(254 25% 16%);
   --info-200: hsl(254 30% 40%);
   --info-500: hsl(258 50% 60%);
@@ -317,6 +317,18 @@
 }
 .scroll-thin::-webkit-scrollbar-track {
   background-color: transparent;
+}
+
+.scroll-horizontal {
+  background-image:
+    linear-gradient(to right, var(--scroll-surface, var(--canvas)) 30%, transparent),
+    linear-gradient(to left, var(--scroll-surface, var(--canvas)) 30%, transparent),
+    linear-gradient(to right, color-mix(in srgb, var(--ink) 16%, transparent), transparent),
+    linear-gradient(to left, color-mix(in srgb, var(--ink) 16%, transparent), transparent);
+  background-position: left center, right center, left center, right center;
+  background-size: 40px 100%, 40px 100%, 12px 100%, 12px 100%;
+  background-repeat: no-repeat;
+  background-attachment: local, local, scroll, scroll;
 }
 
 @media (prefers-reduced-motion: reduce) {

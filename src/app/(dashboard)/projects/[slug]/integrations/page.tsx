@@ -7,7 +7,7 @@ import {
   getServicesByProject,
   getProjectEnvironment,
 } from '@/lib/queries'
-import { Panel, PanelHeader } from '@/components/ui/panel'
+import { Panel, PanelHeader, SectionTitle } from '@/components/ui/panel'
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from '@/components/ui/table'
@@ -45,6 +45,10 @@ export default async function IntegrationsPage({
 
   return (
     <div className="space-y-8">
+      <div>
+        <SectionTitle>Integrations</SectionTitle>
+        <p className="mt-1 max-w-3xl text-[13px] text-ink-muted">Connect deployment triggers and notifications for this project.</p>
+      </div>
       <Panel>
         <PanelHeader title="Webhooks" hint={`${visibleHooks.length} ${visibleHooks.length === 1 ? 'webhook' : 'webhooks'}`} action={isAdmin && environment ? (
             <CreateWebhookDialog
@@ -61,7 +65,7 @@ export default async function IntegrationsPage({
               body="Add a webhook to trigger deployments automatically."
             />
         ) : (
-            <Table>
+            <div className="overflow-x-auto"><Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Service</TableHead>
@@ -96,7 +100,7 @@ export default async function IntegrationsPage({
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
+            </Table></div>
         )}
       </Panel>
 
@@ -110,7 +114,7 @@ export default async function IntegrationsPage({
               body="Add a channel to receive deployment notifications."
             />
         ) : (
-            <Table>
+            <div className="overflow-x-auto"><Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
@@ -141,7 +145,7 @@ export default async function IntegrationsPage({
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
+            </Table></div>
         )}
       </Panel>
     </div>

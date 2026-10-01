@@ -18,7 +18,7 @@ export function ServiceTabs({ slug, serviceSlug }: { slug: string; serviceSlug: 
   const base = `/projects/${slug}/services/${serviceSlug}`
 
   return (
-    <nav className="flex items-center gap-1 overflow-x-auto overflow-y-hidden scroll-thin" aria-label="Service configuration">
+    <nav className="flex items-center gap-1 overflow-x-auto overflow-y-hidden scroll-thin scroll-horizontal" aria-label="Service configuration">
       {items.map((item) => {
         const target = `${base}${item.suffix}`
         const isActive = item.suffix === '' ? pathname === base : pathname.startsWith(target)
@@ -26,6 +26,7 @@ export function ServiceTabs({ slug, serviceSlug }: { slug: string; serviceSlug: 
           <Link
             key={item.label}
             href={target}
+            aria-current={isActive ? 'page' : undefined}
             className={cn(
               'relative flex items-center whitespace-nowrap px-3 py-2.5 text-[13px] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300',
               isActive ? 'text-ink' : 'text-ink-muted hover:text-ink',

@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Shield, UserRound, Users } from 'lucide-react'
 import { GrantAccessDialog, RevokeAccessButton } from './access-actions'
+import { formatDate } from '@/lib/format'
 
 export default async function AccessPage({ params }: { params: Promise<{ slug: string }> }) {
   const user = await getCurrentUser()
@@ -28,7 +29,7 @@ export default async function AccessPage({ params }: { params: Promise<{ slug: s
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <SectionTitle>Project access</SectionTitle>
           <p className="mt-1 text-[13px] text-ink-muted">
@@ -56,6 +57,7 @@ export default async function AccessPage({ params }: { params: Promise<{ slug: s
         </Panel>
       ) : (
         <Panel>
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -75,7 +77,7 @@ export default async function AccessPage({ params }: { params: Promise<{ slug: s
                     </div>
                   </TableCell>
                   <TableCell><Badge variant="secondary" className="capitalize">{access.role}</Badge></TableCell>
-                  <TableCell className="text-xs text-ink-muted">{new Date(access.createdAt).toLocaleDateString()}</TableCell>
+                  <TableCell className="whitespace-nowrap text-xs text-ink-muted">{formatDate(access.createdAt)}</TableCell>
                   {isAdmin && (
                     <TableCell>
                       <RevokeAccessButton projectId={project.id} accessId={access.id} kind="team" name={teamName} />
@@ -95,7 +97,7 @@ export default async function AccessPage({ params }: { params: Promise<{ slug: s
                     </div>
                   </TableCell>
                   <TableCell><Badge variant="secondary" className="capitalize">{access.role}</Badge></TableCell>
-                  <TableCell className="text-xs text-ink-muted">{new Date(access.createdAt).toLocaleDateString()}</TableCell>
+                  <TableCell className="whitespace-nowrap text-xs text-ink-muted">{formatDate(access.createdAt)}</TableCell>
                   {isAdmin && (
                     <TableCell>
                       <RevokeAccessButton projectId={project.id} accessId={access.id} kind="user" name={userName} />
@@ -105,6 +107,7 @@ export default async function AccessPage({ params }: { params: Promise<{ slug: s
               ))}
             </TableBody>
           </Table>
+          </div>
         </Panel>
       )}
     </div>

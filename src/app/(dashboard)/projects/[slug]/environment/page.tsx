@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
-import { Box, KeyRound } from 'lucide-react'
+import { Box, KeyRound, Variable } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth'
 import { requireProject } from '@/lib/actions/shared'
 import {
@@ -20,11 +20,7 @@ import { SecretActions } from './secret-actions'
 import { CreateEnvironmentVariableDialog, DeleteEnvironmentVariableButton } from './environment-variable-controls'
 import { ServiceEnvironmentDialog } from './service-environment-dialog'
 import type { BowerSecretBinding } from '@/lib/job-builder'
-
-function formatDate(date: Date | string | null) {
-  if (!date) return 'Never'
-  return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
+import { formatDate } from '@/lib/format'
 
 function recordEntries(value: unknown) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return [] as Array<[string, string]>
@@ -76,7 +72,7 @@ export default async function EnvironmentPage({ params }: { params: Promise<{ sl
             action={canManage ? <CreateEnvironmentVariableDialog projectId={project.id} environmentId={environment.id} /> : undefined}
           />
           {environmentVariables.length === 0 ? (
-            <div className="p-4 text-[13px] text-ink-muted">No environment variables are configured.</div>
+            <EmptyState icon={<Variable className="h-4 w-4" />} title="No environment variables" body="Add a variable to share configuration with every service." />
           ) : (
             <div className="overflow-x-auto">
               <Table>
@@ -111,7 +107,7 @@ export default async function EnvironmentPage({ params }: { params: Promise<{ sl
                     <TableRow key={row.secret.id}>
                       <TableCell className="font-mono text-xs font-medium">{row.secret.name}</TableCell>
                       <TableCell className="text-ink-muted">{formatDate(row.secret.lastRotatedAt)}</TableCell>
-                      <TableCell className="text-right">{canManage ? <SecretActions projectId={project.id} secretId={row.secret.id} /> : null}</TableCell>
+                      <TableCell className="text-right">{canManage ? <SecretActions projectId={project.id} secretId={row.secret.id} secretName={row.secret.trellisSecretName} /> : null}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

@@ -10,6 +10,7 @@ import {
 import { requireProject } from '@/lib/actions/shared'
 import { PageHeading, MetaItem } from '@/components/page-heading'
 import { ProjectTabs } from '@/components/project-tabs'
+import { formatDate } from '@/lib/format'
 
 export default async function ProjectLayout({
   children,
@@ -36,10 +37,7 @@ export default async function ProjectLayout({
   const deployments = environment ? await getDeploymentsByProject(project.id, 1, environment.id) : []
 
   const lastDeploy = deployments[0]
-    ? new Date(deployments[0].deployment.createdAt).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-      })
+    ? formatDate(deployments[0].deployment.createdAt)
     : 'never'
 
   const tabs = [

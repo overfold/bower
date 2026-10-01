@@ -15,6 +15,7 @@ import { DeploymentPoller } from '@/components/deployment-poller'
 import { ServiceHeader } from './service-header'
 import { Boxes, Rocket } from 'lucide-react'
 import type { TrellisAllocation } from '@/types/trellis'
+import { formatDate, formatTimestamp } from '@/lib/format'
 
 export default async function ServiceDetailPage({
   params,
@@ -102,7 +103,7 @@ export default async function ServiceDetailPage({
                       </TableCell>
                       <TableCell><StatusDot status={allocation.health} /></TableCell>
                       <TableCell><NodeLink id={allocation.node_id} /></TableCell>
-                      <TableCell className="whitespace-nowrap text-ink-muted">{new Date(allocation.created_at).toLocaleString()}</TableCell>
+                      <TableCell className="whitespace-nowrap text-ink-muted">{formatTimestamp(allocation.created_at)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -143,7 +144,7 @@ export default async function ServiceDetailPage({
                       <TableCell className="capitalize">{d.strategy.replace(/_/g, ' ')}</TableCell>
                       <TableCell className="capitalize">{d.triggerType.replace(/_/g, ' ')}</TableCell>
                       <TableCell className="text-ink-muted">
-                        {new Date(d.createdAt).toLocaleDateString()}
+                        {formatDate(d.createdAt)}
                       </TableCell>
                     </TableRow>
                   ))}

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition, useMemo } from 'react'
+import { actionErrorMessage } from '@/lib/action-error'
 import { grantProjectAccessAction, revokeProjectTeamAccessAction, revokeProjectUserAccessAction } from '@/lib/actions/operations'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogBody, DialogFooter, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
@@ -13,6 +14,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Plus, Trash2, Users, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { InlineNotice } from '@/components/ui/feedback'
 
 type SearchItem =
   | { kind: 'team'; id: string; name: string; granted: boolean }
@@ -72,7 +74,7 @@ export function GrantAccessDialog({ projectId, teams, members, existingTeamIds, 
         setSelected(null)
         setSearch('')
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to grant access.')
+        setError(actionErrorMessage(e, 'Failed to grant access.'))
       }
     })
   }
@@ -86,7 +88,7 @@ export function GrantAccessDialog({ projectId, teams, members, existingTeamIds, 
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else setOpen(true) }}>
+    <Dialog open={open} onOpenChange={(v) => { if (pending) return; if (!v) handleClose(); else { setError(null); setOpen(true) } }}>
       <DialogTrigger asChild>
         <Button variant="primary" size="sm">
           <Plus className="h-4 w-4" />
@@ -98,7 +100,7 @@ export function GrantAccessDialog({ projectId, teams, members, existingTeamIds, 
           <DialogTitle>Grant project access</DialogTitle>
         </DialogHeader>
         <DialogBody className="space-y-4">
-          {error && <div className="rounded-md bg-danger-50 p-3 text-sm text-danger-500">{error}</div>}
+          {error && <InlineNotice tone="error">{error}</InlineNotice>}
           <div className="space-y-2">
             <Label htmlFor="access-search">Search teams and members</Label>
             <div className="overflow-hidden rounded-lg border border-line bg-surface shadow-card transition-[border-color,box-shadow] duration-150 ease-enter focus-within:border-brand-300 focus-within:ring-2 focus-within:ring-brand-100">
@@ -159,14 +161,14 @@ export function GrantAccessDialog({ projectId, teams, members, existingTeamIds, 
             <div className="space-y-2">
               <Label htmlFor="access-role">Role</Label>
               <Select value={role} onValueChange={setRole}>
-                <SelectTrigger id="access-role"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="access-role" aria-describedby="access-role-help"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="viewer">Viewer</SelectItem>
                   <SelectItem value="deployer">Deployer</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-ink-muted">
+              <p id="access-role-help" className="text-xs text-ink-muted">
                 {selected.kind === 'team' ? `All members of ${selected.name}` : selected.name} will receive {role} access to this project.
               </p>
             </div>
@@ -174,7 +176,7 @@ export function GrantAccessDialog({ projectId, teams, members, existingTeamIds, 
         </DialogBody>
         <DialogFooter>
           <Button variant="default" size="sm" onClick={handleClose} disabled={pending}>Cancel</Button>
-          <Button variant="primary" size="sm" onClick={handleSubmit} disabled={pending || !selected || selected.granted}>
+          <Button variant="primary" size="sm" onClick={handleSubmit} disabled={pending || !selected || selected.granted} aria-busy={pending}>
             {pending ? 'Granting…' : 'Grant access'}
           </Button>
         </DialogFooter>
@@ -187,9 +189,26 @@ export function RevokeAccessButton({ projectId, accessId, kind, name }: {
   projectId: string; accessId: string; kind: 'team' | 'user'; name: string
 }) {
   const [pending, startTransition] = useTransition()
+  const [open, setOpen] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  function revoke(event: React.MouseEvent) {
+    event.preventDefault()
+    setError(null)
+    startTransition(async () => {
+      try {
+        await (kind === 'team'
+          ? revokeProjectTeamAccessAction(projectId, accessId)
+          : revokeProjectUserAccessAction(projectId, accessId))
+        setOpen(false)
+      } catch (err) {
+        setError(actionErrorMessage(err, 'Could not revoke access.'))
+      }
+    })
+  }
 
   return (
-    <AlertDialog>
+    <AlertDialog open={open} onOpenChange={(next) => { if (!pending) { setOpen(next); if (next) setError(null) } }}>
       <AlertDialogTrigger asChild>
         <Button variant="ghost" size="icon" disabled={pending} aria-label={`Revoke access for ${name}`}>
           <Trash2 className="h-3.5 w-3.5 text-ink-muted" />
@@ -204,17 +223,15 @@ export function RevokeAccessButton({ projectId, accessId, kind, name }: {
               : `${name} will lose their individual access to this project.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
+        {error ? <InlineNotice tone="error" className="mx-5">{error}</InlineNotice> : null}
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
           <AlertDialogAction
-            onClick={() => startTransition(() =>
-              kind === 'team'
-                ? revokeProjectTeamAccessAction(projectId, accessId)
-                : revokeProjectUserAccessAction(projectId, accessId)
-            )}
-            className="bg-danger-500 text-white hover:bg-danger-500/90"
+            disabled={pending}
+            aria-busy={pending}
+            onClick={revoke}
           >
-            Revoke
+            {pending ? 'Revoking…' : 'Revoke access'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

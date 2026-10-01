@@ -24,16 +24,21 @@ export function ClusterSettingsForm({ org }: ClusterSettingsFormProps) {
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    const formData = new FormData(e.currentTarget)
     setLoading(true)
     setError(null)
-    const formData = new FormData(e.currentTarget)
-    const result = await updateOrganizationAction(formData)
-    if (result?.error) setError(result.error)
-    else if (result?.success) {
-      toast({ tone: 'success', title: 'Trellis settings saved.' })
-      router.refresh()
+    try {
+      const result = await updateOrganizationAction(formData)
+      if (result?.error) setError(result.error)
+      else if (result?.success) {
+        toast({ tone: 'success', title: 'Trellis settings saved.' })
+        router.refresh()
+      } else setError('Trellis settings could not be saved. Please try again.')
+    } catch {
+      setError('Trellis settings could not be saved. Please try again.')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   return (
@@ -42,7 +47,7 @@ export function ClusterSettingsForm({ org }: ClusterSettingsFormProps) {
         <CardHeader>
           <CardTitle>Trellis connection</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
           {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
           <div className="space-y-2">
             <Label htmlFor="trellisApiUrl">Trellis API URL</Label>
@@ -54,7 +59,7 @@ export function ClusterSettingsForm({ org }: ClusterSettingsFormProps) {
           </div>
         </CardContent>
         <CardFooter>
-          <Button variant="primary" type="submit" size="sm" disabled={loading}>
+          <Button variant="primary" type="submit" disabled={loading} aria-busy={loading}>
             {loading ? 'Saving…' : 'Save changes'}
           </Button>
         </CardFooter>

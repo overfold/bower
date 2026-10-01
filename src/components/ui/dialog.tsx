@@ -37,7 +37,7 @@ const DialogOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Overlay
     ref={ref}
-    className={cn('fixed inset-0 z-50 bg-ink/25', className)}
+    className={cn('fixed inset-0 z-50 bg-black/30', className)}
     {...props}
   />
 ))
@@ -56,7 +56,7 @@ const DialogContent = React.forwardRef<
         <DialogPortal forceMount>
           <DialogPrimitive.Overlay asChild forceMount>
             <motion.div
-              className="fixed inset-0 z-50 bg-ink/25"
+              className="fixed inset-0 z-50 bg-black/30"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -87,7 +87,7 @@ DialogContent.displayName = DialogPrimitive.Content.displayName
 const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div className={cn('flex items-start justify-between gap-4 border-b border-line px-4 py-4 sm:gap-6 sm:px-5', className)}>
     <div className="min-w-0" {...props} />
-    <DialogPrimitive.Close className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink-muted transition-[background-color,color] duration-150 ease-enter hover:bg-black/[0.04] hover:text-ink focus:outline-none focus:ring-2 focus:ring-brand-300">
+    <DialogPrimitive.Close className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink-muted transition-[background-color,color] duration-150 ease-enter hover:bg-sunken hover:text-ink focus:outline-none focus:ring-2 focus:ring-brand-300">
       <X className="h-4 w-4" />
       <span className="sr-only">Close</span>
     </DialogPrimitive.Close>

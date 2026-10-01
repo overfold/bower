@@ -7,6 +7,7 @@ import { PageHeading } from '@/components/page-heading'
 import { Panel, PanelHeader, KeyValue } from '@/components/ui/panel'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { formatDate } from '@/lib/format'
 
 export default async function MemberPage({ params }: { params: Promise<{ userId: string }> }) {
   const user = await getCurrentUser()
@@ -31,7 +32,7 @@ export default async function MemberPage({ params }: { params: Promise<{ userId:
       <div className="flex items-center gap-4">
         <Avatar className="h-12 w-12 rounded-lg">
           {member.userAvatar ? <AvatarImage src={member.userAvatar} alt={member.userName} /> : null}
-          <AvatarFallback className="rounded-lg bg-ink font-semibold text-white">
+          <AvatarFallback className="rounded-lg">
             {member.userName.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}
           </AvatarFallback>
         </Avatar>
@@ -43,7 +44,7 @@ export default async function MemberPage({ params }: { params: Promise<{ userId:
           <KeyValue label="Email">{member.userEmail}</KeyValue>
           {showInstanceRole ? <KeyValue label="Instance role"><Badge variant={member.isInstanceAdmin ? 'default' : 'secondary'}>{member.isInstanceAdmin ? 'Administrator' : 'Member'}</Badge></KeyValue> : null}
           <KeyValue label="Organization role"><Badge className="capitalize" variant={member.membership.role === 'owner' ? 'default' : 'secondary'}>{member.membership.role}</Badge></KeyValue>
-          <KeyValue label="Joined organization">{member.membership.createdAt.toLocaleDateString()}</KeyValue>
+          <KeyValue label="Joined organization">{formatDate(member.membership.createdAt)}</KeyValue>
         </dl>
       </Panel>
       <Panel>

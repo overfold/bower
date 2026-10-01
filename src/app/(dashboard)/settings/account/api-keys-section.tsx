@@ -1,15 +1,22 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
+import { actionErrorMessage } from '@/lib/action-error'
 import { createApiKeyAction, revokeApiKeyAction } from '@/lib/actions/settings'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Dialog, DialogContent, DialogHeader, DialogBody, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogBody, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Plus, Trash2, Copy, Check } from 'lucide-react'
+import { Plus, Trash2, Copy, Check, KeyRound } from 'lucide-react'
 import { InlineNotice, useFeedback } from '@/components/ui/feedback'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import { formatDate } from '@/lib/format'
 
 interface ApiKey {
   id: string
@@ -33,13 +40,15 @@ export function ApiKeysSection({ keys }: { keys: ApiKey[] }) {
     setLoading(true)
     const formData = new FormData(e.currentTarget)
     const name = String(formData.get('name') ?? '')
-    const result = await createApiKeyAction(name)
-    if (result?.error) {
-      setError(result.error)
-    } else if (result?.token) {
-      setNewKey(result.token)
+    try {
+      const result = await createApiKeyAction(name)
+      if (result?.error) setError(result.error)
+      else if (result?.token) setNewKey(result.token)
+    } catch {
+      setError('Could not create API key. Please try again.')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   async function handleCopy() {
@@ -59,7 +68,7 @@ export function ApiKeysSection({ keys }: { keys: ApiKey[] }) {
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
         <CardTitle>API keys</CardTitle>
-        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setNewKey(null); setError(null) } }}>
+        <Dialog open={open} onOpenChange={(v) => { if (loading) return; setOpen(v); setError(null); if (!v) { setNewKey(null); setCopied(false) } }}>
           <DialogTrigger asChild>
             <Button variant="primary" size="sm">
               <Plus className="mr-1.5 h-4 w-4" />
@@ -70,8 +79,8 @@ export function ApiKeysSection({ keys }: { keys: ApiKey[] }) {
             <DialogHeader>
               <DialogTitle>Create API key</DialogTitle>
             </DialogHeader>
-            <DialogBody>
-              {newKey ? (
+              {newKey ? (<>
+              <DialogBody>
                 <div className="space-y-3">
                   <p className="text-sm text-ink-muted">Copy this key now. It will not be shown again.</p>
                   <div className="flex items-center gap-2">
@@ -80,29 +89,32 @@ export function ApiKeysSection({ keys }: { keys: ApiKey[] }) {
                       {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                     </Button>
                   </div>
-                  <Button variant="primary" className="w-full" onClick={() => { setOpen(false); setNewKey(null) }}>Done</Button>
                 </div>
-              ) : (
-                <form onSubmit={handleCreate} className="space-y-4">
+              </DialogBody><DialogFooter><Button variant="primary" onClick={() => { setOpen(false); setNewKey(null) }}>Done</Button></DialogFooter></>) : (
+                <form onSubmit={handleCreate}>
+                  <DialogBody className="space-y-4">
                   {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
                   <div className="space-y-2">
                     <Label htmlFor="keyName">Name</Label>
                     <Input id="keyName" name="name" placeholder="CI deploy key" required />
                   </div>
-                  <Button variant="primary" type="submit" className="w-full" disabled={loading}>
+                  </DialogBody>
+                  <DialogFooter>
+                  <Button type="button" disabled={loading} onClick={() => setOpen(false)}>Cancel</Button>
+                  <Button variant="primary" type="submit" disabled={loading} aria-busy={loading}>
                     {loading ? 'Creating…' : 'Create key'}
                   </Button>
+                  </DialogFooter>
                 </form>
               )}
-            </DialogBody>
           </DialogContent>
         </Dialog>
       </CardHeader>
       <CardContent>
         {keys.length === 0 ? (
-          <p className="text-sm text-ink-muted">No API keys.</p>
+          <EmptyState icon={<KeyRound className="size-4" />} title="No API keys" body="Create a key to authenticate automation with Bower." />
         ) : (
-          <Table>
+          <div className="overflow-x-auto"><Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
@@ -117,7 +129,7 @@ export function ApiKeysSection({ keys }: { keys: ApiKey[] }) {
                 <RevokeableRow key={k.id} apiKey={k} />
               ))}
             </TableBody>
-          </Table>
+          </Table></div>
         )}
       </CardContent>
     </Card>
@@ -125,28 +137,45 @@ export function ApiKeysSection({ keys }: { keys: ApiKey[] }) {
 }
 
 function RevokeableRow({ apiKey }: { apiKey: ApiKey }) {
-  const [pending, startTransition] = useTransition()
+  const [open, setOpen] = useState(false)
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const { toast } = useFeedback()
+
+  async function revoke(event: React.MouseEvent) {
+    event.preventDefault()
+    setPending(true)
+    setError(null)
+    try {
+      await revokeApiKeyAction(apiKey.id)
+      setOpen(false)
+      toast({ tone: 'success', title: 'API key revoked.' })
+    } catch (cause) {
+      setError(actionErrorMessage(cause, 'Could not revoke API key.'))
+    } finally {
+      setPending(false)
+    }
+  }
 
   return (
     <TableRow>
       <TableCell>{apiKey.name}</TableCell>
       <TableCell className="font-mono text-xs">{apiKey.keyPrefix}...</TableCell>
       <TableCell className="text-ink-muted">
-        {apiKey.lastUsedAt ? new Date(apiKey.lastUsedAt).toLocaleDateString() : 'Never'}
+        {apiKey.lastUsedAt ? formatDate(apiKey.lastUsedAt) : 'Never'}
       </TableCell>
       <TableCell className="text-ink-muted">
-        {new Date(apiKey.createdAt).toLocaleDateString()}
+        {formatDate(apiKey.createdAt)}
       </TableCell>
       <TableCell>
-        <Button
-          variant="ghost"
-          size="sm"
-          disabled={pending}
-          onClick={() => startTransition(() => revokeApiKeyAction(apiKey.id))}
-          aria-label={`Revoke ${apiKey.name}`}
-        >
-          <Trash2 className="h-3.5 w-3.5 text-ink-muted" />
-        </Button>
+        <AlertDialog open={open} onOpenChange={(next) => { if (pending) return; setOpen(next); if (next) setError(null) }}>
+          <AlertDialogTrigger asChild><Button variant="ghost" size="sm" disabled={pending} aria-label={`Revoke ${apiKey.name}`}><Trash2 className="h-3.5 w-3.5 text-ink-muted" /></Button></AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader><AlertDialogTitle>Revoke {apiKey.name}?</AlertDialogTitle><AlertDialogDescription>Clients using API key <span className="font-mono text-ink">{apiKey.keyPrefix}…</span> will immediately lose access. This cannot be undone.</AlertDialogDescription></AlertDialogHeader>
+            {error ? <InlineNotice tone="error" className="mx-5">{error}</InlineNotice> : null}
+            <AlertDialogFooter><AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel><AlertDialogAction onClick={revoke} disabled={pending} aria-busy={pending}>{pending ? 'Revoking…' : 'Revoke API key'}</AlertDialogAction></AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </TableCell>
     </TableRow>
   )

@@ -29,7 +29,7 @@ export async function ServiceHeader({
           <Link href={`/projects/${slug}/services`} className="text-ink-muted transition-colors hover:text-ink" aria-label="Back to services">
             <ArrowLeft className="h-4 w-4" />
           </Link>
-          <PageHeading title={serviceName} />
+          <PageHeading as="h2" title={serviceName} />
         </div>
         {hasConfig && <ServiceActions
           serviceId={serviceId}

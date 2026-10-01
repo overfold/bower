@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils'
 
 const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement>>(
   ({ className, ...props }, ref) => (
-    <div className="w-full overflow-x-auto scroll-thin">
+    <div className="w-full overflow-x-auto scroll-thin scroll-horizontal [--scroll-surface:var(--surface)]" tabIndex={0} role="region" aria-label="Scrollable table">
       <table ref={ref} className={cn('w-full min-w-[640px] border-collapse text-left', className)} {...props} />
     </div>
   ),

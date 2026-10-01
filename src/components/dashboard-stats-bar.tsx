@@ -61,7 +61,7 @@ function deploymentSeries(deployments: DeploymentPoint[], days = 14): Deployment
     const date = new Date(start.getTime() + index * DAY_MS)
     return {
       key: dateKey(date),
-      label: `${MONTHS[date.getUTCMonth()]} ${date.getUTCDate()}`,
+      label: `${MONTHS[date.getUTCMonth()]} ${date.getUTCDate()} UTC`,
       total: 0,
       healthy: 0,
       failed: 0,

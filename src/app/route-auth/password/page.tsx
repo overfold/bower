@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { InlineNotice } from '@/components/ui/feedback'
 
 export default async function RoutePasswordPage({
   searchParams,
@@ -21,7 +22,7 @@ export default async function RoutePasswordPage({
           <form action="/api/route-auth/password" method="post" className="mt-6 space-y-4">
             <input type="hidden" name="route" value={route} />
             <input type="hidden" name="returnTo" value={returnTo} />
-            {error === 'invalid-password' ? <p role="alert" className="text-sm text-danger-500">Incorrect password. Try again.</p> : null}
+            {error === 'invalid-password' ? <InlineNotice tone="error">Incorrect password. Try again.</InlineNotice> : null}
             <div className="space-y-2">
               <Label htmlFor="route-password">Password</Label>
               <Input id="route-password" name="password" type="password" autoComplete="current-password" autoFocus required />
@@ -29,7 +30,7 @@ export default async function RoutePasswordPage({
             <Button variant="primary" type="submit" className="w-full" size="lg">Continue</Button>
           </form>
         ) : (
-          <p role="alert" className="mt-6 text-sm text-danger-500">This route authorization request is invalid.</p>
+          <InlineNotice tone="error" className="mt-6">This route authorization request is invalid.</InlineNotice>
         )}
       </section>
     </main>

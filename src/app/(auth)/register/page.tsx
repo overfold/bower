@@ -2,11 +2,12 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Loader2 } from 'lucide-react'
+import { unstable_rethrow } from 'next/navigation'
 import { registerAction } from '@/lib/auth-actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { InlineNotice } from '@/components/ui/feedback'
 
 export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null)
@@ -14,14 +15,18 @@ export default function RegisterPage() {
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    const formData = new FormData(e.currentTarget)
     setError(null)
     setLoading(true)
-    const formData = new FormData(e.currentTarget)
     const next = new URLSearchParams(window.location.search).get('next')
     if (next) formData.set('next', next)
-    const result = await registerAction(formData)
-    if (result?.error) {
-      setError(result.error)
+    try {
+      const result = await registerAction(formData)
+      if (result?.error) setError(result.error)
+    } catch (error) {
+      unstable_rethrow(error)
+      setError('Account creation failed. Please try again.')
+    } finally {
       setLoading(false)
     }
   }
@@ -36,11 +41,7 @@ export default function RegisterPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {error && (
-          <p role="alert" className="text-xs leading-relaxed text-danger-500">
-            {error}
-          </p>
-        )}
+        {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
         <div className="space-y-2">
           <Label htmlFor="name">Name</Label>
           <Input id="name" name="name" placeholder="Your name" autoComplete="name" required />
@@ -68,10 +69,9 @@ export default function RegisterPage() {
             minLength={8}
           />
         </div>
-        <Button variant="primary" type="submit" className="mt-1 w-full" size="lg" disabled={loading}>
+        <Button variant="primary" type="submit" className="mt-1 w-full" size="lg" disabled={loading} aria-busy={loading}>
           {loading ? (
             <>
-              <Loader2 className="h-4 w-4 animate-spin" />
               Creating account&hellip;
             </>
           ) : (
@@ -83,7 +83,7 @@ export default function RegisterPage() {
       <div className="border-t border-line pt-4">
         <p className="text-center text-[12.5px] text-ink-muted">
           Already have an account?{' '}
-          <Link href={`/login${typeof window === 'undefined' ? '' : window.location.search}`} className="font-medium text-brand-600 hover:underline">
+          <Link href={`/login${typeof window === 'undefined' ? '' : window.location.search}`} className="font-medium text-brand-700 hover:underline">
             Sign in
           </Link>
         </p>

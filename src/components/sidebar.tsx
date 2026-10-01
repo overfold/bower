@@ -35,7 +35,7 @@ const navItems: NavItem[] = [
   { label: 'Overview', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Projects', href: '/projects', icon: FolderKanban },
   { label: 'Deployments', href: '/deployments', icon: Rocket },
-  { label: 'Status', href: '/status', icon: Activity },
+  { label: 'Cluster', href: '/status', icon: Activity },
   { label: 'Audit log', href: '/audit', icon: ScrollText },
   { label: 'Settings', href: '/settings', icon: Settings },
 ]
@@ -76,7 +76,7 @@ export function SidebarContent({ user, onNavigate }: { user: SidebarUser; onNavi
         </Link>
       </div>
 
-      <nav className="min-h-0 flex-1 overflow-y-auto px-2 pb-4 scroll-thin">
+      <nav aria-label="Main navigation" className="min-h-0 flex-1 overflow-y-auto px-2 pb-4 scroll-thin">
         <div className="space-y-0.5">
           {navItems.map((item) => {
             const active = isActive(pathname, item.href)
@@ -85,11 +85,12 @@ export function SidebarContent({ user, onNavigate }: { user: SidebarUser; onNavi
                 key={item.href}
                 href={item.href}
                 onClick={onNavigate}
+                aria-current={active ? 'page' : undefined}
                 className={cn(
                   'flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[13px] font-medium transition-colors duration-150',
                   active
                     ? 'bg-brand-50 text-brand-700'
-                    : 'text-ink-soft hover:bg-black/[0.035] hover:text-ink'
+                    : 'text-ink-soft hover:bg-sunken hover:text-ink'
                 )}
               >
                 <item.icon className="h-4 w-4 shrink-0" />
@@ -112,7 +113,7 @@ export function SidebarContent({ user, onNavigate }: { user: SidebarUser; onNavi
               >
                 <Avatar className="h-6 w-6">
                   {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={user.name} />}
-                  <AvatarFallback className="bg-ink text-2xs font-semibold text-white">
+                  <AvatarFallback>
                     {getInitials(user.name)}
                   </AvatarFallback>
                 </Avatar>

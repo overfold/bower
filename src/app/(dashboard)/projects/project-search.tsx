@@ -6,6 +6,7 @@ import { Panel } from '@/components/ui/panel'
 import { EmptyState } from '@/components/ui/empty-state'
 import { CreateProjectDialog } from '@/components/create-project-dialog'
 import { BoxesIcon, SearchIcon } from 'lucide-react'
+import { formatDate, formatRelativeTime } from '@/lib/format'
 
 interface ProjectRow {
   id: string
@@ -17,15 +18,8 @@ interface ProjectRow {
 }
 
 function relTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  if (days < 30) return `${days}d ago`
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const days = Math.floor(Math.max(0, Date.now() - new Date(iso).getTime()) / 86_400_000)
+  return days < 30 ? formatRelativeTime(iso) : formatDate(iso)
 }
 
 export function ProjectSearch({
