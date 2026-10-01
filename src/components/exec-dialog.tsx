@@ -11,10 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 type TerminalStatus = 'idle' | 'connecting' | 'connected' | 'exited' | 'error'
 
 function frame(type: number, payload: Uint8Array = new Uint8Array()) {
-  const result = new Uint8Array(5 + payload.length)
+  const result = new Uint8Array(1 + payload.length)
   result[0] = type
-  new DataView(result.buffer).setUint32(1, payload.length)
-  result.set(payload, 5)
+  result.set(payload, 1)
   return result
 }
 
@@ -107,7 +106,7 @@ export function ExecDialog({
       if (!active || finished || socket.readyState !== WebSocket.OPEN) return
       // Browser WebSockets cannot await drain. Bound queued input rather than
       // retaining an arbitrarily large paste while Trellis is blocked.
-      if (socket.bufferedAmount + payload.length + 5 > 128 * 1024) {
+      if (socket.bufferedAmount + payload.length + 1 > 128 * 1024) {
         fail('Terminal input buffer exceeded; reconnect and send smaller input.')
         return
       }
@@ -130,9 +129,9 @@ export function ExecDialog({
       if (!active || finished) return
       try {
         const bytes = new Uint8Array(event.data)
-        if (bytes.length < 5 || bytes.length > 32773 || new DataView(event.data).getUint32(1) !== bytes.length - 5) throw new Error('Malformed terminal frame')
+        if (bytes.length < 1 || bytes.length > 32769) throw new Error('Malformed terminal frame')
         const type = bytes[0]
-        const payload = bytes.subarray(5)
+        const payload = bytes.subarray(1)
         if (type === 4 || type === 5) {
           // xterm preserves raw bytes and split UTF-8 sequences. Acknowledging
           // only after rendering bounds output all the way back to Trellis.

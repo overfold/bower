@@ -302,14 +302,14 @@ export class TrellisClient {
     await this.request<void>('DELETE', this.resourcePath(namespace, `/allocations/${encodeURIComponent(id)}`))
   }
 
-  /** Server-only connection descriptor for the HTTP/1.1 exec bridge. */
+  /** Server-only connection descriptor for the exec WebSocket relay. */
   getExecConnection(id: string, namespace: string, task: string | undefined, cols: number, rows: number) {
     const params = new URLSearchParams({ stdin: 'true', tty: 'true', term: 'xterm-256color', cols: String(cols), rows: String(rows) })
     params.append('command', '/bin/sh')
     if (task) params.set('task', task)
     return {
       url: `${this.baseUrl}${this.resourcePath(namespace, `/allocations/${encodeURIComponent(id)}/exec`)}?${params}`,
-      headers: { Authorization: `Bearer ${this.token}`, Connection: 'Upgrade', Upgrade: 'trellis-exec.v1' },
+      headers: { Authorization: `Bearer ${this.token}` },
       ...(this.caCert ? { ca: this.caCert } : {}),
     }
   }

@@ -3,27 +3,30 @@ import assert from 'node:assert/strict'
 import http from 'node:http'
 import { once } from 'node:events'
 import { setTimeout as delay } from 'node:timers/promises'
-import { WebSocket } from 'ws'
+import { WebSocket, WebSocketServer, createWebSocketStream } from 'ws'
 import { createExecBridge } from './bridge.mjs'
-import { encodeFrame, decodeFrame, readFrames } from './protocol.mjs'
+import { encodeFrame, decodeFrame } from './protocol.mjs'
 
 async function fixture(t, options = {}) {
   const peers = []
   const upstream = http.createServer()
+  const wss = new WebSocketServer({ noServer: true })
   upstream.on('upgrade', (request, socket, head) => {
-    assert.equal(request.headers.upgrade, 'trellis-exec.v1')
+    assert.equal(request.headers.upgrade, 'websocket')
+    assert.equal(request.headers['sec-websocket-protocol'], 'trellis.exec.v1')
     assert.equal(request.headers.authorization, 'Bearer fixture-only')
     assert.equal(request.url, '/exec')
-    socket.on('error', () => {})
-    socket.on('end', () => socket.destroy())
-    socket.write('HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: trellis-exec.v1\r\n\r\n')
-    if (head.length) socket.unshift(head)
-    peers.push(socket)
-    options.onUpstream?.(socket)
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      const stream = createWebSocketStream(ws, { readableObjectMode: true, readableHighWaterMark: 1 })
+      stream.on('error', () => {})
+      stream.on('end', () => stream.destroy())
+      peers.push(stream)
+      options.onUpstream?.(stream)
+    })
   })
   upstream.listen(0, '127.0.0.1')
   await once(upstream, 'listening')
-  const connection = { url: `http://127.0.0.1:${upstream.address().port}/exec`, headers: { Authorization: 'Bearer fixture-only', Connection: 'Upgrade', Upgrade: 'trellis-exec.v1' } }
+  const connection = { url: `http://127.0.0.1:${upstream.address().port}/exec`, headers: { Authorization: 'Bearer fixture-only' } }
   const bridge = createExecBridge({ allowedOrigin: () => 'http://bower.test',
     authorize: options.authorize ?? (async (_cookie, _input, check) => {
       if (check && options.rejectCheck) throw new Error('Session expired')
@@ -33,7 +36,7 @@ async function fixture(t, options = {}) {
   front.on('upgrade', (req, socket, head) => { void bridge.upgrade(req, socket, head) })
   front.listen(0, '127.0.0.1')
   await once(front, 'listening')
-  t.after(() => { bridge.close(); peers.forEach((peer) => peer.destroy()); front.close(); upstream.close() })
+  t.after(() => { bridge.close(); peers.forEach((peer) => peer.destroy()); wss.close(); front.close(); upstream.close() })
   function connect(headers = {}) {
     const ws = new WebSocket(`ws://127.0.0.1:${front.address().port}/api/exec/stream?serviceConfigId=c&allocationId=a&cols=93&rows=27`, {
       headers: { Origin: 'http://bower.test', Cookie: 'bower_session=test-session', ...headers },
@@ -56,8 +59,8 @@ test('one-frame output credit preserves raw data; input/resize/EOF; nonzero exit
   const { ws, messages } = f.connect()
   await once(ws, 'open')
   const input = []
-  const reading = (async () => { for await (const frame of readFrames(f.peers[0])) input.push(decodeFrame(frame)) })().catch(() => {})
-  f.peers[0].write(Buffer.concat([encodeFrame(4, Buffer.from([0, 0xff, 0xe2, 0x82])), encodeFrame(5, Buffer.from([0xac])), encodeFrame(6, '{"exit_code":23}')]))
+  const reading = (async () => { for await (const frame of f.peers[0]) input.push(decodeFrame(frame)) })().catch(() => {})
+  for (const frame of [Buffer.from([4, 0, 0xff, 0xe2, 0x82]), Buffer.from([5, 0xac]), Buffer.from([6, ...Buffer.from('{"exit_code":23}')])]) f.peers[0].write(frame)
   await until(() => messages.length === 1)
   await delay(40)
   assert.equal(messages.length, 1, 'must not read next output until browser acknowledges render')
@@ -76,7 +79,7 @@ test('one-frame output credit preserves raw data; input/resize/EOF; nonzero exit
 })
 
 test('Trellis error distinct from premature EOF, wrong direction and malformed statuses', async (t) => {
-  for (const [frame, expected] of [[encodeFrame(7, '{"message":"task stopped"}'), 7], [null, 10], [encodeFrame(1, 'bad'), 10], [encodeFrame(6, '{"exit_code":"0"}'), 10], [encodeFrame(7, 'no JSON'), 10], [Buffer.from([4, 0, 0, 0x80, 1]), 10]]) {
+  for (const [frame, expected] of [[encodeFrame(7, '{"message":"task stopped"}'), 7], [null, 10], [encodeFrame(1, 'bad'), 10], [encodeFrame(6, '{"exit_code":"0"}'), 10], [encodeFrame(7, 'no JSON'), 10], [Buffer.alloc(32770, 4), 10], [Buffer.alloc(0), 10]]) {
     const f = await fixture(t)
     const { ws, messages } = f.connect()
     await once(ws, 'open')
@@ -91,7 +94,7 @@ test('clean zero exit remains exit, not a transport error', async (t) => {
   const f = await fixture(t)
   const { ws, messages } = f.connect()
   await once(ws, 'open')
-  f.peers[0].end(Buffer.from([6, 0, 0, 0, 15, ...Buffer.from('{"exit_code":0}')]))
+  f.peers[0].end(Buffer.from([6, ...Buffer.from('{"exit_code":0}')]))
   await until(() => messages.length === 1)
   assert.equal(messages[0].type, 6)
   assert.equal(JSON.parse(messages[0].payload).exit_code, 0)

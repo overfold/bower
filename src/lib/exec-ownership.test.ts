@@ -18,5 +18,5 @@ test('exec descriptor uses namespaced escaped URL, argv query, upgrade and serve
   const url = new URL(result.url)
   assert.equal(url.pathname, '/v1/namespaces/prod%20east/allocations/a%2Fb/exec')
   assert.deepEqual([...url.searchParams], [['stdin', 'true'], ['tty', 'true'], ['term', 'xterm-256color'], ['cols', '93'], ['rows', '27'], ['command', '/bin/sh'], ['task', 'web main']])
-  assert.deepEqual(result.headers, { Authorization: 'Bearer fixture-only', Connection: 'Upgrade', Upgrade: 'trellis-exec.v1' })
+  assert.deepEqual(result.headers, { Authorization: 'Bearer fixture-only' })
 })

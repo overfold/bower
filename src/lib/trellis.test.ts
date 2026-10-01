@@ -78,7 +78,7 @@ test('exec descriptors share normalized addresses and encoded resource ownership
   assert.deepEqual(Object.fromEntries(url.searchParams), {
     stdin: 'true', tty: 'true', term: 'xterm-256color', cols: '93', rows: '27', command: '/bin/sh', task: 'task name',
   })
-  assert.deepEqual(connection.headers, { Authorization: 'Bearer fixture-token', Connection: 'Upgrade', Upgrade: 'trellis-exec.v1' })
+  assert.deepEqual(connection.headers, { Authorization: 'Bearer fixture-token' })
   assert.equal(new URL(client.getExecConnection('a', 'production', undefined, 83, 31).url).searchParams.has('task'), false)
   assert.throws(() => client.getExecConnection('a', '', undefined, 83, 31), /namespace is required/)
 })

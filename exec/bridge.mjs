@@ -1,13 +1,13 @@
 import { WebSocketServer, WebSocket } from 'ws'
 import { once } from 'node:events'
-import { decodeFrame, encodeFrame, readFrames, validateInput, MAX_PAYLOAD } from './protocol.mjs'
+import { decodeFrame, encodeFrame, validateInput, MAX_PAYLOAD } from './protocol.mjs'
 import { openExec } from './upstream.mjs'
 
 // Browser protocol: one complete Trellis frame per binary WebSocket message.
 // Type 8 (empty) acknowledges rendered output; type 10 is a bridge/transport
 // error, deliberately distinct from Trellis type 7 and process exit type 6.
 export function createExecBridge({ authorize, allowedOrigin, maxStreams = 256, checkInterval = 15000 }) {
-  const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_PAYLOAD + 5, perMessageDeflate: false })
+  const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_PAYLOAD + 1, perMessageDeflate: false })
   const streams = new Set()
 
   function revoke(token) {
@@ -94,7 +94,7 @@ export function createExecBridge({ authorize, allowedOrigin, maxStreams = 256, c
           }
           validateInput(frame)
           pendingBytes += frame.length
-          if (pendingBytes > 4 * (MAX_PAYLOAD + 5)) throw new Error('Terminal input buffer exceeded')
+          if (pendingBytes > 4 * (MAX_PAYLOAD + 1)) throw new Error('Terminal input buffer exceeded')
           writes = writes.then(async () => {
             if (closed) return
             if (!upstream.write(frame)) await once(upstream, 'drain', { signal: abort.signal })
@@ -121,7 +121,7 @@ export function createExecBridge({ authorize, allowedOrigin, maxStreams = 256, c
       const lifetime = setTimeout(stop, 8 * 60 * 60 * 1000)
       ws.once('close', () => { clearInterval(heartbeat); clearTimeout(lifetime) })
       timer = setTimeout(recheck, checkInterval)
-      for await (const frame of readFrames(upstream)) {
+      for await (const frame of upstream) {
         const { type, payload } = decodeFrame(frame)
         if (type === 4 || type === 5) {
           let ackTimer

@@ -1,8 +1,13 @@
 # Interactive allocation terminals
 
-Bower uses Trellis's stable `trellis-exec.v1` HTTP/1.1 upgrade, not the removed
-polling session or one-shot exec APIs. The browser connects to a same-origin
+Bower uses Trellis's `trellis.exec.v1` WebSocket subprotocol, not the removed
+custom HTTP upgrade transport. The browser connects to a same-origin
 WebSocket at `/api/exec/stream`. Trellis tokens never leave the server.
+
+The server-side relay remains necessary for Bower session authorization and
+server-only Trellis credentials; Next route handlers do not expose a WebSocket
+upgrade API. It relays binary messages without a custom byte-stream decoder.
+The Caddy proxy under `proxy/` is unrelated application ingress infrastructure.
 
 ## Running and deploying
 
@@ -28,12 +33,14 @@ WebSocket at `/api/exec/stream`. Trellis tokens never leave the server.
 
 ## Flow control and lifecycle
 
-Each binary WebSocket message carries one complete Trellis frame. Browser-only
+Each binary WebSocket message carries one type byte followed by up to 32 KiB of
+payload, matching Trellis's wire format; no length prefix is needed. Browser-only
 type 8 acknowledges an output frame **after xterm renders it**; the bridge reads
-no subsequent output until that acknowledgement. Trellis sees normal TCP
-backpressure, not an output queue. The decoder holds one 32 KiB frame plus the
-socket's bounded read buffer. Input is split into 32 KiB frames, queued up to
-128 KiB and serialized with socket drain handling; overflowing that bound
+no subsequent output until that acknowledgement. The upstream WebSocket stream
+preserves message boundaries and pauses reads with a one-message high-water mark,
+propagating backpressure rather than growing an output queue.
+Input is split into 32 KiB frames, queued up to 128 KiB and serialized with
+socket drain handling; overflowing that bound
 terminates the stream rather than retaining an unbounded paste.
 
 Type 6 is process exit; type 7 is a Trellis error; browser-only type 10 is a
@@ -51,11 +58,10 @@ is capped at eight streams/session and 256 streams/replica.
 
 ## Validation
 
-`npm test` covers split/coalesced frames, raw bytes, size boundaries, malformed
-frames, stdin/EOF/resize, output credit, exit/error distinction, authorization
+`npm test` covers WebSocket subprotocol negotiation, fragmented messages, raw
+bytes, size boundaries, malformed frames, stdin/EOF/resize, output credit,
+exit/error distinction, authorization
 rejection, revocation/disconnect cleanup and blocked-input flooding. The
 ownership tests intentionally use matching labels/job names in a wrong namespace.
 Production verification must also build with `OUTPUT_MODE=standalone`, stage
 the same files as the Docker runner, and exercise the terminal in a browser.
-The implementation was exercised that way against a controlled local Trellis
-wire fixture and an isolated test database, not a live cluster.
