@@ -57,6 +57,19 @@ test('exec descriptors share normalized addresses and encoded resource ownership
   assert.throws(() => client.getExecConnection('a', '', undefined, 83, 31), /namespace is required/)
 })
 
+test('schemeless workload addresses use HTTPS and carry only their injected CA', async (t) => {
+  let request: { url: string; options?: RequestInit & { dispatcher?: unknown } } | undefined
+  t.mock.method(globalThis, 'fetch', async (url: string, options?: RequestInit & { dispatcher?: unknown }) => {
+    request = { url, options }
+    return Response.json([])
+  })
+  const client = new TrellisClient('trellis:8128', 'rotated-token', 'injected-ca')
+  await client.listNodes()
+  assert.equal(request?.url, 'https://trellis:8128/v1/nodes')
+  assert.ok(request?.options?.dispatcher)
+  assert.equal(client.getExecConnection('a', 'production', undefined, 80, 24).ca, 'injected-ca')
+})
+
 test('identical jobs in different namespaces never use cluster allocation listing; dashboard deliberately does', async (t) => {
   const paths: string[] = []
   t.mock.method(globalThis, 'fetch', async (url: string) => {

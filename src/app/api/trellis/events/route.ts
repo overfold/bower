@@ -17,9 +17,6 @@ export async function GET(request: Request) {
   const [environment] = projects.length ? await db.select({ id: environments.id }).from(environments)
     .where(and(eq(environments.trellisNamespace, namespace), inArray(environments.projectId, projects.map((project) => project.id)))).limit(1) : []
   if (!environment) return new Response('Forbidden', { status: 403 })
-  if (!ctx?.org.trellisApiUrl || !ctx.org.trellisApiToken) {
-    return new Response('Trellis not configured', { status: 503 })
-  }
   let upstream: Response
   try {
     const client = await getTrellisClient(ctx.org.id)

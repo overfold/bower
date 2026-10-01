@@ -8,7 +8,7 @@ import {
   getServicesForOrg,
   getAuditLog,
 } from '@/lib/queries'
-import { getTrellisClient } from '@/lib/trellis-instance'
+import { getTrellisClient, hasTrellisConnection } from '@/lib/trellis-instance'
 import { trellisReadError } from '@/lib/trellis-runtime'
 import { TrellisReadError } from '@/components/trellis-read-error'
 import { parseNodeAllocatedResources } from '@/lib/trellis-resource-metrics'
@@ -118,7 +118,7 @@ export default async function DashboardPage() {
     if (metrics.status === 'fulfilled') allocatedByNode = parseNodeAllocatedResources(metrics.value)
     else metricsError = trellisReadError(metrics.reason)
   } catch (error) {
-    clusterError = allocationsError = metricsError = !orgCtx.org.trellisApiUrl || !orgCtx.org.trellisApiToken
+    clusterError = allocationsError = metricsError = !hasTrellisConnection(orgCtx.org)
       ? 'Trellis is not configured. Set the connection in organization settings.' : trellisReadError(error)
   }
 

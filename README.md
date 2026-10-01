@@ -49,13 +49,13 @@ trellisctl --namespace platform jobs apply ./trellis.yml --wait
 
 #### 3. Finish setup
 
-On first startup Bower creates a default organization pre-configured with your cluster's API credentials (injected via `api_access`) and prints a single-use instance admin token to the container logs. Retrieve it with:
+On first startup Bower creates a default organization backed by the allocation's Trellis workload identity (injected via `api_access`) and prints a single-use instance admin token to the container logs. Retrieve it with:
 
 ```bash
 trellisctl --namespace platform jobs logs bower --tail 50
 ```
 
-Look for the `Bower — First Run Setup` banner containing the token. Open Bower at `http://<node-ip>:3000` and use the token to create the first account. The Trellis connection is already configured — no manual cluster setup required.
+Look for the `Bower — First Run Setup` banner containing the token. Open Bower at `http://<node-ip>:3000` and use the token to create the first account. The Trellis connection is already configured — no manual cluster setup required. Bower resolves the address, token, and cluster CA from each running allocation rather than storing them in Postgres. When Trellis replaces an allocation generation, the replacement therefore uses its newly injected token; multiple Bower replicas likewise use their own credentials.
 
 For Bower-account-protected application routes, also configure `BOWER_PUBLIC_URL` and `BOWER_ROUTE_AUTH_SECRET`; see the [configuration reference](docs/configuration.md).
 

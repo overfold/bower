@@ -2,6 +2,9 @@ import { eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { organizations } from '@/db/schema'
 import { TrellisClient } from '@/lib/trellis'
+import { resolveTrellisConnection } from '@/lib/trellis-connection'
+
+export { hasTrellisConnection } from '@/lib/trellis-connection'
 
 export async function getTrellisClient(orgId: string): Promise<TrellisClient> {
   const rows = await db
@@ -15,15 +18,8 @@ export async function getTrellisClient(orgId: string): Promise<TrellisClient> {
   }
 
   const org = rows[0]
-
-  if (!org.trellisApiUrl || !org.trellisApiToken) {
-    throw new Error(
-      `Trellis credentials have not been configured for organization ${orgId}. ` +
-        'Set the Trellis API URL and token in the organization settings.',
-    )
-  }
-
-  return new TrellisClient(org.trellisApiUrl, org.trellisApiToken)
+  const connection = resolveTrellisConnection(org)
+  return new TrellisClient(connection.apiUrl, connection.apiToken, connection.caCert)
 }
 
 export function getTrellisClientFromEnv(): TrellisClient {

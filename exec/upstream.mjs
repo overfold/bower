@@ -14,7 +14,7 @@ export function openExec(connection, signal) {
     const req = transport.request(url, {
       method: 'GET', headers: connection.headers, signal,
       rejectUnauthorized: true,
-      ...(process.env.TRELLIS_CA_CERT ? { ca: process.env.TRELLIS_CA_CERT } : {}),
+      ...(connection.ca ? { ca: connection.ca } : {}),
     })
     const timeout = setTimeout(() => req.destroy(new Error('Exec handshake timed out')), 10000)
     const finish = () => clearTimeout(timeout)

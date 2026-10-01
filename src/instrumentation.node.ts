@@ -15,8 +15,9 @@ async function seedDefaultOrg() {
 
   if (count > 0) return
 
-  const apiUrl = process.env.TRELLIS_ADDR ?? process.env.TRELLIS_API_URL ?? ''
-  const apiToken = process.env.TRELLIS_TOKEN ?? process.env.TRELLIS_API_TOKEN ?? ''
+  const useWorkloadIdentity = Boolean(process.env.TRELLIS_ADDR && process.env.TRELLIS_TOKEN)
+  const apiUrl = useWorkloadIdentity ? '' : process.env.TRELLIS_API_URL ?? ''
+  const apiToken = useWorkloadIdentity ? '' : process.env.TRELLIS_API_TOKEN ?? ''
 
   const [organization] = await db
     .insert(organizations)
@@ -25,7 +26,14 @@ async function seedDefaultOrg() {
       slug: 'default',
       trellisApiUrl: apiUrl,
       trellisApiToken: apiToken,
-    }).returning({ id: organizations.id })
+      useTrellisWorkloadIdentity: useWorkloadIdentity,
+    })
+    .onConflictDoNothing({ target: organizations.slug })
+    .returning({ id: organizations.id })
+
+  // Another replica may have created the bootstrap organization while this
+  // replica was between the count and insert queries.
+  if (!organization) return
 
   const rawToken = randomBytes(32).toString('base64url')
   const tokenHash = createHash('sha256').update(rawToken).digest('hex')

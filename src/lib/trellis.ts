@@ -2,6 +2,7 @@
 // TrellisClient — HTTP client for the Trellis container orchestrator API
 // ---------------------------------------------------------------------------
 
+import { Agent, type Dispatcher } from 'undici'
 import type {
   TrellisWhoAmI,
   TrellisNode,
@@ -15,6 +16,17 @@ import type {
   TrellisJobApplyResult,
   TrellisAllocationMetrics,
 } from '@/types/trellis'
+
+const caDispatchers = new Map<string, Dispatcher>()
+
+function dispatcherForCa(caCert: string): Dispatcher {
+  let dispatcher = caDispatchers.get(caCert)
+  if (!dispatcher) {
+    dispatcher = new Agent({ connect: { ca: caCert } })
+    caDispatchers.set(caCert, dispatcher)
+  }
+  return dispatcher
+}
 
 // ---------------------------------------------------------------------------
 // Error type
@@ -50,11 +62,15 @@ export class TrellisApiError extends Error {
 export class TrellisClient {
   private readonly baseUrl: string
   private readonly token: string
+  private readonly caCert?: string
+  private readonly dispatcher?: Dispatcher
 
-  constructor(apiUrl: string, token: string) {
+  constructor(apiUrl: string, token: string, caCert?: string) {
     const address = apiUrl.trim().replace(/\/+$/, '')
     this.baseUrl = /^https?:\/\//i.test(address) ? address : `https://${address}`
     this.token = token
+    this.caCert = caCert
+    this.dispatcher = caCert ? dispatcherForCa(caCert) : undefined
   }
 
   // -------------------------------------------------------------------------
@@ -105,7 +121,8 @@ export class TrellisClient {
       method,
       headers: fetchHeaders,
       body: hasBody ? JSON.stringify(options!.body) : undefined,
-    })
+      ...(this.dispatcher ? { dispatcher: this.dispatcher } : {}),
+    } as RequestInit & { dispatcher?: Dispatcher })
 
     if (!res.ok) {
       const errorBody = await res.text()
@@ -263,6 +280,7 @@ export class TrellisClient {
     return {
       url: `${this.baseUrl}${this.resourcePath(namespace, `/allocations/${encodeURIComponent(id)}/exec`)}?${params}`,
       headers: { Authorization: `Bearer ${this.token}`, Connection: 'Upgrade', Upgrade: 'trellis-exec.v1' },
+      ...(this.caCert ? { ca: this.caCert } : {}),
     }
   }
 

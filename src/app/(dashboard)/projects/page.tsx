@@ -7,6 +7,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { CreateProjectDialog } from '@/components/create-project-dialog'
 import { BoxesIcon } from 'lucide-react'
 import { ProjectSearch } from './project-search'
+import { hasTrellisConnection } from '@/lib/trellis-instance'
 
 export default async function ProjectsPage() {
   const user = await getCurrentUser()
@@ -15,7 +16,7 @@ export default async function ProjectsPage() {
   const orgCtx = await getUserOrganization(user.id)
   if (!orgCtx) redirect('/login')
 
-  const clusterConfigured = Boolean(orgCtx.org.trellisApiUrl && orgCtx.org.trellisApiToken)
+  const clusterConfigured = hasTrellisConnection(orgCtx.org)
   const projectList = await getProjectsForUser(orgCtx.org.id, user.id, orgCtx.role)
 
   const serviceCounts = await Promise.all(

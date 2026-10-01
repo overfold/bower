@@ -137,6 +137,9 @@ export const organizations = pgTable("organizations", {
   slug: text("slug").notNull().unique(),
   trellisApiUrl: text("trellis_api_url").notNull(),
   trellisApiToken: text("trellis_api_token").notNull(),
+  useTrellisWorkloadIdentity: boolean("use_trellis_workload_identity")
+    .notNull()
+    .default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

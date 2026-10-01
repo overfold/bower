@@ -29,7 +29,12 @@ export async function updateOrganizationAction(
 
   if (typeof name === 'string' && name.trim()) updates.name = name.trim()
   if (typeof trellisApiUrl === 'string') updates.trellisApiUrl = trellisApiUrl.trim()
-  if (typeof trellisApiToken === 'string' && trellisApiToken.trim()) updates.trellisApiToken = trellisApiToken.trim()
+  if (typeof trellisApiToken === 'string' && trellisApiToken.trim()) {
+    updates.trellisApiToken = trellisApiToken.trim()
+    if (typeof trellisApiUrl === 'string' && trellisApiUrl.trim()) {
+      updates.useTrellisWorkloadIdentity = false
+    }
+  }
 
   await db.update(organizations).set(updates).where(eq(organizations.id, ctx.org.id))
   await recordAudit({
