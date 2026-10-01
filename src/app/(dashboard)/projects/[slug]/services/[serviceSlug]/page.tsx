@@ -5,6 +5,7 @@ import { getUserOrganization, getProjectBySlug, getProjectEnvironment, getServic
 import { getTrellisClient } from '@/lib/trellis-instance'
 import { allocationBelongsToService, trellisReadError } from '@/lib/trellis-runtime'
 import { TrellisReadError } from '@/components/trellis-read-error'
+import { NodeLink } from '@/components/node-link'
 import { getProjectRole } from '@/lib/actions/shared'
 import { Panel, SectionTitle } from '@/components/ui/panel'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -100,7 +101,7 @@ export default async function ServiceDetailPage({
                         {allocation.phase === 'pending' && <p className="mt-1 max-w-64 text-xs text-ink-muted">{allocation.message || allocation.reason || 'Awaiting placement'}</p>}
                       </TableCell>
                       <TableCell><StatusDot status={allocation.health} /></TableCell>
-                      <TableCell className="max-w-40 truncate font-mono text-xs text-ink-muted">{allocation.node_id}</TableCell>
+                      <TableCell><NodeLink id={allocation.node_id} /></TableCell>
                       <TableCell className="whitespace-nowrap text-ink-muted">{new Date(allocation.created_at).toLocaleString()}</TableCell>
                     </TableRow>
                   ))}

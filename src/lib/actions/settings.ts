@@ -220,7 +220,7 @@ export async function revokeApiKeyAction(id: string) {
 export async function createInvitationAction(input: {
   role: 'owner' | 'admin' | 'member' | null
   grantInstanceAdmin: boolean
-  reusable: boolean
+  maxUses: number | null
   teamIds: string[]
   note?: string
   expiresAt?: string
@@ -229,10 +229,15 @@ export async function createInvitationAction(input: {
   if (!user) return { error: 'Not authenticated.' }
   const ctx = await getUserOrganization(user.id)
   if (!ctx) return { error: 'No organization found.' }
-  if (ctx.role === 'member') return { error: 'Insufficient permissions.' }
-  if (input.role === 'owner' && ctx.role !== 'owner' && !(await isInstanceAdmin(user.id))) return { error: 'Only owners can create owner-level invitations.' }
+  const instanceAdmin = await isInstanceAdmin(user.id)
+  if (ctx.role === 'member' && !instanceAdmin) return { error: 'Insufficient permissions.' }
+  if (input.grantInstanceAdmin && !instanceAdmin) return { error: 'Instance administrator access required.' }
+  if (input.role !== null && !['owner', 'admin', 'member'].includes(input.role)) return { error: 'Invalid organization role.' }
+  if (input.role === 'owner' && ctx.role !== 'owner' && !instanceAdmin) return { error: 'Only owners can create owner-level invitations.' }
   if (!input.role && !input.grantInstanceAdmin) return { error: 'An invitation must grant organization or instance access.' }
-  if (input.reusable && input.role !== 'member') return { error: 'Reusable invitations can only grant the Member role.' }
+  if (input.maxUses !== null && (!Number.isInteger(input.maxUses) || input.maxUses < 1 || input.maxUses > 2147483647)) return { error: 'Uses must be a positive whole number.' }
+  const reusable = input.maxUses !== 1
+  if (reusable && (input.role !== 'member' || input.grantInstanceAdmin)) return { error: 'Invitations granting elevated access must be single-use.' }
   const expiresAt = input.expiresAt ? new Date(input.expiresAt) : null
   if (expiresAt && Number.isNaN(expiresAt.getTime())) return { error: 'Invalid expiration date.' }
   if (expiresAt && expiresAt <= new Date()) return { error: 'Expiration must be in the future.' }
@@ -246,13 +251,14 @@ export async function createInvitationAction(input: {
     tokenHash: hashInvitationToken(rawToken),
     organizationRole: input.role,
     grantInstanceAdmin: input.grantInstanceAdmin,
-    reusable: input.reusable,
+    reusable,
+    maxUses: input.maxUses,
     note: input.note?.trim() || null,
     expiresAt,
     createdByUserId: user.id,
   }).returning()
   if (validTeams.length) await db.insert(invitationTeams).values(validTeams.map(({ id }) => ({ invitationId: invitation.id, teamId: id })))
-  await recordAudit({ orgId: ctx.org.id, userId: user.id, action: 'invitation.created', resourceType: 'invitation', resourceId: invitation.id, details: { role: input.role, reusable: input.reusable, grantInstanceAdmin: input.grantInstanceAdmin } })
+  await recordAudit({ orgId: ctx.org.id, userId: user.id, action: 'invitation.created', resourceType: 'invitation', resourceId: invitation.id, details: { role: input.role, reusable, maxUses: input.maxUses, grantInstanceAdmin: input.grantInstanceAdmin } })
   revalidatePath('/settings/members')
   return { inviteUrl: `/invite/${rawToken}` }
 }

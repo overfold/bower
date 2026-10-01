@@ -10,12 +10,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus } from 'lucide-react'
 import { InlineNotice, useFeedback } from '@/components/ui/feedback'
 
-export function AddMemberDialog({ canManage }: { canManage: boolean }) {
+export function AddMemberDialog({ canManage, showInstanceAdmin }: { canManage: boolean; showInstanceAdmin: boolean }) {
   const [open, setOpen] = useState(false)
   const { toast } = useFeedback()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [selectedRole, setSelectedRole] = useState<string>('member')
+  const [instanceRole, setInstanceRole] = useState('member')
   const [email, setEmail] = useState('')
 
   if (!canManage) return null
@@ -25,6 +26,7 @@ export function AddMemberDialog({ canManage }: { canManage: boolean }) {
     setError(null)
     const formData = new FormData(e.currentTarget)
     formData.set('role', selectedRole)
+    formData.set('grantInstanceAdmin', String(showInstanceAdmin && instanceRole === 'admin'))
     startTransition(async () => {
       try {
         await addOrganizationMemberAction(formData)
@@ -40,6 +42,7 @@ export function AddMemberDialog({ canManage }: { canManage: boolean }) {
     setOpen(false)
     setError(null)
     setSelectedRole('member')
+    setInstanceRole('member')
     setEmail('')
   }
 
@@ -53,7 +56,7 @@ export function AddMemberDialog({ canManage }: { canManage: boolean }) {
       </DialogTrigger>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Add organization member</DialogTitle>
+          <DialogTitle>Add member</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <DialogBody className="space-y-4">
@@ -69,8 +72,20 @@ export function AddMemberDialog({ canManage }: { canManage: boolean }) {
                 required
               />
             </div>
+            {showInstanceAdmin ? (
+              <div className="space-y-2">
+                <Label htmlFor="add-member-instance-role">Instance role</Label>
+                <Select value={instanceRole} onValueChange={setInstanceRole}>
+                  <SelectTrigger id="add-member-instance-role"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="member">Member</SelectItem>
+                    <SelectItem value="admin">Administrator</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
             <div className="space-y-2">
-              <Label htmlFor="add-member-role">Role</Label>
+              <Label htmlFor="add-member-role">Organization role</Label>
               <Select value={selectedRole} onValueChange={setSelectedRole}>
                 <SelectTrigger id="add-member-role"><SelectValue /></SelectTrigger>
                 <SelectContent>

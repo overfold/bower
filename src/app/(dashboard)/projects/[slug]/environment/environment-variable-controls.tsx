@@ -82,9 +82,6 @@ export function CreateEnvironmentVariableDialog({
                 required
                 className="font-mono"
               />
-              <p className="text-2xs leading-relaxed text-ink-muted">
-                Values are stored securely and injected into every service in this project.
-              </p>
             </div>
             <div className="flex justify-end gap-2 pt-1">
               <Button type="button" onClick={() => setOpen(false)}>

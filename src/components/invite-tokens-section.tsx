@@ -28,6 +28,8 @@ type Invitation = {
   organizationRole: string | null
   grantInstanceAdmin: boolean
   reusable: boolean
+  maxUses: number | null
+  useCount: number
   note: string | null
   usedAt: string | null
   expiresAt: string | null
@@ -51,7 +53,8 @@ export function InviteTokensSection({
 }: InviteTokensSectionProps) {
   const [open, setOpen] = useState(false)
   const [roleValue, setRoleValue] = useState<'owner' | 'admin' | 'member'>('member')
-  const [reusable, setReusable] = useState(false)
+  const [uses, setUses] = useState('single')
+  const [maxUses, setMaxUses] = useState('2')
   const [admin, setAdmin] = useState(false)
   const [note, setNote] = useState('')
   const [expiresAt, setExpiresAt] = useState('')
@@ -68,7 +71,7 @@ export function InviteTokensSection({
     const result = await createInvitationAction({
       role: roleValue,
       grantInstanceAdmin: admin,
-      reusable,
+      maxUses: uses === 'unlimited' ? null : uses === 'limited' ? Number(maxUses) : 1,
       teamIds,
       note,
       expiresAt,
@@ -93,6 +96,7 @@ export function InviteTokensSection({
     if (invitation.revokedAt) return 'Revoked'
     if (invitation.expiresAt && new Date(invitation.expiresAt) <= new Date()) return 'Expired'
     if (!invitation.reusable && invitation.usedAt) return 'Accepted'
+    if (invitation.maxUses !== null && invitation.useCount >= invitation.maxUses) return 'Accepted'
     return 'Active'
   }
 
@@ -105,7 +109,7 @@ export function InviteTokensSection({
       <CardHeader className="min-h-0 py-3">
         <div className="min-w-0">
           <CardTitle>Invitations</CardTitle>
-          <CardDescription>Share secure invitation links to grant access. Links are single-use unless marked reusable.</CardDescription>
+          <CardDescription>Share invitation links with the roles and number of uses you choose.</CardDescription>
         </div>
         {canInvite ? (
           <Dialog open={open} onOpenChange={setOpen}>
@@ -143,13 +147,28 @@ export function InviteTokensSection({
               ) : (
                 <>
                   <DialogBody className="space-y-5">
+                    {showInstanceAdmin ? (
+                      <div className="space-y-2">
+                        <Label htmlFor="invitation-instance-role">Instance role</Label>
+                        <Select value={admin ? 'admin' : 'member'} onValueChange={(value) => {
+                          setAdmin(value === 'admin')
+                          if (value === 'admin') setUses('single')
+                        }}>
+                          <SelectTrigger id="invitation-instance-role"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="member">Member</SelectItem>
+                            <SelectItem value="admin">Administrator</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ) : null}
                     <div className="space-y-2">
                       <Label htmlFor="invitation-role">Organization role</Label>
                       <Select
                         value={roleValue}
                         onValueChange={(value) => {
                           setRoleValue(value as typeof roleValue)
-                          setReusable(value === 'member' ? reusable : false)
+                          if (value !== 'member') setUses('single')
                         }}
                       >
                         <SelectTrigger id="invitation-role"><SelectValue /></SelectTrigger>
@@ -186,25 +205,31 @@ export function InviteTokensSection({
                       </fieldset>
                     ) : null}
 
-                    {showInstanceAdmin ? (
-                      <div className="flex items-center gap-2">
-                        <Checkbox id="invitation-instance-admin" checked={admin} onCheckedChange={(checked) => setAdmin(checked === true)} />
-                        <Label htmlFor="invitation-instance-admin" className="font-normal">Grant instance administrator access</Label>
-                      </div>
-                    ) : null}
-
-                    <div className="flex items-start gap-2">
-                      <Checkbox
-                        id="invitation-reusable"
-                        className="mt-0.5"
-                        checked={reusable}
-                        disabled={roleValue !== 'member'}
-                        onCheckedChange={(checked) => setReusable(checked === true)}
-                      />
-                      <div>
-                        <Label htmlFor="invitation-reusable" className="font-normal">Anyone with this link can join as Member</Label>
-                        <p className="mt-0.5 text-xs text-ink-muted">Reusable invitations are available for the Member role only.</p>
-                      </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="invitation-uses">Uses</Label>
+                      <Select value={uses} onValueChange={setUses} disabled={roleValue !== 'member' || admin}>
+                        <SelectTrigger id="invitation-uses"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="single">Single use</SelectItem>
+                          <SelectItem value="limited">Limited uses</SelectItem>
+                          <SelectItem value="unlimited">Unlimited uses</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {uses === 'limited' ? (
+                        <div className="space-y-2 pt-2">
+                          <Label htmlFor="invitation-max-uses">Maximum uses</Label>
+                          <Input id="invitation-max-uses" type="number" min={2} max={2147483647} value={maxUses} onChange={(event) => setMaxUses(event.target.value)} />
+                        </div>
+                      ) : null}
+                      <p className="text-xs text-ink-muted">
+                        {roleValue !== 'member' || admin
+                          ? 'Invitations granting elevated access are single-use.'
+                          : uses === 'single'
+                            ? 'The link stops working after one acceptance.'
+                            : uses === 'limited'
+                              ? 'The link stops working after the maximum number of acceptances.'
+                              : 'The link can be accepted repeatedly until it expires or you revoke it.'}
+                      </p>
                     </div>
 
                     <div className="space-y-2">
@@ -235,7 +260,7 @@ export function InviteTokensSection({
           <TableHeader>
             <TableRow>
               <TableHead>Access</TableHead>
-              <TableHead>Type</TableHead>
+              <TableHead>Uses</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Expires</TableHead>
               <TableHead>Created by</TableHead>
@@ -259,7 +284,7 @@ export function InviteTokensSection({
                       {invitation.grantInstanceAdmin ? <span className="text-xs text-ink-muted">Instance admin</span> : null}
                     </div>
                   </TableCell>
-                  <TableCell>{invitation.reusable ? 'Reusable' : 'Single-use'}</TableCell>
+                  <TableCell>{invitation.useCount} / {invitation.maxUses ?? 'Unlimited'}</TableCell>
                   <TableCell><Badge variant={invitationStatus === 'Active' ? 'success' : 'secondary'}>{invitationStatus}</Badge></TableCell>
                   <TableCell>{invitation.expiresAt ? new Date(invitation.expiresAt).toLocaleDateString() : 'Never'}</TableCell>
                   <TableCell>{invitation.createdByName ?? '—'}</TableCell>

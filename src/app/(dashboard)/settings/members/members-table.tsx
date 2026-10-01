@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import Link from 'next/link'
 import { SearchIcon } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -183,15 +184,15 @@ export function MembersTable({
               filtered.map((member) => (
                 <TableRow key={member.membershipId ?? `user-${member.userId}`}>
                   <TableCell>
-                    <div className="flex items-center gap-2.5">
+                    <Link href={`/settings/members/${member.userId}`} className="group flex items-center gap-2.5">
                       <Avatar className="h-7 w-7 rounded-md">
                         {member.avatar ? <AvatarImage src={member.avatar} /> : null}
                         <AvatarFallback className="rounded-md bg-ink text-2xs font-semibold text-white">
                           {member.name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="text-[13px] font-medium text-ink">{member.name}</span>
-                    </div>
+                      <span className="text-[13px] font-medium text-ink transition-colors group-hover:text-brand-500">{member.name}</span>
+                    </Link>
                   </TableCell>
                   <TableCell className="text-ink-muted">{member.email}</TableCell>
 

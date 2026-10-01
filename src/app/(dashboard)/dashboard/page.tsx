@@ -11,6 +11,7 @@ import {
 import { getTrellisClient, hasTrellisConnection } from '@/lib/trellis-instance'
 import { trellisReadError } from '@/lib/trellis-runtime'
 import { TrellisReadError } from '@/components/trellis-read-error'
+import { NodeLink } from '@/components/node-link'
 import { parseNodeAllocatedResources } from '@/lib/trellis-resource-metrics'
 import { PageHeading } from '@/components/page-heading'
 import { Panel, PanelHeader } from '@/components/ui/panel'
@@ -334,7 +335,7 @@ export default async function DashboardPage() {
                   <li key={node.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
                     <span className="flex min-w-0 items-center gap-2">
                       <Dot tone={node.status === 'healthy' ? 'brand' : node.status === 'draining' ? 'warn' : 'danger'} />
-                      <span className="truncate text-[13px] text-ink">{node.id}</span>
+                      <NodeLink id={node.id} className="truncate text-[13px]" />
                     </span>
                     <span className="shrink-0">
                       <Mono>{node.version}</Mono>

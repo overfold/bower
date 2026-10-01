@@ -12,7 +12,6 @@ import { PageHeading } from '@/components/page-heading'
 import { InviteTokensSection } from '@/components/invite-tokens-section'
 import { AddMemberDialog } from './add-member-dialog'
 import { MembersTable } from './members-table'
-import { AddInstanceAdminDialog } from '../instance/instance-admin-actions'
 
 export default async function MembersSettingsPage() {
   const user = await getCurrentUser()
@@ -56,12 +55,7 @@ export default async function MembersSettingsPage() {
       <PageHeading
         title="Members"
         description={`Manage members, teams, and invitations for ${orgCtx.org.name}.`}
-        actions={
-          <div className="flex items-center gap-2">
-            {showInstanceAdmin && <AddInstanceAdminDialog />}
-            <AddMemberDialog canManage={canManageRoles} />
-          </div>
-        }
+        actions={<AddMemberDialog canManage={canManageRoles} showInstanceAdmin={showInstanceAdmin} />}
       />
 
       <MembersTable
@@ -78,6 +72,8 @@ export default async function MembersSettingsPage() {
           organizationRole: row.invitation.organizationRole,
           grantInstanceAdmin: row.invitation.grantInstanceAdmin,
           reusable: row.invitation.reusable,
+          maxUses: row.invitation.maxUses,
+          useCount: row.invitation.useCount,
           note: row.invitation.note,
           usedAt: row.invitation.usedAt?.toISOString() ?? null,
           expiresAt: row.invitation.expiresAt?.toISOString() ?? null,

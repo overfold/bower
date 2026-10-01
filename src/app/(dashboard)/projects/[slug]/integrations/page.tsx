@@ -7,7 +7,7 @@ import {
   getServicesByProject,
   getProjectEnvironment,
 } from '@/lib/queries'
-import { Panel, SectionTitle } from '@/components/ui/panel'
+import { Panel, PanelHeader } from '@/components/ui/panel'
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from '@/components/ui/table'
@@ -45,31 +45,22 @@ export default async function IntegrationsPage({
 
   return (
     <div className="space-y-8">
-      <div className="space-y-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <SectionTitle>Webhooks</SectionTitle>
-            <p className="mt-1 text-[13px] text-ink-muted">Trigger service deployments when your source provider sends an event.</p>
-          </div>
-          {isAdmin && environment && (
+      <Panel>
+        <PanelHeader title="Webhooks" hint={`${visibleHooks.length} ${visibleHooks.length === 1 ? 'webhook' : 'webhooks'}`} action={isAdmin && environment ? (
             <CreateWebhookDialog
               projectId={project.id}
               services={services.map((s) => ({ id: s.id, name: s.name }))}
               environmentId={environment.id}
             />
-          )}
-        </div>
+          ) : undefined} />
 
         {visibleHooks.length === 0 ? (
-          <Panel>
             <EmptyState
               icon={<Webhook className="h-4 w-4" />}
               title="No webhooks"
               body="Add a webhook to trigger deployments automatically."
             />
-          </Panel>
         ) : (
-          <Panel>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -106,29 +97,19 @@ export default async function IntegrationsPage({
                 ))}
               </TableBody>
             </Table>
-          </Panel>
         )}
-      </div>
+      </Panel>
 
-      <div className="space-y-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <SectionTitle>Notification channels</SectionTitle>
-            <p className="mt-1 text-[13px] text-ink-muted">Send deployment updates to the tools your team already uses.</p>
-          </div>
-          {isAdmin && <CreateNotificationDialog projectId={project.id} />}
-        </div>
+      <Panel>
+        <PanelHeader title="Notification channels" hint={`${channels.length} ${channels.length === 1 ? 'channel' : 'channels'}`} action={isAdmin ? <CreateNotificationDialog projectId={project.id} /> : undefined} />
 
         {channels.length === 0 ? (
-          <Panel>
             <EmptyState
               icon={<Bell className="h-4 w-4" />}
               title="No notification channels"
               body="Add a channel to receive deployment notifications."
             />
-          </Panel>
         ) : (
-          <Panel>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -161,9 +142,8 @@ export default async function IntegrationsPage({
                 ))}
               </TableBody>
             </Table>
-          </Panel>
         )}
-      </div>
+      </Panel>
     </div>
   )
 }

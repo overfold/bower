@@ -14,7 +14,6 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Plus } from 'lucide-react'
 
 export function CreateSecretDialog({
@@ -75,12 +74,12 @@ export function CreateSecretDialog({
             </div>
             <div className="space-y-2">
               <Label htmlFor="value">Value</Label>
-              <Textarea
+              <Input
                 id="value"
                 name="value"
+                type="password"
                 placeholder="Secret value"
                 required
-                rows={3}
                 mono
               />
             </div>

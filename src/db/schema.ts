@@ -196,6 +196,8 @@ export const invitations = pgTable("invitations", {
   organizationRole: orgMemberRoleEnum("organization_role"),
   grantInstanceAdmin: boolean("grant_instance_admin").notNull().default(false),
   reusable: boolean("reusable").notNull().default(false),
+  maxUses: integer("max_uses").default(1),
+  useCount: integer("use_count").notNull().default(0),
   note: text("note"),
   createdByUserId: uuid("created_by_user_id").references(() => users.id, {
     onDelete: "set null",

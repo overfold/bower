@@ -162,6 +162,7 @@ export async function setNodeDrainAction(nodeId: string, drain: boolean) {
       action: drain ? 'node.drained' : 'node.undrained', resourceType: 'node', resourceId: nodeId })
   } catch (error) { throw new Error(error instanceof Error ? error.message : 'Node action failed.') }
   revalidatePath('/status')
+  revalidatePath(`/status/${encodeURIComponent(nodeId)}`)
 }
 
 export async function resetReplacementBackoffAction(namespace: string, job: string, group: string) {
@@ -260,11 +261,18 @@ export async function deleteTeamAction(teamId: string) {
 }
 
 export async function addOrganizationMemberAction(formData: FormData) {
-  const ctx = await requireContext(); if (ctx.role !== 'owner') throw new Error('Only owners can manage organization membership.')
+  const ctx = await requireContext(); if (ctx.role !== 'owner' && !ctx.user.isInstanceAdmin) throw new Error('Only owners and instance administrators can manage organization membership.')
+  const grantInstanceAdmin = text(formData, 'grantInstanceAdmin') === 'true'
+  if (grantInstanceAdmin && !ctx.user.isInstanceAdmin) throw new Error('Instance administrator access required.')
   const email = text(formData, 'email').toLowerCase(); const [member] = await db.select().from(users).where(eq(users.email, email)).limit(1); if (!member) throw new Error('That user must register before being added.')
   const role = text(formData, 'role') as 'owner' | 'admin' | 'member'
-  await db.insert(organizationMembers).values({ orgId: ctx.org.id, userId: member.id, role }).onConflictDoUpdate({ target: [organizationMembers.orgId, organizationMembers.userId], set: { role } })
-  await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'organization.member.upserted', resourceType: 'organization', resourceId: ctx.org.id, details: { memberId: member.id, email, role } }); revalidatePath('/settings/members')
+  if (!['owner', 'admin', 'member'].includes(role)) throw new Error('Invalid organization role.')
+  await db.transaction(async (tx) => {
+    await tx.insert(organizationMembers).values({ orgId: ctx.org.id, userId: member.id, role }).onConflictDoUpdate({ target: [organizationMembers.orgId, organizationMembers.userId], set: { role } })
+    if (grantInstanceAdmin) await tx.update(users).set({ isInstanceAdmin: true, updatedAt: new Date() }).where(eq(users.id, member.id))
+  })
+  await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'organization.member.upserted', resourceType: 'organization', resourceId: ctx.org.id, details: { memberId: member.id, email, role, grantInstanceAdmin } }); revalidatePath('/settings/members')
+  if (grantInstanceAdmin) revalidatePath('/settings/instance')
 }
 
 export async function grantProjectAccessAction(projectId: string, formData: FormData) {

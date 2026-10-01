@@ -123,8 +123,8 @@ export function ConfigurationForm({ serviceId, environmentId, config }: Configur
         <PanelHeader title="Health checks" hint="Determine when a deployment is ready and healthy" />
         <div className="space-y-4 p-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="healthType">Health check type</Label>
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="healthType">Type</Label>
               <input type="hidden" name="healthType" value={healthType} />
               <Select value={healthType || 'none'} onValueChange={(value) => setHealthType(value === 'none' ? '' : value)}>
                 <SelectTrigger id="healthType"><SelectValue /></SelectTrigger>
@@ -138,13 +138,13 @@ export function ConfigurationForm({ serviceId, environmentId, config }: Configur
             </div>
             {healthType === 'http' && (
               <div className="space-y-2">
-                <Label htmlFor="healthPath">Health check path</Label>
+                <Label htmlFor="healthPath">Path</Label>
                 <Input id="healthPath" name="healthPath" defaultValue={d.healthCheckPath} mono />
               </div>
             )}
             {(healthType === 'http' || healthType === 'tcp') && (
               <div className="space-y-2">
-                <Label htmlFor="healthPort">Health check port</Label>
+                <Label htmlFor="healthPort">Port</Label>
                 <Input id="healthPort" name="healthPort" type="number" min={1} max={65535} defaultValue={d.healthCheckPort} required />
               </div>
             )}
@@ -152,7 +152,7 @@ export function ConfigurationForm({ serviceId, environmentId, config }: Configur
 
           {healthType === 'script' && (
             <div className="space-y-2">
-              <Label htmlFor="healthCommand">Health check command</Label>
+              <Label htmlFor="healthCommand">Command</Label>
               <Input id="healthCommand" name="healthCommand" defaultValue={d.healthCheckCommand} required mono />
             </div>
           )}

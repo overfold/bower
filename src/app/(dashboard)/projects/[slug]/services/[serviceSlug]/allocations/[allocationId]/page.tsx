@@ -7,6 +7,7 @@ import { getTrellisClient } from '@/lib/trellis-instance'
 import { allocationBelongsToService, trellisReadError } from '@/lib/trellis-runtime'
 import { getProjectRole } from '@/lib/actions/shared'
 import { TrellisReadError } from '@/components/trellis-read-error'
+import { NodeLink } from '@/components/node-link'
 import { PageHeading, MetaItem } from '@/components/page-heading'
 import { Panel, PanelHeader, KeyValue, SectionTitle } from '@/components/ui/panel'
 import { Badge } from '@/components/ui/badge'
@@ -105,7 +106,7 @@ export default async function AllocationDetailPage({
           <dl className="grid grid-cols-2 gap-x-8 gap-y-1 md:grid-cols-4">
             <KeyValue label="Group" mono>{allocation.group}</KeyValue>
             <KeyValue label="Job" mono>{allocation.job}</KeyValue>
-            <KeyValue label="Node" mono>{allocation.node_id}</KeyValue>
+            <KeyValue label="Node" mono><NodeLink id={allocation.node_id} /></KeyValue>
             <KeyValue label="Revision">{allocation.job_revision}</KeyValue>
             <KeyValue label="Generation">{allocation.generation}</KeyValue>
             <KeyValue label="Attempt">{allocation.attempt}</KeyValue>

@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto'
-import { and, eq, isNull } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { invitations, invitationTeams, organizationMembers, teamMemberships, users } from '@/db/schema'
 import { recordAudit } from '@/lib/actions/shared'
@@ -17,10 +17,13 @@ export function invitationStatus(invitation: {
   usedAt: Date | null
   expiresAt: Date | null
   revokedAt: Date | null
+  maxUses: number | null
+  useCount: number
 }) {
   if (invitation.revokedAt) return 'revoked' as const
   if (invitation.expiresAt && invitation.expiresAt <= new Date()) return 'expired' as const
   if (!invitation.reusable && invitation.usedAt) return 'used' as const
+  if (invitation.maxUses !== null && invitation.useCount >= invitation.maxUses) return 'used' as const
   return 'active' as const
 }
 
@@ -36,17 +39,15 @@ export async function acceptInvitation(token: string, userId: string): Promise<{
 
   return db.transaction(async (tx) => {
     const [invitation] = await tx.select().from(invitations)
-      .where(eq(invitations.tokenHash, tokenHash)).limit(1)
+      .where(eq(invitations.tokenHash, tokenHash)).limit(1).for('update')
     if (!invitation) return { error: 'This invitation is invalid.' }
     if (invitation.revokedAt) return { error: 'This invitation has been revoked.' }
     if (invitation.expiresAt && invitation.expiresAt <= now) return { error: 'This invitation has expired.' }
-
-    if (!invitation.reusable) {
-      const claimed = await tx.update(invitations).set({ usedByUserId: userId, usedAt: now })
-        .where(and(eq(invitations.id, invitation.id), isNull(invitations.usedAt), isNull(invitations.revokedAt)))
-        .returning({ id: invitations.id })
-      if (claimed.length === 0) return { error: 'This invitation has already been accepted.' }
+    if ((!invitation.reusable && invitation.usedAt) || (invitation.maxUses !== null && invitation.useCount >= invitation.maxUses)) {
+      return { error: 'This invitation has reached its use limit.' }
     }
+    await tx.update(invitations).set({ usedByUserId: userId, usedAt: now, useCount: invitation.useCount + 1 })
+      .where(eq(invitations.id, invitation.id))
 
     if (invitation.grantInstanceAdmin) {
       await tx.update(users).set({ isInstanceAdmin: true, updatedAt: now }).where(eq(users.id, userId))

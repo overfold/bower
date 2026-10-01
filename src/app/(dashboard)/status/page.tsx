@@ -7,11 +7,11 @@ import {
   managedProxyObservation,
   nodeAllocatable,
   nodeCapacity,
-  observationFreshness,
   pendingReasonCounts,
   trellisReadError,
 } from '@/lib/trellis-runtime'
 import { TrellisReadError } from '@/components/trellis-read-error'
+import { NodeLink } from '@/components/node-link'
 import { parseNodeAllocatedResources } from '@/lib/trellis-resource-metrics'
 import { PageHeading } from '@/components/page-heading'
 import { Panel, PanelHeader, KeyValue } from '@/components/ui/panel'
@@ -21,6 +21,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Server } from 'lucide-react'
 import { DrainToggle } from './drain-toggle'
 import { ResetBackoffButton } from './reset-backoff-button'
+import { formatBytes, formatCpu } from './format'
 import type { TrellisAllocation, TrellisJob, TrellisNode } from '@/types/trellis'
 
 function relTime(value: string | Date): string {
@@ -41,23 +42,6 @@ function untilTime(value: string): string {
   if (seconds < 3600) return `${Math.ceil(seconds / 60)}m`
   if (seconds < 86_400) return `${Math.ceil(seconds / 3600)}h`
   return `${Math.ceil(seconds / 86_400)}d`
-}
-
-function formatNodeAddress(node: TrellisNode): string {
-  const host = node.host.includes(':') && !node.host.startsWith('[') ? `[${node.host}]` : node.host
-  return `${host}:${node.port}`
-}
-
-function formatCpu(value: number) {
-  return value >= 1000 ? `${(value / 1000).toFixed(value % 1000 ? 1 : 0)} cores` : `${value}m`
-}
-
-function formatBytes(value: number) {
-  const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB']
-  let amount = value
-  let unit = 0
-  while (amount >= 1024 && unit < units.length - 1) { amount /= 1024; unit++ }
-  return `${amount.toFixed(unit > 1 && amount < 10 ? 1 : 0)} ${units[unit]}`
 }
 
 export default async function StatusPage() {
@@ -132,12 +116,12 @@ export default async function StatusPage() {
 
       <div className="grid gap-5 lg:grid-cols-2">
         <Panel>
-          <PanelHeader title="Connection" action={<span className="flex items-center gap-1.5 text-xs font-medium text-ink-soft"><Dot tone={clusterError ? 'danger' : 'brand'} />{clusterError ? 'Unavailable' : 'Connected'}</span>} />
+          <PanelHeader title="Connection" hint={clusterError ? 'Unhealthy' : 'Healthy'} />
           <dl className="px-4"><KeyValue label="Control-plane API" mono>{orgCtx.org.trellisApiUrl ?? '—'}</KeyValue></dl>
           {clusterError ? <TrellisReadError title="Node data unavailable" message={clusterError} /> : null}
         </Panel>
         <Panel>
-          <PanelHeader title="Allocatable capacity" hint={`${nodes.length} node${nodes.length === 1 ? '' : 's'} · allocated resources, not live usage`} />
+          <PanelHeader title="Capacity" hint={`${nodes.length} node${nodes.length === 1 ? '' : 's'}`} />
           {metricsError || clusterError ? <TrellisReadError title="Capacity data unavailable" message={metricsError || clusterError!} /> : <div className="grid gap-5 p-4 sm:grid-cols-2">
             <div><span className="text-[13px] text-ink-soft">CPU allocated · {formatCpu(allocatedCpu)} / {formatCpu(totalAllocatableCpu)}</span><div className="mt-2"><Meter value={cpuPct} label="Cluster CPU allocated" /></div></div>
             <div><span className="text-[13px] text-ink-soft">Memory allocated · {formatBytes(allocatedMemory)} / {formatBytes(totalAllocatableMemory)}</span><div className="mt-2"><Meter value={memoryPct} label="Cluster memory allocated" /></div></div>
@@ -184,20 +168,19 @@ export default async function StatusPage() {
       <Panel>
         <PanelHeader title="Nodes" />
         {clusterError ? <TrellisReadError title="Nodes unavailable" message={clusterError} /> : nodes.length === 0 ? <EmptyState icon={<Server className="h-4 w-4" />} title="No nodes" body="No nodes are registered with this cluster." /> : <Table>
-          <TableHeader><TableRow><TableHead>Node</TableHead><TableHead>Heartbeat / membership</TableHead><TableHead>Allocated</TableHead><TableHead>Live observation</TableHead><TableHead>Capabilities</TableHead><TableHead className="text-right">Drain</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>Node</TableHead><TableHead>IP</TableHead><TableHead>Version</TableHead><TableHead>OS</TableHead><TableHead>Allocated</TableHead><TableHead>Capabilities</TableHead><TableHead className="text-right">Drain</TableHead></TableRow></TableHeader>
           <TableBody>{nodes.map((node) => {
             const allocated = allocatedByNode.get(node.id)
             const allocatable = nodeAllocatable(node)
             const capacity = nodeCapacity(node)
             const allocatedCpuPct = allocatable.cpu > 0 ? Math.round((allocated?.cpu ?? 0) / allocatable.cpu * 100) : 0
             const allocatedMemoryPct = allocatable.memory > 0 ? Math.round((allocated?.memory ?? 0) / allocatable.memory * 100) : 0
-            const heartbeat = observationFreshness(node.last_heartbeat)
-            const metrics = observationFreshness(node.metrics_at)
             return <TableRow key={node.id}>
-              <TableCell><div className="flex items-center gap-1.5 font-medium text-ink"><Dot tone={node.status === 'healthy' ? 'brand' : node.status === 'draining' ? 'warn' : 'danger'} />{node.id}</div><Mono>{formatNodeAddress(node)}</Mono><p className="mt-1 text-xs text-ink-muted">{node.os || 'OS unknown'} / {node.arch || 'arch unknown'} · {node.version || 'version unknown'}</p></TableCell>
-              <TableCell><Chip tone={heartbeat === 'fresh' ? 'brand' : heartbeat === 'stale' ? 'danger' : 'neutral'}>{heartbeat === 'unknown' ? 'Heartbeat unknown' : `${heartbeat} · ${relTime(node.last_heartbeat!)}`}</Chip><p className="mt-2 text-xs text-ink-muted">Control plane: <span className="font-medium text-ink-soft">{node.control_plane || 'not reported'}</span></p></TableCell>
-              <TableCell>{metricsError ? <span className="text-ink-muted">Unavailable</span> : <div className="space-y-2"><div><Meter value={allocatedCpuPct} label={`${node.id} CPU allocated`} /><span className="text-xs text-ink-muted">{formatCpu(allocated?.cpu ?? 0)} / {formatCpu(allocatable.cpu)} allocatable</span></div><div><Meter value={allocatedMemoryPct} label={`${node.id} memory allocated`} /><span className="text-xs text-ink-muted">{formatBytes(allocated?.memory ?? 0)} / {formatBytes(allocatable.memory)} allocatable</span></div><p className="text-xs text-ink-muted">Physical: {formatCpu(capacity.cpu)} · {formatBytes(capacity.memory)}</p></div>}</TableCell>
-              <TableCell>{metrics === 'unknown' ? <span className="text-ink-muted">Unknown</span> : <div><Chip tone={metrics === 'fresh' ? 'brand' : 'warn'}>{metrics} · {relTime(node.metrics_at!)}</Chip><p className="mt-2 text-xs text-ink-soft">CPU {node.cpu_usage == null ? 'unknown' : `${Math.round(node.cpu_usage * 100)}%`} · memory {node.memory_used == null ? 'unknown' : formatBytes(node.memory_used)}</p>{node.memory_available != null ? <p className="text-xs text-ink-muted">{formatBytes(node.memory_available)} available</p> : null}</div>}</TableCell>
+              <TableCell><div className="flex items-center gap-1.5"><Dot tone={node.status === 'healthy' ? 'brand' : node.status === 'draining' ? 'warn' : 'danger'} /><NodeLink id={node.id} /></div></TableCell>
+              <TableCell><Mono>{node.host}</Mono></TableCell>
+              <TableCell><Mono>{node.version || '—'}</Mono></TableCell>
+              <TableCell className="whitespace-nowrap text-ink-muted">{node.os || '—'} / {node.arch || '—'}</TableCell>
+              <TableCell>{metricsError ? <span className="text-ink-muted">Unavailable</span> : <div className="space-y-2"><div><Meter value={allocatedCpuPct} label={`${node.id.slice(0, 8)} CPU allocated`} /><span className="text-xs text-ink-muted">{formatCpu(allocated?.cpu ?? 0)} / {formatCpu(allocatable.cpu)} allocatable</span></div><div><Meter value={allocatedMemoryPct} label={`${node.id.slice(0, 8)} memory allocated`} /><span className="text-xs text-ink-muted">{formatBytes(allocated?.memory ?? 0)} / {formatBytes(allocatable.memory)} allocatable</span></div><p className="text-xs text-ink-muted">Physical: {formatCpu(capacity.cpu)} · {formatBytes(capacity.memory)}</p></div>}</TableCell>
               <TableCell><div className="flex max-w-52 flex-wrap gap-1">{node.capabilities?.length ? node.capabilities.map((capability) => <Chip key={capability}>{capability}</Chip>) : <span className="text-xs text-ink-muted">None reported</span>}</div></TableCell>
               <TableCell className="text-right"><DrainToggle nodeId={node.id} drain={node.status === 'draining'} /></TableCell>
             </TableRow>

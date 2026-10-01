@@ -45,7 +45,9 @@ function deriveBreadcrumbs(pathname: string): Crumb[] {
   const segments = pathname.split('/').filter(Boolean)
   if (segments.length === 0) return [{ label: 'Overview', href: '/dashboard' }]
   return segments.map((seg, i) => ({
-    label: segmentLabels[seg] ?? prettifySlug(seg),
+    label: segments[0] === 'status' && i === 1 ? seg.slice(0, 8)
+      : segments[0] === 'settings' && segments[1] === 'members' && i === 2 ? 'Member'
+      : segmentLabels[seg] ?? prettifySlug(seg),
     href: '/' + segments.slice(0, i + 1).join('/'),
   }))
 }
