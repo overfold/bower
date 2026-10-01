@@ -74,16 +74,15 @@ export async function updateServiceVolumeMountsAction(serviceId: string, environ
 
 function parseApiAccess(value: string): TrellisApiAccess | undefined {
   if (!value || value === 'none') return undefined
-  const [scope, access] = value.split(':')
-  if ((scope !== 'namespace' && scope !== 'cluster') || (access !== 'read' && access !== 'write')) {
+  if (value !== 'cluster:read' && value !== 'cluster:write') {
     throw new Error('Invalid workload API access setting.')
   }
-  return { scope, access }
+  return { scope: 'cluster', access: value === 'cluster:read' ? 'read' : 'write' }
 }
 
 type AdvancedConfigValues = {
   runtime: Exclude<TrellisRuntime, ''>
-  apiAccessScope: 'namespace' | 'cluster' | null
+  apiAccessScope: 'cluster' | null
   apiAccessLevel: 'read' | 'write' | null
 }
 
@@ -188,7 +187,7 @@ export async function resetServiceAdvancedOverridesAction(serviceId: string, env
   const base = await getBaseServiceConfig(serviceId)
   if (!base) throw new Error('No base service configuration exists.')
   const baseApiAccess =
-    (base.apiAccessScope === 'namespace' || base.apiAccessScope === 'cluster') &&
+    base.apiAccessScope === 'cluster' &&
     (base.apiAccessLevel === 'read' || base.apiAccessLevel === 'write')
       ? { scope: base.apiAccessScope, access: base.apiAccessLevel } as TrellisApiAccess
       : undefined

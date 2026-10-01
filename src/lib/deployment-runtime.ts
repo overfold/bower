@@ -38,7 +38,7 @@ export async function createDeploymentSpec(serviceId: string, environmentId: str
 
   const runtime: TrellisRuntime = row.config.runtime === 'runsc' ? 'runsc' : 'runc'
   const apiAccess: TrellisApiAccess | undefined =
-    (row.config.apiAccessScope === 'namespace' || row.config.apiAccessScope === 'cluster') &&
+    row.config.apiAccessScope === 'cluster' &&
     (row.config.apiAccessLevel === 'read' || row.config.apiAccessLevel === 'write')
       ? { scope: row.config.apiAccessScope, access: row.config.apiAccessLevel }
       : undefined

@@ -37,10 +37,14 @@ Bower has two distinct Trellis credential modes:
 
 ## Workload trust policy
 
-Bower project admins are tenant administrators, not Trellis cluster operators. Only Bower instance admins are eligible to act as cluster operators. Project admins can manage workloads inside their project's namespace, including namespace networking and namespace-scoped read-only workload API access. By default nobody can use Bower to mount arbitrary absolute host paths or grant a workload cluster-scoped or write API credentials; those capabilities escape or can mutate the namespace boundary.
+Bower project admins are tenant administrators, not Trellis cluster operators. Only Bower instance admins are eligible to act as cluster operators. Project admins can manage workloads inside their project's namespace, including namespace networking. Trellis API tokens are always cluster-wide, even for read-only access. By default nobody can use Bower to mount arbitrary absolute host paths or grant application workloads any API credentials; those capabilities escape the namespace boundary.
 
 | Variable | Default | Description |
 |---|---|---|
-| `BOWER_IA_BYPASS_MULTITENANCY` | `false` | Set to the exact value `true` to let instance admins use non-multitenancy-safe workload features: absolute host paths plus cluster-scoped and write workload API grants. Non-instance-admins remain denied. The policy is enforced when settings are saved and the flag is checked again when a deployment spec is built. |
+| `BOWER_IA_BYPASS_MULTITENANCY` | `false` | Set to the exact value `true` to let instance admins use non-multitenancy-safe workload features: absolute host paths plus cluster-wide read or write workload API grants. Non-instance-admins remain denied. The policy is enforced when settings are saved and the flag is checked again when a deployment spec is built. |
 
 This is a global operator decision, not a per-project convenience setting. Keep it disabled for multitenant installations. Bower continues to force application workloads onto Trellis namespace networking regardless of this setting.
+
+The cluster-only token migration disables existing namespace-scoped application workload grants, including environment overrides, rather than escalating them to cluster-wide access. Existing cluster grants are preserved. An instance admin must explicitly re-enable any disabled grant with the bypass enabled. This changes future deployment specs; replace already-running workloads to stop using old credentials.
+
+Bower's managed ingress is trusted infrastructure and uses `cluster/read` independently of this application workload bypass. Its sync agent still queries only the environment's namespace, but the token itself can read across the cluster.

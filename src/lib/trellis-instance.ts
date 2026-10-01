@@ -27,8 +27,8 @@ export async function getTrellisJobLimits(orgId: string): Promise<TrellisJobLimi
   try {
     return (await (await getTrellisClient(orgId)).getClusterSettings()).job_limits
   } catch {
-    // Namespace-scoped credentials cannot read cluster settings. Trellis still
-    // enforces the same limits during plan/apply, so local validation is best-effort.
+    // If cluster settings are unavailable, Trellis still enforces the same
+    // limits during plan/apply, so local validation is best-effort.
     return undefined
   }
 }

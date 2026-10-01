@@ -66,7 +66,7 @@ export async function syncManagedProxy(projectId: string, environmentId: string,
     name: 'bower-proxy',
     namespace: environment.trellisNamespace,
     task_groups: [{
-      name: 'proxy', count: 1, api_access: { scope: 'namespace', access: 'read' },
+      name: 'proxy', count: 1, api_access: { scope: 'cluster', access: 'read' },
       labels: { 'bower/managed': 'true', 'bower/infrastructure': 'proxy', 'bower/config-hash': hash },
       update: { strategy: 'recreate' },
       tasks: [{

@@ -10,13 +10,13 @@ const base: BowerServiceConfig = {
   secrets: [{ name: 'DATABASE_URL', target: 'env', env: 'DATABASE_URL' }],
   volumes: [{ name: 'cache', host_path: '@/cache', container_path: '/cache' }],
   runtime: 'runsc',
-  apiAccess: { scope: 'namespace', access: 'read' },
+  apiAccess: { scope: 'cluster', access: 'read' },
 }
 
 test('builds a complete workload with Bower-owned networking and advanced settings', () => {
   const spec = buildJobSpec(base); const group = spec.task_groups[0]; const primary = group.tasks[0]
   assert.equal(spec.name, 'api-green'); assert.equal(group.count, 2); assert.equal(group.labels?.['bower/service'], 'api')
-  assert.equal(group.runtime, 'runsc'); assert.deepEqual(group.api_access, { scope: 'namespace', access: 'read' })
+  assert.equal(group.runtime, 'runsc'); assert.deepEqual(group.api_access, { scope: 'cluster', access: 'read' })
   assert.equal(group.tasks.length, 1); assert.deepEqual(primary.networking, { mode: 'namespace' })
   assert.equal(primary.health_check?.port, 9090); assert.equal(primary.health_check?.interval, 7_000_000_000); assert.equal(primary.secrets?.[0].env, 'DATABASE_URL')
   assert.equal(primary.volumes?.[0].container_path, '/cache'); assert.equal(primary.volumes?.[0].host_path, '@/cache')

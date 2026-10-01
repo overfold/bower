@@ -6,9 +6,8 @@
 
 export interface TrellisWhoAmI {
   kind: string
-  scope: 'cluster' | 'namespace'
+  scope: 'cluster'
   access: 'read' | 'write'
-  namespace?: string
   subject?: {
     namespace: string
     job: string
@@ -138,7 +137,7 @@ export interface TrellisUpdateStrategy {
 }
 
 export interface TrellisApiAccess {
-  scope: 'namespace' | 'cluster'
+  scope: 'cluster'
   access: 'read' | 'write'
 }
 

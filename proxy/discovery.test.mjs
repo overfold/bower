@@ -13,7 +13,7 @@ async function listen(server) {
   return server.address().port
 }
 
-test('namespace/read agent discovers namespaced allocations and marks health only after Caddy accepts config', async (t) => {
+test('cluster/read agent queries only its environment allocations and marks health only after Caddy accepts config', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'bower-discovery-'))
   const requests = []
   let loads = 0
@@ -22,8 +22,8 @@ test('namespace/read agent discovers namespaced allocations and marks health onl
   const firstReload = new Promise((resolve) => { markReload = resolve })
   const api = http.createServer((request, response) => {
     requests.push({ path: request.url, headers: request.headers })
-    response.writeHead(request.url === '/v1/namespaces/project-production/allocations' ? 200 : 403)
-    response.end(request.url === '/v1/namespaces/project-production/allocations' ? '[]' : 'cluster scope required')
+    response.writeHead(request.url === '/v1/namespaces/project-production/allocations' ? 200 : 404)
+    response.end(request.url === '/v1/namespaces/project-production/allocations' ? '[]' : 'unexpected resource path')
   })
   const caddy = http.createServer((request, response) => {
     request.resume()
@@ -33,7 +33,7 @@ test('namespace/read agent discovers namespaced allocations and marks health onl
   const caddyPort = await listen(caddy)
   const healthFile = join(directory, 'healthy')
   const agent = spawn(process.execPath, ['proxy/agent.mjs'], {
-    env: { ...process.env, TRELLIS_ADDR: `http://127.0.0.1:${apiPort}`, TRELLIS_TOKEN: 'namespace-read-fixture', TRELLIS_NAMESPACE: 'project-production', TRELLIS_CA_CERT: '', CADDY_ADMIN_URL: `http://127.0.0.1:${caddyPort}/load`, BOWER_ROUTES: '[]', BOWER_SYNC_HEALTH_FILE: healthFile, BOWER_SYNC_INTERVAL: '1' },
+    env: { ...process.env, TRELLIS_ADDR: `http://127.0.0.1:${apiPort}`, TRELLIS_TOKEN: 'cluster-read-fixture', TRELLIS_NAMESPACE: 'project-production', TRELLIS_CA_CERT: '', CADDY_ADMIN_URL: `http://127.0.0.1:${caddyPort}/load`, BOWER_ROUTES: '[]', BOWER_SYNC_HEALTH_FILE: healthFile, BOWER_SYNC_INTERVAL: '1' },
     stdio: 'ignore',
   })
   t.after(async () => {
@@ -52,8 +52,8 @@ test('namespace/read agent discovers namespaced allocations and marks health onl
   }
   assert.match(health, /^\d+\n$/)
   assert.ok(loads > 1)
-  assert.equal(requests[0].path, '/v1/namespaces/project-production/allocations')
-  assert.equal(requests[0].headers.authorization, 'Bearer namespace-read-fixture')
+  assert.ok(requests.every(({ path }) => path === '/v1/namespaces/project-production/allocations'))
+  assert.equal(requests[0].headers.authorization, 'Bearer cluster-read-fixture')
   assert.equal(requests[0].headers['x-trellis-namespace'], undefined)
 })
 

@@ -19,7 +19,7 @@ When a route is created or updated, Bower:
 1. Validates that the hostname is covered by a verified organization domain and is not claimed by another project/environment
 2. Generates a Caddyfile for the route configuration and writes it as a Trellis namespace secret
 3. Deploys (or updates) a two-task task group in the namespace: a Caddy instance and a route-sync agent
-4. The sync agent uses `api_access: namespace/read` to watch healthy allocations via labels, renders upstream addresses, and reloads Caddy through its admin API
+4. The sync agent uses `api_access: cluster/read` to watch healthy allocations via labels, renders upstream addresses, and reloads Caddy through its admin API. It queries only its environment's namespace; the credential itself is cluster-wide, so the managed proxy is trusted infrastructure.
 5. The proxy is considered healthy only after route-sync has recently fetched Trellis state and Caddy has accepted the generated configuration
 
 The Caddy admin API is bound to loopback and is used only by the colocated route-sync task; it is never exposed on the node's external interfaces.

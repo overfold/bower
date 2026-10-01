@@ -26,8 +26,8 @@ export function assertWorkloadApiAccessAllowed(
   isInstanceAdmin: boolean,
   env: Record<string, string | undefined> = process.env,
 ) {
-  if (access && (access.scope === 'cluster' || access.access === 'write') && !instanceAdminMayBypassMultitenancy(isInstanceAdmin, env)) {
-    throw new Error('Cluster-scoped or write workload API access requires an instance admin and BOWER_IA_BYPASS_MULTITENANCY=true.')
+  if (access && !instanceAdminMayBypassMultitenancy(isInstanceAdmin, env)) {
+    throw new Error('Workload API access is cluster-wide and requires an instance admin and BOWER_IA_BYPASS_MULTITENANCY=true.')
   }
 }
 
@@ -38,7 +38,7 @@ export function assertStoredHostPathAllowed(path: string, env: Record<string, st
 }
 
 export function assertStoredWorkloadApiAccessAllowed(access: TrellisApiAccess | undefined, env: Record<string, string | undefined> = process.env) {
-  if (access && (access.scope === 'cluster' || access.access === 'write') && !instanceAdminBypassEnabled(env)) {
-    throw new Error('This workload has cluster-scoped or write API access, but BOWER_IA_BYPASS_MULTITENANCY is not enabled.')
+  if (access && !instanceAdminBypassEnabled(env)) {
+    throw new Error('This workload has cluster-wide API access, but BOWER_IA_BYPASS_MULTITENANCY is not enabled.')
   }
 }

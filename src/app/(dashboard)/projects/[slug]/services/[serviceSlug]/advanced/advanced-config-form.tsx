@@ -19,7 +19,7 @@ export function AdvancedConfigForm({
   serviceId: string
   environmentId: string
   runtime: 'runc' | 'runsc'
-  apiAccessScope: 'namespace' | 'cluster' | null
+  apiAccessScope: 'cluster' | null
   apiAccessLevel: 'read' | 'write' | null
   mayBypassMultitenancy: boolean
 }) {
@@ -29,7 +29,7 @@ export function AdvancedConfigForm({
   const [apiAccess, setApiAccess] = useState(initialAccess)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const sensitive = apiAccess.startsWith('cluster:') || apiAccess.endsWith(':write')
+  const sensitive = apiAccess !== 'none'
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -69,21 +69,22 @@ export function AdvancedConfigForm({
             <SelectTrigger id={`api-access-${environmentId}`}><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="none">None</SelectItem>
-              <SelectItem value="namespace:read">Namespace · read</SelectItem>
               {mayBypassMultitenancy && <>
-                <SelectItem value="namespace:write">Namespace · write</SelectItem>
                 <SelectItem value="cluster:read">Cluster · read</SelectItem>
                 <SelectItem value="cluster:write">Cluster · write</SelectItem>
               </>}
             </SelectContent>
           </Select>
+          <p className="text-2xs leading-relaxed text-ink-muted">
+            All Trellis API tokens are cluster-wide, including read-only tokens. Grants require the instance-admin multitenancy bypass.
+          </p>
         </div>
       </div>
       {sensitive && (
         <div className="flex gap-2 rounded-lg border border-warn-200 bg-warn-50 p-3 text-[12px] leading-relaxed text-warn-500">
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
-            This service has elevated workload API access. The instance-admin multitenancy bypass must remain enabled to save or deploy it.
+            This service has cluster-wide workload API access. The instance-admin multitenancy bypass must remain enabled to save or deploy it.
           </span>
         </div>
       )}

@@ -40,6 +40,22 @@ const context = { org: { id: 'org', trellisApiUrl: 'https://api', trellisApiToke
 const access = { ...context, user: { id: 'user' }, project: { id: 'project', slug: 'demo' }, service: { slug: 'web' }, projectRole: 'admin' }
 const navigation = { redirect: () => { throw new Error('redirect') }, notFound: () => { throw new Error('not found') }, useRouter: () => ({ refresh() {} }) }
 
+test('advanced settings reject removed namespace grants and malformed cluster values before writing', async () => {
+  let writes = 0
+  const actions = load<typeof import('./actions/service-settings')>('src/lib/actions/service-settings.ts', {
+    'next/cache': { revalidatePath() {} },
+    '@/db': { db: { select: () => query([{}]), update: () => { writes++; throw new Error('Unexpected write') } } },
+    '@/lib/queries': { getBaseServiceConfig: async () => ({}) },
+    '@/lib/actions/shared': { requireService: async () => access, recordAudit: async () => {} },
+  })
+  for (const value of ['namespace:read', 'namespace:write', 'cluster:read:extra', 'cluster:admin']) {
+    const form = new FormData()
+    form.set('apiAccess', value)
+    await assert.rejects(actions.updateServiceAdvancedAction('service', 'env', form), /Invalid workload API access/)
+  }
+  assert.equal(writes, 0)
+})
+
 test('SSE rejects unauthenticated, missing namespace, and inaccessible environments without opening a stream', async () => {
   let streams = 0
   let projects: Array<{ id: string }> = []
@@ -192,7 +208,7 @@ test('reconciler targets the persisted accepted job identity rather than inferri
   assert.equal(updates[0].status, 'healthy')
 })
 
-test('managed proxy acceptance stays pending with namespace/read; failed cleanup retains its record', async () => {
+test('managed proxy acceptance stays pending with cluster/read; failed cleanup retains its record', async () => {
   const statuses: string[] = []
   let definitions: unknown[] = [{ route: { id: 'route', protectionMode: 'none', headers: {}, responseHeaders: {}, redirects: [] }, service: { slug: 'web' }, config: {} }]
   let deleted = false
@@ -206,7 +222,7 @@ test('managed proxy acceptance stays pending with namespace/read; failed cleanup
     } },
     '@/lib/trellis-instance': { getTrellisClient: async () => ({
       setSecret: async () => {}, planJob: async () => ({ action: 'create' }),
-      applyJobPlan: async (spec: { task_groups: Array<{ api_access: unknown }> }) => assert.deepEqual(JSON.parse(JSON.stringify(spec.task_groups[0].api_access)), { scope: 'namespace', access: 'read' }),
+      applyJobPlan: async (spec: { task_groups: Array<{ api_access: unknown }> }) => assert.deepEqual(JSON.parse(JSON.stringify(spec.task_groups[0].api_access)), { scope: 'cluster', access: 'read' }),
       deleteJob: async () => { throw new TrellisApiError(403, 'Forbidden', 'denied') }, deleteSecret: async () => {},
     }) },
   })

@@ -21,6 +21,7 @@
     { "idx": 16, "version": "7", "when": 1790251200000, "tag": "0017_align_trellis_model", "breakpoints": true },
     { "idx": 17, "version": "7", "when": 1790340000000, "tag": "0018_first_class_invitations", "breakpoints": true },
     { "idx": 18, "version": "7", "when": 1790841600000, "tag": "0019_deployment_job_identity", "breakpoints": true },
-    { "idx": 19, "version": "7", "when": 1790841601000, "tag": "0020_trellis_workload_identity", "breakpoints": true }
+    { "idx": 19, "version": "7", "when": 1790841601000, "tag": "0020_trellis_workload_identity", "breakpoints": true },
+    { "idx": 20, "version": "7", "when": 1790841602000, "tag": "0021_cluster_only_tokens", "breakpoints": true }
   ]
 }

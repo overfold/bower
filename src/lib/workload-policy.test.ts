@@ -19,17 +19,19 @@ test('only instance admins may use an explicitly enabled multitenancy bypass', (
   assert.equal(instanceAdminMayBypassMultitenancy(true, enabled), true)
 })
 
-test('default tenant policy allows managed paths and namespace read but denies host and mutating/cluster grants', () => {
+test('default tenant policy allows managed paths but denies all workload API grants', () => {
   assert.doesNotThrow(() => assertHostPathAllowed('@/project/data', false, {}))
   assert.throws(() => assertHostPathAllowed('/srv/data', false, enabled), /instance admin/)
   assert.throws(() => assertHostPathAllowed('/srv/data', true, {}), /BOWER_IA_BYPASS/)
   assert.doesNotThrow(() => assertWorkloadApiAccessAllowed(undefined, false, {}))
-  assert.doesNotThrow(() => assertWorkloadApiAccessAllowed({ scope: 'namespace', access: 'read' }, false, {}))
   for (const access of [
-    { scope: 'namespace', access: 'write' },
     { scope: 'cluster', access: 'read' },
     { scope: 'cluster', access: 'write' },
-  ] as const) assert.throws(() => assertWorkloadApiAccessAllowed(access, false, enabled), /instance admin/)
+  ] as const) {
+    assert.throws(() => assertWorkloadApiAccessAllowed(access, false, enabled), /instance admin/)
+    assert.throws(() => assertWorkloadApiAccessAllowed(access, true, {}), /BOWER_IA_BYPASS/)
+    assert.doesNotThrow(() => assertWorkloadApiAccessAllowed(access, true, enabled))
+  }
 })
 
 test('instance admin with bypass enabled may configure privileged capabilities', () => {
@@ -39,7 +41,10 @@ test('instance admin with bypass enabled may configure privileged capabilities',
 
 test('deployment permits stored privileged capabilities only while the operator bypass remains enabled', () => {
   assert.throws(() => assertStoredHostPathAllowed('/srv/data', {}), /not enabled/)
-  assert.throws(() => assertStoredWorkloadApiAccessAllowed({ scope: 'namespace', access: 'write' }, {}), /not enabled/)
   assert.doesNotThrow(() => assertStoredHostPathAllowed('/srv/data', enabled))
-  assert.doesNotThrow(() => assertStoredWorkloadApiAccessAllowed({ scope: 'cluster', access: 'write' }, enabled))
+  assert.doesNotThrow(() => assertStoredWorkloadApiAccessAllowed(undefined, {}))
+  for (const access of ['read', 'write'] as const) {
+    assert.throws(() => assertStoredWorkloadApiAccessAllowed({ scope: 'cluster', access }, {}), /not enabled/)
+    assert.doesNotThrow(() => assertStoredWorkloadApiAccessAllowed({ scope: 'cluster', access }, enabled))
+  }
 })
