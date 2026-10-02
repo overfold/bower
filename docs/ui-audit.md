@@ -8,12 +8,26 @@ Download **bower-ui-audit-<run number>** from the run's artifacts. Extract it an
 
 - Every `src/app/**/page.tsx` route, including auth pages, redirects, project and service details, deployment diagnostics, allocation logs/metrics, and all settings pages.
 - Creation/configuration dialogs, destructive confirmations (without confirming them), team/access/invitation flows, search and filter states, conditional health checks, route protection, secret bindings, and the terminal.
-- API-key, webhook, and invitation success screens. Temporary credentials are revoked/deleted and redacted before capture. Authentication cookies and browser storage are not exported; traces are disabled.
-- Representative narrow layouts, including both the top and footer of the scrollable Add route dialog. Narrow screenshots are Chromium viewport checks, not real-device captures.
+- API-key, webhook, and invitation success screens. Temporary credentials are revoked/deleted and redacted before capture, including webhook endpoint URLs and their curl examples. Authentication cookies and browser storage are not exported; traces are disabled.
+- Representative narrow layouts, including account/settings tabs, environment editing, audit filters, service configuration, New service and Invite people dialogs, and both the top and footer of the scrollable Add route dialog. Narrow screenshots are Chromium viewport checks, not real-device captures.
+- Dark overview and service configuration layouts, exercising the app's actual preferred-color-scheme styling.
+
+The interactive inventory follows meaningful UI areas and states:
+
+| Area | Additional states captured |
+| --- | --- |
+| Auth and app shell | Login errors, invalid invitations, both branded not-found boundaries, organization picker beside breadcrumbs, account popup, populated Recent projects, command palette actions/results/empty search |
+| Projects | Empty project, creation, permissions, environment/secret bindings, route protection variants, volume editing/attachment, integrations, deletion before and after entering the required project name |
+| Deployments | Healthy/failed diagnostics, deployment confirmation, exact-deployment rollback confirmation, organization and project history pagination, project filter and empty search |
+| Services and allocations | Deployment-strategy select, always-visible health/isolation/API-access controls, conditional health fields, dirty configuration and advanced-settings save bars, retained revisions, terminal/stop confirmations, log search results/empty state and follow/wrap enabled |
+| Settings | Horizontal settings tabs and account cards, member filters and action menu, administrator/member removal confirmations, team table/member dialogs, invitation chooser/email/link/admin/limited-use/custom-expiry forms and success, collapsed/expanded domain DNS records |
+| Audit log | System actor icon, expanded before/after object diff, actor filtering, responsive filter layout |
 
 The runner uses an optimized **`npm run build` → `NODE_ENV=production npm start`** server, ephemeral PostgreSQL, and a local fake Trellis HTTP/WebSocket server. Only a connected organization is seeded. There are no “no cluster” captures. Fake workload data includes healthy, failed, and draining states, retained revisions, metrics, logs, and lifecycle events. The fake cluster rejects workload mutations rather than pretending to deploy them. Screenshots are 2× resolution, with desktop 1440 × 1000 and narrow 390 × 844 CSS-pixel viewports.
 
 This is a visual inventory, not a real-cluster integration test or a pixel-diff baseline. “All flows” means the explicitly maintained scenario list, not every possible input or permission combination. New page routes fail the coverage check until added. Changed labels or unavailable expected controls fail their capture tests; remaining scenarios still run and partial artifacts remain available.
+
+Prefer settled screens and states that materially change the layout, available controls, or feedback. Do not multiply captures for token renames, equivalent select options, every viewport, or every filter combination. Transient loading animations, infrastructure-induced error boundaries, clipboard/download plumbing, and real deployment execution are outside this inventory; screenshots are not evidence that those behaviors work.
 
 ## Local run
 
@@ -34,3 +48,5 @@ Ports 3100/3101 and 8128 must be free. Playwright owns both servers and stops th
 ## Maintaining coverage
 
 `scripts/ui-audit/capture.spec.mjs` owns the page/flow scenario manifest, assertions, and gallery. Add an independent scenario for each meaningful new state; wait for its expected content before capturing. `seed.mjs` owns Bower database data, and `trellis.mjs` owns fake runtime responses. Update these fixtures together when a screen's data contract changes. Playwright and its Chromium revision are pinned through `package-lock.json`.
+
+The seed deliberately includes more than ten members to expose member filters, more than twenty deployments to expose pagination, multiple pending domains to expose DNS disclosures, an unused volume to enable attachment, stored deployment specs to enable targeted rollback, and a system audit event with object-valued before/after details. Keep these boundary conditions when adjusting fixtures. Removed UI states (such as the old expandable team cards) should be removed from the manifest, not retained as stale screenshots.

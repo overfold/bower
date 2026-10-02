@@ -49,6 +49,11 @@ try {
     ]) {
       await sql`INSERT INTO organization_members (org_id,user_id,role) VALUES (${org.id},${user.id},${role})`;
     }
+    // Larger organizations expose the optional member filters.
+    for (let i = 1; i <= 9; i++) {
+      const [member] = await sql`INSERT INTO users (name,email,password_hash) VALUES (${`Audit Member ${i}`},${`member${i}@example.test`},${passwordHash}) RETURNING id`;
+      await sql`INSERT INTO organization_members (org_id,user_id,role) VALUES (${org.id},${member.id},'member')`;
+    }
     const [team] =
       await sql`INSERT INTO teams (org_id,name) VALUES (${org.id},'Platform Engineering') RETURNING *`;
     for (const user of [owner, admin])
@@ -62,7 +67,9 @@ try {
       await sql`INSERT INTO environments (project_id,name,slug,trellis_namespace,env_vars) VALUES (${project.id},'Production','production','commerce-production',${sql.json({ NODE_ENV: "production", LOG_LEVEL: "info", REGION: "eu-west-1" })}) RETURNING *`;
     await sql`INSERT INTO organization_domains (org_id,domain,verification_token,verified_at) VALUES (${org.id},'acme.test','audit-verified',now())`;
     await sql`INSERT INTO organization_domains (org_id,domain,verification_token) VALUES (${org.id},'acme-preview.test','audit-pending')`;
+    await sql`INSERT INTO organization_domains (org_id,domain,verification_token) VALUES (${org.id},'acme-staging.test','audit-staging')`;
     await sql`INSERT INTO project_volumes (project_id,environment_id,name,host_path) VALUES (${project.id},${environment.id},'uploads','@/commerce-uploads')`;
+    await sql`INSERT INTO project_volumes (project_id,environment_id,name,host_path) VALUES (${project.id},${environment.id},'cache','@/commerce-cache')`;
     let deploymentId, failedDeploymentId;
     for (const [i, slug] of [
       "storefront",
@@ -115,7 +122,7 @@ try {
           ],
         };
         const [deployment] =
-          await sql`INSERT INTO deployments ${sql({ service_id: service.id, environment_id: environment.id, image_before: `ghcr.io/acme/${slug}:v2.3.0`, image_after: config.image, strategy: config.deployment_strategy, status, trigger_type: j === 0 ? "webhook" : "manual", triggered_by_user_id: owner.id, trellis_job_name: slug, trellis_version: 3 - j, trellis_revision: 3 - j, previous_job_spec: sql.json(previous), started_at: new Date(Date.now() - (j + 1) * 3600000), completed_at: new Date(Date.now() - (j + 1) * 3600000 + 90000), created_at: new Date(Date.now() - (j + 1) * 3600000) })} RETURNING *`;
+          await sql`INSERT INTO deployments ${sql({ service_id: service.id, environment_id: environment.id, image_before: `ghcr.io/acme/${slug}:v2.3.0`, image_after: config.image, strategy: config.deployment_strategy, status, trigger_type: j === 0 ? "webhook" : "manual", triggered_by_user_id: owner.id, trellis_job_name: slug, trellis_version: 3 - j, trellis_revision: 3 - j, job_spec: sql.json({ ...previous, task_groups: [{ ...previous.task_groups[0], tasks: [{ name: "app", image: config.image }] }] }), previous_job_spec: sql.json(previous), started_at: new Date(Date.now() - (j + 1) * 3600000), completed_at: new Date(Date.now() - (j + 1) * 3600000 + 90000), created_at: new Date(Date.now() - (j + 1) * 3600000) })} RETURNING *`;
         for (const [type, message] of [
           ["deployment.planned", "Deployment plan approved"],
           [
@@ -129,6 +136,10 @@ try {
         }
         if (i === 0 && j === 0) deploymentId = deployment.id;
         if (i === 0 && j === 1) failedDeploymentId = deployment.id;
+      }
+      // More than one page of history, without altering the latest release.
+      for (let j = 0; j < 6; j++) {
+        await sql`INSERT INTO deployments (service_id,environment_id,image_after,strategy,status,trigger_type,created_at,completed_at) VALUES (${service.id},${environment.id},${`ghcr.io/acme/${slug}:v2.2.${j}`},'rolling',${j === 0 ? 'failed' : 'healthy'},'manual',${new Date(Date.now() - (j + 4) * 86400000)},${new Date(Date.now() - (j + 4) * 86400000 + 90000)})`;
       }
       if (i < 2)
         await sql`INSERT INTO routes (project_id,environment_id,domain,service_id,port,protection_mode) VALUES (${project.id},${environment.id},${i === 0 ? "shop.acme.test" : "api.acme.test"},${service.id},3000,${i === 0 ? "none" : "bower_auth"})`;
@@ -149,6 +160,7 @@ try {
       "project.update",
     ])
       await sql`INSERT INTO audit_log (org_id,user_id,action,resource_type,resource_id,details) VALUES (${org.id},${owner.id},${action},${action.split(".")[0]},${project.id},${sql.json({ name: "Storefront", environment: "Production", before: "v2.3.0", after: "v2.4.1" })})`;
+    await sql`INSERT INTO audit_log (org_id,action,resource_type,resource_id,details) VALUES (${org.id},'deployment.reconciled','deployment',${deploymentId},${sql.json({ name: "Storefront", before: { status: "deploying", image: "v2.3.0" }, after: { status: "healthy", image: "v2.4.1" } })})`;
     return {
       orgId: org.id,
       memberId: admin.id,

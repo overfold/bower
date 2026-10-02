@@ -25,7 +25,7 @@ test.beforeAll(async ({ browser }) => {
     await page.goto("/login");
     await page.getByLabel("Email address").fill("alex@example.test");
     await page.getByLabel("Password", { exact: true }).fill("Audit-only-2026!");
-    await click(page, "Continue");
+    await click(page, "Sign in");
     await page.waitForURL("**/dashboard");
     // Keep the real login cookies in memory only, never in the artifact.
     authCookies = await context.cookies();
@@ -38,7 +38,7 @@ test.beforeAll(async ({ browser }) => {
 const pages = [
   ["root", "/", "Create and manage projects"],
   ["settings-redirect", "/settings", "Instance"],
-  ["dashboard", "/dashboard", "Welcome, Alex."],
+  ["dashboard", "/dashboard", "Overview"],
   ["projects", "/projects", "Projects"],
   ["deployments", "/deployments", "Deployments"],
   ["audit-log", "/audit", "Audit log"],
@@ -60,7 +60,7 @@ const pages = [
   [
     "deployment-diagnostics",
     `${project}/deployments/${fixture.deploymentId}`,
-    "Deployment diagnostics",
+    "Storefront deployment",
   ],
   [
     "deployment-failed-diagnostics",
@@ -102,7 +102,7 @@ const pages = [
   [
     "not-found",
     "/projects/missing-audit-project",
-    "This page could not be found.",
+    "Page not found",
   ],
 ];
 const dialogs = [
@@ -124,9 +124,9 @@ const dialogs = [
   [
     "route-protection",
     `${project}/routes`,
-    "Configure protection for api.acme.test",
+    "Protection",
   ],
-  ["delete-route", `${project}/routes`, "Delete route shop.acme.test"],
+  ["delete-route", `${project}/routes`, "Delete"],
   ["add-volume", `${project}/volumes`, "Add volume"],
   ["edit-volume", `${project}/volumes`, "Edit"],
   ["delete-volume", `${project}/volumes`, "Delete uploads"],
@@ -146,13 +146,7 @@ const dialogs = [
   ["add-domain", "/settings/domains", "Add domain"],
   ["delete-domain", "/settings/domains", "Delete domain"],
   ["new-organization", "/settings/instance", "New organization"],
-  [
-    "remove-instance-admin",
-    "/settings/members",
-    "Remove administrator sam@example.test",
-  ],
-  ["add-member", "/settings/members", "Add member"],
-  ["invite-member", "/settings/members", "Invite member"],
+  ["invite-people", "/settings/members", "Invite people"],
   [
     "revoke-invitation",
     "/settings/members",
@@ -171,7 +165,7 @@ for (const [name, route, button] of dialogs)
     route,
     setup: async (page) => {
       if (route === allocation)
-        await expect(page.locator("body")).toContainText("mCPU");
+        await expect(page.getByRole("combobox", { name: "Log task" })).toBeVisible();
       await click(page, button);
       await expect(
         page.locator('[role="dialog"], [role="alertdialog"]'),
@@ -191,7 +185,12 @@ state("new-service-filled", `${project}/services`, async (page) => {
     .getByLabel("Image", { exact: true })
     .fill("ghcr.io/acme/search:v1.0.0");
 });
-for (const mode of ["Password", "Bower account (Viewer+)"])
+state("new-service-strategies", `${project}/services`, async (page) => {
+  await click(page, "New service");
+  await page.getByRole("combobox", { name: "Deployment strategy", exact: true }).click();
+  await expect(page.getByRole("option", { name: "Canary", exact: true })).toBeVisible();
+});
+for (const mode of ["Password", "Bower account"])
   state(
     `add-route-${mode === "Password" ? "password" : "bower-auth"}`,
     `${project}/routes`,
@@ -202,7 +201,7 @@ for (const mode of ["Password", "Bower account (Viewer+)"])
     },
   );
 state("route-protection-password", `${project}/routes`, async (page) => {
-  await click(page, "Configure protection for api.acme.test");
+  await click(page, "Protection");
   await choose(page, "Access protection", "Password");
 });
 for (const target of ["Env var", "File"])
@@ -236,13 +235,15 @@ state("advanced-api-access-options", `${service}/advanced`, (page) =>
     .click(),
 );
 state("invite-member-limited", "/settings/members", async (page) => {
-  await click(page, "Invite member");
+  await click(page, "Invite people");
+  await page.getByRole("button", { name: /^Share a link/ }).click();
   await choose(page, "Uses", "Limited uses");
   await page.getByLabel("Note", { exact: false }).fill("Contractor onboarding");
 });
 state("invite-instance-admin", "/settings/members", async (page) => {
-  await click(page, "Invite member");
-  await choose(page, "Instance role", "Administrator");
+  await click(page, "Invite people");
+  await page.getByRole("button", { name: /^Share a link/ }).click();
+  await choose(page, "Instance role", "Instance admin");
 });
 state("profile-menu", "/dashboard", (page) => click(page, "Profile menu"));
 state("organization-picker", "/dashboard", (page) => click(page, "Acme Cloud"));
@@ -257,15 +258,10 @@ for (const query of ["", "store", "unmatched-audit-search"])
       await input.fill(query);
     },
   );
-state("team-expanded", "/settings/teams", (page) =>
-  click(page, /^Platform Engineering\s+2\s*members$/),
-);
 state("add-team-member", "/settings/teams", async (page) => {
-  await click(page, /^Platform Engineering\s+2\s*members$/);
   await click(page, "Add member");
 });
 state("remove-team-member", "/settings/teams", async (page) => {
-  await click(page, /^Platform Engineering\s+2\s*members$/);
   await click(page, "Remove Sam Rivera");
 });
 state("projects-no-search-results", "/projects", (page) =>
@@ -307,7 +303,7 @@ state(
     await page
       .getByLabel("Password", { exact: true })
       .fill("intentionally-wrong");
-    await click(page, "Continue");
+    await click(page, "Sign in");
     await expect(page.getByText("Invalid email or password.")).toBeVisible();
   },
   { public: true },
@@ -319,6 +315,10 @@ for (const [name, route] of [
   ["service-overview", service],
   ["cluster", "/status"],
   ["settings-members", "/settings/members"],
+  ["settings-account", "/settings/account"],
+  ["project-environment", `${project}/environment`],
+  ["service-configuration", `${service}/configuration`],
+  ["audit-log", "/audit"],
 ])
   state(`narrow-${name}`, route, undefined, { narrow: true });
 state(
@@ -344,6 +344,94 @@ state(
   },
   { narrow: true },
 );
+
+// Capture distinct visual states, not every permutation of equivalent controls.
+for (const mode of ["email", "link"])
+  state(`invite-${mode}`, "/settings/members", async (page) => {
+    await click(page, "Invite people");
+    await page.getByRole("button", { name: mode === "email" ? /^By email/ : /^Share a link/ }).click();
+    if (mode === "email") await page.getByLabel("Email", { exact: true }).fill("new-colleague@example.test");
+    await expect(page.getByRole("button", { name: mode === "email" ? "Add person" : "Create invitation", exact: true })).toBeVisible();
+  });
+state("invite-custom-expiry", "/settings/members", async (page) => {
+  await click(page, "Invite people");
+  await page.getByRole("button", { name: /^Share a link/ }).click();
+  await choose(page, "Expires", "Custom");
+  await page.getByLabel("Custom expiry").fill("2030-12-31T18:00");
+});
+state("member-actions", "/settings/members", (page) => click(page, "Actions for Sam Rivera"));
+for (const [name, action] of [["remove-instance-admin", "Remove instance admin"], ["remove-organization-member", "Remove from organization"]])
+  state(name, "/settings/members", async (page) => {
+    await click(page, "Actions for Sam Rivera");
+    await page.getByRole("menuitem", { name: action, exact: true }).click();
+    await expect(page.getByRole("alertdialog")).toBeVisible();
+  });
+state("delete-project-confirmed-name", `${project}/settings`, async (page) => {
+  await click(page, "Delete project");
+  await page.locator("#confirm-project-name").fill("Commerce Platform");
+  await expect(page.getByRole("alertdialog").getByRole("button", { name: "Delete project", exact: true })).toBeEnabled();
+});
+state("rollback-to-deployment", `${project}/deployments/${fixture.deploymentId}`, async (page) => {
+  await click(page, "Roll back to this");
+  await expect(page.getByRole("alertdialog")).toBeVisible();
+});
+for (const [name, route] of [["organization", "/deployments"], ["project", `${project}/deployments`]])
+  state(`${name}-deployments-page-two`, route, async (page) => {
+    await click(page, "Next");
+    await expect(page.locator("body")).toContainText("Page 2 of 2");
+  });
+state("deployments-search-empty", "/deployments", async (page) => {
+  await page.getByRole("textbox", { name: "Search deployments" }).fill("unmatched-audit-search");
+  await expect(page.locator("body")).toContainText("No deployments match the current filters.");
+});
+state("audit-system-diff", "/audit", async (page) => {
+  await page.getByRole("button").filter({ hasText: "System" }).click();
+  await expect(page.locator("body")).toContainText("v2.3.0");
+  await expect(page.locator("body")).toContainText("v2.4.1");
+});
+state("audit-actor-filter", "/audit", (page) => choose(page, "Filter by actor", "System"));
+state("domain-dns-expanded", "/settings/domains", async (page) => {
+  await page.getByText("Show DNS record", { exact: true }).first().click();
+  await expect(page.locator("body")).toContainText("audit-pending");
+});
+state("configuration-dirty", `${service}/configuration`, async (page) => {
+  await page.getByLabel("Container image", { exact: true }).fill("ghcr.io/acme/storefront:v2.5.0");
+  await expect(page.getByText("Unsaved changes", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Save configuration", exact: true }).scrollIntoViewIfNeeded();
+});
+state("advanced-dirty", `${service}/advanced`, async (page) => {
+  await choose(page, "Isolation", "Sandboxed");
+  await expect(page.getByText("Unsaved changes", { exact: true })).toBeVisible();
+});
+for (const empty of [false, true])
+  state(`allocation-logs-search-${empty ? "empty" : "results"}`, allocation, async (page) => {
+    await page.getByRole("searchbox", { name: "Search logs" }).fill(empty ? "unmatched-audit-search" : "products");
+    await expect(page.locator("pre")).toContainText(empty ? "No matching log lines." : "GET /products");
+    await page.getByRole("searchbox", { name: "Search logs" }).scrollIntoViewIfNeeded();
+  });
+state("allocation-logs-follow-wrap", allocation, async (page) => {
+  await click(page, "Follow off");
+  await click(page, "Wrap off");
+  await expect(page.getByRole("button", { name: "Follow on", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Wrap on", exact: true })).toHaveAttribute("aria-pressed", "true");
+});
+state("recent-projects-navigation", "/status", async (page) => {
+  await page.goto(project);
+  await expect(page.getByRole("heading", { name: "Commerce Platform", exact: true })).toBeVisible();
+  await page.goto("/status");
+  await expect(page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Commerce Platform", exact: true })).toBeVisible();
+});
+state("public-not-found", "/invite/audit-invite/missing", async (page) => {
+  await expect(page.getByRole("heading", { name: "Page not found", exact: true })).toBeVisible();
+}, { public: true });
+for (const [name, route] of [["overview", "/dashboard"], ["configuration", `${service}/configuration`]])
+  state(`dark-${name}`, route, undefined, { dark: true });
+state("narrow-new-service", `${project}/services`, (page) => click(page, "New service"), { narrow: true });
+state("narrow-invite-people", "/settings/members", (page) => click(page, "Invite people"), { narrow: true });
+state("service-deploy-confirmation", `${service}?action=deploy`, async (page) => {
+  await expect(page.getByRole("alertdialog")).toBeVisible();
+  await expect(page.getByText("Deploy this service?", { exact: true })).toBeVisible();
+});
 
 // Only disposable local records are created. Revoke them even if a later wait
 // fails; do not record traces/storage state containing authentication cookies.
@@ -374,7 +462,8 @@ for (const kind of ["api-key", "invitation", "webhook"])
               (el) => (el.textContent = "[REDACTED — revoked audit key]"),
             );
         } else if (kind === "invitation") {
-          await click(page, "Invite member");
+          await click(page, "Invite people");
+          await page.getByRole("button", { name: /^Share a link/ }).click();
           await page
             .locator("#invitation-note")
             .fill("Audit temporary invitation");
@@ -396,18 +485,19 @@ for (const kind of ["api-key", "invitation", "webhook"])
               "Copy this webhook token now. It will not be shown again.",
             ),
           ).toBeVisible();
-          await page
-            .locator("[role=dialog] code")
-            .evaluate(
-              (el) => (el.textContent = "[REDACTED — deleted audit token]"),
-            );
+          await page.locator("[role=dialog] code, [role=dialog] pre").evaluateAll((elements) => {
+            for (const el of elements) el.textContent = "[REDACTED — deleted audit token]";
+          });
         }
       } finally {
         // Also scrub a partially completed success screen before Playwright's
         // automatic failure screenshot / error context is collected.
-        await page.locator('[role="dialog"] code').evaluateAll((elements) => {
+        await page.locator('[role="dialog"] code, [role="dialog"] pre').evaluateAll((elements) => {
           for (const el of elements)
             el.textContent = "[REDACTED — disposable audit credential]";
+        });
+        await page.getByRole("dialog").getByText(/^curl -X POST/).evaluateAll((elements) => {
+          for (const el of elements) el.textContent = "curl -X POST '[REDACTED endpoint]' -H 'Authorization: Bearer <token>'";
         });
         await page
           .getByRole("textbox", { name: "Invitation link" })
@@ -502,6 +592,7 @@ for (const scenario of scenarios)
     try {
       if (scenario.narrow)
         await page.setViewportSize({ width: 390, height: 844 });
+      if (scenario.dark) await page.emulateMedia({ colorScheme: "dark" });
       if (!scenario.public) {
         await context.addCookies([
           ...authCookies,
