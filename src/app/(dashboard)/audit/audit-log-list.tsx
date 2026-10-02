@@ -3,12 +3,12 @@
 import { useMemo, useState } from 'react'
 import { Bot, ChevronDown, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { SearchInput } from '@/components/ui/search-input'
 import { Panel, PanelHeader } from '@/components/ui/panel'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ResourceId } from '@/components/resource-id'
 import { Time } from '@/components/time'
 import { cn } from '@/lib/utils'
+import { auditActionSentence, auditResourceName } from '@/lib/labels'
 
 const PAGE_SIZE = 25
 
@@ -70,7 +70,7 @@ export function AuditLogList({ entries, now }: { entries: AuditEntry[]; now: num
     if (action !== 'all' && entry.action !== action) return false
     if (resource !== 'all' && entry.resourceType !== resource) return false
     if (date !== 'all' && now - new Date(entry.createdAt).getTime() > Number(date) * 86_400_000) return false
-    const name = resourceName(entry)
+    const name = auditResourceName(entry)
     return !query || `${entry.action} ${entry.resourceType} ${entry.resourceId} ${entry.userName ?? 'System'} ${name ?? ''}`.toLowerCase().includes(query.toLowerCase())
   }), [entries, actor, action, resource, date, query, now])
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
@@ -81,7 +81,7 @@ export function AuditLogList({ entries, now }: { entries: AuditEntry[]; now: num
     <Panel>
       <PanelHeader title={`${filtered.length} event${filtered.length === 1 ? '' : 's'}`} hint="Retained for 365 days" />
       <div className="grid gap-2 border-b border-line p-3 sm:grid-cols-2 lg:grid-cols-5">
-        <Input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1) }} placeholder="Search audit log…" aria-label="Search audit log" />
+        <SearchInput value={query} onChange={(event) => { setQuery(event.target.value); setPage(1) }} placeholder="Search audit log…" aria-label="Search audit log" />
         <AuditSelect label="actor" value={actor} setValue={setActor} options={actors} />
         <AuditSelect label="action" value={action} setValue={setAction} options={actions} />
         <AuditSelect label="resource" value={resource} setValue={setResource} options={resources} />
@@ -99,20 +99,20 @@ export function AuditLogList({ entries, now }: { entries: AuditEntry[]; now: num
               type="button"
               aria-expanded={expanded}
               onClick={() => setOpenId(expanded ? null : entry.id)}
-              className="flex w-full items-start gap-3 px-4 py-3.5 text-left transition-colors duration-150 ease-enter hover:bg-sunken focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+              className="flex w-full items-start gap-3 px-4 py-3.5 text-left transition-colors duration-150 ease-enter hover:bg-sunken focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
             >
               <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-line bg-surface text-ink-muted">
                 <Icon className="h-3.5 w-3.5" aria-hidden="true" />
               </span>
               <span className="min-w-0 flex-1">
                 <span className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-medium text-ink">{entry.userName ?? 'System'} {actionLabel(entry.action)} <ResourceId value={entry.resourceId} name={resourceName(entry)} /></span>
+                  <span className="text-sm font-medium text-ink">{entry.userName ?? 'System'} {auditActionSentence(entry.action, auditResourceName(entry), entry.details)}</span>
                 </span>
-                <span className="mt-1 block truncate text-sm text-ink-soft">
-                  {entry.action}
+                <span className="mt-1 block truncate text-xs text-ink-muted">
+                  {entry.action} · <Time value={entry.createdAt} mode="auto" />
                 </span>
                 <span className="mt-1 block text-xs text-ink-muted">
-                  {entry.resourceType} · <Time value={entry.createdAt} mode="auto" />
+                  {entry.resourceType}
                 </span>
               </span>
               <ChevronDown
@@ -140,17 +140,4 @@ export function AuditLogList({ entries, now }: { entries: AuditEntry[]; now: num
 
 function AuditSelect({ label, value, setValue, options }: { label: string; value: string; setValue: (value: string) => void; options: string[] }) {
   return <Select value={value} onValueChange={setValue}><SelectTrigger aria-label={`Filter by ${label}`}><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All {label}s</SelectItem>{options.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectContent></Select>
-}
-
-function resourceName(entry: AuditEntry): string | undefined {
-  const after = entry.details.after
-  if (entry.resourceName) return entry.resourceName
-  if (typeof entry.details.name === 'string') return entry.details.name
-  if (typeof entry.details.serviceName === 'string') return entry.details.serviceName
-  if (after && typeof after === 'object' && 'name' in after && typeof after.name === 'string') return after.name
-}
-
-function actionLabel(action: string): string {
-  const words = action.split('.').filter((word) => !['service', 'project', 'deployment'].includes(word))
-  return words.join(' ').replace(/_/g, ' ') || 'updated'
 }

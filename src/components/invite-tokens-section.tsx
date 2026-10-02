@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { actionErrorMessage } from '@/lib/action-error'
 import { Copy, Plus, Trash2 } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
+import { Chip } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -27,7 +27,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { addOrganizationMemberAction } from '@/lib/actions/operations'
 import { createInvitationAction, revokeInvitationAction } from '@/lib/actions/settings'
 import { formatDate } from '@/lib/format'
 
@@ -63,8 +62,6 @@ export function InviteTokensSection({
   const router = useRouter()
   const searchParams = useSearchParams()
   const [open, setOpen] = useState(false)
-  const [mode, setMode] = useState<'email' | 'link' | null>(null)
-  const [email, setEmail] = useState('')
   const [roleValue, setRoleValue] = useState<'owner' | 'admin' | 'member'>('member')
   const [uses, setUses] = useState('single')
   const [maxUses, setMaxUses] = useState('2')
@@ -111,27 +108,6 @@ export function InviteTokensSection({
     }
   }
 
-  async function addByEmail(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setPending(true)
-    setError(null)
-    const formData = new FormData()
-    formData.set('email', email)
-    formData.set('role', roleValue)
-    formData.set('grantInstanceAdmin', String(admin))
-    try {
-      await addOrganizationMemberAction(formData)
-      toast({ title: 'Member added.', tone: 'success' })
-      setOpen(false)
-      setEmail('')
-      setMode(null)
-    } catch (cause) {
-      setError(actionErrorMessage(cause, 'Could not add this person. They may need an invitation link.'))
-    } finally {
-      setPending(false)
-    }
-  }
-
   async function copy() {
     if (!link) return
     await navigator.clipboard.writeText(new URL(link, window.location.origin).toString())
@@ -164,7 +140,7 @@ export function InviteTokensSection({
             if (pending) return
             setOpen(next)
             if (next) setError(null)
-            else { setLink(null); setMode(null); setCopied(false) }
+            else { setLink(null); setCopied(false) }
           }}>
             <DialogTrigger asChild>
               <Button variant="primary" size="sm">
@@ -176,7 +152,7 @@ export function InviteTokensSection({
               <DialogHeader>
                 <DialogTitle>{link ? 'Invitation created' : 'Invite people'}</DialogTitle>
                 <DialogDescription>
-                  {link ? 'Copy and share this link now.' : 'Add an existing user by email or create a link for someone new.'}
+                  {link ? 'Copy and share this link now.' : 'Create a link with the access, expiry, and number of uses you choose.'}
                 </DialogDescription>
               </DialogHeader>
 
@@ -194,23 +170,9 @@ export function InviteTokensSection({
                     </div>
                   </DialogBody>
                   <DialogFooter>
-                    <Button variant="primary" disabled={!copied} onClick={() => { setOpen(false); setLink(null); setMode(null) }}>I’ve saved this</Button>
+                    <Button variant="primary" disabled={!copied} onClick={() => { setOpen(false); setLink(null) }}>I’ve saved this</Button>
                   </DialogFooter>
                 </>
-              ) : mode === 'email' ? (
-                <form onSubmit={addByEmail}>
-                  <DialogBody className="space-y-4">
-                    <div className="space-y-2"><Label htmlFor="invite-email">Email</Label><Input id="invite-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required autoFocus /></div>
-                    <RoleFields role={role} showInstanceAdmin={showInstanceAdmin} roleValue={roleValue} setRoleValue={setRoleValue} admin={admin} setAdmin={setAdmin} />
-                    {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
-                  </DialogBody>
-                  <DialogFooter><Button type="button" onClick={() => setMode(null)}>Back</Button><Button variant="primary" type="submit" disabled={pending} aria-busy={pending}>{pending ? 'Adding…' : 'Add person'}</Button></DialogFooter>
-                </form>
-              ) : mode === null ? (
-                <DialogBody className="grid gap-3 sm:grid-cols-2">
-                  <button type="button" onClick={() => setMode('email')} className="rounded-lg border border-line p-4 text-left hover:bg-sunken"><span className="font-medium text-ink">By email</span><span className="mt-1 block text-xs text-ink-muted">Add an existing Bower user.</span></button>
-                  <button type="button" onClick={() => setMode('link')} className="rounded-lg border border-line p-4 text-left hover:bg-sunken"><span className="font-medium text-ink">Share a link</span><span className="mt-1 block text-xs text-ink-muted">Choose roles, teams, expiry, and uses.</span></button>
-                </DialogBody>
               ) : (
                 <>
                   <DialogBody className="space-y-5">
@@ -249,9 +211,7 @@ export function InviteTokensSection({
 
                     {teams.length ? (
                       <fieldset className="space-y-2.5">
-                        <legend className="text-sm font-medium text-ink">
-                          Teams <span className="font-normal text-ink-muted">(optional)</span>
-                        </legend>
+                        <legend><Label optional>Teams</Label></legend>
                         <div className="grid gap-2 sm:grid-cols-2">
                           {teams.map((team) => {
                             const id = `invitation-team-${team.id}`
@@ -285,7 +245,7 @@ export function InviteTokensSection({
                       {uses === 'limited' ? (
                         <div className="space-y-2 pt-2">
                           <Label htmlFor="invitation-max-uses">Maximum uses</Label>
-                          <Input id="invitation-max-uses" type="number" min={2} max={2147483647} value={maxUses} onChange={(event) => setMaxUses(event.target.value)} />
+                          <Input id="invitation-max-uses" type="number" min={2} max={2147483647} value={maxUses} onChange={(event) => setMaxUses(event.target.value)} className="max-w-48" />
                         </div>
                       ) : null}
                       <p id="invitation-uses-help" className="text-xs text-ink-muted">
@@ -305,7 +265,7 @@ export function InviteTokensSection({
                       {expiry === 'custom' ? <Input aria-label="Custom expiry" type="datetime-local" value={customExpiry} onChange={(event) => setCustomExpiry(event.target.value)} required /> : null}
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="invitation-note">Note <span className="font-normal text-ink-muted">(optional)</span></Label>
+                      <Label htmlFor="invitation-note" optional>Note</Label>
                       <Input id="invitation-note" value={note} onChange={(event) => setNote(event.target.value)} />
                     </div>
                     {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
@@ -349,12 +309,12 @@ export function InviteTokensSection({
                 <TableRow key={invitation.id}>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="capitalize">{invitation.organizationRole ?? 'Instance admin'}</Badge>
+                      <Chip className="capitalize">{invitation.organizationRole ?? 'Instance admin'}</Chip>
                       {invitation.grantInstanceAdmin ? <span className="text-xs text-ink-muted">Instance admin</span> : null}
                     </div>
                   </TableCell>
                   <TableCell>{invitation.useCount} / {invitation.maxUses ?? 'Unlimited'}</TableCell>
-                  <TableCell><Badge variant={invitationStatus === 'Active' ? 'success' : 'secondary'}>{invitationStatus}</Badge></TableCell>
+                  <TableCell><Chip tone={invitationStatus === 'Active' ? 'success' : 'neutral'}>{invitationStatus}</Chip></TableCell>
                   <TableCell className="whitespace-nowrap">{invitation.expiresAt ? formatDate(invitation.expiresAt) : 'Never'}</TableCell>
                   <TableCell>{invitation.createdByName ?? '—'}</TableCell>
                   {canInvite ? (
@@ -373,20 +333,6 @@ export function InviteTokensSection({
       </CardContent>
     </Card>
   )
-}
-
-function RoleFields({ role, showInstanceAdmin, roleValue, setRoleValue, admin, setAdmin }: {
-  role: string
-  showInstanceAdmin: boolean
-  roleValue: 'owner' | 'admin' | 'member'
-  setRoleValue: (value: 'owner' | 'admin' | 'member') => void
-  admin: boolean
-  setAdmin: (value: boolean) => void
-}) {
-  return <>
-    {showInstanceAdmin ? <div className="space-y-2"><Label htmlFor="email-instance-role">Instance role</Label><Select value={admin ? 'admin' : 'user'} onValueChange={(value) => setAdmin(value === 'admin')}><SelectTrigger id="email-instance-role"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="user">User</SelectItem><SelectItem value="admin">Instance admin</SelectItem></SelectContent></Select></div> : null}
-    <div className="space-y-2"><Label htmlFor="email-org-role">Organization role</Label><Select value={roleValue} onValueChange={(value) => setRoleValue(value as typeof roleValue)}><SelectTrigger id="email-org-role"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="member">Member</SelectItem><SelectItem value="admin">Admin</SelectItem>{role === 'owner' || showInstanceAdmin ? <SelectItem value="owner">Owner</SelectItem> : null}</SelectContent></Select></div>
-  </>
 }
 
 function RevokeInvitationButton({ invitation }: { invitation: Invitation }) {

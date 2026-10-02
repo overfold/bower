@@ -1,13 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { unstable_rethrow, useRouter } from 'next/navigation'
 import { updateProjectAction, deleteProjectAction } from '@/lib/actions/projects'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { UnsavedChangesBar } from '@/components/ui/unsaved-changes-bar'
 import { InlineNotice, useFeedback } from '@/components/ui/feedback'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -21,6 +22,7 @@ interface Props {
   project: {
     id: string
     name: string
+    slug: string
     description: string | null
     createdAt: string
   }
@@ -37,6 +39,7 @@ export function ProjectSettingsForm({ project, counts }: Props) {
   const [confirmation, setConfirmation] = useState('')
   const router = useRouter()
   const { toast } = useFeedback()
+  const formRef = useRef<HTMLFormElement>(null)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -77,7 +80,7 @@ export function ProjectSettingsForm({ project, counts }: Props) {
   return (
     <div className="max-w-3xl space-y-6">
       <Card>
-        <form onSubmit={handleSubmit} onChange={() => setDirty(true)}>
+        <form ref={formRef} onSubmit={handleSubmit} onChange={() => setDirty(true)}>
           <CardHeader>
             <CardTitle>Project details</CardTitle>
           </CardHeader>
@@ -88,20 +91,16 @@ export function ProjectSettingsForm({ project, counts }: Props) {
               <Input id="name" name="name" defaultValue={project.name} required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description" optional>Description</Label>
               <Textarea id="description" name="description" defaultValue={project.description ?? ''} rows={3} />
             </div>
             <div className="text-xs text-ink-muted">
               Created {formatDate(project.createdAt)}
             </div>
           </CardContent>
-          <CardFooter>
-            <Button variant="primary" type="submit" disabled={loading || !dirty} loading={loading}>
-              {loading ? 'Saving…' : 'Save changes'}
-            </Button>
-          </CardFooter>
         </form>
       </Card>
+      <UnsavedChangesBar dirty={dirty} pending={loading} onSave={() => formRef.current?.requestSubmit()} onDiscard={() => { formRef.current?.reset(); setDirty(false); setError(null) }} />
 
       <Separator />
 
@@ -129,21 +128,16 @@ export function ProjectSettingsForm({ project, counts }: Props) {
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete {project.name}?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This action cannot be undone. All services, environments, and deployment history will be permanently deleted.
-                </AlertDialogDescription>
+                <AlertDialogDescription>Deletes {counts.services} {counts.services === 1 ? 'service' : 'services'}, {counts.routes} {counts.routes === 1 ? 'route' : 'routes'}, {counts.volumes} {counts.volumes === 1 ? 'volume' : 'volumes'}, all secrets and deployment history. This can’t be undone.</AlertDialogDescription>
               </AlertDialogHeader>
               <div className="space-y-3 px-5">
-                <ul className="list-disc space-y-1 pl-5 text-sm text-ink-muted">
-                  <li>{counts.services} {counts.services === 1 ? 'service' : 'services'} and their configuration</li><li>{counts.routes} {counts.routes === 1 ? 'route' : 'routes'} and {counts.volumes} {counts.volumes === 1 ? 'volume' : 'volumes'}, plus secrets</li><li>Deployment history</li>
-                </ul>
-                <Label htmlFor="confirm-project-name">Type <span className="font-semibold text-ink">{project.name}</span> to confirm</Label>
+                <Label htmlFor="confirm-project-name">Type <span className="font-mono font-semibold text-ink">{project.slug}</span> to confirm</Label>
                 <Input id="confirm-project-name" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} autoComplete="off" />
               </div>
               {deleteError ? <InlineNotice tone="error">{deleteError}</InlineNotice> : null}
               <AlertDialogFooter>
                 <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} disabled={deleting || confirmation !== project.name} aria-busy={deleting}>
+                <AlertDialogAction onClick={handleDelete} disabled={deleting || confirmation !== project.slug} aria-busy={deleting}>
                   {deleting ? 'Deleting…' : 'Delete project'}
                 </AlertDialogAction>
               </AlertDialogFooter>

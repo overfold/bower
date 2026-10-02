@@ -3,9 +3,10 @@
 import { useState, useTransition } from 'react'
 import { actionErrorMessage } from '@/lib/action-error'
 import { useRouter } from 'next/navigation'
-import { HardDrive, Plus, Trash2 } from 'lucide-react'
+import { HardDrive, Plus } from 'lucide-react'
 import { deleteProjectVolumeAction, upsertProjectVolumeAction } from '@/lib/actions/project-volumes'
-import { Button, IconButton } from '@/components/ui/button'
+import { Button } from '@/components/ui/button'
+import { RowActions, RowActionItem, RowActionSeparator } from '@/components/ui/row-actions'
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
@@ -15,7 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { InlineNotice } from '@/components/ui/feedback'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 
 type Volume = { id: string; name: string; hostPath: string }
@@ -72,20 +73,29 @@ export function VolumeManager({ projectId, environmentId, volumes, canManage, al
     <Panel>
       <PanelHeader title="Volumes" hint={`${volumes.length} ${volumes.length === 1 ? 'volume' : 'volumes'}`} action={canManage ? <Button size="sm" variant="primary" onClick={() => edit()}><Plus />Add volume</Button> : undefined} />
       {volumes.length === 0 ? (
-        <EmptyState icon={<HardDrive className="h-4 w-4" />} title="No volumes" body="Create a namespace-scoped volume, then attach it from a service’s Mounts tab." />
+        <EmptyState
+          icon={<HardDrive className="h-4 w-4" />}
+          title="No volumes"
+          body={canManage ? 'Create a namespace-scoped volume, then attach it from a service’s Mounts tab.' : 'Project administrator access is required to create a volume.'}
+          action={canManage ? <Button size="sm" variant="primary" onClick={() => edit()}><Plus />Add volume</Button> : undefined}
+        />
       ) : (
         <Table>
-          <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Backing path</TableHead><TableHead>Storage</TableHead><TableHead className="w-24 text-right">Actions</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Backing path</TableHead><TableHead>Storage</TableHead><TableHead className="w-14"><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
           <TableBody>{volumes.map((volume) => (
             <TableRow key={volume.id}>
               <TableCell className="font-mono text-xs font-medium">{volume.name}</TableCell>
               <TableCell className="font-mono text-xs text-ink-muted">{volume.hostPath}</TableCell>
               <TableCell className="text-ink-muted">{volume.hostPath.startsWith('@/') ? 'Managed local' : 'Host path'}</TableCell>
-              <TableCell><div className="flex justify-end gap-1">{canManage && <><Button size="sm" variant="ghost" onClick={() => edit(volume)}>Edit</Button><AlertDialog open={deletingId === volume.id} onOpenChange={(next) => { if (!busy) { setDeletingId(next ? volume.id : null); if (next) setError(null) } }}><AlertDialogTrigger asChild><IconButton label={`Delete ${volume.name}`} disabled={busy}><Trash2 /></IconButton></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete {volume.name}?</AlertDialogTitle><AlertDialogDescription>This permanently removes the volume definition for <span className="font-mono text-ink">{volume.hostPath}</span>. Services must stop using it before it can be deleted.</AlertDialogDescription></AlertDialogHeader>{error ? <InlineNotice tone="error" className="mx-5">{error}</InlineNotice> : null}<AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel><AlertDialogAction disabled={busy} aria-busy={busy} onClick={(event) => remove(volume, event)}>{busy ? 'Deleting…' : 'Delete volume'}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></>}</div></TableCell>
+              <TableCell>{canManage && <RowActions name={volume.name}><RowActionItem onSelect={() => edit(volume)}>Edit</RowActionItem><RowActionSeparator /><RowActionItem className="text-danger-600 focus:text-danger-600" disabled={busy} onSelect={() => { setDeletingId(volume.id); setError(null) }}>Delete</RowActionItem></RowActions>}</TableCell>
             </TableRow>
           ))}</TableBody>
         </Table>
       )}
+      {(() => {
+        const volume = volumes.find((item) => item.id === deletingId)
+        return <AlertDialog open={Boolean(volume)} onOpenChange={(next) => { if (!busy && !next) setDeletingId(null) }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete {volume?.name}?</AlertDialogTitle><AlertDialogDescription>This permanently removes the volume definition for <span className="font-mono text-ink">{volume?.hostPath}</span>. Services must stop using it before it can be deleted.</AlertDialogDescription></AlertDialogHeader>{error ? <InlineNotice tone="error" className="mx-5">{error}</InlineNotice> : null}<AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel><AlertDialogAction disabled={busy || !volume} aria-busy={busy} onClick={(event) => volume && remove(volume, event)}>{busy ? 'Deleting…' : 'Delete volume'}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+      })()}
       <Dialog open={open} onOpenChange={(next) => { if (!busy) { setOpen(next); if (next) setError(null) } }}>
         <DialogContent>
           <DialogHeader><DialogTitle>{editing ? 'Edit volume' : 'Add volume'}</DialogTitle></DialogHeader>

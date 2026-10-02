@@ -180,7 +180,11 @@ export async function getServiceSummaries(projectId: string, environmentId: stri
   const configByService = new Map(configs.map((config) => [config.serviceId, config]))
   const latestByService = new Map(latest.map((row) => [row.deployment.serviceId, row.deployment]))
   const routesByService = new Map(routeCounts.map((row) => [row.serviceId, row.count]))
-  return serviceRows.map((service) => ({ service, config: configByService.get(service.id) ?? null, latestDeployment: latestByService.get(service.id) ?? null, routeCount: routesByService.get(service.id) ?? 0 }))
+  return Promise.all(serviceRows.map(async (service) => {
+    const stored = configByService.get(service.id)
+    const merged = stored ? await getMergedServiceConfig(service.id, environmentId) : null
+    return { service, config: stored && merged ? { ...stored, ...merged } : stored ?? null, latestDeployment: latestByService.get(service.id) ?? null, routeCount: routesByService.get(service.id) ?? 0 }
+  }))
 }
 
 export async function getServicesForOrg(orgId: string) {
@@ -282,12 +286,8 @@ export async function getProjectSummaries(projectIds: string[]) {
   ])
   const servicesByProject = new Map(serviceRows.map((row) => [row.projectId, row.count]))
   const routesByProject = new Map(routeRows.map((row) => [row.projectId, row.count]))
-  const severity: Record<string, number> = { failed: 6, rolling_back: 5, rolled_back: 4, deploying: 3, planning: 2, pending: 1, healthy: 0 }
-  const healthByProject = new Map<string, typeof latest[number]['status']>()
   const latestByProject = new Map<string, { status: typeof latest[number]['status']; createdAt: Date }>()
   for (const row of latest) {
-    const health = healthByProject.get(row.projectId)
-    if (!health || (severity[row.status] ?? 0) > (severity[health] ?? 0)) healthByProject.set(row.projectId, row.status)
     const current = latestByProject.get(row.projectId)
     if (!current || row.createdAt > current.createdAt) {
       latestByProject.set(row.projectId, { status: row.status, createdAt: row.createdAt })
@@ -297,7 +297,6 @@ export async function getProjectSummaries(projectIds: string[]) {
     projectId,
     serviceCount: servicesByProject.get(projectId) ?? 0,
     routeCount: routesByProject.get(projectId) ?? 0,
-    healthStatus: healthByProject.get(projectId) ?? null,
     latestDeployment: latestByProject.get(projectId) ?? null,
   }))
 }
@@ -348,6 +347,9 @@ export async function getOperationalTargetsForOrg(orgId: string) {
   return db.select({
     namespace: environments.trellisNamespace,
     job: serviceConfigs.activeJobName,
+    serviceId: services.id,
+    replicas: serviceConfigs.replicas,
+    environmentId: environments.id,
     serviceSlug: services.slug,
     serviceName: services.name,
     projectSlug: projects.slug,

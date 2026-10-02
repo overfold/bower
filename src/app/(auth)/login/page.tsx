@@ -34,7 +34,7 @@ export default function LoginPage() {
   return (
     <div className="space-y-5">
       <div className="space-y-1">
-        <h2 className="text-md font-semibold tracking-tight">Sign in</h2>
+        <h2 className="text-lg font-semibold tracking-tight">Sign in</h2>
         <p className="text-xs leading-relaxed text-ink-muted">
           Continue to your Bower instance.
         </p>
@@ -79,7 +79,7 @@ export default function LoginPage() {
         <p className="text-center text-sm text-ink-muted">
           Don&apos;t have an account?{' '}
           <Link href={`/register${typeof window === 'undefined' ? '' : window.location.search}`} className="text-link font-medium">
-            Register
+            Create one
           </Link>
         </p>
       </div>

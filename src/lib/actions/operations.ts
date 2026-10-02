@@ -6,7 +6,6 @@ import { db } from '@/db'
 import {
   environments, routes, secretsMetadata, services, teams, teamMemberships,
   teamProjectAccess, users, projects, serviceConfigs,
-  organizationMembers,
   projectUserAccess,
 } from '@/db/schema'
 import { getTrellisClient } from '@/lib/trellis-instance'
@@ -258,21 +257,6 @@ export async function deleteTeamAction(teamId: string) {
   const ctx = await requireContext(); if (ctx.role === 'member') throw new Error('Insufficient permissions.')
   await db.update(projects).set({ owningTeamId: null }).where(eq(projects.owningTeamId, teamId)); await db.delete(teams).where(and(eq(teams.id, teamId), eq(teams.orgId, ctx.org.id)))
   await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'team.deleted', resourceType: 'team', resourceId: teamId }); revalidatePath('/settings/teams')
-}
-
-export async function addOrganizationMemberAction(formData: FormData) {
-  const ctx = await requireContext(); if (ctx.role !== 'owner' && !ctx.user.isInstanceAdmin) throw new Error('Only owners and instance administrators can manage organization membership.')
-  const grantInstanceAdmin = text(formData, 'grantInstanceAdmin') === 'true'
-  if (grantInstanceAdmin && !ctx.user.isInstanceAdmin) throw new Error('Instance administrator access required.')
-  const email = text(formData, 'email').toLowerCase(); const [member] = await db.select().from(users).where(eq(users.email, email)).limit(1); if (!member) throw new Error('That user must register before being added.')
-  const role = text(formData, 'role') as 'owner' | 'admin' | 'member'
-  if (!['owner', 'admin', 'member'].includes(role)) throw new Error('Invalid organization role.')
-  await db.transaction(async (tx) => {
-    await tx.insert(organizationMembers).values({ orgId: ctx.org.id, userId: member.id, role }).onConflictDoUpdate({ target: [organizationMembers.orgId, organizationMembers.userId], set: { role } })
-    if (grantInstanceAdmin) await tx.update(users).set({ isInstanceAdmin: true, updatedAt: new Date() }).where(eq(users.id, member.id))
-  })
-  await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'organization.member.upserted', resourceType: 'organization', resourceId: ctx.org.id, details: { memberId: member.id, email, role, grantInstanceAdmin } }); revalidatePath('/settings/members')
-  if (grantInstanceAdmin) revalidatePath('/settings/instance')
 }
 
 export async function grantProjectAccessAction(projectId: string, formData: FormData) {

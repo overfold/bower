@@ -14,7 +14,7 @@ export default async function AccountSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeading title="Account" description="Manage your profile and API keys." />
+      <PageHeading as="h2" title="Account" description="Manage your profile and API keys." />
 
       <AccountSettingsForm
         user={{ name: user.name, email: user.email, avatarUrl: user.avatarUrl }}

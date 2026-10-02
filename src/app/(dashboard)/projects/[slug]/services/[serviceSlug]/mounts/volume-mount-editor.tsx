@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { Plus } from 'lucide-react'
 import { actionErrorMessage } from '@/lib/action-error'
 import { useRouter } from 'next/navigation'
 import { updateServiceVolumeMountsAction } from '@/lib/actions/service-settings'
@@ -10,6 +11,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { InlineNotice } from '@/components/ui/feedback'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { RowActions, RowActionItem, RowActionSeparator } from '@/components/ui/row-actions'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
 
 type Mount = { name: string; container_path: string; read_only?: boolean }
 
@@ -52,7 +55,7 @@ export function VolumeMountEditor({ serviceId, environmentId, mounts: initial, v
         setReadOnly(false)
       }
     }}>
-      <DialogTrigger asChild><Button size="sm" disabled={available.length === 0}>Attach volume</Button></DialogTrigger>
+      <DialogTrigger asChild><Button variant="primary" size="sm" disabled={available.length === 0} title={available.length === 0 ? 'No unattached project volumes are available' : undefined}><Plus />Attach volume</Button></DialogTrigger>
       <DialogContent size="lg">
         <DialogHeader><DialogTitle>Attach a volume</DialogTitle></DialogHeader>
         <DialogBody><div className="space-y-4">
@@ -65,4 +68,22 @@ export function VolumeMountEditor({ serviceId, environmentId, mounts: initial, v
       </DialogContent>
     </Dialog>
   )
+}
+
+export function VolumeMountActions({ serviceId, environmentId, mount, mounts }: { serviceId: string; environmentId: string; mount: Mount; mounts: Mount[] }) {
+  const router = useRouter()
+  const [open, setOpen] = useState(false)
+  const [busy, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+  function detach(event: React.MouseEvent) {
+    event.preventDefault()
+    setError(null)
+    const data = new FormData()
+    data.set('volumes', JSON.stringify(mounts.filter((item) => item.name !== mount.name)))
+    startTransition(async () => {
+      try { await updateServiceVolumeMountsAction(serviceId, environmentId, data); setOpen(false); router.refresh() }
+      catch (cause) { setError(actionErrorMessage(cause, 'Could not detach volume.')) }
+    })
+  }
+  return <AlertDialog open={open} onOpenChange={(next) => { if (!busy) setOpen(next) }}><RowActions name={mount.name}><RowActionSeparator /><AlertDialogTrigger asChild><RowActionItem className="text-danger-600 focus:text-danger-600">Detach</RowActionItem></AlertDialogTrigger></RowActions><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Detach {mount.name}?</AlertDialogTitle><AlertDialogDescription>The volume will no longer be mounted at <span className="font-mono text-ink">{mount.container_path}</span>. Its stored data will not be deleted.</AlertDialogDescription></AlertDialogHeader>{error ? <InlineNotice tone="error" className="mx-5">{error}</InlineNotice> : null}<AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel><AlertDialogAction disabled={busy} onClick={detach}>{busy ? 'Detaching…' : 'Detach volume'}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
 }

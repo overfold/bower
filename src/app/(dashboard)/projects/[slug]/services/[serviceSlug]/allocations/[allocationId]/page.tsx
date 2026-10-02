@@ -9,8 +9,7 @@ import { TrellisReadError } from '@/components/trellis-read-error'
 import { NodeLink } from '@/components/node-link'
 import { PageHeading, MetaItem } from '@/components/page-heading'
 import { Panel, PanelHeader, KeyValue, SectionTitle } from '@/components/ui/panel'
-import { Badge } from '@/components/ui/badge'
-import { Chip, StatusDot } from '@/components/status'
+import { AllocationStatus, Chip, StatusDot } from '@/components/status'
 import { ExecDialog } from '@/components/exec-dialog'
 import { AllocationMetrics } from './allocation-metrics'
 import { AllocationStopButton } from './allocation-stop-button'
@@ -78,12 +77,12 @@ export default async function AllocationDetailPage({
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <PageHeading
-            title={<ResourceId value={allocationId} copy />}
+            title={`${service.name} allocation`}
             meta={
               <>
                 <MetaItem label="Service" value={service.name} />
-                <MetaItem label="Phase" value={<StatusDot status={allocation.phase} />} />
-                <MetaItem label="Health" value={<StatusDot status={allocation.health} />} />
+                <MetaItem label="Status" value={<AllocationStatus phase={allocation.phase} health={allocation.health} />} />
+                <MetaItem label="ID" value={<ResourceId value={allocationId} copy />} />
                 <MetaItem label="Namespace" value={<span className="font-mono text-2xs">{allocation.namespace}</span>} />
               </>
             }
@@ -114,7 +113,7 @@ export default async function AllocationDetailPage({
           </dl>
           {(allocation.reason || allocation.message || allocation.draining) && (
             <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-4">
-              {allocation.draining && <Badge variant="warning">Draining</Badge>}
+              {allocation.draining && <Chip tone="warn">Draining</Chip>}
               {allocation.reason && <Chip tone={allocation.phase === 'failed' || allocation.phase === 'lost' ? 'danger' : 'neutral'}>{allocation.reason}</Chip>}
               {allocation.message && <p className="text-sm text-ink-muted">{allocation.message}</p>}
             </div>

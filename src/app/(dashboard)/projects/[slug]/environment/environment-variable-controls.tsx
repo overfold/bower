@@ -1,139 +1,36 @@
 'use client'
 
-import { useState } from 'react'
-import { actionErrorMessage } from '@/lib/action-error'
+import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash2 } from 'lucide-react'
-import { deleteEnvironmentVariableAction, setEnvironmentVariableAction } from '@/lib/actions/environment-variables'
-import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { InlineNotice } from '@/components/ui/feedback'
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
+import { updateEnvironmentVariablesAction } from '@/lib/actions/environment-variables'
+import { actionErrorMessage } from '@/lib/action-error'
+import { KeyValueEditor } from '@/components/key-value-editor'
+import { UnsavedChangesBar } from '@/components/ui/unsaved-changes-bar'
+import { InlineNotice, useFeedback } from '@/components/ui/feedback'
 
-export function CreateEnvironmentVariableDialog({
-  projectId,
-  environmentId,
-}: {
-  projectId: string
-  environmentId: string
-}) {
+export function EnvironmentVariableControls({ projectId, environmentId, names }: { projectId: string; environmentId: string; names: string[] }) {
   const router = useRouter()
-  const [open, setOpen] = useState(false)
+  const { toast } = useFeedback()
+  const formRef = useRef<HTMLFormElement>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [dirty, setDirty] = useState(false)
+  const [editorVersion, setEditorVersion] = useState(0)
 
-  async function handleSubmit(formData: FormData) {
-    setSaving(true)
-    setError(null)
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setSaving(true); setError(null)
     try {
-      await setEnvironmentVariableAction(projectId, environmentId, formData)
-      setOpen(false)
-      router.refresh()
-    } catch (err) {
-      setError(actionErrorMessage(err, 'Could not save environment variable.'))
-    } finally {
-      setSaving(false)
-    }
+      await updateEnvironmentVariablesAction(projectId, environmentId, new FormData(event.currentTarget))
+      setDirty(false)
+      toast({ tone: 'success', title: 'Environment variables saved.' }); router.refresh()
+    } catch (cause) { setError(actionErrorMessage(cause, 'Could not save environment variables.')) }
+    finally { setSaving(false) }
   }
 
-  return (
-    <Dialog open={open} onOpenChange={(next) => { if (!saving) { setOpen(next); if (next) setError(null) } }}>
-      <DialogTrigger asChild>
-        <Button variant="primary" size="sm">
-          <Plus className="h-4 w-4" />
-          Add variable
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add environment variable</DialogTitle>
-        </DialogHeader>
-        <form action={handleSubmit}>
-          <DialogBody className="space-y-4">
-            {error && <InlineNotice tone="error">{error}</InlineNotice>}
-            <div className="space-y-2">
-              <Label htmlFor="environmentVariableName">Name</Label>
-              <Input
-                id="environmentVariableName"
-                name="name"
-                placeholder="DATABASE_URL"
-                required
-                autoCapitalize="characters"
-                className="font-mono"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="environmentVariableValue">Value</Label>
-              <Input
-                id="environmentVariableValue"
-                name="value"
-                type="password"
-                placeholder="Value"
-                required
-                className="font-mono"
-              />
-            </div>
-          </DialogBody>
-          <DialogFooter>
-            <Button type="button" onClick={() => setOpen(false)} disabled={saving}>Cancel</Button>
-            <Button variant="primary" type="submit" disabled={saving} aria-busy={saving}>{saving ? 'Saving…' : 'Save variable'}</Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-export function DeleteEnvironmentVariableButton({
-  projectId,
-  environmentId,
-  name,
-}: {
-  projectId: string
-  environmentId: string
-  name: string
-}) {
-  const router = useRouter()
-  const [open, setOpen] = useState(false)
-  const [pending, setPending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  async function remove(event: React.MouseEvent) {
-    event.preventDefault()
-    setPending(true)
-    setError(null)
-    try {
-      await deleteEnvironmentVariableAction(projectId, environmentId, name)
-      setOpen(false)
-      router.refresh()
-    } catch (cause) {
-      setError(actionErrorMessage(cause, 'Could not delete environment variable.'))
-    } finally {
-      setPending(false)
-    }
-  }
-
-  return (
-    <AlertDialog open={open} onOpenChange={(next) => { if (!pending) { setOpen(next); if (next) setError(null) } }}>
-      <AlertDialogTrigger asChild><Button variant="ghost" size="sm" aria-label={`Delete ${name}`}><Trash2 className="h-3.5 w-3.5" /></Button></AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader><AlertDialogTitle>Delete {name}?</AlertDialogTitle><AlertDialogDescription>This permanently removes the environment variable. Services that use it may fail on their next deployment.</AlertDialogDescription></AlertDialogHeader>
-        {error ? <InlineNotice tone="error" className="mx-5">{error}</InlineNotice> : null}
-        <AlertDialogFooter><AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel><AlertDialogAction onClick={remove} disabled={pending} aria-busy={pending}>{pending ? 'Deleting…' : 'Delete variable'}</AlertDialogAction></AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  )
+  return <form ref={formRef} onSubmit={submit} className="space-y-4 p-4">
+    {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
+    <p className="text-xs text-ink-muted">Existing values are hidden. Leave their value blank to keep it unchanged.</p>
+    <KeyValueEditor key={editorVersion} initialRows={names.map((key) => ({ key, value: '' }))} preserveBlankValues onChange={() => setDirty(true)} />
+    <UnsavedChangesBar dirty={dirty} pending={saving} onSave={() => formRef.current?.requestSubmit()} onDiscard={() => { setEditorVersion((value) => value + 1); setDirty(false); setError(null) }} />
+  </form>
 }

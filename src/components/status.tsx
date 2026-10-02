@@ -1,17 +1,9 @@
+import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { badgeVariants } from '@/components/ui/badge'
+import { Chip } from '@/components/ui/badge'
 import { label } from '@/lib/labels'
 import type { Tone } from '@/lib/tone'
 export type { Tone } from '@/lib/tone'
-
-const toneChip: Record<Tone, string> = {
-  brand: 'inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-brand-100 bg-brand-50 px-2 py-0.5 text-2xs font-medium text-brand-700',
-  success: badgeVariants({ variant: 'success' }),
-  warn: badgeVariants({ variant: 'warning' }),
-  danger: badgeVariants({ variant: 'danger' }),
-  info: badgeVariants({ variant: 'info' }),
-  neutral: badgeVariants({ variant: 'secondary' }),
-}
 
 const toneDot: Record<Tone, string> = {
   brand: 'bg-brand-500',
@@ -24,6 +16,7 @@ const toneDot: Record<Tone, string> = {
 
 const statusTone: Record<string, Tone> = {
   healthy: 'success',
+  ready: 'success',
   running: 'success',
   deploying: 'info',
   rolling_back: 'info',
@@ -44,11 +37,12 @@ const statusTone: Record<string, Tone> = {
   unknown: 'neutral',
   error: 'danger',
   degraded: 'warn',
+  down: 'danger',
   backoff: 'warn',
   never: 'neutral',
 }
 
-const pulsingStatuses = new Set(['deploying', 'rolling_back', 'pending', 'planning', 'starting', 'placed', 'draining'])
+const inProgressStatuses = new Set(['deploying', 'rolling_back', 'pending', 'planning', 'starting', 'placed', 'stopping'])
 
 export function Dot({ tone = 'neutral', pulse }: { tone?: Tone; pulse?: boolean }) {
   return (
@@ -64,24 +58,33 @@ export function Dot({ tone = 'neutral', pulse }: { tone?: Tone; pulse?: boolean 
   )
 }
 
-export function Chip({ tone = 'neutral', children, className }: { tone?: Tone; children: React.ReactNode; className?: string }) {
-  return (
-    <span className={cn(toneChip[tone], className)}>
-      {children}
-    </span>
-  )
-}
+export { Chip }
 
 export function StatusDot({ status, className }: { status: string; className?: string }) {
-  const tone = statusTone[status] ?? 'neutral'
-  const pulse = pulsingStatuses.has(status)
+  const inProgress = inProgressStatuses.has(status)
+  const tone = inProgress ? 'neutral' : statusTone[status] ?? 'neutral'
 
   return (
     <Chip tone={tone} className={className}>
-      <Dot tone={tone} pulse={pulse} />
-      <span>{label(status)}</span>
+      {inProgress ? <Loader2 className="size-3 animate-spin" aria-hidden /> : <Dot tone={tone} />}
+      <span>{status === 'ready' ? 'Ready' : label(status)}</span>
     </Chip>
   )
+}
+
+export function DeploymentStatus({ status, className }: { status: string; className?: string }) {
+  const normalized = status.toLowerCase()
+  const inProgress = new Set(['pending', 'planning', 'deploying', 'placed', 'starting', 'stopping']).has(normalized)
+  const displayStatus = inProgress ? 'In progress' : normalized === 'healthy' || normalized === 'succeeded' ? 'Succeeded' : label(normalized)
+  const tone: Tone = normalized === 'healthy' || normalized === 'succeeded' ? 'success'
+    : normalized === 'failed' ? 'danger'
+    : normalized === 'rolled_back' || normalized === 'rolled-back' ? 'info'
+    : 'neutral'
+  return <Chip tone={tone} className={className}>{inProgress ? <Loader2 className="size-3 animate-spin" aria-hidden /> : <Dot tone={tone} />}<span>{displayStatus}</span></Chip>
+}
+
+export function AllocationStatus({ phase, health, className }: { phase: string; health?: string | null; className?: string }) {
+  return <StatusDot status={phase === 'running' && health ? health : phase} className={className} />
 }
 
 export function Mono({ children, className }: { children: React.ReactNode; className?: string }) {

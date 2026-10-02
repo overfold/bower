@@ -6,10 +6,41 @@ import { db } from '@/db'
 import { environments } from '@/db/schema'
 import { getTrellisClient } from '@/lib/trellis-instance'
 import { recordAudit, requireProject, text } from './shared'
+import { parseEnvironmentVariableRows } from '@/lib/environment-variable-input'
 
 function environmentVariables(value: unknown) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {} as Record<string, string>
   return value as Record<string, string>
+}
+
+export async function updateEnvironmentVariablesAction(projectId: string, environmentId: string, formData: FormData) {
+  const ctx = await requireProject(projectId)
+  if (ctx.projectRole !== 'admin') throw new Error('Insufficient permissions.')
+  const rows = parseEnvironmentVariableRows(formData.get('envVars'))
+  const [environment] = await db.select().from(environments)
+    .where(and(eq(environments.id, environmentId), eq(environments.projectId, projectId))).limit(1)
+  if (!environment) throw new Error('Environment not found.')
+  const existing = environmentVariables(environment.envVars)
+  const next: Record<string, string> = {}
+  const client = await getTrellisClient(ctx.org.id)
+  for (const row of rows) {
+    const secretName = existing[row.key] ?? `BOWER_ENV_${row.key}`
+    if (!existing[row.key] && !row.value) throw new Error(`A value is required for ${row.key}.`)
+    if (row.value) await client.setSecret(environment.trellisNamespace, secretName, row.value)
+    next[row.key] = secretName
+  }
+  for (const [name, secretName] of Object.entries(existing)) {
+    if (!(name in next)) await client.deleteSecret(environment.trellisNamespace, secretName).catch(() => undefined)
+  }
+  await db.transaction(async (tx) => {
+    await tx.update(environments).set({ envVars: next, updatedAt: new Date() }).where(eq(environments.id, environment.id))
+  })
+  await recordAudit({
+    orgId: ctx.org.id, userId: ctx.user.id, action: 'environment_variables.updated',
+    resourceType: 'environment', resourceId: environment.id,
+    details: { created: rows.filter((row) => !(row.key in existing)).map((row) => row.key), deleted: Object.keys(existing).filter((name) => !(name in next)), rotated: rows.filter((row) => existing[row.key] && row.value).map((row) => row.key) },
+  })
+  revalidatePath(`/projects/${ctx.project.slug}/environment`)
 }
 
 function variableName(formData: FormData) {

@@ -225,7 +225,17 @@ export async function updateServiceEnvironmentOverridesAction(serviceId: string,
   )).limit(1)
   if (!environment) throw new Error('Environment not found.')
 
-  const envVars = parseKeyValueLines(String(formData.get('envVars') ?? ''), 'env')
+  let envRows: unknown
+  try { envRows = JSON.parse(String(formData.get('envVars') ?? '[]')) } catch { throw new Error('Service variables must be valid JSON.') }
+  if (!Array.isArray(envRows)) throw new Error('Service variables must be a list.')
+  const lines = envRows.map((entry) => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) throw new Error('Each service variable must have a name and value.')
+    const row = entry as Record<string, unknown>
+    if (typeof row.key !== 'string' || typeof row.value !== 'string') throw new Error('Each service variable must have a name and value.')
+    return `${row.key}=${row.value}`
+  }).join('\n')
+  const envVars = parseKeyValueLines(lines, 'env')
+  if (Object.keys(envVars).length !== envRows.length) throw new Error('Service variable names must be unique.')
   const secretBindings = validateSecretBindings(parseJsonInput(formData, 'secretBindings', []))
   const environmentEnv = environment.envVars && typeof environment.envVars === 'object' && !Array.isArray(environment.envVars)
     ? environment.envVars as Record<string, string>

@@ -16,7 +16,7 @@ export function MemberRoleSelect({ membershipId, role, canManage, disabledReason
   if (!canManage) return null
 
   return (
-    <TooltipProvider><Tooltip><TooltipTrigger asChild><span tabIndex={disabledReason ? 0 : undefined}>
+    <div className="space-y-1"><TooltipProvider><Tooltip><TooltipTrigger asChild><span className="inline-block" tabIndex={disabledReason ? 0 : undefined}>
     <Select
       value={role}
       disabled={pending || Boolean(disabledReason)}
@@ -32,5 +32,6 @@ export function MemberRoleSelect({ membershipId, role, canManage, disabledReason
       </SelectContent>
     </Select>
     </span></TooltipTrigger>{disabledReason ? <TooltipContent>{disabledReason}</TooltipContent> : null}</Tooltip></TooltipProvider>
+    {disabledReason ? <p className="max-w-48 text-2xs text-ink-muted">{disabledReason}</p> : null}</div>
   )
 }

@@ -1,21 +1,23 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { actionErrorMessage } from '@/lib/action-error'
 import { useRouter } from 'next/navigation'
 import { updateServiceConfigOverridesAction } from '@/lib/actions/base-service-config'
 import { Panel, PanelHeader } from '@/components/ui/panel'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Button } from '@/components/ui/button'
 import { InlineNotice, useFeedback } from '@/components/ui/feedback'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { MergedServiceConfig } from '@/lib/queries'
+import { UnsavedChangesBar } from '@/components/ui/unsaved-changes-bar'
+import type { TrellisJobLimits } from '@/types/trellis'
 
 interface ConfigurationFormProps {
   serviceId: string
   environmentId: string
   config: MergedServiceConfig | null
+  limits?: TrellisJobLimits
 }
 
 function recordToLines(value: unknown) {
@@ -23,7 +25,7 @@ function recordToLines(value: unknown) {
   return Object.entries(value as Record<string, unknown>).map(([k, v]) => `${k}=${String(v)}`).join('\n')
 }
 
-export function ConfigurationForm({ serviceId, environmentId, config }: ConfigurationFormProps) {
+export function ConfigurationForm({ serviceId, environmentId, config, limits }: ConfigurationFormProps) {
   const router = useRouter()
   const { toast } = useFeedback()
   const [saving, setSaving] = useState(false)
@@ -33,21 +35,10 @@ export function ConfigurationForm({ serviceId, environmentId, config }: Configur
   const [dirty, setDirty] = useState(false)
   const formRef = useRef<HTMLFormElement>(null)
 
-  useEffect(() => {
-    const warn = (event: BeforeUnloadEvent) => { if (dirty) event.preventDefault() }
-    const guardLink = (event: MouseEvent) => {
-      const link = (event.target as Element).closest('a[href]')
-      if (dirty && link && !window.confirm('Discard your unsaved service configuration?')) event.preventDefault()
-    }
-    window.addEventListener('beforeunload', warn)
-    document.addEventListener('click', guardLink, true)
-    return () => { window.removeEventListener('beforeunload', warn); document.removeEventListener('click', guardLink, true) }
-  }, [dirty])
-
   const d = {
     image: config?.image ?? '',
     replicas: config?.replicas ?? 1,
-    cpu: config?.cpu ?? 100,
+    cpu: (config?.cpu ?? 100) / 1000,
     memory: config ? config.memory / 1048576 : 128,
     deploymentStrategy: config?.deploymentStrategy ?? 'rolling',
     healthCheckPath: config?.healthCheckPath ?? '',
@@ -66,6 +57,7 @@ export function ConfigurationForm({ serviceId, environmentId, config }: Configur
     setError(null)
     try {
       const formData = new FormData(e.currentTarget)
+      formData.set('cpu', String(Number(formData.get('cpu')) * 1000))
       await updateServiceConfigOverridesAction(serviceId, environmentId, formData)
       setDirty(false)
       toast({ tone: 'success', title: 'Service configuration saved.' })
@@ -104,7 +96,8 @@ export function ConfigurationForm({ serviceId, environmentId, config }: Configur
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="replicas">Replicas</Label>
-              <Input id="replicas" name="replicas" type="number" defaultValue={d.replicas} required min={1} />
+              <Input id="replicas" name="replicas" type="number" className="w-36" defaultValue={d.replicas} required min={1} max={limits?.max_replicas_per_task_group} />
+              {limits ? <p className="text-xs text-ink-muted">Up to {limits.max_replicas_per_task_group} replicas</p> : null}
             </div>
             <div className="space-y-2">
               <Label htmlFor="strategy">Deployment strategy</Label>
@@ -126,12 +119,14 @@ export function ConfigurationForm({ serviceId, environmentId, config }: Configur
         <PanelHeader title="Resources" hint="Compute reserved for each replica" />
         <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="cpu">CPU (millicores)</Label>
-            <Input id="cpu" name="cpu" type="number" defaultValue={d.cpu} min={1} step={1} required />
+            <Label htmlFor="cpu">CPU</Label>
+            <div className="relative max-w-48"><Input id="cpu" name="cpu" type="number" defaultValue={d.cpu} min={0.001} max={limits ? limits.max_task_cpu / 1000 : undefined} step={0.001} className="pr-14" required /><span className="pointer-events-none absolute right-3 top-2.5 text-xs text-ink-muted">cores</span></div>
+            {limits ? <p className="text-xs text-ink-muted">Up to {limits.max_task_cpu / 1000} cores per replica</p> : null}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="memory">Memory (MB)</Label>
-            <Input id="memory" name="memory" type="number" defaultValue={d.memory} min={1 / 1048576} step="any" required />
+            <Label htmlFor="memory">Memory</Label>
+            <div className="relative max-w-48"><Input id="memory" name="memory" type="number" defaultValue={d.memory} min={1} max={limits ? Math.floor(limits.max_task_memory / 1048576) : undefined} step={1} className="pr-10" required /><span className="pointer-events-none absolute right-3 top-2.5 text-xs text-ink-muted">MB</span></div>
+            {limits ? <p className="text-xs text-ink-muted">Up to {Math.floor(limits.max_task_memory / 1048576)} MB per replica</p> : null}
           </div>
         </div>
       </Panel>
@@ -176,12 +171,7 @@ export function ConfigurationForm({ serviceId, environmentId, config }: Configur
         </div>
       </Panel>
 
-      {dirty && <div className="sticky bottom-4 z-20 flex items-center justify-between rounded-xl border border-line bg-surface px-4 py-3 shadow-raised">
-        <span className="text-sm font-medium text-ink">Unsaved changes</span><div className="flex gap-2"><Button type="button" onClick={() => { formRef.current?.reset(); setDirty(false); setHealthType(config?.healthCheckType ?? ''); setStrategy(config?.deploymentStrategy ?? 'rolling') }}>Discard</Button>
-        <Button variant="primary" type="submit" disabled={saving} aria-busy={saving}>
-          {saving ? 'Saving…' : 'Save configuration'}
-        </Button>
-        </div></div>}
+      <UnsavedChangesBar dirty={dirty} pending={saving} onSave={() => formRef.current?.requestSubmit()} onDiscard={() => { formRef.current?.reset(); setDirty(false); setError(null); setHealthType(config?.healthCheckType ?? ''); setStrategy(config?.deploymentStrategy ?? 'rolling') }} />
     </form>
   )
 }

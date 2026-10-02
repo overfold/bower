@@ -34,7 +34,7 @@ export default function RegisterPage() {
   return (
     <div className="space-y-5">
       <div className="space-y-1">
-        <h2 className="text-md font-semibold tracking-tight">Create account</h2>
+        <h2 className="text-lg font-semibold tracking-tight">Create account</h2>
         <p className="text-xs leading-relaxed text-ink-muted">
           Create your Bower account.
         </p>

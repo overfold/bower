@@ -3,21 +3,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { getAllocationMetricsAction } from '@/lib/actions/allocation-actions'
 import { Panel } from '@/components/ui/panel'
-import { formatTimestamp } from '@/lib/format'
+import { formatCpu, formatMemory, formatTimestamp } from '@/lib/format'
 import type { TrellisAllocationMetrics } from '@/types/trellis'
-
-function formatBytes(bytes: number) {
-  if (!Number.isFinite(bytes) || bytes < 0) return '—'
-  if (bytes < 1024) return `${Math.round(bytes)} B`
-  const units = ['KiB', 'MiB', 'GiB', 'TiB']
-  let value = bytes / 1024
-  let unit = units[0]
-  for (let index = 1; index < units.length && value >= 1024; index += 1) {
-    value /= 1024
-    unit = units[index]
-  }
-  return `${value >= 100 ? value.toFixed(0) : value >= 10 ? value.toFixed(1) : value.toFixed(2)} ${unit}`
-}
 
 function latestTimestamp(metrics: TrellisAllocationMetrics[]) {
   const timestamps = metrics.map((item) => Date.parse(item.collected_at)).filter(Number.isFinite)
@@ -91,7 +78,7 @@ export function AllocationMetrics({
           <div>
             <p className="text-xs font-medium text-ink-muted">CPU usage</p>
             <p className="nums mt-1.5 text-2xl font-semibold tracking-tight text-ink">
-              {cpuMillicores === null ? (taskCount ? 'Sampling…' : error ? 'Unavailable' : 'No samples') : `${Math.max(0, cpuMillicores).toFixed(cpuMillicores >= 100 ? 0 : 1)} mCPU`}
+              {cpuMillicores === null ? (taskCount ? 'Sampling…' : error ? 'Unavailable' : 'No samples') : formatCpu(Math.max(0, cpuMillicores))}
             </p>
           </div>
         </div>
@@ -104,7 +91,7 @@ export function AllocationMetrics({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-medium text-ink-muted">Memory usage</p>
-            <p className="nums mt-1.5 text-2xl font-semibold tracking-tight text-ink">{taskCount ? formatBytes(memoryBytes) : error ? 'Unavailable' : 'No samples'}</p>
+            <p className="nums mt-1.5 text-2xl font-semibold tracking-tight text-ink">{taskCount ? formatMemory(memoryBytes) : error ? 'Unavailable' : 'No samples'}</p>
           </div>
         </div>
         <p className="mt-3 text-2xs text-ink-muted">

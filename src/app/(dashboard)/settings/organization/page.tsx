@@ -13,6 +13,7 @@ export default async function OrganizationSettingsPage() {
   return (
     <div className="space-y-6">
       <PageHeading
+        as="h2"
         title="Organization"
         description="Manage organization details for the currently selected organization."
       />

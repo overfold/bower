@@ -28,6 +28,7 @@ export default async function DomainsSettingsPage() {
   return (
     <div className="space-y-6">
       <PageHeading
+        as="h2"
         title="Domains"
         description="Verify domains once for the organization, then bind hostnames to services from each project."
       />

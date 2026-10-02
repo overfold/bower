@@ -10,9 +10,10 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Plus, Trash2, Users, User } from 'lucide-react'
+import { Plus, Users, User } from 'lucide-react'
+import { RowActions, RowActionItem, RowActionSeparator } from '@/components/ui/row-actions'
 import { cn } from '@/lib/utils'
 import { InlineNotice } from '@/components/ui/feedback'
 
@@ -103,7 +104,7 @@ export function GrantAccessDialog({ projectId, teams, members, existingTeamIds, 
           {error && <InlineNotice tone="error">{error}</InlineNotice>}
           <div className="space-y-2">
             <Label htmlFor="access-search">Search teams and members</Label>
-            <div className="overflow-hidden rounded-lg border border-line bg-surface shadow-card transition-[border-color,box-shadow] duration-150 ease-enter focus-within:border-brand-300 focus-within:ring-2 focus-within:ring-brand-100">
+            <div className="overflow-hidden rounded-lg border border-line bg-surface shadow-card transition-[border-color,box-shadow] duration-150 ease-enter focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500">
               <Input
                 id="access-search"
                 placeholder="Search by name or email..."
@@ -208,12 +209,9 @@ export function RevokeAccessButton({ projectId, accessId, kind, name }: {
   }
 
   return (
-    <AlertDialog open={open} onOpenChange={(next) => { if (!pending) { setOpen(next); if (next) setError(null) } }}>
-      <AlertDialogTrigger asChild>
-        <Button variant="ghost" size="icon" disabled={pending} aria-label={`Revoke access for ${name}`}>
-          <Trash2 className="h-3.5 w-3.5 text-ink-muted" />
-        </Button>
-      </AlertDialogTrigger>
+    <>
+      <RowActions name={name}><RowActionSeparator /><RowActionItem className="text-danger-600 focus:text-danger-600" disabled={pending} onSelect={() => setOpen(true)}>Revoke access</RowActionItem></RowActions>
+      <AlertDialog open={open} onOpenChange={(next) => { if (!pending) { setOpen(next); if (next) setError(null) } }}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Revoke access for {name}?</AlertDialogTitle>
@@ -235,6 +233,7 @@ export function RevokeAccessButton({ projectId, accessId, kind, name }: {
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
-    </AlertDialog>
+      </AlertDialog>
+    </>
   )
 }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { formatDate, formatDisplayToken, formatRelativeTime, formatTimestamp } from './format'
+import { formatCpu, formatDate, formatDisplayToken, formatMemory, formatRelativeTime, formatTimestamp } from './format'
 
 const NOW = Date.parse('2026-01-02T00:00:00.000Z')
 
@@ -29,4 +29,12 @@ test('absolute formats are English UTC across a timezone midnight', () => {
 test('display tokens are consistently humanized', () => {
   assert.equal(formatDisplayToken('auto_rollback'), 'Auto Rollback')
   assert.equal(formatDisplayToken(null), '—')
+})
+
+test('resource formatters preserve CPU precision and switch memory units at one GiB', () => {
+  assert.equal(formatCpu(1), '0.001 cores')
+  assert.equal(formatCpu(999), '0.999 cores')
+  assert.equal(formatCpu(1000), '1 core')
+  assert.equal(formatMemory(1024 * 1024 * 1024 - 1), '1024 MB')
+  assert.equal(formatMemory(1024 * 1024 * 1024), '1 GB')
 })

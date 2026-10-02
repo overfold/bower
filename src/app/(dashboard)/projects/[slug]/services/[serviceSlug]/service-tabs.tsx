@@ -28,7 +28,7 @@ export function ServiceTabs({ slug, serviceSlug }: { slug: string; serviceSlug: 
             href={target}
             aria-current={isActive ? 'page' : undefined}
             className={cn(
-              "relative flex items-center whitespace-nowrap px-3 py-2.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300",
+              "relative flex items-center whitespace-nowrap px-3 py-2.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500",
               isActive ? 'text-ink' : 'text-ink-muted hover:text-ink',
             )}
           >

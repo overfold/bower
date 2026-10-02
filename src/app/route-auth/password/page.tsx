@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { InlineNotice } from '@/components/ui/feedback'
-import { Brand } from '@/components/brand'
+import { AuthLayout } from '@/components/auth-layout'
 
 export default async function RoutePasswordPage({
   searchParams,
@@ -15,9 +15,8 @@ export default async function RoutePasswordPage({
   try { if (returnTo) hostname = new URL(returnTo).hostname } catch { /* Invalid requests are explained below. */ }
 
   return (
-    <main className="flex min-h-[100dvh] items-center justify-center bg-canvas px-4 py-8">
-      <section className="w-full max-w-sm rounded-xl border border-line bg-surface p-6 shadow-raised">
-        <div className="mb-6"><Brand size="sm" /></div>
+    <AuthLayout>
+      <section>
         <div className="space-y-1">
           <h1 className="text-lg font-semibold tracking-tight text-ink">Protected route</h1>
           <p className="text-sm leading-6 text-ink-muted">Enter the password {hostname ? <>for <strong className="break-all text-ink">{hostname}</strong></> : 'for this site'} to continue. Contact the site owner for access.</p>
@@ -37,6 +36,6 @@ export default async function RoutePasswordPage({
           <InlineNotice tone="error" className="mt-6">This route authorization request is invalid.</InlineNotice>
         )}
       </section>
-    </main>
+    </AuthLayout>
   )
 }

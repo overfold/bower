@@ -1,5 +1,7 @@
 import { Panel } from '@/components/ui/panel'
 import type { TrellisAllocation } from '@/types/trellis'
+import { formatCpu, formatMemory } from '@/lib/format'
+import { allocationHealthSummary } from '@/lib/service-health'
 
 type DeploymentStatus =
   | 'pending'
@@ -39,15 +41,6 @@ interface DeploymentDay {
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-
-function formatCpu(millicores: number) {
-  if (millicores >= 1000) return `${(millicores / 1000).toFixed(1)}`
-  return `${(millicores / 1000).toFixed(2)}`
-}
-
-function formatMemGiB(bytes: number) {
-  return (bytes / (1024 * 1024 * 1024)).toFixed(1)
-}
 
 function dateKey(date: Date) {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`
@@ -123,24 +116,7 @@ export function DashboardStatsBar({
   capacityAvailable = clusterAvailable,
   capacity,
 }: DashboardStatsBarProps) {
-  const liveAllocations = allocations.filter((allocation) =>
-    allocation.phase === 'pending' ||
-    allocation.phase === 'placed' ||
-    allocation.phase === 'starting' ||
-    allocation.phase === 'running' ||
-    allocation.phase === 'stopping'
-  )
-  const healthyAllocations = liveAllocations.filter(
-    (allocation) => allocation.phase === 'running' && allocation.health === 'healthy'
-  ).length
-  const unhealthyAllocations = liveAllocations.filter(
-    (allocation) => allocation.health === 'unhealthy'
-  ).length
-  const transitioningAllocations = Math.max(
-    0,
-    liveAllocations.length - healthyAllocations - unhealthyAllocations
-  )
-  const pendingAllocations = liveAllocations.filter((allocation) => allocation.phase === 'pending').length
+  const { total, healthy: healthyAllocations, failing: unhealthyAllocations, transitioning: transitioningAllocations, pending: pendingAllocations } = allocationHealthSummary(allocations)
 
   const cpuPct = capacity.cpuTotal > 0
     ? Math.round((capacity.cpuAllocated / capacity.cpuTotal) * 100)
@@ -159,12 +135,12 @@ export function DashboardStatsBar({
 
   const allocationDetail = !clusterAvailable
     ? 'Cluster unavailable'
-    : liveAllocations.length === 0
+    : total === 0
       ? 'No active allocations'
       : pendingAllocations > 0
         ? `${pendingAllocations} blocked / awaiting placement${unhealthyAllocations > 0 ? ` · ${unhealthyAllocations} unhealthy` : ''}`
       : unhealthyAllocations > 0
-        ? `${unhealthyAllocations} unhealthy${transitioningAllocations > 0 ? ` · ${transitioningAllocations} transitioning` : ''}`
+        ? `${unhealthyAllocations} failing${transitioningAllocations > 0 ? ` · ${transitioningAllocations} transitioning` : ''}`
         : transitioningAllocations > 0
           ? `${transitioningAllocations} transitioning`
           : 'All active allocations healthy'
@@ -174,19 +150,19 @@ export function DashboardStatsBar({
       <div className="grid gap-px bg-line sm:grid-cols-2 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(300px,1.7fr)]">
         <StatCell
           label="Allocation health"
-          value={clusterAvailable ? `${healthyAllocations}/${liveAllocations.length}` : '—'}
+          value={clusterAvailable ? `${healthyAllocations}/${total} healthy` : '—'}
           detail={allocationDetail}
         />
         <StatCell
           label="CPU allocated"
           value={capacityAvailable ? `${cpuPct}%` : '—'}
-          detail={capacityAvailable ? `${formatCpu(capacity.cpuAllocated)} / ${formatCpu(capacity.cpuTotal)} cores` : 'Capacity data unavailable'}
+          detail={capacityAvailable ? `${formatCpu(capacity.cpuAllocated)} / ${formatCpu(capacity.cpuTotal)}` : 'Capacity data unavailable'}
           meter={capacityAvailable ? cpuPct : undefined}
         />
         <StatCell
           label="Memory allocated"
           value={capacityAvailable ? `${memoryPct}%` : '—'}
-          detail={capacityAvailable ? `${formatMemGiB(capacity.memoryAllocated)} / ${formatMemGiB(capacity.memoryTotal)} GiB` : 'Capacity data unavailable'}
+          detail={capacityAvailable ? `${formatMemory(capacity.memoryAllocated)} / ${formatMemory(capacity.memoryTotal)}` : 'Capacity data unavailable'}
           meter={capacityAvailable ? memoryPct : undefined}
         />
 

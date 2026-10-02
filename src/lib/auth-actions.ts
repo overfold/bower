@@ -119,11 +119,15 @@ export async function switchOrgAction(orgId: string): Promise<void> {
   })
 }
 
-export async function logoutAction(): Promise<void> {
+export async function logoutAction(formData?: FormData): Promise<void> {
   const cookieStore = await cookies()
   const sessionCookie = cookieStore.get(SESSION_COOKIE_NAME)
 
   if (sessionCookie?.value) await deleteSession(sessionCookie.value)
   cookieStore.delete(SESSION_COOKIE_NAME)
-  redirect('/login')
+  const requestedNext = formData?.get('next')
+  const next = typeof requestedNext === 'string' && requestedNext.startsWith('/') && !requestedNext.startsWith('//')
+    ? requestedNext
+    : null
+  redirect(next ? `/login?next=${encodeURIComponent(next)}` : '/login')
 }

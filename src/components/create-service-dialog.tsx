@@ -11,8 +11,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Plus } from 'lucide-react'
+import type { TrellisJobLimits } from '@/types/trellis'
+import { formatCpu, formatMemory } from '@/lib/format'
 
-export function CreateServiceDialog({ projectSlug }: { projectSlug: string }) {
+export function CreateServiceDialog({ projectSlug, limits }: { projectSlug: string; limits?: TrellisJobLimits }) {
   const [open, setOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -25,6 +27,7 @@ export function CreateServiceDialog({ projectSlug }: { projectSlug: string }) {
     setLoading(true)
     try {
       const formData = new FormData(e.currentTarget)
+      formData.set('cpu', String(Number(formData.get('cpu')) * 1000))
       const result = await createServiceAction(projectSlug, formData)
       if (result?.error) setError(result.error)
     } catch (err) {
@@ -71,7 +74,8 @@ export function CreateServiceDialog({ projectSlug }: { projectSlug: string }) {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="replicas">Replicas</Label>
-                <Input id="replicas" name="replicas" type="number" defaultValue={1} min={1} required />
+                <Input id="replicas" name="replicas" type="number" className="w-36" defaultValue={1} min={1} max={limits?.max_replicas_per_task_group} required />
+                {limits ? <p className="text-xs text-ink-muted">Up to {limits.max_replicas_per_task_group} replicas</p> : null}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="strategy">Deployment strategy</Label>
@@ -89,11 +93,13 @@ export function CreateServiceDialog({ projectSlug }: { projectSlug: string }) {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="cpu">CPU</Label>
-                <div className="relative"><Input id="cpu" name="cpu" type="number" defaultValue={100} min={1} step={1} className="pr-12" required /><span className="pointer-events-none absolute right-3 top-2.5 text-xs text-ink-muted">mCPU</span></div>
+                <div className="relative max-w-48"><Input id="cpu" name="cpu" type="number" defaultValue={0.1} min={0.001} step={0.001} className="pr-14" required /><span className="pointer-events-none absolute right-3 top-2.5 text-xs text-ink-muted">cores</span></div>
+                {limits ? <p className="text-xs text-ink-muted">Up to {formatCpu(limits.max_task_cpu)} per replica</p> : null}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="memory">Memory</Label>
-                <div className="relative"><Input id="memory" name="memory" type="number" defaultValue={128} min={1 / 1048576} step="any" className="pr-10" required /><span className="pointer-events-none absolute right-3 top-2.5 text-xs text-ink-muted">MB</span></div>
+                <div className="relative max-w-48"><Input id="memory" name="memory" type="number" defaultValue={128} min={1} step={1} className="pr-10" required /><span className="pointer-events-none absolute right-3 top-2.5 text-xs text-ink-muted">MB</span></div>
+                {limits ? <p className="text-xs text-ink-muted">Up to {formatMemory(limits.max_task_memory)} per replica</p> : null}
               </div>
             </div>
             <p className="text-xs text-ink-muted">The service is created without deploying. Review its configuration, then deploy when ready.</p>

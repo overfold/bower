@@ -10,6 +10,7 @@ import { FeedbackProvider } from '@/components/ui/feedback'
 import { TrellisReadErrorProvider } from '@/components/trellis-read-error'
 import { getTrellisClient } from '@/lib/trellis-instance'
 import { trellisReadError } from '@/lib/trellis-runtime'
+import { formatTimestamp } from '@/lib/format'
 
 export default async function DashboardLayout({
   children,
@@ -102,7 +103,7 @@ export default async function DashboardLayout({
             })),
             orgName: orgCtx.org.name,
             instanceAdmin,
-            deploymentLabels: Object.fromEntries(visibleDeployments.map((row) => [row.deployment.id, row.serviceName])),
+            deploymentLabels: Object.fromEntries(visibleDeployments.map((row) => [row.deployment.id, `${row.deployment.imageAfter} · ${formatTimestamp(row.deployment.createdAt)}`])),
             memberLabels: Object.fromEntries(members.map((member) => [member.membership.userId, member.userName])),
           }}
         />

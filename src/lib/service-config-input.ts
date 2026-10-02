@@ -33,7 +33,7 @@ export function parseKeyValueLines(value: string, kind: 'env' | 'label') {
     if (kind === 'env') {
       // Bower's environment editor uses shell-style names. Literal Trellis env
       // keys are unrestricted; this is an existing Bower product convention.
-      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) throw new Error(`Invalid environment variable name: ${key}`)
+      if (!/^[A-Z_][A-Z0-9_]*$/.test(key)) throw new Error(`Invalid environment variable name: ${key}`)
     } else {
       if (!/^[A-Za-z][A-Za-z0-9._/-]{0,62}$/.test(key)) throw new Error(`Invalid label name: ${key}`)
       if (Buffer.byteLength(val, 'utf8') > 256) throw new Error(`Label ${key} must be at most 256 UTF-8 bytes.`)

@@ -299,7 +299,7 @@ test('allocation panels preserve successful logs and distinguish empty events/me
   assert.doesNotMatch(html, /created and placed|Lifecycle events unavailable/)
 })
 
-test('version history renders the durable deployment journal separately from bounded Trellis versions', async () => {
+test('version history keeps the deployment journal and omits the separate retained-version table', async () => {
   const page = load<Page>(`${servicePath}/revisions/page.tsx`, {
     'next/navigation': navigation,
     '@/lib/auth': { getCurrentUser: async () => ({ id: 'user' }) },
@@ -318,14 +318,15 @@ test('version history renders the durable deployment journal separately from bou
     ] }) },
     '@/lib/trellis-runtime': { trellisReadError: () => 'unavailable' },
     '@/components/trellis-read-error': readError,
+    './restore-revision-button': { RestoreRevisionButton: () => null },
     '../service-header': { ServiceHeader: () => null },
   })
   const html = renderToStaticMarkup(await page.default({ params: Promise.resolve({ slug: 'demo', serviceSlug: 'web', allocationId: '' }) }))
-  assert.match(html, /Bower’s deployment journal is the durable history/)
-  assert.match(html, /Retained Trellis versions/)
+  assert.match(html, /Only the most recent configurations can be restored/)
+  assert.doesNotMatch(html, /Retained Trellis versions/)
   assert.match(html, />12<\/td><td[^>]*>7</)
-  assert.match(html, />5<\/td><td[^>]*>3</)
-  assert.match(html, />6<\/td><td[^>]*>3</)
+  assert.doesNotMatch(html, />5<\/td><td[^>]*>3</)
+  assert.doesNotMatch(html, />6<\/td><td[^>]*>3</)
 })
 
 test('pending allocations count against runtime health rather than declaring all healthy', () => {
@@ -354,7 +355,7 @@ test('metrics failure keeps node and independently observed ingress status visib
   assert.doesNotMatch(html, /Unable to reach cluster/)
 })
 
-test('project health is independent of the newest deployment result and timestamp', async () => {
+test('project summary counts and latest timestamp are independent of deployment result and row order', async () => {
   const older = new Date('2026-09-20T12:00:00Z')
   const newer = new Date('2026-10-01T12:00:00Z')
   const latest = [
@@ -377,14 +378,59 @@ test('project health is independent of the newest deployment result and timestam
     latest.splice(0, latest.length, ...order)
     selects = 0
     const [summary, empty] = await queries.getProjectSummaries(['p', 'empty'])
-    assert.equal(summary.healthStatus, 'failed')
+    assert.equal('healthStatus' in summary, false, 'Deployment results must not stand in for live health')
     assert.equal(summary.latestDeployment?.status, 'healthy')
     assert.equal(summary.latestDeployment?.createdAt.toISOString(), newer.toISOString())
     assert.equal(summary.serviceCount, 2)
     assert.equal(summary.routeCount, 3)
     assert.equal(empty.latestDeployment, null)
-    assert.equal(empty.healthStatus, null)
+    assert.equal('healthStatus' in empty, false)
   }
+})
+
+test('live service summaries use inherited replicas and image while retaining the active job name', async () => {
+  const stored = { serviceId: 'web', environmentId: 'env', replicas: 1, image: 'stale:v1', activeJobName: 'web-blue', overrides: { image: 'override:v3' } }
+  const results = [[{ id: 'web', slug: 'web' }], [stored], [], [{ serviceId: 'web', replicas: 3, image: 'base:v2' }], [stored]]
+  const chain = (rows: unknown[]) => Object.assign(query(rows), { orderBy() { return this }, groupBy() { return this } })
+  const queries = load<typeof import('./queries')>('src/lib/queries.ts', {
+    'next/headers': {},
+    '@/db': { db: { select: () => chain(results.shift()!), selectDistinctOn: () => chain([]) } },
+  })
+  const [summary] = await queries.getServiceSummaries('project', 'env')
+  assert.equal(summary.config?.replicas, 3)
+  assert.equal(summary.config?.image, 'override:v3')
+  assert.equal(summary.config?.activeJobName, 'web-blue')
+})
+
+test('service header shows the serving release, not an undeployed edit or a failed candidate', async () => {
+  const deployment = { status: 'healthy', imageBefore: 'app:v1', imageAfter: 'app:v2' }
+  const captured: string[] = []
+  const layout = load<{ default: (props: { children: ReactElement; params: Promise<{ slug: string; serviceSlug: string }> }) => Promise<ReactElement> }>(`${servicePath}/layout.tsx`, {
+    'next/navigation': navigation,
+    '@/lib/auth': { getCurrentUser: async () => ({ id: 'user' }) },
+    '@/lib/actions/shared': { getProjectRole: async () => 'admin' },
+    '@/lib/queries': {
+      getUserOrganization: async () => context,
+      getProjectBySlug: async () => ({ id: 'project' }),
+      getServiceBySlug: async () => ({ id: 'service', slug: 'web' }),
+      getProjectEnvironment: async () => environment,
+      getRoutesByProject: async () => [],
+    },
+    '@/lib/service-health-query': { getProjectLiveServices: async () => ({ services: [{ service: { id: 'service' }, config: { image: 'app:undeployed', replicas: 1 }, latestDeployment: deployment, ready: 1, health: 'healthy' }] }) },
+    './service-header': { ServiceHeader: ({ image }: { image: string }) => { captured.push(image); return null } },
+  })
+  for (const status of ['healthy', 'failed']) {
+    deployment.status = status
+    renderToStaticMarkup(await layout.default({ children: createElement('div'), params: Promise.resolve({ slug: 'demo', serviceSlug: 'web' }) }))
+  }
+  assert.deepEqual(captured, ['app:v2', 'app:v1'])
+})
+
+test('failed-deploy marker renders with its tooltip provider and a diagnostic link', () => {
+  const { LastDeployFailed } = load<typeof import('../components/last-deploy-failed')>('src/components/last-deploy-failed.tsx', {})
+  const html = renderToStaticMarkup(createElement(LastDeployFailed, { href: '/projects/demo/deployments/failed' }))
+  assert.match(html, /Last deploy failed — view diagnostics/)
+  assert.match(html, /href="\/projects\/demo\/deployments\/failed"/)
 })
 
 test('audit before/after-only details render changes, not an empty-state or unchanged fields', () => {

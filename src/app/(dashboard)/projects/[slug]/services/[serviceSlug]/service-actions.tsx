@@ -51,12 +51,12 @@ export function ServiceActions({ serviceId, environmentId, hasDeployments }: Ser
           <AlertDialogTrigger asChild>
             <Button variant="ghost" size="sm" loading={rollingBack}>
               <RotateCcw />
-              Rollback
+              Roll back
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Rollback service?</AlertDialogTitle>
+              <AlertDialogTitle>Roll back service?</AlertDialogTitle>
               <AlertDialogDescription>
                 This re-applies the exact previous runtime configuration and records its image as the active release.
               </AlertDialogDescription>
@@ -64,7 +64,7 @@ export function ServiceActions({ serviceId, environmentId, hasDeployments }: Ser
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction onClick={() => startRollback(run(() => rollbackServiceAction(serviceId, environmentId), 'Rollback started.'))}>
-                Rollback
+                Roll back
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

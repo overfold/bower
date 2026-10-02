@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { db } from '@/db'
-import { invitations, invitationTeams, organizationMembers, teamMemberships, users } from '@/db/schema'
+import { invitations, invitationTeams, organizationMembers, organizations, teams, teamMemberships, users } from '@/db/schema'
 import { recordAudit } from '@/lib/actions/shared'
 
 export function createInvitationToken() {
@@ -28,9 +28,11 @@ export function invitationStatus(invitation: {
 }
 
 export async function getInvitationByToken(token: string) {
-  const [invitation] = await db.select().from(invitations)
+  const [row] = await db.select({ invitation: invitations, organizationName: organizations.name, inviterName: users.name }).from(invitations)
+    .leftJoin(organizations, eq(organizations.id, invitations.orgId))
+    .leftJoin(users, eq(users.id, invitations.createdByUserId))
     .where(eq(invitations.tokenHash, hashInvitationToken(token))).limit(1)
-  return invitation ?? null
+  return row ? { ...row.invitation, organizationName: row.organizationName, inviterName: row.inviterName } : null
 }
 
 export async function acceptInvitation(token: string, userId: string): Promise<{ error?: string; orgId?: string | null }> {
@@ -58,15 +60,15 @@ export async function acceptInvitation(token: string, userId: string): Promise<{
         orgId: invitation.orgId,
         userId,
         role: invitation.organizationRole,
-      }).onConflictDoUpdate({
+      }).onConflictDoNothing({
         target: [organizationMembers.orgId, organizationMembers.userId],
-        set: { role: invitation.organizationRole },
       })
 
-      const teams = await tx.select({ teamId: invitationTeams.teamId }).from(invitationTeams)
+      const eligibleTeams = await tx.select({ teamId: invitationTeams.teamId }).from(invitationTeams)
+        .innerJoin(teams, and(eq(teams.id, invitationTeams.teamId), eq(teams.orgId, invitation.orgId)))
         .where(eq(invitationTeams.invitationId, invitation.id))
-      if (teams.length) {
-        await tx.insert(teamMemberships).values(teams.map(({ teamId }) => ({ teamId, userId }))).onConflictDoNothing()
+      if (eligibleTeams.length > 0) {
+        await tx.insert(teamMemberships).values(eligibleTeams.map(({ teamId }) => ({ teamId, userId }))).onConflictDoNothing()
       }
     }
 

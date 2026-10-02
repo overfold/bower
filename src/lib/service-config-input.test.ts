@@ -73,8 +73,8 @@ test('env and labels use distinct key rules and retain empty, Unicode, and equal
   assert.deepEqual(parseKeyValueLines('team/owner.v2-x=ops=west\nEmpty=\nColor=青', 'label'), {
     'team/owner.v2-x': 'ops=west', Empty: '', Color: '青',
   })
-  assert.deepEqual(parseKeyValueLines('__proto__=literal', 'env'), { ['__proto__']: 'literal' })
-  for (const key of ['BAD-NAME', '1route', 'team/owner', 'sp ace']) assert.throws(() => parseKeyValueLines(`${key}=v`, 'env'), /variable name/)
+  assert.deepEqual(parseKeyValueLines('__PROTO__=literal', 'env'), { ['__PROTO__']: 'literal' })
+  for (const key of ['BAD-NAME', 'lowercase', '1route', 'team/owner', 'sp ace']) assert.throws(() => parseKeyValueLines(`${key}=v`, 'env'), /variable name/)
   for (const key of ['1route', '_team', 'sp ace', 'a'.repeat(64)]) assert.throws(() => parseKeyValueLines(`${key}=v`, 'label'), /label name/)
   assert.deepEqual(parseKeyValueLines(`${'a'.repeat(63)}=v`, 'label'), { ['a'.repeat(63)]: 'v' })
   for (const kind of ['env', 'label'] as const) {

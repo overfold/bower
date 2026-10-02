@@ -33,10 +33,10 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { label: 'Overview', href: '/dashboard', icon: LayoutDashboard },
+  { label: 'Home', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Projects', href: '/projects', icon: FolderKanban },
   { label: 'Deployments', href: '/deployments', icon: History },
-  { label: 'Cluster', href: '/status', icon: Server },
+  { label: 'Status', href: '/status', icon: Server },
   { label: 'Audit log', href: '/audit', icon: ScrollText },
   { label: 'Settings', href: '/settings', icon: Settings },
 ]
@@ -83,19 +83,22 @@ export function SidebarContent({ user, onNavigate, projects = [], currentOrg }: 
       return () => cancelAnimationFrame(frame)
     } catch { /* Storage can be unavailable. */ }
   }, [pathname, recentKey, projects])
-  const recentProjects = recentSlugs.flatMap((slug) => projects.filter((project) => project.slug === slug))
+  const recentProjects = [
+    ...recentSlugs.flatMap((slug) => projects.filter((project) => project.slug === slug)),
+    ...projects.filter((project) => !recentSlugs.includes(project.slug)),
+  ].slice(0, 5)
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-surface">
       <div className="flex h-14 shrink-0 items-center px-4">
-        <Link href="/dashboard" onClick={onNavigate} className="rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300">
+        <Link href="/dashboard" onClick={onNavigate} className="rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface">
           <Brand size="sm" />
         </Link>
       </div>
 
       <nav aria-label="Main navigation" className="min-h-0 flex-1 overflow-y-auto px-2 pb-4 scroll-thin">
         {([['Workspace', navItems.slice(0, 3)], ['Platform', navItems.slice(3)] ] as const).map(([label, items]) => <div key={label} className="mb-4 space-y-0.5">
-          {label === 'Platform' && recentProjects.length ? <div className="mb-4 space-y-0.5"><p className="px-2.5 pb-1 text-2xs font-semibold uppercase tracking-wider text-ink-muted">Recent projects</p>{recentProjects.map((project) => <Link key={project.id} href={`/projects/${project.slug}`} onClick={onNavigate} className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-ink-soft hover:bg-sunken hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"><FolderKanban className="h-4 w-4 shrink-0" aria-hidden="true" /><span className="min-w-0 truncate">{project.name}</span></Link>)}</div> : null}
+          {label === 'Platform' && recentProjects.length ? <div className="mb-4 space-y-0.5"><p className="px-2.5 pb-1 text-2xs font-semibold uppercase tracking-wider text-ink-muted">Recent projects</p>{recentProjects.map((project) => <Link key={project.id} href={`/projects/${project.slug}`} onClick={onNavigate} className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-ink-soft hover:bg-sunken hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"><FolderKanban className="h-4 w-4 shrink-0" aria-hidden="true" /><span className="min-w-0 truncate">{project.name}</span></Link>)}</div> : null}
           <p className="px-2.5 pb-1 text-2xs font-semibold uppercase tracking-wider text-ink-muted">{label}</p>
           {items.map((item) => {
             const active = isActive(pathname, item.href)
@@ -106,7 +109,7 @@ export function SidebarContent({ user, onNavigate, projects = [], currentOrg }: 
                 onClick={onNavigate}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
-                  "flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300",
+                  "flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
                   active
                     ? 'bg-brand-50 text-brand-700'
                     : 'text-ink-soft hover:bg-sunken hover:text-ink'
@@ -128,7 +131,7 @@ export function SidebarContent({ user, onNavigate, projects = [], currentOrg }: 
               <button
                 type="button"
                 aria-label="Profile menu"
-                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-sunken focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 data-[state=open]:bg-sunken"
+                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-sunken focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface data-[state=open]:bg-sunken"
               >
                 <Avatar className="h-6 w-6">
                   {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={user.name} />}

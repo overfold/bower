@@ -52,6 +52,7 @@ export default async function MembersSettingsPage() {
   return (
     <div className="space-y-6">
       <PageHeading
+        as="h2"
         title="Members"
         description={`Manage members, teams, and invitations for ${orgCtx.org.name}.`}
       />

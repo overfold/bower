@@ -10,10 +10,10 @@ import { OrgTeamPicker } from '@/components/org-team-picker'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
 const segmentLabels: Record<string, string> = {
-  dashboard: 'Overview',
+  dashboard: 'Home',
   projects: 'Projects',
   deployments: 'Deployments',
-  status: 'Cluster',
+  status: 'Status',
   settings: 'Settings',
   audit: 'Audit log',
   organization: 'Organization',
@@ -46,8 +46,12 @@ interface Crumb {
 }
 
 function deriveBreadcrumbs(pathname: string, data: HeaderBarProps['searchData']): Crumb[] {
-  const segments = pathname.split('/').filter(Boolean)
-  if (segments.length === 0) return [{ label: 'Overview', href: '/dashboard' }]
+  const rawSegments = pathname.split('/').filter(Boolean)
+  const serviceTabs = new Set(['environment', 'secrets', 'routes', 'integrations', 'revisions', 'allocations', 'volumes', 'advanced', 'configuration', 'access', 'mounts'])
+  const segments = rawSegments[0] === 'projects' && rawSegments[2] === 'services' && serviceTabs.has(rawSegments.at(-1) ?? '')
+    ? rawSegments.slice(0, -1)
+    : rawSegments
+  if (segments.length === 0) return [{ label: 'Home', href: '/dashboard' }]
   return segments.map((seg, i) => ({
     label: segments[0] === 'projects' && i === 1 ? data.projects.find((project) => project.slug === seg)?.name ?? seg
       : segments[0] === 'projects' && segments[2] === 'services' && i === 3 ? data.services.find((service) => service.projectSlug === segments[1] && service.slug === seg)?.name ?? seg
@@ -121,7 +125,7 @@ export function HeaderBar({ orgs, currentOrg, teams, searchData, user, projects 
               {crumbs.length > 4 && i === 1 ? (
                 <>
                   <DropdownMenu>
-                    <DropdownMenuTrigger aria-label="Show intermediate breadcrumb pages" className="rounded p-1 text-ink-muted hover:bg-sunken hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 max-sm:hidden">
+                    <DropdownMenuTrigger aria-label="Show intermediate breadcrumb pages" className="rounded-md p-1 text-ink-muted hover:bg-sunken hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface max-sm:hidden">
                       <MoreHorizontal className="h-4 w-4" />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start">
@@ -136,7 +140,7 @@ export function HeaderBar({ orgs, currentOrg, teams, searchData, user, projects 
               {i === visibleCrumbs.length - 1 ? (
                 <span aria-current="page" title={crumb.label} className="min-w-0 truncate text-sm font-semibold text-ink">{crumb.label}</span>
               ) : crumb.href ? (
-                <Link title={crumb.label} href={crumb.href} className="min-w-0 max-w-[180px] truncate rounded text-sm font-medium text-ink-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 max-sm:hidden">
+                <Link title={crumb.label} href={crumb.href} className="min-w-0 max-w-[180px] truncate rounded-md text-sm font-medium text-ink-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface max-sm:hidden">
                   {crumb.label}
                 </Link>
               ) : <span title={crumb.label} className="min-w-0 max-w-[180px] truncate text-sm font-medium text-ink-muted max-sm:hidden">{crumb.label}</span>}
@@ -149,11 +153,11 @@ export function HeaderBar({ orgs, currentOrg, teams, searchData, user, projects 
           type="button"
           onClick={() => setPaletteOpen(true)}
           aria-label="Search"
-          className="flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-line bg-surface text-sm text-ink-muted shadow-card transition-colors duration-150 hover:border-line-strong hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 sm:h-8 sm:w-48 sm:justify-start sm:px-2.5"
+          className="flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-line bg-surface text-sm text-ink-muted shadow-card transition-colors duration-150 hover:border-line-strong hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface sm:h-8 sm:w-48 sm:justify-start sm:px-2.5"
         >
           <Search className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
           <span className="hidden sm:inline">Search</span>
-          <kbd className="ml-auto hidden rounded border border-line bg-sunken px-1.5 py-px font-sans text-2xs md:inline">⌘K</kbd>
+          <kbd className="ml-auto hidden rounded-md border border-line bg-sunken px-1.5 py-px font-sans text-2xs md:inline">⌘K</kbd>
         </button>
       </header>
 

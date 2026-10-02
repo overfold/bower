@@ -6,17 +6,20 @@ import {
   getProjectBySlug,
   getProjectEnvironment,
   getDeploymentsByProject,
-  getLatestDeploymentsByProject,
   getRoutesByProject,
-  getServicesByProject,
 } from '@/lib/queries'
 import { Panel, PanelHeader, SectionTitle } from '@/components/ui/panel'
-import { Badge } from '@/components/ui/badge'
-import { StatusDot } from '@/components/status'
+import { StatusDot, DeploymentStatus } from '@/components/status'
 import { EmptyState } from '@/components/ui/empty-state'
-import { Rocket, Globe } from 'lucide-react'
+import { Rocket, Globe, Server } from 'lucide-react'
 import { Time } from '@/components/time'
 import { tlsLabels } from '@/lib/labels'
+import { getProjectLiveServices } from '@/lib/service-health-query'
+import { LastDeployFailed } from '@/components/last-deploy-failed'
+import { CreateServiceDialog } from '@/components/create-service-dialog'
+import { requireProject } from '@/lib/actions/shared'
+import { Button } from '@/components/ui/button'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 function imageTag(image: string | null): string {
   if (!image) return '-'
@@ -39,16 +42,16 @@ export default async function ProjectOverviewPage({
   const project = await getProjectBySlug(ctx.org.id, slug)
   if (!project) redirect('/projects')
 
-  const [environment, allRoutes, services] = await Promise.all([
+  const access = await requireProject(project.id)
+  const [environment, allRoutes] = await Promise.all([
     getProjectEnvironment(project.id),
     getRoutesByProject(project.id),
-    getServicesByProject(project.id),
   ])
-  const [deployments, latestDeployments] = environment ? await Promise.all([
-    getDeploymentsByProject(project.id, 5, environment.id),
-    getLatestDeploymentsByProject(project.id, environment.id),
-  ]) : [[], []]
-  const latestByService = new Map(latestDeployments.map((row) => [row.deployment.serviceId, row]))
+  const [deployments, live] = await Promise.all([
+    environment ? getDeploymentsByProject(project.id, 5, environment.id) : [],
+    getProjectLiveServices(ctx.org.id, project.id, environment),
+  ])
+  const services = live.services
   const routeRows = environment
     ? allRoutes.filter((row) => row.route.environmentId === environment.id)
     : []
@@ -58,33 +61,15 @@ export default async function ProjectOverviewPage({
       <div><SectionTitle>Overview</SectionTitle><p className="mt-1 text-sm text-ink-muted">See this project’s services, recent deployments, and routes.</p></div>
       <Panel>
         <PanelHeader title="Services" />
-        <ul className="divide-y divide-line">
-          {services.length === 0 ? (
-            <li className="px-4 py-3 text-xs text-ink-muted">No services configured</li>
-          ) : (
-            services.map((service) => {
-              const lastDeploy = latestByService.get(service.id)
-              return (
-                <li key={service.id} className="px-4 py-3">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <Link href={`/projects/${slug}/services/${service.slug}`} className="rounded text-sm font-medium text-ink underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300">
-                        {service.name}
-                      </Link>
-                      {lastDeploy ? <p className="mt-1 font-mono text-2xs text-ink-muted">{imageTag(lastDeploy.deployment.imageAfter)}</p> : null}
-                    </div>
-                    {lastDeploy ? (
-                      <div className="flex shrink-0 flex-col items-end gap-1.5">
-                        <StatusDot status={lastDeploy.deployment.status} />
-                        <Time value={lastDeploy.deployment.createdAt} mode="auto" />
-                      </div>
-                    ) : <Badge variant="outline">Not deployed</Badge>}
-                  </div>
-                </li>
-              )
-            })
-          )}
-        </ul>
+        {services.length === 0 ? <EmptyState icon={<Server className="size-4" />} title="No services yet" body="Create a service to start deploying." action={access.projectRole === 'admin' ? <CreateServiceDialog projectSlug={slug} /> : undefined} /> :
+          <Table><TableHeader><TableRow><TableHead>Service</TableHead><TableHead>Status</TableHead><TableHead>Ready</TableHead><TableHead>Image tag</TableHead><TableHead className="text-right">Last deploy</TableHead></TableRow></TableHeader><TableBody>
+            {services.map(({ service, config, latestDeployment, health, ready }) => <TableRow key={service.id}>
+              <TableCell><Link className="text-link font-medium" href={`/projects/${slug}/services/${service.slug}`}>{service.name}</Link></TableCell>
+              <TableCell><div className="flex items-center gap-2"><StatusDot status={health} />{latestDeployment?.status === 'failed' ? <LastDeployFailed href={`/projects/${slug}/deployments/${latestDeployment.id}`} /> : null}</div></TableCell>
+              <TableCell>{ready ?? 'Unknown'}/{config?.replicas ?? 0}</TableCell><TableCell className="font-mono text-xs">{imageTag(config?.image ?? null)}</TableCell>
+              <TableCell className="text-right">{latestDeployment ? <Time value={latestDeployment.createdAt} /> : '—'}</TableCell>
+            </TableRow>)}
+          </TableBody></Table>}
       </Panel>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
@@ -92,14 +77,14 @@ export default async function ProjectOverviewPage({
         <Panel>
           <PanelHeader
             title="Deployment history"
-            action={
+            action={deployments.length > 0 ?
               <Link
                 href={`/projects/${slug}/deployments`}
                 className="text-link text-sm font-medium"
               >
                 View all
               </Link>
-            }
+            : undefined}
           />
           {deployments.length === 0 ? (
             <div className="px-4 py-6">
@@ -107,6 +92,7 @@ export default async function ProjectOverviewPage({
                 icon={<Rocket className="h-4 w-4" />}
                 title="No deployments yet"
                 body="Deploy a service to see its history here."
+                action={services.length ? <Button asChild variant="primary"><Link href={`/projects/${slug}/services`}>Deploy a service</Link></Button> : <div className="space-y-2"><Button disabled variant="primary">Deploy a service</Button><p className="text-xs text-ink-muted">Create a service first.</p></div>}
               />
             </div>
           ) : (
@@ -117,7 +103,6 @@ export default async function ProjectOverviewPage({
                   className="flex items-center justify-between gap-4 px-4 py-3"
                 >
                   <div className="flex min-w-0 items-center gap-3">
-                    <StatusDot status={row.deployment.status} />
                     <div className="min-w-0">
                       <p className="truncate text-sm text-ink">
                         {row.serviceName}
@@ -126,6 +111,7 @@ export default async function ProjectOverviewPage({
                         {imageTag(row.deployment.imageAfter)}
                       </p>
                     </div>
+                    <DeploymentStatus status={row.deployment.status} />
                   </div>
                   <Time value={row.deployment.createdAt} mode="auto" />
                 </li>
@@ -143,6 +129,7 @@ export default async function ProjectOverviewPage({
                 icon={<Globe className="h-4 w-4" />}
                 title="No routes"
                 body="Add a route to expose services to traffic."
+                action={access.projectRole === 'admin' ? <Button asChild variant="primary"><Link href={`/projects/${slug}/routes`}>Add route</Link></Button> : undefined}
               />
             </div>
           ) : (

@@ -10,13 +10,14 @@ import {
   getOperationalTargetsForOrg,
 } from '@/lib/queries'
 import { getTrellisClient } from '@/lib/trellis-instance'
-import { trellisReadError } from '@/lib/trellis-runtime'
+import { trellisReadError, allocationBelongsToService } from '@/lib/trellis-runtime'
 import { TrellisReadError } from '@/components/trellis-read-error'
 import { NodeLink } from '@/components/node-link'
 import { parseNodeAllocatedResources } from '@/lib/trellis-resource-metrics'
 import { PageHeading } from '@/components/page-heading'
 import { Panel, PanelHeader } from '@/components/ui/panel'
-import { StatusDot, Chip, Dot, Meter, Mono } from '@/components/status'
+import { StatusDot, DeploymentStatus, Chip, Dot, Mono } from '@/components/status'
+import { LastDeployFailed } from '@/components/last-deploy-failed'
 import { EmptyState } from '@/components/ui/empty-state'
 import {
   Table,
@@ -36,10 +37,13 @@ import {
   RotateCcw,
   ShieldAlert,
   BotIcon,
+  TriangleAlert,
 } from 'lucide-react'
 import type { TrellisAllocation, TrellisNode, TrellisJob } from '@/types/trellis'
 import { formatRelativeTime } from '@/lib/format'
 import { Time } from '@/components/time'
+import { currentJobAllocations, allocationHealthSummary, getServiceHealth } from '@/lib/service-health'
+import { auditActionSentence, auditResourceName } from '@/lib/labels'
 
 const triggerMeta: Record<string, { icon: React.ComponentType<{ className?: string }>; label: string }> = {
   manual: { icon: UserIcon, label: 'Manual' },
@@ -53,15 +57,6 @@ function shortImage(image: string | null): string {
   if (!image) return '—'
   const parts = image.split('/')
   return parts[parts.length - 1]
-}
-
-function formatCpu(millicores: number) {
-  if (millicores >= 1000) return `${(millicores / 1000).toFixed(1)}`
-  return `${(millicores / 1000).toFixed(2)}`
-}
-
-function formatMemGiB(bytes: number) {
-  return (bytes / (1024 * 1024 * 1024)).toFixed(1)
 }
 
 export default async function DashboardPage() {
@@ -84,12 +79,7 @@ export default async function DashboardPage() {
   const visibleDeployments = allDeployments.filter((deployment) => accessibleProjectSlugs.has(deployment.projectSlug))
 
   // Deployment stats
-  const latestByService = new Map<string, (typeof visibleDeployments)[number]>()
-  for (const deployment of visibleDeployments) {
-    const key = deployment.deployment.serviceId
-    if (!latestByService.has(key)) latestByService.set(key, deployment)
-  }
-  const recentDeployments = [...latestByService.values()].slice(0, 8)
+  const recentDeployments = visibleDeployments.slice(0, 10)
   const activeDeployments = visibleDeployments.filter(
     (d) => d.deployment.status === 'pending' || d.deployment.status === 'planning' || d.deployment.status === 'deploying'
   )
@@ -130,40 +120,49 @@ export default async function DashboardPage() {
   const allocatedCpu = nodes.reduce((sum, n) => sum + (allocatedByNode.get(n.id)?.cpu ?? 0), 0)
   const totalMem = nodes.reduce((sum, n) => sum + n.memory, 0)
   const allocatedMem = nodes.reduce((sum, n) => sum + (allocatedByNode.get(n.id)?.memory ?? 0), 0)
-  const cpuPct = totalCpu > 0 ? Math.round((allocatedCpu / totalCpu) * 100) : 0
-  const memPct = totalMem > 0 ? Math.round((allocatedMem / totalMem) * 100) : 0
-
   // One request timestamp keeps the 24-hour boundary stable for the rendered view.
   // eslint-disable-next-line react-hooks/purity
   const requestTime = Date.now()
   const failedLastDay = visibleDeployments.filter((row) => row.deployment.status === 'failed' && requestTime - row.deployment.createdAt.getTime() <= 86_400_000).length
-  const unhealthyAllocations = allocations.filter((allocation) => allocation.health === 'unhealthy').length
+  const currentAllocations = currentJobAllocations(allocations, jobs)
+  const unhealthyAllocations = allocationHealthSummary(currentAllocations).failing
   const backoffEntries = jobs.reduce((count, job) => count + (job.replacement_backoff?.length ?? 0), 0)
   const drainingNodes = nodes.filter((node) => node.status === 'draining').length
+  const latestByService = new Map<string, typeof visibleDeployments[number]['deployment']>()
+  for (const row of visibleDeployments) {
+    const key = `${row.deployment.serviceId}/${row.deployment.environmentId}`
+    if (!latestByService.has(key)) latestByService.set(key, row.deployment)
+  }
+  const liveHealth = new Map(targets.map((target) => {
+    const latest = latestByService.get(`${target.serviceId}/${target.environmentId}`)
+    const owned = allocations.filter((allocation) => allocationBelongsToService(allocation, target.namespace, target.serviceSlug, [target.job, target.serviceSlug]))
+    return [`${target.serviceId}/${target.environmentId}`, { latest, health: allocationsError ? 'unknown' : getServiceHealth({ allocations: owned, desiredReplicas: target.replicas, deploymentStatus: latest?.status, deployed: Boolean(latest) }) }] as const
+  }))
+  const resourceNames = new Map<string, string>(projectList.map((project) => [project.id, project.name]))
+  for (const { service } of visibleServices) resourceNames.set(service.id, service.name)
+  for (const row of visibleDeployments) resourceNames.set(row.deployment.id, row.serviceName)
 
   return (
     <div className="min-w-0 space-y-7">
       <DeploymentPoller active={hasActive} />
 
       <PageHeading
-        title="Overview"
-        description={`${projectList.length} project${projectList.length === 1 ? '' : 's'} and ${visibleServices.length} service${visibleServices.length === 1 ? '' : 's'}.`}
+        title="Home"
+        description={clusterError || allocationsError || jobsError ? 'Cluster health is unavailable.' : failedLastDay + unhealthyAllocations + backoffEntries + drainingNodes === 0 ? 'Everything is running' : `${failedLastDay + unhealthyAllocations + backoffEntries + drainingNodes} issues need attention.`}
       />
 
-      <Panel className="overflow-hidden">
-        <PanelHeader title="Needs attention" />
-        {clusterError || allocationsError || jobsError ? <p className="px-4 pt-3 text-sm text-warn-500">Cluster diagnostics incomplete — current issues may be missing.</p> : null}
-        {failedLastDay + unhealthyAllocations + backoffEntries + drainingNodes === 0 ? <p className="px-4 py-3 text-sm text-ink-soft">{clusterError || allocationsError || jobsError ? 'No issues found in available data.' : 'All clear — no current issues.'}</p> : <div className="flex flex-wrap gap-x-6 gap-y-2 px-4 py-3 text-sm">
-          {failedLastDay > 0 ? <Link href="/deployments" className="font-medium text-danger-500 hover:underline">{failedLastDay} failed deployment{failedLastDay === 1 ? '' : 's'} in 24h</Link> : null}
-          {unhealthyAllocations > 0 ? <Link href="/status" className="font-medium text-danger-500 hover:underline">{unhealthyAllocations} unhealthy allocation{unhealthyAllocations === 1 ? '' : 's'}</Link> : null}
-          {drainingNodes > 0 ? <Link href="/status" className="font-medium text-warn-500 hover:underline">{drainingNodes} draining node{drainingNodes === 1 ? '' : 's'}</Link> : null}
-          {backoffEntries > 0 ? <Link href="/status" className="font-medium text-warn-500 hover:underline">{backoffEntries} replacement backoff {backoffEntries === 1 ? 'entry' : 'entries'}</Link> : null}
-        </div>}
-      </Panel>
+      {clusterError || allocationsError || jobsError || failedLastDay + unhealthyAllocations + backoffEntries + drainingNodes > 0 ? <div className={`flex flex-wrap items-center gap-2 rounded-lg border p-3 text-sm ${clusterError || allocationsError || jobsError ? 'border-line bg-sunken' : 'border-warn-200 bg-warn-50'}`}><TriangleAlert className="h-4 w-4 text-ink-muted" /><strong>Needs attention</strong>
+        {clusterError || allocationsError || jobsError ? <span className="text-ink-muted">Couldn’t check the cluster</span> : <>
+          {failedLastDay > 0 ? <Link href="/deployments" className="text-link"><Chip tone="danger"><TriangleAlert className="size-3" />{failedLastDay} failed deployment{failedLastDay === 1 ? '' : 's'} in 24h</Chip></Link> : null}
+          {unhealthyAllocations > 0 ? <Link href="/status" className="text-link"><Chip tone="danger"><TriangleAlert className="size-3" />{unhealthyAllocations} unhealthy allocation{unhealthyAllocations === 1 ? '' : 's'}</Chip></Link> : null}
+          {drainingNodes > 0 ? <Link href="/status" className="text-link"><Chip tone="warn"><TriangleAlert className="size-3" />{drainingNodes} draining node{drainingNodes === 1 ? '' : 's'}</Chip></Link> : null}
+          {backoffEntries > 0 ? <Link href="/status" className="text-link"><Chip tone="warn"><RotateCcw className="size-3" />{backoffEntries} restart cooldown{backoffEntries === 1 ? '' : 's'}</Chip></Link> : null}
+        </>}
+      </div> : null}
 
       <DashboardStatsBar
-        allocations={allocations}
-        clusterAvailable={!allocationsError}
+        allocations={currentAllocations}
+        clusterAvailable={!allocationsError && !jobsError}
         capacityAvailable={!clusterError && !metricsError}
         capacity={{
           cpuAllocated: allocatedCpu,
@@ -202,7 +201,7 @@ export default async function DashboardPage() {
               const TriggerIcon = meta.icon
               return (
                 <li key={row.deployment.id} className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
-                  <StatusDot status={row.deployment.status} />
+                  <DeploymentStatus status={row.deployment.status} />
                   <span className="text-sm font-medium text-ink">
                     {row.projectName} / {row.serviceName}
                   </span>
@@ -280,7 +279,7 @@ export default async function DashboardPage() {
                         </TableCell>
                         <TableCell><Mono>{shortImage(row.deployment.imageAfter)}</Mono></TableCell>
                         <TableCell>
-                          <StatusDot status={row.deployment.status} />
+                          <div className="flex items-center gap-2"><StatusDot status={liveHealth.get(`${row.deployment.serviceId}/${row.deployment.environmentId}`)?.health ?? 'never'} />{liveHealth.get(`${row.deployment.serviceId}/${row.deployment.environmentId}`)?.latest?.status === 'failed' ? <LastDeployFailed href={`/projects/${row.projectSlug}/deployments/${liveHealth.get(`${row.deployment.serviceId}/${row.deployment.environmentId}`)!.latest!.id}`} /> : null}</div>
                         </TableCell>
                         <TableCell>
                           <span className="flex items-center gap-1.5">
@@ -315,35 +314,14 @@ export default async function DashboardPage() {
                   </Chip>
                 }
               />
-              {metricsError ? <TrellisReadError title="Capacity data unavailable" message={metricsError} /> : <div className="space-y-3 px-4 py-3.5">
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-sm text-ink-soft">CPU allocated</span>
-                  <span className="flex items-center gap-3">
-                    <span className="nums text-xs text-ink-muted">
-                      {formatCpu(allocatedCpu)} / {formatCpu(totalCpu)} cores
-                    </span>
-                    <Meter value={cpuPct} label="Cluster CPU allocated" />
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-sm text-ink-soft">Memory allocated</span>
-                  <span className="flex items-center gap-3">
-                    <span className="nums text-xs text-ink-muted">
-                      {formatMemGiB(allocatedMem)} / {formatMemGiB(totalMem)} GiB
-                    </span>
-                    <Meter value={memPct} label="Cluster memory allocated" />
-                  </span>
-                </div>
-              </div>}
               <ul className="divide-y divide-line border-t border-line">
                 {nodes.map((node) => (
                   <li key={node.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
                     <span className="flex min-w-0 items-center gap-2">
-                      <Dot tone={node.status === 'healthy' ? 'success' : node.status === 'draining' ? 'warn' : 'danger'} />
                       <NodeLink id={node.id} className="truncate text-sm" />
                     </span>
                     <span className="shrink-0">
-                      <Mono>{node.version}</Mono>
+                      <StatusDot status={node.status === 'healthy' ? 'ready' : node.status} />
                     </span>
                   </li>
                 ))}
@@ -388,11 +366,11 @@ export default async function DashboardPage() {
                         <div className="min-w-0">
                           <span className="flex flex-wrap items-center gap-2">
                             <span className="text-sm font-medium text-ink">
-                              {entry.entry.action}
+                              {entry.userName ?? 'System'} {auditActionSentence(entry.entry.action, auditResourceName({ resourceName: resourceNames.get(entry.entry.resourceId), details: entry.entry.details as Record<string, unknown>, resourceType: entry.entry.resourceType }), entry.entry.details as Record<string, unknown>)}
                             </span>
                           </span>
                           <p className="mt-0.5 truncate text-xs text-ink-muted">
-                            {entry.userName ?? 'System'} · {formatRelativeTime(entry.entry.createdAt)}
+                            {entry.entry.action} · {formatRelativeTime(entry.entry.createdAt)}
                           </p>
                         </div>
                       </div>

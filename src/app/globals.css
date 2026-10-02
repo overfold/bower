@@ -26,6 +26,7 @@
   --color-danger-50: var(--danger-50);
   --color-danger-200: var(--danger-200);
   --color-danger-500: var(--danger-500);
+  --color-danger-600: var(--danger-600);
   --color-info-50: var(--info-50);
   --color-info-200: var(--info-200);
   --color-info-500: var(--info-500);
@@ -34,10 +35,10 @@
   --color-ok-500: var(--ok-500);
   --color-brand-950: #0b1915;
 
-  --radius-sm: calc(var(--radius) - 2px);
-  --radius-md: var(--radius);
-  --radius-lg: calc(var(--radius) + 2px);
-  --radius-xl: calc(var(--radius) + 6px);
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
 
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, monospace;
@@ -76,7 +77,7 @@
   --ink: light-dark(hsl(192 29% 7%), hsl(185 15% 90%));
   --ink-soft: light-dark(hsl(191 15% 29%), hsl(185 12% 72%));
   --ink-muted: light-dark(hsl(191 9% 40%), hsl(191 10% 55%));
-  --ink-faint: light-dark(hsl(191 9% 42%), hsl(191 8% 55%));
+  --ink-faint: light-dark(#9dabae, hsl(191 8% 55%));
   --ok-50: light-dark(hsl(145 45% 95%), hsl(145 30% 13%));
   --ok-200: light-dark(hsl(145 35% 80%), hsl(145 30% 30%));
   --ok-500: light-dark(hsl(145 65% 25%), hsl(145 50% 65%));
@@ -95,6 +96,7 @@
   --danger-50: light-dark(hsl(6 83% 95%), hsl(4 30% 14%));
   --danger-200: light-dark(hsl(7 73% 85%), hsl(5 40% 40%));
   --danger-500: light-dark(hsl(4 76% 40%), hsl(4 75% 68%));
+  --danger-600: light-dark(hsl(4 76% 32%), hsl(4 75% 60%));
   --info-50: light-dark(hsl(253 70% 96%), hsl(254 25% 16%));
   --info-200: light-dark(hsl(254 70% 88%), hsl(254 30% 40%));
   --info-500: light-dark(hsl(258 54% 52%), hsl(258 50% 60%));
@@ -193,5 +195,5 @@
 @layer components {
   .text-link { color: var(--brand-700); }
   .text-link:hover { text-decoration: underline; text-underline-offset: 4px; }
-  .text-link:focus-visible { outline: 2px solid var(--brand-300); outline-offset: 2px; border-radius: 2px; }
+  .text-link:focus-visible { outline: 2px solid var(--brand-500); outline-offset: 2px; border-radius: var(--radius-sm); }
 }

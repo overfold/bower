@@ -42,10 +42,26 @@ export function formatRelativeTime(value: DateValue, now = Date.now()): string {
   if (minutes < 60) return `${minutes}m ago`
   const hours = Math.floor(minutes / 60)
   if (hours < 24) return `${hours}h ago`
-  return `${Math.floor(hours / 24)}d ago`
+  const days = Math.floor(hours / 24)
+  if (days < 7) return `${days}d ago`
+  const weeks = Math.floor(days / 7)
+  if (weeks < 5) return `${weeks}w ago`
+  const months = Math.floor(days / 30)
+  if (months < 12) return `${months}mo ago`
+  return `${Math.floor(days / 365)}y ago`
 }
 
 export function formatDisplayToken(value: string | null | undefined): string {
   if (!value) return '—'
   return value.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
+export function formatCpu(millicores: number): string {
+  const cores = millicores / 1000
+  return `${Number(cores.toFixed(3))} ${cores === 1 ? 'core' : 'cores'}`
+}
+
+export function formatMemory(bytes: number): string {
+  const mb = bytes / (1024 * 1024)
+  return mb >= 1024 ? `${Number((mb / 1024).toFixed(1))} GB` : `${Number(mb.toFixed(1))} MB`
 }

@@ -3,7 +3,8 @@
 import { useState, useTransition, useActionState } from 'react'
 import { actionErrorMessage } from '@/lib/action-error'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash2, Copy, Check } from 'lucide-react'
+import { Plus, Copy, Check } from 'lucide-react'
+import { RowActions, RowActionItem, RowActionSeparator } from '@/components/ui/row-actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -12,7 +13,7 @@ import {
 } from '@/components/ui/dialog'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
@@ -121,8 +122,9 @@ export function CreateWebhookDialog({ projectId, services, environmentId }: Crea
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="wh-tag">Tag filter <span className="font-normal text-ink-muted">(optional regex)</span></Label>
+                <Label htmlFor="wh-tag" optional>Tag filter</Label>
                 <Input id="wh-tag" name="tagFilter" placeholder="e.g. ^v\\d+\\.\\d+\\.\\d+$" mono />
+                <p className="text-xs text-ink-muted">Regular expression matched against image tags.</p>
               </div>
             </DialogBody>
             <DialogFooter>
@@ -159,12 +161,9 @@ export function DeleteWebhookButton({ projectId, hookId, serviceName }: {
   }
 
   return (
-    <AlertDialog open={open} onOpenChange={(next) => { if (!isPending) { setOpen(next); if (next) setError(null) } }}>
-      <AlertDialogTrigger asChild>
-        <Button variant="ghost" size="icon" disabled={isPending} aria-label={`Delete webhook for ${serviceName}`}>
-          <Trash2 className="h-3.5 w-3.5 text-ink-muted" />
-        </Button>
-      </AlertDialogTrigger>
+    <>
+      <RowActions name={`webhook for ${serviceName}`}><RowActionSeparator /><RowActionItem className="text-danger-600 focus:text-danger-600" disabled={isPending} onSelect={() => setOpen(true)}>Delete</RowActionItem></RowActions>
+      <AlertDialog open={open} onOpenChange={(next) => { if (!isPending) { setOpen(next); if (next) setError(null) } }}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Delete webhook for {serviceName}?</AlertDialogTitle>
@@ -184,7 +183,8 @@ export function DeleteWebhookButton({ projectId, hookId, serviceName }: {
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
-    </AlertDialog>
+      </AlertDialog>
+    </>
   )
 }
 
@@ -281,12 +281,9 @@ export function DeleteNotificationButton({ projectId, channelId, channelName }: 
   }
 
   return (
-    <AlertDialog open={open} onOpenChange={(next) => { if (!isPending) { setOpen(next); if (next) setError(null) } }}>
-      <AlertDialogTrigger asChild>
-        <Button variant="ghost" size="icon" disabled={isPending} aria-label={`Delete ${channelName}`}>
-          <Trash2 className="h-3.5 w-3.5 text-ink-muted" />
-        </Button>
-      </AlertDialogTrigger>
+    <>
+      <RowActions name={channelName}><RowActionSeparator /><RowActionItem className="text-danger-600 focus:text-danger-600" disabled={isPending} onSelect={() => setOpen(true)}>Delete</RowActionItem></RowActions>
+      <AlertDialog open={open} onOpenChange={(next) => { if (!isPending) { setOpen(next); if (next) setError(null) } }}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Delete {channelName}?</AlertDialogTitle>
@@ -306,6 +303,7 @@ export function DeleteNotificationButton({ projectId, channelId, channelName }: 
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
-    </AlertDialog>
+      </AlertDialog>
+    </>
   )
 }

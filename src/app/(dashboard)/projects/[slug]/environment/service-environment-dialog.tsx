@@ -18,13 +18,13 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
+import { KeyValueEditor } from '@/components/key-value-editor'
 import type { BowerSecretBinding } from '@/lib/job-builder'
 import { InlineNotice } from '@/components/ui/feedback'
 
-function recordToLines(value: unknown) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return ''
-  return Object.entries(value as Record<string, unknown>).map(([key, entry]) => `${key}=${String(entry)}`).join('\n')
+function recordToRows(value: unknown) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return []
+  return Object.entries(value as Record<string, unknown>).map(([key, entry]) => ({ key, value: String(entry) }))
 }
 
 function normalizeBindings(value: unknown): BowerSecretBinding[] {
@@ -104,7 +104,7 @@ export function ServiceEnvironmentDialog({
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!saving) { setOpen(next); if (next) setError(null) } }}>
       <DialogTrigger asChild>
-        <Button variant="default" size="sm">Edit configuration</Button>
+        <Button variant="default" size="sm">Edit variables</Button>
       </DialogTrigger>
       <DialogContent size="lg">
         <DialogHeader><DialogTitle>{serviceName} · variables and secrets</DialogTitle></DialogHeader>
@@ -113,17 +113,8 @@ export function ServiceEnvironmentDialog({
             <div className="space-y-6">
               {error && <InlineNotice tone="error">{error}</InlineNotice>}
               <div className="space-y-2">
-                <Label htmlFor={`env-vars-${serviceId}`}>Service variables</Label>
-                <Textarea
-                  id={`env-vars-${serviceId}`}
-                  name="envVars"
-                  rows={6}
-                  defaultValue={recordToLines(envVars)}
-                  placeholder={'LOG_LEVEL=info\nFEATURE_FLAG=true'}
-                  className="text-xs"
-                  mono
-                  aria-describedby={`env-vars-help-${serviceId}`}
-                />
+                <Label>Service variables</Label>
+                <KeyValueEditor initialRows={recordToRows(envVars)} />
                 <p id={`env-vars-help-${serviceId}`} className="text-2xs leading-relaxed text-ink-muted">Plain values for this service. Use secret bindings below for sensitive values.</p>
               </div>
 
@@ -192,7 +183,7 @@ export function ServiceEnvironmentDialog({
           </DialogBody>
           <DialogFooter>
             <Button variant="default" type="button" onClick={() => setOpen(false)} disabled={saving}>Cancel</Button>
-            <Button variant="primary" type="submit" disabled={saving} aria-busy={saving}>{saving ? 'Saving…' : 'Save configuration'}</Button>
+            <Button variant="primary" type="submit" disabled={saving} aria-busy={saving}>{saving ? 'Saving…' : 'Save changes'}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

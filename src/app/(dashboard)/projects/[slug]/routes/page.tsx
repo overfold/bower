@@ -7,6 +7,7 @@ import {
   getRoutesByProject,
   getServiceConfigs,
   getServicesByProject,
+  getMergedServiceConfig,
 } from '@/lib/queries'
 import { getVerifiedOrganizationDomains } from '@/lib/domain-queries'
 import { requireContext, requireProject } from '@/lib/actions/shared'
@@ -14,7 +15,7 @@ import { Button } from '@/components/ui/button'
 import { EmptyState, InlineNotice } from '@/components/ui/empty-state'
 import { Panel, PanelHeader, SectionTitle } from '@/components/ui/panel'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { AddRouteDialog, DeleteRouteButton, RouteProtectionButton } from './route-actions'
+import { AddRouteDialog, RouteActions } from './route-actions'
 import { protectionLabels, tlsLabels } from '@/lib/labels'
 
 export default async function RoutesPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -34,8 +35,33 @@ export default async function RoutesPage({ params }: { params: Promise<{ slug: s
     ? await Promise.all(services.map(async (service) => ({ service, configs: await getServiceConfigs(service.id) })))
     : []
   const targetServices = serviceConfigs.filter(({ configs }) => configs.some((config) => config.environmentId === environment?.id)).map(({ service }) => service)
+  const routeTargets = environment ? await Promise.all(targetServices.map(async (service) => {
+    const config = await getMergedServiceConfig(service.id, environment.id)
+    const env = config?.envVars as Record<string, unknown> | undefined
+    const envPort = Number(env?.PORT)
+    const validEnvPort = Number.isInteger(envPort) && envPort >= 1 && envPort <= 65535
+    return { id: service.id, name: service.name, port: config?.healthCheckPort ?? (validEnvPort ? envPort : 80), portSource: config?.healthCheckPort ? 'Service health-check port' : validEnvPort ? 'Service PORT variable' : 'Default HTTP port; adjust to match your service' }
+  })) : []
   const visibleRoutes = environment ? routeRows.filter((row) => row.route.environmentId === environment.id) : []
   const canManage = access.projectRole === 'admin'
+  const canAddRoute = canManage && managedDomains.length > 0 && Boolean(environment) && targetServices.length > 0
+  const addRouteAction = canAddRoute && environment ? (
+    <AddRouteDialog
+      projectId={project.id}
+      environmentId={environment.id}
+      services={routeTargets}
+      domains={managedDomains.map((domain) => ({ id: domain.id, domain: domain.domain }))}
+    />
+  ) : null
+  const emptyBody = !canManage
+    ? 'Project administrator access is required to add a route.'
+    : managedDomains.length === 0
+      ? 'Verify an organization domain before adding a route.'
+      : !environment
+        ? 'Create a project environment before adding a route.'
+        : targetServices.length === 0
+          ? 'Configure a service before adding a route.'
+          : 'Bind a hostname from a verified organization domain to expose a service.'
 
   return (
     <div className="space-y-5">
@@ -46,14 +72,7 @@ export default async function RoutesPage({ params }: { params: Promise<{ slug: s
             Route verified hostnames to this project’s services.
           </p>
         </div>
-        {canManage && managedDomains.length > 0 && environment ? (
-          <AddRouteDialog
-            projectId={project.id}
-            environmentId={environment.id}
-            services={targetServices.map((service) => ({ id: service.id, name: service.name }))}
-            domains={managedDomains.map((domain) => ({ id: domain.id, domain: domain.domain }))}
-          />
-        ) : null}
+        {addRouteAction}
       </div>
 
       {managedDomains.length === 0 ? (
@@ -79,7 +98,8 @@ export default async function RoutesPage({ params }: { params: Promise<{ slug: s
           <EmptyState
             icon={<Globe className="h-4 w-4" />}
             title="No routes configured"
-            body="Bind a hostname from a verified organization domain to expose a service."
+            body={emptyBody}
+            action={addRouteAction}
           />
         ) : (
           <Table>
@@ -90,7 +110,7 @@ export default async function RoutesPage({ params }: { params: Promise<{ slug: s
                 <TableHead>Target</TableHead>
                 <TableHead>TLS</TableHead>
                 <TableHead>Protection</TableHead>
-                <TableHead className="w-[96px] text-right">Actions</TableHead>
+                <TableHead className="w-[96px]"><span className="sr-only">Actions</span></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -107,10 +127,7 @@ export default async function RoutesPage({ params }: { params: Promise<{ slug: s
                   </TableCell>
                   <TableCell>
                     {canManage ? (
-                      <div className="flex items-center justify-end gap-1">
-                        <RouteProtectionButton projectId={project.id} routeId={row.route.id} hostname={row.route.domain} currentMode={row.route.protectionMode} />
-                        <DeleteRouteButton projectId={project.id} routeId={row.route.id} hostname={row.route.domain} />
-                      </div>
+                      <RouteActions projectId={project.id} routeId={row.route.id} hostname={row.route.domain} currentMode={row.route.protectionMode} />
                     ) : null}
                   </TableCell>
                 </TableRow>

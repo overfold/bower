@@ -1,5 +1,6 @@
 import { defineConfig } from "@playwright/test";
 import { fileURLToPath } from "node:url";
+import path from "node:path";
 
 const cwd = fileURLToPath(new URL("../../", import.meta.url));
 
@@ -9,7 +10,11 @@ export default defineConfig({
   timeout: 30_000,
   workers: 1,
   retries: 0,
-  outputDir: `${cwd}/${process.env.UI_AUDIT_OUTPUT || "ui-audit-output"}/diagnostics`,
+  outputDir: path.resolve(
+    cwd,
+    process.env.UI_AUDIT_OUTPUT || "ui-audit-output",
+    "diagnostics",
+  ),
   reporter: [["list"]],
   use: {
     baseURL: "http://127.0.0.1:3100",

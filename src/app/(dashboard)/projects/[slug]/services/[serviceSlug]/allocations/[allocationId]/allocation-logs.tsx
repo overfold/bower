@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { InlineNotice, useFeedback } from '@/components/ui/feedback'
 import { Panel, PanelHeader } from '@/components/ui/panel'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
 
 export function AllocationLogs({ serviceId, allocationId, tasks }: { serviceId: string; allocationId: string; tasks: { name: string; output: string; error: string | null }[] }) {
   const [task, setTask] = useState(tasks[0]?.name ?? '')
@@ -39,12 +41,12 @@ export function AllocationLogs({ serviceId, allocationId, tasks }: { serviceId: 
   return <Panel>
     <PanelHeader title="Task logs" />
     <div className="flex flex-wrap items-center gap-2 border-b border-line p-3">
-      <label className="flex items-center gap-2 text-sm">Task <select aria-label="Log task" value={task} className="rounded-lg border border-line bg-surface px-2 py-1.5" onChange={(event) => {
-        const next = tasks.find((entry) => entry.name === event.target.value)
-        setTask(event.target.value); setOutput(next?.output ?? ''); setError(next?.error ?? null)
-      }}>{tasks.map((entry) => <option key={entry.name}>{entry.name}</option>)}</select></label>
-      <Button size="sm" aria-pressed={follow} onClick={() => setFollow(!follow)}>Follow {follow ? 'on' : 'off'}</Button>
-      <Button size="sm" aria-pressed={wrap} onClick={() => setWrap(!wrap)}>Wrap {wrap ? 'on' : 'off'}</Button>
+      <label className="flex items-center gap-2 text-sm">Task <Select value={task} onValueChange={(value) => {
+        const next = tasks.find((entry) => entry.name === value)
+        setTask(value); setOutput(next?.output ?? ''); setError(next?.error ?? null)
+      }}><SelectTrigger aria-label="Log task" className="w-40"><SelectValue /></SelectTrigger><SelectContent>{tasks.map((entry) => <SelectItem key={entry.name} value={entry.name}>{entry.name}</SelectItem>)}</SelectContent></Select></label>
+      <label className="flex items-center gap-2 text-sm"><Switch checked={follow} onCheckedChange={setFollow} />Follow</label>
+      <label className="flex items-center gap-2 text-sm"><Switch checked={wrap} onCheckedChange={setWrap} />Wrap</label>
       <Input type="search" aria-label="Search logs" placeholder="Search logs…" className="w-48" value={query} onChange={(event) => setQuery(event.target.value)} />
       <Button size="sm" onClick={async () => {
         try { await navigator.clipboard.writeText(output); toast({ tone: 'success', title: 'Logs copied' }) }

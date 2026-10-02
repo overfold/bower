@@ -30,7 +30,7 @@ export default async function MemberPage({ params }: { params: Promise<{ userId:
             {member.userName.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}
           </AvatarFallback>
         </Avatar>
-        <PageHeading title={member.userName} description={`Member of ${ctx.org.name}`} />
+        <PageHeading as="h2" title={member.userName} description={`Member of ${ctx.org.name}`} />
       </div>
       <Panel>
         <PanelHeader title="Member details" />

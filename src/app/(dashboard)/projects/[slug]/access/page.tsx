@@ -6,7 +6,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { EmptyState } from '@/components/ui/empty-state'
 import { Shield, UserRound, Users } from 'lucide-react'
 import { GrantAccessDialog, RevokeAccessButton } from './access-actions'
-import { formatDate } from '@/lib/format'
+import { Time } from '@/components/time'
 import { roleLabels } from '@/lib/labels'
 
 export default async function AccessPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -63,8 +63,8 @@ export default async function AccessPage({ params }: { params: Promise<{ slug: s
               <TableRow>
                 <TableHead>Entity</TableHead>
                 <TableHead>Role</TableHead>
-                <TableHead>Granted</TableHead>
-                {isAdmin && <TableHead className="w-[56px]" />}
+                <TableHead className="text-right">Granted</TableHead>
+                {isAdmin && <TableHead className="w-[56px]"><span className="sr-only">Actions</span></TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -77,7 +77,7 @@ export default async function AccessPage({ params }: { params: Promise<{ slug: s
                     </div>
                   </TableCell>
                   <TableCell>{roleLabels[access.role]}</TableCell>
-                  <TableCell className="whitespace-nowrap text-xs text-ink-muted">{formatDate(access.createdAt)}</TableCell>
+                  <TableCell className="whitespace-nowrap text-right text-xs text-ink-muted"><Time value={access.createdAt} /></TableCell>
                   {isAdmin && (
                     <TableCell>
                       <RevokeAccessButton projectId={project.id} accessId={access.id} kind="team" name={teamName} />
@@ -97,7 +97,7 @@ export default async function AccessPage({ params }: { params: Promise<{ slug: s
                     </div>
                   </TableCell>
                   <TableCell>{roleLabels[access.role]}</TableCell>
-                  <TableCell className="whitespace-nowrap text-xs text-ink-muted">{formatDate(access.createdAt)}</TableCell>
+                  <TableCell className="whitespace-nowrap text-right text-xs text-ink-muted"><Time value={access.createdAt} /></TableCell>
                   {isAdmin && (
                     <TableCell>
                       <RevokeAccessButton projectId={project.id} accessId={access.id} kind="user" name={userName} />

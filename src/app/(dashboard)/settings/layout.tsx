@@ -10,8 +10,11 @@ export default async function SettingsLayout({ children }: { children: React.Rea
 
   return (
     <div className="space-y-6">
-      <SettingsNav showInstance={showInstance} />
-      {children}
+      <h1 className="text-2xl font-semibold tracking-tight text-ink">Settings</h1>
+      <div className="grid gap-8 md:grid-cols-[180px_minmax(0,1fr)]">
+        <SettingsNav showInstance={showInstance} />
+        <div className="min-w-0">{children}</div>
+      </div>
     </div>
   )
 }

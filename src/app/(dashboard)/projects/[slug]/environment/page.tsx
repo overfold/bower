@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
-import { Box, KeyRound, Variable } from 'lucide-react'
+import { Box, KeyRound } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth'
 import { requireProject } from '@/lib/actions/shared'
 import {
@@ -17,7 +17,7 @@ import { Panel, PanelHeader, SectionTitle } from '@/components/ui/panel'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { CreateSecretDialog } from './create-secret-dialog'
 import { SecretActions } from './secret-actions'
-import { CreateEnvironmentVariableDialog, DeleteEnvironmentVariableButton } from './environment-variable-controls'
+import { EnvironmentVariableControls } from './environment-variable-controls'
 import { ServiceEnvironmentDialog } from './service-environment-dialog'
 import type { BowerSecretBinding } from '@/lib/job-builder'
 import { Time } from '@/components/time'
@@ -65,20 +65,18 @@ export default async function EnvironmentPage({ params }: { params: Promise<{ sl
           <PanelHeader
             title="Environment variables"
             hint={`${environmentVariables.length} ${environmentVariables.length === 1 ? 'variable' : 'variables'} injected into every service`}
-            action={canManage ? <CreateEnvironmentVariableDialog projectId={project.id} environmentId={environment.id} /> : undefined}
           />
-          {environmentVariables.length === 0 ? (
-            <EmptyState icon={<Variable className="h-4 w-4" />} title="No environment variables" body="Add a variable to share configuration with every service." />
+          {canManage ? <EnvironmentVariableControls projectId={project.id} environmentId={environment.id} names={environmentVariables.map(([name]) => name)} /> : environmentVariables.length === 0 ? (
+            <div className="p-4 text-sm text-ink-muted">No environment variables.</div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
-                <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Value</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Value</TableHead></TableRow></TableHeader>
                 <TableBody>
-                  {environmentVariables.map(([name, value]) => (
+                  {environmentVariables.map(([name]) => (
                     <TableRow key={name}>
                       <TableCell className="font-mono text-xs font-medium">{name}</TableCell>
-                      <TableCell className="max-w-md truncate font-mono text-xs text-ink-muted" title={value}>{value}</TableCell>
-                      <TableCell className="text-right">{canManage ? <DeleteEnvironmentVariableButton projectId={project.id} environmentId={environment.id} name={name} /> : null}</TableCell>
+                      <TableCell className="font-mono text-xs text-ink-muted">••••••••</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

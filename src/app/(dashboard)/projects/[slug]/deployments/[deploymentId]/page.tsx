@@ -1,17 +1,18 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { Fragment } from 'react'
-import { and, eq } from 'drizzle-orm'
+import { and, desc, eq, isNotNull, lt } from 'drizzle-orm'
 import { db } from '@/db'
 import { deploymentEvents, deployments, services, users } from '@/db/schema'
 import { requireContext, requireProject } from '@/lib/actions/shared'
 import { getProjectBySlug } from '@/lib/queries'
 import { Panel, PanelHeader, KeyValue } from '@/components/ui/panel'
-import { StatusDot } from '@/components/status'
+import { DeploymentStatus } from '@/components/status'
 import { formatTimestamp } from '@/lib/format'
 import { InlineNotice } from '@/components/ui/feedback'
 import { DeploymentDiagnosticActions } from './deployment-diagnostic-actions'
 import { label } from '@/lib/labels'
+import { EventDetails } from './event-details'
+import { Button } from '@/components/ui/button'
 
 export default async function DeploymentDetailPage({ params }: { params: Promise<{ slug: string; deploymentId: string }> }) {
   const { slug, deploymentId } = await params
@@ -26,9 +27,16 @@ export default async function DeploymentDetailPage({ params }: { params: Promise
     .where(and(eq(deployments.id, deploymentId), eq(services.projectId, project.id)))
     .limit(1)
   if (!row) notFound()
-  const events = await db.select().from(deploymentEvents)
-    .where(eq(deploymentEvents.deploymentId, deploymentId))
-    .orderBy(deploymentEvents.createdAt)
+  const [events, previousSuccessful] = await Promise.all([
+    db.select().from(deploymentEvents).where(eq(deploymentEvents.deploymentId, deploymentId)).orderBy(deploymentEvents.createdAt),
+    row.deployment.status === 'failed' ? db.select().from(deployments).where(and(
+      eq(deployments.serviceId, row.service.id),
+      eq(deployments.environmentId, row.deployment.environmentId),
+      eq(deployments.status, 'healthy'),
+      isNotNull(deployments.jobSpec),
+      lt(deployments.createdAt, row.deployment.createdAt),
+    )).orderBy(desc(deployments.createdAt)).limit(1).then((items) => items[0]) : Promise.resolve(row.deployment.status === 'healthy' && row.deployment.jobSpec ? row.deployment : undefined),
+  ])
 
   const duration = row.deployment.completedAt
     ? Math.max(0, Math.round((row.deployment.completedAt.getTime() - row.deployment.startedAt.getTime()) / 1000))
@@ -42,8 +50,8 @@ export default async function DeploymentDetailPage({ params }: { params: Promise
   const serviceHref = `/projects/${slug}/services/${row.service.slug}`
 
   return <div className="space-y-5">
-    <div className="flex flex-wrap items-start justify-between gap-3"><div className="space-y-3"><h1 className="text-xl font-semibold text-ink">{row.service.name} deployment</h1><StatusDot status={row.deployment.status} /></div>{access.projectRole !== 'viewer' ? <DeploymentDiagnosticActions serviceId={row.service.id} environmentId={row.deployment.environmentId} rollbackTarget={row.deployment.status === 'healthy' && row.deployment.jobSpec ? { id: row.deployment.id, image: row.deployment.imageAfter } : undefined} /> : null}</div>
-    {row.deployment.status === 'failed' && <InlineNotice tone="danger">{failedEvent?.message ?? 'The deployment failed. Review the event timeline for details.'} <Link className="underline underline-offset-2" href={failedAllocation ? `${serviceHref}/allocations/${encodeURIComponent(failedAllocation.id)}#logs` : serviceHref}>{failedAllocation ? 'View allocation logs' : 'View service allocations'}</Link></InlineNotice>}
+    <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0 space-y-2"><h1 className="break-words text-xl font-semibold text-ink">{row.deployment.imageAfter.split('/').at(-1)} · {formatTimestamp(row.deployment.createdAt)}</h1><p className="text-sm text-ink-muted">{row.service.name}</p><DeploymentStatus status={row.deployment.status} /></div>{access.projectRole !== 'viewer' ? <DeploymentDiagnosticActions serviceId={row.service.id} environmentId={row.deployment.environmentId} rollbackTarget={previousSuccessful ? { id: previousSuccessful.id, image: previousSuccessful.imageAfter } : undefined} configurationHref={`${serviceHref}/configuration`} /> : null}</div>
+    {row.deployment.status === 'failed' && <InlineNotice tone="danger"><span>{failedEvent?.message ?? 'The deployment failed. Review the event timeline for details.'}</span><div className="mt-2"><Button asChild size="sm"><Link href={failedAllocation ? `${serviceHref}/allocations/${encodeURIComponent(failedAllocation.id)}#logs` : serviceHref}>View allocations</Link></Button></div></InlineNotice>}
     <Panel><PanelHeader title="Summary" /><dl className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
       <KeyValue label="Service">{row.service.name}</KeyValue>
       <div className="min-w-0 py-2.5 sm:col-span-2"><dt className="text-xs text-ink-muted">Image before → after</dt><dd className="mt-1 break-all font-mono text-sm text-ink">{row.deployment.imageBefore ?? '—'} → {row.deployment.imageAfter}</dd></div>
@@ -60,7 +68,7 @@ export default async function DeploymentDetailPage({ params }: { params: Promise
           <span className={`absolute -left-1.5 top-5 h-3 w-3 rounded-full ${tone}`} />
           <p className={`font-medium ${failed ? 'text-danger-500' : 'text-ink'}`}>{event.message}</p>
           <p className="mt-1 text-xs text-ink-muted">{label(event.type)} · {formatTimestamp(event.createdAt)}</p>
-          {Object.keys(event.details as object).length ? <details className="mt-3"><summary className="text-link cursor-pointer text-xs font-medium">Details</summary><dl className="mt-2 grid max-w-3xl grid-cols-[minmax(6rem,0.4fr)_minmax(0,1fr)] gap-x-4 gap-y-2 rounded bg-sunken p-3 text-xs">{Object.entries(event.details as Record<string, unknown>).map(([key, value]) => <Fragment key={key}><dt className="text-ink-muted">{label(key)}</dt><dd className="whitespace-pre-wrap break-words font-mono text-ink-soft">{typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}</dd></Fragment>)}</dl></details> : null}
+          {Object.keys(event.details as object).length ? <EventDetails details={event.details as Record<string, unknown>} /> : null}
         </li>
       })}</ol> : <p className="p-4 text-sm text-ink-muted">No deployment events were recorded.</p>}
     </Panel>

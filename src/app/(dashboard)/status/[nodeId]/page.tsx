@@ -7,9 +7,9 @@ import { parseNodeAllocatedResources } from '@/lib/trellis-resource-metrics'
 import { TrellisReadError } from '@/components/trellis-read-error'
 import { PageHeading, MetaItem } from '@/components/page-heading'
 import { Panel, PanelHeader, KeyValue } from '@/components/ui/panel'
-import { Chip, Meter, StatusDot } from '@/components/status'
+import { Chip, StatusDot } from '@/components/status'
 import { DrainToggle } from '../drain-toggle'
-import { formatBytes, formatCpu } from '../format'
+import { formatCpu, formatMemory } from '@/lib/format'
 import type { TrellisNode } from '@/types/trellis'
 import { formatTimestamp } from '@/lib/format'
 import { ResourceId } from '@/components/resource-id'
@@ -36,22 +36,28 @@ export default async function NodePage({ params }: { params: Promise<{ nodeId: s
     nodeError = trellisReadError(error)
   }
   if (!node && !nodeError) notFound()
-  if (!node) return <div className="space-y-6"><PageHeading title={<ResourceId value={nodeId} copy />} description="Node" /><Panel><TrellisReadError title="Node unavailable" message={nodeError!} /></Panel></div>
+  if (!node) return <div className="space-y-6"><PageHeading title="Node unavailable" meta={<ResourceId value={nodeId} copy />} /><Panel><TrellisReadError title="Node unavailable" message={nodeError!} /></Panel></div>
 
   const capacity = nodeCapacity(node)
   const allocatable = nodeAllocatable(node)
   const heartbeat = observationFreshness(node.last_heartbeat)
   const metrics = observationFreshness(node.metrics_at)
+  const cpuUsed = node.cpu_usage == null ? 0 : node.cpu_usage * allocatable.cpu
+  const cpuUsedPct = allocatable.cpu > 0 ? Math.min(100, cpuUsed / allocatable.cpu * 100) : 0
+  const cpuAllocatedPct = allocatable.cpu > 0 ? Math.min(100, allocated.cpu / allocatable.cpu * 100) : 0
+  const memoryUsed = node.memory_used ?? 0
+  const memoryUsedPct = allocatable.memory > 0 ? Math.min(100, memoryUsed / allocatable.memory * 100) : 0
+  const memoryAllocatedPct = allocatable.memory > 0 ? Math.min(100, allocated.memory / allocatable.memory * 100) : 0
 
   return (
     <div className="space-y-6">
-      <PageHeading title={<ResourceId value={node.id} name={node.id} copy />} description="Node" meta={<MetaItem label="Status" value={<StatusDot status={node.status} />} />} actions={ctx.role === 'owner' ? <DrainToggle nodeId={node.id} drain={node.status === 'draining'} /> : undefined} />
+      <PageHeading title={`Node ${node.id}`} meta={<><ResourceId value={node.id} copy /><MetaItem label="Status" value={<StatusDot status={node.status === 'healthy' ? 'ready' : node.status} />} /></>} actions={ctx.role === 'owner' ? <DrainToggle nodeId={node.id} drain={node.status === 'draining'} /> : undefined} />
       <Panel>
         <PanelHeader title="Node details" />
         <dl className="grid gap-x-8 p-4 sm:grid-cols-2 lg:grid-cols-4">
           <KeyValue label="IP" mono>{node.host}</KeyValue>
-          <KeyValue label="Port">{node.port}</KeyValue>
-          <KeyValue label="Version" mono>{node.version || '—'}</KeyValue>
+          <KeyValue label="Port" mono>{node.port}</KeyValue>
+          <KeyValue label="Version">{node.version || '—'}</KeyValue>
           <KeyValue label="OS">{node.os || '—'} / {node.arch || '—'}</KeyValue>
           <KeyValue label="Control-plane membership">{node.control_plane ? label(node.control_plane) : 'Not reported'}</KeyValue>
           <KeyValue label="Last heartbeat">{formatTimestamp(node.last_heartbeat)}</KeyValue>
@@ -62,21 +68,21 @@ export default async function NodePage({ params }: { params: Promise<{ nodeId: s
         <PanelHeader title="Capacity" />
         {metricsError ? <TrellisReadError title="Allocated resources unavailable" message={metricsError} /> : (
           <div className="grid gap-5 p-4 sm:grid-cols-2">
-            <div><p className="text-sm text-ink-soft">CPU allocated · {formatCpu(allocated.cpu)} / {formatCpu(allocatable.cpu)}</p><div className="mt-2"><Meter value={allocatable.cpu > 0 ? Math.round(allocated.cpu / allocatable.cpu * 100) : 0} label="Node CPU allocated" /></div></div>
-            <div><p className="text-sm text-ink-soft">Memory allocated · {formatBytes(allocated.memory)} / {formatBytes(allocatable.memory)}</p><div className="mt-2"><Meter value={allocatable.memory > 0 ? Math.round(allocated.memory / allocatable.memory * 100) : 0} label="Node memory allocated" /></div></div>
+            <ResourceBar label="CPU" used={formatCpu(cpuUsed)} allocated={formatCpu(allocated.cpu)} total={formatCpu(allocatable.cpu)} usedPct={cpuUsedPct} allocatedPct={cpuAllocatedPct} />
+            <ResourceBar label="Memory" used={formatMemory(memoryUsed)} allocated={formatMemory(allocated.memory)} total={formatMemory(allocatable.memory)} usedPct={memoryUsedPct} allocatedPct={memoryAllocatedPct} />
           </div>
         )}
         <dl className="grid gap-x-8 border-t border-line px-4 py-2 sm:grid-cols-2">
           <KeyValue label="Physical CPU">{formatCpu(capacity.cpu)}</KeyValue>
-          <KeyValue label="Physical memory">{formatBytes(capacity.memory)}</KeyValue>
+          <KeyValue label="Physical memory">{formatMemory(capacity.memory)}</KeyValue>
         </dl>
       </Panel>
       <Panel>
         <PanelHeader title="Live observation" hint={metrics === 'unknown' ? 'No observation reported' : `${metrics === 'fresh' ? 'Fresh' : 'Stale'} · ${formatTimestamp(node.metrics_at)}`} />
         <dl className="grid gap-x-8 p-4 sm:grid-cols-3">
           <KeyValue label="CPU usage">{node.cpu_usage == null ? 'Unknown' : `${Math.round(node.cpu_usage * 100)}%`}</KeyValue>
-          <KeyValue label="Memory used">{node.memory_used == null ? 'Unknown' : formatBytes(node.memory_used)}</KeyValue>
-          <KeyValue label="Memory available">{node.memory_available == null ? 'Unknown' : formatBytes(node.memory_available)}</KeyValue>
+          <KeyValue label="Memory used">{node.memory_used == null ? 'Unknown' : formatMemory(node.memory_used)}</KeyValue>
+          <KeyValue label="Memory available">{node.memory_available == null ? 'Unknown' : formatMemory(node.memory_available)}</KeyValue>
         </dl>
       </Panel>
       <Panel>
@@ -85,4 +91,9 @@ export default async function NodePage({ params }: { params: Promise<{ nodeId: s
       </Panel>
     </div>
   )
+}
+
+function ResourceBar({ label, used, allocated, total, usedPct, allocatedPct }: { label: string; used: string; allocated: string; total: string; usedPct: number; allocatedPct: number }) {
+  const title = `${label}: ${used} used (${Math.round(usedPct)}%), ${allocated} allocated (${Math.round(allocatedPct)}%), ${total} total`
+  return <div><p className="text-sm text-ink-soft">{label} · {total}</p><div className="relative mt-2 h-3 overflow-hidden rounded-md bg-line" title={title} role="img" aria-label={title}><span className="absolute bottom-0 left-0 h-1/2 bg-info-500" style={{ width: `${allocatedPct}%` }} /><span className="absolute left-0 top-0 h-1/2 bg-brand-500" style={{ width: `${usedPct}%` }} /></div><div className="mt-2 flex gap-4 text-xs text-ink-muted"><span><i className="mr-1 inline-block h-2 w-2 bg-brand-500" />Used {used}</span><span><i className="mr-1 inline-block h-2 w-2 bg-info-500" />Allocated {allocated}</span></div></div>
 }

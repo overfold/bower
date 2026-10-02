@@ -4,10 +4,12 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Panel } from '@/components/ui/panel'
 import { EmptyState } from '@/components/ui/empty-state'
+import { SearchInput } from '@/components/ui/search-input'
 import { CreateProjectDialog } from '@/components/create-project-dialog'
-import { BoxesIcon, SearchIcon } from 'lucide-react'
+import { BoxesIcon } from 'lucide-react'
 import { StatusDot } from '@/components/status'
 import { Time } from '@/components/time'
+import { LastDeployFailed } from '@/components/last-deploy-failed'
 
 interface ProjectRow {
   id: string
@@ -18,6 +20,7 @@ interface ProjectRow {
   serviceCount: number
   routeCount: number
   healthStatus: string | null
+  failedDeployments: { id: string; serviceName: string }[]
   latestDeployment: { status: string; createdAt: string } | null
 }
 
@@ -43,10 +46,8 @@ export function ProjectSearch({
 
   return (
     <>
-      <div className="relative max-w-xs">
-        <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-faint" />
-        <input
-          className="h-9 w-full rounded-lg border border-line bg-surface pl-8 pr-3 text-sm text-ink placeholder:text-ink-muted shadow-card transition-[border-color,box-shadow] duration-150 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
+      <div className="max-w-xs">
+        <SearchInput
           placeholder="Filter projects"
           aria-label="Filter projects"
           value={query}
@@ -73,11 +74,12 @@ export function ProjectSearch({
                     <div className="flex items-center gap-2.5">
                       <Link
                         href={`/projects/${project.slug}`}
-                        className="rounded text-md font-semibold tracking-tight text-ink underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+                        className="rounded text-md font-semibold tracking-tight text-ink underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
                       >
                         {project.name}
                       </Link>
                       {project.healthStatus ? <StatusDot status={project.healthStatus} /> : <span className="text-xs text-ink-muted">Not deployed</span>}
+                      {project.failedDeployments.map((deployment) => <LastDeployFailed key={deployment.id} href={`/projects/${project.slug}/deployments/${deployment.id}`} />)}
                     </div>
                     {project.description && (
                       <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">
@@ -87,7 +89,7 @@ export function ProjectSearch({
                     <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-ink-muted">
                       {project.serviceCount === 0 ? <Link className="text-link" href={`/projects/${project.slug}/services`}>Add a service</Link> : <span>{project.serviceCount} {project.serviceCount === 1 ? 'service' : 'services'}</span>}
                       <span>{project.routeCount} {project.routeCount === 1 ? 'route' : 'routes'}</span>
-                      {project.latestDeployment && <span className="flex items-center gap-2">Last deploy <StatusDot status={project.latestDeployment.status} /> <Time value={project.latestDeployment.createdAt} /></span>}
+                      {project.latestDeployment && <span className="flex items-center gap-2">Last deploy <Time value={project.latestDeployment.createdAt} /></span>}
                       <span>updated <Time value={project.updatedAt} /></span>
                     </div>
                   </div>

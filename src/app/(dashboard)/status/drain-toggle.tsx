@@ -2,8 +2,8 @@
 
 import { useTransition } from 'react'
 import { setNodeDrainAction } from '@/lib/actions/operations'
-import { Button } from '@/components/ui/button'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
+import { RowActions, RowActionItem } from '@/components/ui/row-actions'
 
 interface DrainToggleProps {
   nodeId: string
@@ -20,7 +20,6 @@ export function DrainToggle({ nodeId, drain, allocationCount = 0 }: DrainToggleP
     })
   }
 
-  if (drain) return <Button size="sm" onClick={handleClick} disabled={isPending} aria-busy={isPending}>{isPending ? 'Resuming…' : 'Resume scheduling'}</Button>
-
-  return <AlertDialog><AlertDialogTrigger asChild><Button variant="danger" size="sm">Drain node</Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Drain this node?</AlertDialogTitle><AlertDialogDescription>{allocationCount === 0 ? 'The node will stop accepting new allocations.' : `${allocationCount} allocation${allocationCount === 1 ? '' : 's'} will be moved to other nodes.`}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleClick}>{isPending ? 'Draining…' : 'Drain node'}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+  const action = drain ? 'Resume scheduling' : 'Drain node'
+  return <AlertDialog><RowActions name={nodeId}><AlertDialogTrigger asChild><RowActionItem disabled={isPending}>{action}</RowActionItem></AlertDialogTrigger></RowActions><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{drain ? 'Resume scheduling on this node?' : 'Drain this node?'}</AlertDialogTitle><AlertDialogDescription>{drain ? 'The node will be eligible to accept new allocations.' : allocationCount === 0 ? 'The node will stop accepting new allocations.' : `${allocationCount} allocation${allocationCount === 1 ? '' : 's'} will be moved to other nodes.`}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleClick}>{isPending ? (drain ? 'Resuming…' : 'Draining…') : action}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
 }

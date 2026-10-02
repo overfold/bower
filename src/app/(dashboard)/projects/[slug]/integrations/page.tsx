@@ -11,7 +11,7 @@ import { Panel, PanelHeader, SectionTitle } from '@/components/ui/panel'
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
+import { Chip } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Webhook, Bell } from 'lucide-react'
 import {
@@ -60,7 +60,8 @@ export default async function IntegrationsPage({
             <EmptyState
               icon={<Webhook className="h-4 w-4" />}
               title="No webhooks"
-              body="Add a webhook to trigger deployments automatically."
+              body={!isAdmin ? 'Project administrator access is required to add a webhook.' : !environment ? 'Create a project environment before adding a webhook.' : services.length === 0 ? 'Create a service before adding a webhook.' : 'Add a webhook to trigger deployments automatically.'}
+              action={isAdmin && environment && services.length > 0 ? <CreateWebhookDialog projectId={project.id} services={services.map((s) => ({ id: s.id, name: s.name }))} environmentId={environment.id} /> : undefined}
             />
         ) : (
             <div className="overflow-x-auto"><Table>
@@ -70,7 +71,7 @@ export default async function IntegrationsPage({
                   <TableHead>Provider</TableHead>
                   <TableHead>Deploy mode</TableHead>
                   <TableHead>Status</TableHead>
-                  {isAdmin && <TableHead className="w-[56px]" />}
+                  {isAdmin && <TableHead className="w-[56px]"><span className="sr-only">Actions</span></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -84,9 +85,9 @@ export default async function IntegrationsPage({
                       {deployModeLabels[row.hook.deployMode]}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={row.hook.isActive ? 'success' : 'outline'}>
+                      <Chip tone={row.hook.isActive ? 'success' : 'neutral'}>
                         {row.hook.isActive ? 'Active' : 'Inactive'}
-                      </Badge>
+                      </Chip>
                     </TableCell>
                     {isAdmin && (
                       <TableCell>
@@ -107,7 +108,8 @@ export default async function IntegrationsPage({
             <EmptyState
               icon={<Bell className="h-4 w-4" />}
               title="No notification channels"
-              body="Add a channel to receive deployment notifications."
+              body={isAdmin ? 'Add a channel to receive deployment notifications.' : 'Project administrator access is required to add a notification channel.'}
+              action={isAdmin ? <CreateNotificationDialog projectId={project.id} /> : undefined}
             />
         ) : (
             <div className="overflow-x-auto"><Table>
@@ -116,7 +118,7 @@ export default async function IntegrationsPage({
                   <TableHead>Name</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Status</TableHead>
-                  {isAdmin && <TableHead className="w-[56px]" />}
+                  {isAdmin && <TableHead className="w-[56px]"><span className="sr-only">Actions</span></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -125,9 +127,9 @@ export default async function IntegrationsPage({
                     <TableCell className="font-medium">{channel.name}</TableCell>
                     <TableCell className="capitalize">{channel.type}</TableCell>
                     <TableCell>
-                      <Badge variant={channel.isActive ? 'success' : 'outline'}>
+                      <Chip tone={channel.isActive ? 'success' : 'neutral'}>
                         {channel.isActive ? 'Active' : 'Inactive'}
-                      </Badge>
+                      </Chip>
                     </TableCell>
                     {isAdmin && (
                       <TableCell>

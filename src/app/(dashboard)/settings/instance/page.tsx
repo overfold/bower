@@ -17,7 +17,8 @@ export default async function InstanceSettingsPage() {
   return (
     <div className="space-y-6">
       <PageHeading
-        title="Instance"
+        as="h2"
+        title="Organizations"
         description="Manage organizations and instance-wide administration."
       />
 
@@ -39,7 +40,7 @@ export default async function InstanceSettingsPage() {
               {organizations.map(({ org, memberCount }) => (
                 <TableRow key={org.id}>
                   <TableCell className="font-medium text-ink">{org.name}</TableCell>
-                  <TableCell className="nums text-ink-muted">{memberCount}</TableCell>
+                  <TableCell className="text-ink-muted">{memberCount}</TableCell>
                   <TableCell className="max-w-[360px] truncate font-mono text-sm text-ink-muted">
                     {org.trellisApiUrl || <span className="flex items-center gap-2 font-sans"><span>Not configured</span><ConfigureOrganizationLink organizationId={org.id} /></span>}
                   </TableCell>

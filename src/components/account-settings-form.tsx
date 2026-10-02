@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { UnsavedChangesBar } from '@/components/ui/unsaved-changes-bar'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { InlineNotice, useFeedback } from '@/components/ui/feedback'
@@ -23,6 +23,7 @@ export function AccountSettingsForm({ user }: AccountSettingsFormProps) {
   const [loading, setLoading] = useState(false)
   const [dirty, setDirty] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const formRef = useRef<HTMLFormElement>(null)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -46,7 +47,7 @@ export function AccountSettingsForm({ user }: AccountSettingsFormProps) {
 
   return (
     <Card className="max-w-3xl">
-      <form onSubmit={handleSubmit} onInput={() => setDirty(true)}>
+      <form ref={formRef} onSubmit={handleSubmit} onInput={() => setDirty(true)}>
         <CardHeader>
           <CardTitle>Profile</CardTitle>
         </CardHeader>
@@ -62,16 +63,12 @@ export function AccountSettingsForm({ user }: AccountSettingsFormProps) {
             <p id="email-help" className="text-xs text-ink-muted">Email cannot be changed.</p>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="avatarUrl">Avatar URL</Label>
+            <Label htmlFor="avatarUrl" optional>Avatar URL</Label>
             <Input id="avatarUrl" name="avatarUrl" defaultValue={user.avatarUrl ?? ''} placeholder="https://example.com/avatar.png" mono />
           </div>
         </CardContent>
-        <CardFooter>
-          <Button variant="primary" type="submit" disabled={loading || !dirty} aria-busy={loading}>
-            {loading ? 'Saving…' : 'Save changes'}
-          </Button>
-        </CardFooter>
       </form>
+      <UnsavedChangesBar dirty={dirty} pending={loading} onDiscard={() => { formRef.current?.reset(); setDirty(false); setError(null) }} onSave={() => formRef.current?.requestSubmit()} />
     </Card>
   )
 }

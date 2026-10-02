@@ -7,9 +7,11 @@ const labelVariants = cva("block text-sm font-medium text-ink peer-disabled:curs
 
 const Label = React.forwardRef<
   React.ComponentRef<typeof LabelPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof LabelPrimitive.Root> & VariantProps<typeof labelVariants>
->(({ className, ...props }, ref) => (
-  <LabelPrimitive.Root ref={ref} className={cn(labelVariants(), className)} {...props} />
+  React.ComponentPropsWithoutRef<typeof LabelPrimitive.Root> & VariantProps<typeof labelVariants> & { optional?: boolean }
+>(({ className, optional, children, ...props }, ref) => (
+  <LabelPrimitive.Root ref={ref} className={cn(labelVariants(), className)} {...props}>
+    {children}{optional ? <span className="font-normal text-ink-muted"> (optional)</span> : null}
+  </LabelPrimitive.Root>
 ))
 Label.displayName = LabelPrimitive.Root.displayName
 

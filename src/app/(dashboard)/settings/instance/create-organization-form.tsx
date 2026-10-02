@@ -68,11 +68,11 @@ export function CreateOrganizationDialog() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="instance-trellis-url">Trellis API URL <span className="font-normal text-ink-muted">(optional)</span></Label>
+              <Label htmlFor="instance-trellis-url" optional>Trellis API URL</Label>
               <Input id="instance-trellis-url" name="trellisApiUrl" type="url" placeholder="https://trellis.example.com" className="font-mono text-sm" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="instance-trellis-token">Trellis API token <span className="font-normal text-ink-muted">(optional)</span></Label>
+              <Label htmlFor="instance-trellis-token" optional>Trellis API token</Label>
               <Input id="instance-trellis-token" name="trellisApiToken" type="password" autoComplete="off" mono />
             </div>
           </DialogBody>

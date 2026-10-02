@@ -30,7 +30,7 @@ export function ProjectTabs({ slug, tabs }: { slug: string; tabs: TabItem[] }) {
             href={target}
             aria-current={isActive ? 'page' : undefined}
             className={cn(
-              "relative flex items-center gap-1.5 whitespace-nowrap px-3 py-2.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300",
+              "relative flex items-center gap-1.5 whitespace-nowrap px-3 py-2.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
               isActive ? 'text-ink' : 'text-ink-muted hover:text-ink',
             )}
           >

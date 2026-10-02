@@ -31,7 +31,7 @@ function DrawerInner({ user, projects, currentOrg }: MobileDrawerProps) {
       <DialogPrimitive.Trigger
         type="button"
         aria-label="Open navigation"
-        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-ink-muted transition-colors duration-150 hover:bg-sunken hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 lg:hidden"
+        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-ink-muted transition-colors duration-150 hover:bg-sunken hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 lg:hidden"
       >
         <Menu className="h-5 w-5" />
       </DialogPrimitive.Trigger>
@@ -39,7 +39,7 @@ function DrawerInner({ user, projects, currentOrg }: MobileDrawerProps) {
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/30" />
         <DialogPrimitive.Content aria-describedby={undefined} className="fixed inset-y-0 left-0 z-50 w-[min(84vw,300px)] overflow-y-auto border-r border-line bg-surface shadow-pop scroll-thin">
           <DialogPrimitive.Title className="sr-only">Navigation</DialogPrimitive.Title>
-          <DialogPrimitive.Close aria-label="Close navigation" className="absolute right-2 top-3 z-10 inline-flex h-10 w-10 items-center justify-center rounded-lg text-ink-muted hover:bg-sunken focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300">
+          <DialogPrimitive.Close aria-label="Close navigation" className="absolute right-2 top-3 z-10 inline-flex h-10 w-10 items-center justify-center rounded-lg text-ink-muted hover:bg-sunken focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
             <X className="h-5 w-5" />
           </DialogPrimitive.Close>
           <SidebarContent

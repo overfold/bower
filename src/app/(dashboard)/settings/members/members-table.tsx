@@ -2,11 +2,10 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { SearchIcon } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Input } from '@/components/ui/input'
+import { SearchInput } from '@/components/ui/search-input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { MemberRoleSelect } from './member-role-select'
 import { MemberActionsMenu } from '../instance/instance-admin-actions'
@@ -108,10 +107,8 @@ export function MembersTable({
         </div>
 
         <div className="flex flex-1 flex-wrap items-center gap-2 xl:justify-end">
-          <div className="relative min-w-[190px] flex-1 sm:max-w-[240px]">
-            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 z-10 h-3.5 w-3.5 -translate-y-1/2 text-ink-faint" />
-            <Input
-              className="pl-8"
+          <div className="min-w-[190px] flex-1 sm:max-w-[240px]">
+            <SearchInput
               placeholder="Search members..."
               aria-label="Search members"
               value={search}
@@ -122,7 +119,7 @@ export function MembersTable({
           {showFilters ? <div className="flex flex-wrap items-center gap-0.5">
             {showInstanceAdmin ? (
               <Select value={instanceRoleFilter} onValueChange={setInstanceRoleFilter}>
-                <SelectTrigger className="w-[164px]" aria-label="Filter by instance role">
+                <SelectTrigger className="w-auto min-w-[164px]" aria-label="Filter by instance role" title="Filter by instance role">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -134,7 +131,7 @@ export function MembersTable({
             ) : null}
 
             <Select value={orgRoleFilter} onValueChange={setOrgRoleFilter}>
-              <SelectTrigger className="w-[172px]" aria-label="Filter by organization role">
+              <SelectTrigger className="w-auto min-w-[190px]" aria-label="Filter by organization role" title="Filter by organization role">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

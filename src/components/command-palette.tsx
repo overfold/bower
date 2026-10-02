@@ -34,10 +34,10 @@ interface CommandPaletteProps {
 }
 
 const pages: SearchEntry[] = [
-  { id: 'pg-overview', label: 'Overview', hint: 'Page', href: '/dashboard', kind: 'page' },
+  { id: 'pg-overview', label: 'Home', hint: 'Page', href: '/dashboard', kind: 'page' },
   { id: 'pg-projects', label: 'Projects', hint: 'Page', href: '/projects', kind: 'page' },
   { id: 'pg-deploys', label: 'Deployments', hint: 'Page', href: '/deployments', kind: 'page' },
-  { id: 'pg-status', label: 'Cluster', hint: 'Page', href: '/status', kind: 'page' },
+  { id: 'pg-status', label: 'Status', hint: 'Page', href: '/status', kind: 'page' },
   { id: 'pg-audit', label: 'Audit log', hint: 'Page', href: '/audit', kind: 'page' },
   { id: 'pg-settings', label: 'Settings', hint: 'Page', href: '/settings', kind: 'page' },
   { id: 'pg-settings-account', label: 'Account settings', hint: 'Page', href: '/settings/account', kind: 'page' },
@@ -208,7 +208,7 @@ export function CommandPalette({ open, onOpenChange, projects, services, orgName
               aria-activedescendant={results[cursor] ? `${resultsId}-${cursor}` : undefined}
               className="h-12 w-full bg-transparent text-sm text-ink placeholder:text-ink-muted focus:outline-none"
             />
-            <kbd className="shrink-0 rounded border border-line bg-sunken px-1.5 py-0.5 text-2xs text-ink-muted">
+            <kbd className="shrink-0 rounded-md border border-line bg-sunken px-1.5 py-0.5 text-2xs text-ink-muted">
               ESC
             </kbd>
           </div>

@@ -3,10 +3,10 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Panel, PanelHeader } from '@/components/ui/panel'
-import { StatusDot, Mono } from '@/components/status'
+import { DeploymentStatus, Mono } from '@/components/status'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { SearchInput } from '@/components/ui/search-input'
 import { Time } from '@/components/time'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
@@ -24,7 +24,9 @@ import {
   RotateCcw,
   ShieldAlert,
   Rocket,
+  ChevronRight,
 } from 'lucide-react'
+import Link from 'next/link'
 
 type StatusFilter = 'all' | 'failed' | 'active' | 'healthy' | 'rolled_back'
 const PAGE_SIZE = 20
@@ -76,9 +78,10 @@ interface DeploymentFiltersProps {
   items: DeploymentRow[]
   projects: string[]
   environments: string[]
+  scope?: 'project' | 'organization'
 }
 
-export function DeploymentFilters({ items, projects, environments }: DeploymentFiltersProps) {
+export function DeploymentFilters({ items, projects, environments, scope = 'organization' }: DeploymentFiltersProps) {
   const router = useRouter()
   const [status, setStatus] = useState<StatusFilter>('all')
   const [projectFilter, setProjectFilter] = useState('all')
@@ -113,8 +116,8 @@ export function DeploymentFilters({ items, projects, environments }: DeploymentF
           title={`${filtered.length} deployment${filtered.length === 1 ? '' : 's'}`}
           action={
             <div className="flex w-full flex-col gap-1 sm:w-auto sm:flex-row">
-              <Input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1) }} placeholder="Search deployments…" aria-label="Search deployments" className="h-10 sm:h-8 sm:w-[190px]" />
-              <Select value={projectFilter} onValueChange={setProjectFilter}>
+              <SearchInput value={query} onChange={(event) => { setQuery(event.target.value); setPage(1) }} placeholder="Search deployments…" aria-label="Search deployments" className="h-10 sm:h-8 sm:w-[190px]" />
+              {scope === 'organization' ? <Select value={projectFilter} onValueChange={setProjectFilter}>
                 <SelectTrigger aria-label="Filter by project" className="h-10 w-full sm:h-8 sm:w-[150px] text-sm">
                   <SelectValue />
                 </SelectTrigger>
@@ -122,7 +125,7 @@ export function DeploymentFilters({ items, projects, environments }: DeploymentF
                   <SelectItem value="all">All projects</SelectItem>
                   {projects.map((project) => <SelectItem key={project} value={project}>{project}</SelectItem>)}
                 </SelectContent>
-              </Select>
+              </Select> : null}
               {showEnvironment ? <Select value={envFilter} onValueChange={setEnvFilter}>
                 <SelectTrigger aria-label="Filter by environment" className="h-10 w-full sm:h-8 sm:w-[160px] text-sm">
                   <SelectValue />
@@ -136,7 +139,7 @@ export function DeploymentFilters({ items, projects, environments }: DeploymentF
           }
         />
         <div className="flex flex-wrap gap-1 border-b border-line px-4 py-2" role="group" aria-label="Filter by deployment status">
-          {([['all', 'All'], ['failed', 'Failed'], ['active', 'In progress'], ['healthy', 'Healthy'], ['rolled_back', 'Rolled back']] as const).map(([value, label]) => (
+          {([['all', 'All'], ['failed', 'Failed'], ['active', 'In progress'], ['healthy', 'Succeeded'], ['rolled_back', 'Rolled back']] as const).map(([value, label]) => (
             <Button key={value} type="button" size="sm" variant={status === value ? 'default' : 'ghost'} aria-pressed={status === value} onClick={() => { setStatus(value); setPage(1) }}>{label}</Button>
           ))}
         </div>
@@ -157,6 +160,7 @@ export function DeploymentFilters({ items, projects, environments }: DeploymentF
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Duration</TableHead>
                 <TableHead className="text-right">Started</TableHead>
+                <TableHead><span className="sr-only">Open</span></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -165,17 +169,18 @@ export function DeploymentFilters({ items, projects, environments }: DeploymentF
                 const TriggerIcon = meta.icon
                 return (
                   <TableRow
+                    interactive
                     key={row.deployment.id}
                     tabIndex={0}
                     role="link"
-                    className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-300"
+                    className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
                     onClick={() => router.push(`/projects/${row.projectSlug}/deployments/${row.deployment.id}`)}
                     onKeyDown={(event) => { if (event.key === 'Enter') router.push(`/projects/${row.projectSlug}/deployments/${row.deployment.id}`) }}
                     aria-label={`View diagnostics for ${row.serviceName} deployment`}
                   >
                     <TableCell>
-                      <span className="font-medium text-ink">{row.serviceName}</span>
-                      <p className="mt-0.5 text-2xs text-ink-muted">{row.projectName}</p>
+                      <Link href={`/projects/${row.projectSlug}/deployments/${row.deployment.id}`} className="relative z-10 font-medium text-link">{row.serviceName}</Link>
+                      {scope === 'organization' ? <p className="mt-0.5 text-2xs text-ink-muted">{row.projectName}</p> : null}
                     </TableCell>
                     {showEnvironment ? <TableCell>
                       <span className="text-ink-muted">
@@ -200,7 +205,7 @@ export function DeploymentFilters({ items, projects, environments }: DeploymentF
                       </span>
                     </TableCell>
                     <TableCell>
-                      <StatusDot status={row.deployment.status} />
+                      <DeploymentStatus status={row.deployment.status} />
                     </TableCell>
                     <TableCell className="nums text-right">
                       {duration(row.deployment.startedAt, row.deployment.completedAt)}
@@ -208,6 +213,7 @@ export function DeploymentFilters({ items, projects, environments }: DeploymentF
                     <TableCell className="whitespace-nowrap text-right text-ink-muted">
                       <Time value={row.deployment.createdAt} mode="auto" />
                     </TableCell>
+                    <TableCell><ChevronRight className="h-4 w-4 text-ink-faint" /></TableCell>
                   </TableRow>
                 )
               })}
@@ -215,8 +221,8 @@ export function DeploymentFilters({ items, projects, environments }: DeploymentF
           </Table>
         )}
         {filtered.length > PAGE_SIZE ? <div className="flex items-center justify-between border-t border-line px-4 py-3 text-xs text-ink-muted">
-          <span>Page {currentPage} of {pageCount}</span>
-          <div className="flex gap-2"><Button size="sm" variant="ghost" disabled={currentPage === 1} onClick={() => setPage((value) => value - 1)}>Previous</Button><Button size="sm" variant="ghost" disabled={currentPage === pageCount} onClick={() => setPage((value) => value + 1)}>Next</Button></div>
+          <span>{(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filtered.length)} of {filtered.length}</span>
+          <div className="flex gap-2"><Button size="sm" variant="ghost" disabled={currentPage === 1} onClick={() => setPage((value) => value - 1)}>‹ Previous</Button><Button size="sm" variant="ghost" disabled={currentPage === pageCount} onClick={() => setPage((value) => value + 1)}>Next ›</Button></div>
         </div> : null}
       </Panel>
     </div>

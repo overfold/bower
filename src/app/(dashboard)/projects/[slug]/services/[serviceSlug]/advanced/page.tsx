@@ -2,7 +2,6 @@ import { notFound, redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { getProjectBySlug, getProjectEnvironment, getServiceBySlug, getMergedServiceConfig, getUserOrganization } from '@/lib/queries'
 import { Panel, PanelHeader, SectionTitle } from '@/components/ui/panel'
-import { ServiceHeader } from '../service-header'
 import { AdvancedConfigForm } from './advanced-config-form'
 import { instanceAdminMayBypassMultitenancy } from '@/lib/workload-policy'
 
@@ -28,7 +27,6 @@ export default async function AdvancedPage({
 
   return (
     <div className="space-y-6">
-      <ServiceHeader slug={slug} serviceSlug={serviceSlug} serviceName={service.name} serviceId={service.id} environmentId={environment.id} hasConfig={Boolean(mergedConfig)} />
 
       <div className="space-y-2">
         <SectionTitle>Advanced execution</SectionTitle>

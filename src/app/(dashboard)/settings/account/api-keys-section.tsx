@@ -16,7 +16,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { formatTimestamp } from '@/lib/format'
+import { Time } from '@/components/time'
 
 interface ApiKey {
   id: string
@@ -111,7 +111,7 @@ export function ApiKeysSection({ keys }: { keys: ApiKey[] }) {
           </DialogContent>
         </Dialog>
       </CardHeader>
-      <CardContent>
+      <CardContent className={keys.length ? 'p-0' : undefined}>
         {keys.length === 0 ? (
           <EmptyState icon={<KeyRound className="size-4" />} title="No API keys" body="Create a key to authenticate automation with Bower." />
         ) : (
@@ -120,8 +120,8 @@ export function ApiKeysSection({ keys }: { keys: ApiKey[] }) {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Prefix</TableHead>
-                <TableHead>Last used</TableHead>
-                <TableHead>Created</TableHead>
+                <TableHead className="text-right">Last used</TableHead>
+                <TableHead className="text-right">Created</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
@@ -162,11 +162,11 @@ function RevokeableRow({ apiKey }: { apiKey: ApiKey }) {
     <TableRow>
       <TableCell>{apiKey.name}</TableCell>
       <TableCell className="font-mono text-xs">{apiKey.keyPrefix}...</TableCell>
-      <TableCell className="text-ink-muted">
-        {apiKey.lastUsedAt ? formatTimestamp(apiKey.lastUsedAt) : 'Never'}
+      <TableCell className="text-right text-ink-muted">
+        {apiKey.lastUsedAt ? <Time value={apiKey.lastUsedAt} /> : 'Never'}
       </TableCell>
-      <TableCell className="text-ink-muted">
-        {formatTimestamp(apiKey.createdAt)}
+      <TableCell className="text-right text-ink-muted">
+        <Time value={apiKey.createdAt} />
       </TableCell>
       <TableCell>
         <AlertDialog open={open} onOpenChange={(next) => { if (pending) return; setOpen(next); if (next) setError(null) }}>

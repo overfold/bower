@@ -20,7 +20,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Server } from 'lucide-react'
 import { DrainToggle } from './drain-toggle'
 import { ResetBackoffButton } from './reset-backoff-button'
-import { formatBytes, formatCpu } from './format'
+import { formatCpu, formatMemory } from '@/lib/format'
 import type { TrellisAllocation, TrellisJob, TrellisNode } from '@/types/trellis'
 import { formatRelativeTime, formatTimestamp } from '@/lib/format'
 import { ResourceId } from '@/components/resource-id'
@@ -101,7 +101,7 @@ export default async function StatusPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeading title="Cluster" description="Monitor cluster capacity, placement, replacement backoff, and managed ingress." />
+      <PageHeading title="Cluster" description="Monitor cluster capacity, placement, restart cooldowns, and managed ingress." />
 
       <div className="grid gap-5 lg:grid-cols-2">
         <Panel>
@@ -113,7 +113,7 @@ export default async function StatusPage() {
           <PanelHeader title="Capacity" hint={`${nodes.length} node${nodes.length === 1 ? '' : 's'}`} />
           {metricsError || clusterError ? <TrellisReadError title="Capacity data unavailable" message={metricsError || clusterError!} /> : <div className="grid gap-5 p-4 sm:grid-cols-2">
             <div><span className="text-sm text-ink-soft">CPU allocated · {formatCpu(allocatedCpu)} / {formatCpu(totalAllocatableCpu)}</span><div className="mt-2"><Meter value={cpuPct} label="Cluster CPU allocated" /></div></div>
-            <div><span className="text-sm text-ink-soft">Memory allocated · {formatBytes(allocatedMemory)} / {formatBytes(totalAllocatableMemory)}</span><div className="mt-2"><Meter value={memoryPct} label="Cluster memory allocated" /></div></div>
+            <div><span className="text-sm text-ink-soft">Memory allocated · {formatMemory(allocatedMemory)} / {formatMemory(totalAllocatableMemory)}</span><div className="mt-2"><Meter value={memoryPct} label="Cluster memory allocated" /></div></div>
           </div>}
         </Panel>
       </div>
@@ -139,7 +139,7 @@ export default async function StatusPage() {
       </Panel>
 
       {backoffs.length > 0 ? <Panel>
-        <PanelHeader title="Replacement backoff" hint="Repeated failures delay new placements; reset only after correcting the cause." />
+        <PanelHeader title="Restart cooldown" hint="After repeated crashes, Bower waits before starting the service again. Fix the cause, then restart." />
         <Table><TableHeader><TableRow><TableHead>Job / group</TableHead><TableHead>Failures</TableHead><TableHead>Last failure</TableHead><TableHead>Next replacement</TableHead><TableHead /></TableRow></TableHeader><TableBody>
           {backoffs.map(({ namespace, job, backoff }) => {
             const target = targetForJob(namespace, job)
@@ -157,18 +157,19 @@ export default async function StatusPage() {
       <Panel>
         <PanelHeader title="Nodes" />
         {clusterError ? <TrellisReadError title="Nodes unavailable" message={clusterError} /> : nodes.length === 0 ? <EmptyState icon={<Server className="h-4 w-4" />} title="No nodes" body="No nodes are registered with this cluster." /> : <Table>
-          <TableHeader><TableRow><TableHead>Node</TableHead><TableHead>IP</TableHead><TableHead>Version</TableHead><TableHead>OS</TableHead><TableHead>Allocated</TableHead><TableHead>Capabilities</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>Node</TableHead><TableHead>Status</TableHead><TableHead>IP</TableHead><TableHead>Version</TableHead><TableHead>OS</TableHead><TableHead>Allocated</TableHead><TableHead>Capabilities</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
           <TableBody>{nodes.map((node) => {
             const allocated = allocatedByNode.get(node.id)
             const allocatable = nodeAllocatable(node)
             const allocatedCpuPct = allocatable.cpu > 0 ? Math.round((allocated?.cpu ?? 0) / allocatable.cpu * 100) : 0
             const allocatedMemoryPct = allocatable.memory > 0 ? Math.round((allocated?.memory ?? 0) / allocatable.memory * 100) : 0
             return <TableRow key={node.id}>
-              <TableCell><div className="flex items-center gap-1.5"><Dot tone={node.status === 'healthy' ? 'success' : node.status === 'draining' ? 'warn' : 'danger'} /><NodeLink id={node.id} name={node.id} /></div></TableCell>
+              <TableCell><NodeLink id={node.id} name={node.id} /></TableCell>
+              <TableCell><StatusDot status={node.status === 'healthy' ? 'ready' : node.status} /></TableCell>
               <TableCell><Mono>{node.host}</Mono></TableCell>
               <TableCell><Mono>{node.version || '—'}</Mono></TableCell>
               <TableCell className="whitespace-nowrap text-ink-muted">{node.os || '—'} / {node.arch || '—'}</TableCell>
-              <TableCell>{metricsError ? <span className="text-ink-muted">Unavailable</span> : <div className="grid min-w-48 grid-cols-2 gap-3"><div><Meter value={allocatedCpuPct} label={`${node.id} CPU allocated`} /><span className="text-xs text-ink-muted">{formatCpu(allocated?.cpu ?? 0)} / {formatCpu(allocatable.cpu)}</span></div><div><Meter value={allocatedMemoryPct} label={`${node.id} memory allocated`} /><span className="text-xs text-ink-muted">{formatBytes(allocated?.memory ?? 0)} / {formatBytes(allocatable.memory)}</span></div></div>}</TableCell>
+              <TableCell>{metricsError ? <span className="text-ink-muted">Unavailable</span> : <div className="grid min-w-48 grid-cols-2 gap-3"><div><Meter value={allocatedCpuPct} label={`${node.id} CPU allocated`} /><span className="text-xs text-ink-muted">{formatCpu(allocated?.cpu ?? 0)} / {formatCpu(allocatable.cpu)}</span></div><div><Meter value={allocatedMemoryPct} label={`${node.id} memory allocated`} /><span className="text-xs text-ink-muted">{formatMemory(allocated?.memory ?? 0)} / {formatMemory(allocatable.memory)}</span></div></div>}</TableCell>
               <TableCell><span className="text-xs text-ink-muted">{node.capabilities?.join(', ') || 'None reported'}</span></TableCell>
               <TableCell className="text-right"><DrainToggle nodeId={node.id} drain={node.status === 'draining'} allocationCount={allocations.filter((allocation) => allocation.node_id === node.id && !['stopped', 'failed', 'lost'].includes(allocation.phase)).length} /></TableCell>
             </TableRow>
@@ -177,7 +178,7 @@ export default async function StatusPage() {
       </Panel>
 
       {proxies.length > 0 ? <Panel>
-        <PanelHeader title="Managed ingress" hint="Submission state is distinct from observed listener and route discovery convergence." />
+        <PanelHeader title="Managed ingress" hint="Whether Bower’s proxy has picked up your latest routes." />
         <Table><TableHeader><TableRow><TableHead>Target</TableHead><TableHead>Routes</TableHead><TableHead>Submission</TableHead><TableHead>Observed convergence</TableHead><TableHead className="text-right">Submitted</TableHead></TableRow></TableHeader><TableBody>
           {observedProxies.map((row) => <TableRow key={row.proxy.id}>
             <TableCell><Mono className="text-ink">{row.proxy.trellisJobName}</Mono><p className="mt-1 text-xs text-ink-muted">{row.projectName} · {row.environmentName} · port {row.proxy.port}</p></TableCell>

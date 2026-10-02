@@ -2,27 +2,31 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { motion } from 'motion/react'
 import { cn } from '@/lib/utils'
 
-const orgTabs = [
-  { label: 'Account', href: '/settings/account' },
-  { label: 'Organization', href: '/settings/organization' },
-  { label: 'Cluster', href: '/settings/cluster' },
-  { label: 'Teams', href: '/settings/teams' },
-  { label: 'Members', href: '/settings/members' },
-  { label: 'Domains', href: '/settings/domains' },
+const groups = [
+  { label: 'Account', links: [{ label: 'Account', href: '/settings/account' }] },
+  { label: 'Organization', links: [
+    { label: 'General', href: '/settings/organization' }, { label: 'Members', href: '/settings/members' },
+    { label: 'Teams', href: '/settings/teams' }, { label: 'Domains', href: '/settings/domains' },
+    { label: 'Cluster', href: '/settings/cluster' },
+  ] },
 ]
 
 export function SettingsNav({ showInstance }: { showInstance: boolean }) {
   const pathname = usePathname()
-  const tabs = showInstance ? [{ label: 'Instance', href: '/settings/instance' }, ...orgTabs] : orgTabs
+  const navGroups = showInstance
+    ? [groups[0], { label: 'Instance', links: [{ label: 'Organizations', href: '/settings/instance' }] }, groups[1]]
+    : groups
   return (
-    <nav className="flex items-center gap-1 overflow-x-auto overflow-y-hidden border-b border-line scroll-thin scroll-horizontal" aria-label="Settings">
-      {tabs.map((tab) => {
-        const active = pathname === tab.href || pathname.startsWith(tab.href + '/')
-        return <Link key={tab.href} href={tab.href} aria-current={active ? 'page' : undefined} className={cn('relative whitespace-nowrap px-3 py-2.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300', active ? 'text-ink' : 'text-ink-muted hover:text-ink')}>{tab.label}{active && <motion.span layoutId="settings-nav-underline" className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-brand-500" transition={{ duration: 0.22, ease: [0.25, 1, 0.5, 1] }} />}</Link>
-      })}
+    <nav className="space-y-5" aria-label="Settings">
+      {navGroups.map((group) => <div key={group.label}>
+        <p className="mb-1 px-2 text-xs font-semibold text-ink-muted">{group.label}</p>
+        <div className="space-y-0.5">{group.links.map((link) => {
+          const active = pathname === link.href || pathname.startsWith(link.href + '/')
+          return <Link key={link.href} href={link.href} aria-current={active ? 'page' : undefined} className={cn('block rounded-md px-2 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500', active ? 'bg-brand-50 font-medium text-brand-700' : 'text-ink-muted hover:bg-sunken hover:text-ink')}>{link.label}</Link>
+        })}</div>
+      </div>)}
     </nav>
   )
 }

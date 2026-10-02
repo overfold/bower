@@ -9,10 +9,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Pencil, Plus, Trash2, User } from 'lucide-react'
+import { Plus, User } from 'lucide-react'
 import { InlineNotice } from '@/components/ui/feedback'
+import { RowActions, RowActionItem, RowActionSeparator } from '@/components/ui/row-actions'
 
 type Props =
   | { mode: 'create' }
@@ -21,8 +22,17 @@ type Props =
 
 export function TeamActions(props: Props) {
   if (props.mode === 'create') return <CreateTeamDialog />
-  if (props.mode === 'edit') return <EditTeamDialog teamId={props.teamId} teamName={props.teamName} />
-  return <DeleteTeamButton teamId={props.teamId} teamName={props.teamName} />
+  return <TeamRowActions teamId={props.teamId} teamName={props.teamName} />
+}
+
+export function TeamRowActions({ teamId, teamName, buttons = false }: { teamId: string; teamName: string; buttons?: boolean }) {
+  const [action, setAction] = useState<'edit' | 'delete' | null>(null)
+  return <>
+    {buttons ? <div className="flex gap-2"><Button size="sm" onClick={() => setAction('edit')}>Rename</Button><Button size="sm" variant="danger" onClick={() => setAction('delete')}>Delete</Button></div> :
+      <RowActions name={teamName}><RowActionItem onSelect={() => setAction('edit')}>Rename</RowActionItem><RowActionSeparator /><RowActionItem className="text-danger-600 focus:text-danger-600" onSelect={() => setAction('delete')}>Delete</RowActionItem></RowActions>}
+    <EditTeamDialog teamId={teamId} teamName={teamName} open={action === 'edit'} onOpenChange={(open) => setAction(open ? 'edit' : null)} />
+    <DeleteTeamButton teamId={teamId} teamName={teamName} open={action === 'delete'} onOpenChange={(open) => setAction(open ? 'delete' : null)} />
+  </>
 }
 
 function CreateTeamDialog() {
@@ -78,8 +88,7 @@ function CreateTeamDialog() {
   )
 }
 
-function EditTeamDialog({ teamId, teamName }: { teamId: string; teamName: string }) {
-  const [open, setOpen] = useState(false)
+function EditTeamDialog({ teamId, teamName, open, onOpenChange }: { teamId: string; teamName: string; open: boolean; onOpenChange: (open: boolean) => void }) {
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
@@ -90,7 +99,7 @@ function EditTeamDialog({ teamId, teamName }: { teamId: string; teamName: string
     startTransition(async () => {
       try {
         await updateTeamAction(teamId, formData)
-        setOpen(false)
+        onOpenChange(false)
       } catch (err) {
         setError(actionErrorMessage(err, 'Could not update team.'))
       }
@@ -98,12 +107,7 @@ function EditTeamDialog({ teamId, teamName }: { teamId: string; teamName: string
   }
 
   return (
-    <Dialog open={open} onOpenChange={(next) => { if (!pending) { setOpen(next); if (next) setError(null) } }}>
-      <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label={`Edit ${teamName}`}>
-          <Pencil className="h-3.5 w-3.5 text-ink-muted" />
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={(next) => { if (!pending) { onOpenChange(next); if (next) setError(null) } }}>
       <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>Edit team</DialogTitle>
@@ -117,7 +121,7 @@ function EditTeamDialog({ teamId, teamName }: { teamId: string; teamName: string
             </div>
           </DialogBody>
           <DialogFooter>
-            <Button variant="default" type="button" size="sm" onClick={() => setOpen(false)} disabled={pending}>
+            <Button variant="default" type="button" size="sm" onClick={() => onOpenChange(false)} disabled={pending}>
               Cancel
             </Button>
             <Button variant="primary" type="submit" size="sm" disabled={pending} aria-busy={pending}>
@@ -130,9 +134,8 @@ function EditTeamDialog({ teamId, teamName }: { teamId: string; teamName: string
   )
 }
 
-function DeleteTeamButton({ teamId, teamName }: { teamId: string; teamName: string }) {
+function DeleteTeamButton({ teamId, teamName, open, onOpenChange }: { teamId: string; teamName: string; open: boolean; onOpenChange: (open: boolean) => void }) {
   const [pending, startTransition] = useTransition()
-  const [open, setOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   function remove(event: React.MouseEvent) {
@@ -141,7 +144,7 @@ function DeleteTeamButton({ teamId, teamName }: { teamId: string; teamName: stri
     startTransition(async () => {
       try {
         await deleteTeamAction(teamId)
-        setOpen(false)
+        onOpenChange(false)
       } catch (err) {
         setError(actionErrorMessage(err, 'Could not delete team.'))
       }
@@ -149,12 +152,7 @@ function DeleteTeamButton({ teamId, teamName }: { teamId: string; teamName: stri
   }
 
   return (
-    <AlertDialog open={open} onOpenChange={(next) => { if (!pending) { setOpen(next); if (next) setError(null) } }}>
-      <AlertDialogTrigger asChild>
-        <Button variant="ghost" size="icon" disabled={pending} aria-label={`Delete ${teamName}`}>
-          <Trash2 className="h-3.5 w-3.5 text-ink-muted" />
-        </Button>
-      </AlertDialogTrigger>
+    <AlertDialog open={open} onOpenChange={(next) => { if (!pending) { onOpenChange(next); if (next) setError(null) } }}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Delete {teamName}?</AlertDialogTitle>
@@ -352,12 +350,9 @@ export function RemoveTeamMemberButton({ teamId, membershipId, memberName }: { t
   }
 
   return (
-    <AlertDialog open={open} onOpenChange={(next) => { if (!pending) { setOpen(next); if (next) setError(null) } }}>
-      <AlertDialogTrigger asChild>
-        <Button variant="ghost" size="icon" disabled={pending} aria-label={`Remove ${memberName}`}>
-          <Trash2 className="h-3.5 w-3.5 text-ink-muted" />
-        </Button>
-      </AlertDialogTrigger>
+    <>
+      <RowActions name={memberName}><RowActionSeparator /><RowActionItem className="text-danger-600 focus:text-danger-600" disabled={pending} onSelect={() => setOpen(true)}>Remove member</RowActionItem></RowActions>
+      <AlertDialog open={open} onOpenChange={(next) => { if (!pending) { setOpen(next); if (next) setError(null) } }}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Remove {memberName}?</AlertDialogTitle>
@@ -377,6 +372,7 @@ export function RemoveTeamMemberButton({ teamId, membershipId, memberName }: { t
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
-    </AlertDialog>
+      </AlertDialog>
+    </>
   )
 }

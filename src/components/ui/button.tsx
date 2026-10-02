@@ -5,7 +5,7 @@ import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-enter focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 focus-visible:ring-offset-1 focus-visible:ring-offset-canvas disabled:pointer-events-none disabled:opacity-50 active:translate-y-px [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-enter focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:pointer-events-none disabled:opacity-50 active:translate-y-px [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
   {
     variants: {
       variant: {
@@ -13,7 +13,7 @@ const buttonVariants = cva(
         default: 'bg-surface text-ink border border-line shadow-card hover:border-line-strong hover:bg-sunken',
         ghost: 'text-ink-soft hover:bg-sunken hover:text-ink',
         danger: 'bg-surface text-danger-500 border border-danger-200 hover:bg-danger-50',
-        destructive: 'bg-danger-500 text-white hover:bg-danger-500/90',
+        destructive: 'bg-danger-500 text-white hover:bg-danger-600',
         link: 'text-brand-700 underline-offset-4 hover:underline',
       },
       size: {
@@ -56,7 +56,7 @@ const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
       aria-label={label}
       title={label}
       className={cn(
-        'inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-muted transition-[background-color,color] duration-150 ease-enter hover:bg-sunken hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 disabled:pointer-events-none disabled:opacity-40 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
+        'inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-muted transition-[background-color,color] duration-150 ease-enter hover:bg-sunken hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:pointer-events-none disabled:opacity-40 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
         className,
       )}
       {...props}

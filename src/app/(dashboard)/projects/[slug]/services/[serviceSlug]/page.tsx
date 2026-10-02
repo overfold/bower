@@ -10,9 +10,8 @@ import { getProjectRole } from '@/lib/actions/shared'
 import { Panel, SectionTitle } from '@/components/ui/panel'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { EmptyState } from '@/components/ui/empty-state'
-import { StatusDot } from '@/components/status'
+import { AllocationStatus, DeploymentStatus } from '@/components/status'
 import { DeploymentPoller } from '@/components/deployment-poller'
-import { ServiceHeader } from './service-header'
 import { Boxes, Rocket } from 'lucide-react'
 import type { TrellisAllocation } from '@/types/trellis'
 import { Time } from '@/components/time'
@@ -66,7 +65,6 @@ export default async function ServiceDetailPage({
   return (
     <div className="space-y-6">
       <DeploymentPoller active={hasActiveDeployment} />
-      <ServiceHeader slug={slug} serviceSlug={serviceSlug} serviceName={service.name} serviceId={service.id} environmentId={environment.id} hasConfig={Boolean(selectedConfig)} />
 
       <div className="space-y-5">
         <SectionTitle>Current allocations</SectionTitle>
@@ -85,10 +83,9 @@ export default async function ServiceDetailPage({
                 <TableHeader>
                   <TableRow>
                     <TableHead>Allocation</TableHead>
-                    <TableHead>Phase</TableHead>
-                    <TableHead>Health</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>Node</TableHead>
-                    <TableHead>Created</TableHead>
+                    <TableHead className="text-right">Created</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -100,12 +97,11 @@ export default async function ServiceDetailPage({
                         </Link>
                       </TableCell>
                       <TableCell>
-                        <StatusDot status={allocation.phase} />
+                        <AllocationStatus phase={allocation.phase} health={allocation.health} />
                         {allocation.phase === 'pending' && <p className="mt-1 max-w-64 text-xs text-ink-muted">{allocation.message || allocation.reason || 'Awaiting placement'}</p>}
                       </TableCell>
-                      <TableCell><StatusDot status={allocation.health} /></TableCell>
                       <TableCell><NodeLink id={allocation.node_id} /></TableCell>
-                      <TableCell className="whitespace-nowrap text-ink-muted"><Time value={allocation.created_at} /></TableCell>
+                      <TableCell className="whitespace-nowrap text-right text-ink-muted"><Time value={allocation.created_at} /></TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -135,17 +131,17 @@ export default async function ServiceDetailPage({
                     <TableHead>Image</TableHead>
                     <TableHead>Strategy</TableHead>
                     <TableHead>Trigger</TableHead>
-                    <TableHead>Time</TableHead>
+                    <TableHead className="text-right">Time</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {selectedDeployments.map((d) => (
                     <TableRow key={d.id}>
-                      <TableCell><StatusDot status={d.status} /></TableCell>
+                      <TableCell><DeploymentStatus status={d.status} /></TableCell>
                       <TableCell className="max-w-48 truncate font-mono text-xs">{d.imageAfter}</TableCell>
                       <TableCell>{deploymentStrategyLabels[d.strategy]}</TableCell>
                       <TableCell>{deploymentTriggerLabels[d.triggerType]}</TableCell>
-                      <TableCell className="text-ink-muted">
+                      <TableCell className="text-right text-ink-muted">
                         <Time value={d.createdAt} />
                       </TableCell>
                     </TableRow>

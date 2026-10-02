@@ -1,9 +1,9 @@
 import { redirect, notFound } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { getUserOrganization, getProjectBySlug, getProjectEnvironment, getServiceBySlug, getMergedServiceConfig } from '@/lib/queries'
-import { ServiceHeader } from '../service-header'
 import { ConfigurationForm } from './configuration-form'
 import { SectionTitle } from '@/components/ui/panel'
+import { getTrellisJobLimits } from '@/lib/trellis-instance'
 
 export default async function ServiceConfigurationPage({
   params,
@@ -24,10 +24,10 @@ export default async function ServiceConfigurationPage({
   const environment = await getProjectEnvironment(project.id)
   if (!environment) notFound()
   const mergedConfig = await getMergedServiceConfig(service.id, environment.id)
+  const limits = await getTrellisJobLimits(orgCtx.org.id)
 
   return (
     <div className="space-y-6">
-      <ServiceHeader slug={slug} serviceSlug={serviceSlug} serviceName={service.name} serviceId={service.id} environmentId={environment.id} hasConfig={Boolean(mergedConfig)} />
       <div>
         <SectionTitle>Configuration</SectionTitle>
         <p className="mt-1 max-w-3xl text-sm text-ink-muted">Configure the image, deployment behavior, resources, and health checks for this service.</p>
@@ -36,6 +36,7 @@ export default async function ServiceConfigurationPage({
         serviceId={service.id}
         environmentId={environment.id}
         config={mergedConfig}
+        limits={limits}
       />
     </div>
   )

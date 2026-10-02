@@ -12,7 +12,7 @@ export default async function ClusterSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeading title="Cluster connection" description="Configure the connection to your Trellis cluster." />
+      <PageHeading as="h2" title="Cluster connection" description="Configure the connection to your Trellis cluster." />
 
       <ClusterSettingsForm
         org={{

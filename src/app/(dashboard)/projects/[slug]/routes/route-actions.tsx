@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
 import { actionErrorMessage } from '@/lib/action-error'
-import { Plus, ShieldCheck, Trash2 } from 'lucide-react'
+import { Plus, Info } from 'lucide-react'
 import { createManagedRouteAction, deleteManagedRouteAction, updateRouteProtectionAction } from '@/lib/actions/routes'
 import {
   AlertDialog,
@@ -15,7 +15,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import {
@@ -32,8 +31,10 @@ import { InlineNotice } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { RowActions, RowActionItem, RowActionSeparator } from '@/components/ui/row-actions'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
-type Option = { id: string; name: string }
+type Option = { id: string; name: string; port: number; portSource: string }
 type ManagedDomain = { id: string; domain: string }
 
 export function AddRouteDialog({
@@ -55,7 +56,7 @@ export function AddRouteDialog({
   const [prefix, setPrefix] = useState('')
   const [protectionMode, setProtectionMode] = useState('none')
   const [serviceId, setServiceId] = useState(services[0]?.id ?? '')
-  const [port, setPort] = useState(8080)
+  const [port, setPort] = useState(services[0]?.port ?? 80)
   const selectedDomain = useMemo(() => domains.find((domain) => domain.id === domainId), [domainId, domains])
   const preview = selectedDomain
     ? (prefix.trim() ? `${prefix.trim().replace(/^\.+|\.+$/g, '')}.${selectedDomain.domain}` : selectedDomain.domain)
@@ -114,8 +115,8 @@ export function AddRouteDialog({
             <div className="space-y-4">
               {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
 
-              <div className="rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 font-mono text-sm text-ink">
-                {preview || 'hostname'} → {services.find((service) => service.id === serviceId)?.name ?? 'service'} :{port}
+              <div className={`rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm ${prefix.trim() ? 'font-mono text-ink' : 'text-ink-muted'}`}>
+                {prefix.trim() ? preview : `api.${selectedDomain?.domain ?? 'example.com'}`} → {services.find((service) => service.id === serviceId)?.name ?? 'service'} on port {port}
               </div>
 
               <fieldset className="space-y-4"><legend className="mb-3 text-sm font-semibold text-ink">Destination</legend>
@@ -134,24 +135,23 @@ export function AddRouteDialog({
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="hostnamePrefix">Hostname prefix</Label>
-                  <Input
+                  <div className="flex overflow-hidden rounded-lg border border-line-strong bg-surface focus-within:border-brand-500 focus-within:ring-1 focus-within:ring-brand-500"><Input
                     id="hostnamePrefix"
                     name="hostnamePrefix"
                     value={prefix}
                     onChange={(event) => setPrefix(event.target.value)}
                     placeholder="api"
-                    className="font-mono text-sm"
+                    className="min-w-0 rounded-none border-0 font-mono text-sm focus-visible:ring-0"
                     autoComplete="off"
-                  />
-                  <p className="truncate font-mono text-2xs text-ink-muted">{preview || 'hostname'}</p>
+                  /><span className="flex shrink-0 items-center border-l border-line bg-sunken px-3 font-mono text-xs text-ink-muted">.{selectedDomain?.domain}</span></div>
                 </div>
               </div>
 
               <input type="hidden" name="environmentId" value={environmentId} />
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_10rem]">
                 <div className="space-y-2">
                   <Label htmlFor="serviceId">Target service</Label>
-                  <Select name="serviceId" value={serviceId} onValueChange={setServiceId} required>
+                  <Select name="serviceId" value={serviceId} onValueChange={(value) => { setServiceId(value); setPort(services.find((service) => service.id === value)?.port ?? 80) }} required>
                     <SelectTrigger id="serviceId"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {services.map((service) => (
@@ -160,16 +160,16 @@ export function AddRouteDialog({
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2"><Label htmlFor="port">Port</Label><TooltipProvider><Tooltip><TooltipTrigger asChild><button type="button" aria-label="Default port source" className="rounded-md text-ink-muted focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"><Info className="size-3.5" /></button></TooltipTrigger><TooltipContent>{services.find((service) => service.id === serviceId)?.portSource}</TooltipContent></Tooltip></TooltipProvider></div>
+                  <Input id="port" name="port" type="number" min={1} max={65535} value={port} onChange={(event) => setPort(Number(event.target.value))} className="max-w-48" required />
+                </div>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="pathPrefix">Path prefix</Label>
-                  <Input id="pathPrefix" name="pathPrefix" defaultValue="/" className="font-mono text-sm" />
-                </div>
+              <div className="grid gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="port">Port</Label>
-                  <Input id="port" name="port" type="number" min={1} max={65535} value={port} onChange={(event) => setPort(Number(event.target.value))} required />
+                  <Label htmlFor="pathPrefix" optional>Path prefix</Label>
+                  <Input id="pathPrefix" name="pathPrefix" defaultValue="/" className="font-mono text-sm" />
                 </div>
               </div>
               </fieldset>
@@ -187,12 +187,12 @@ export function AddRouteDialog({
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="rateLimit">Rate limit</Label>
-                  <div className="relative"><Input id="rateLimit" name="rateLimit" type="number" min={1} className="pr-14" /><span className="pointer-events-none absolute right-3 top-2.5 text-xs text-ink-muted">req/s</span></div>
+                  <Label htmlFor="rateLimit" optional>Rate limit</Label>
+                  <div className="relative max-w-48"><Input id="rateLimit" name="rateLimit" type="number" min={1} placeholder="Unlimited" className="pr-14" /><span className="pointer-events-none absolute right-3 top-2.5 text-xs text-ink-muted">req/s</span></div>
                 </div>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="protectionMode">Access protection</Label>
                   <Select name="protectionMode" value={protectionMode} onValueChange={setProtectionMode}>
@@ -237,19 +237,43 @@ export function AddRouteDialog({
   )
 }
 
-export function RouteProtectionButton({
-  projectId,
-  routeId,
-  hostname,
-  currentMode,
-}: {
+export function RouteActions(props: {
   projectId: string
   routeId: string
   hostname: string
   currentMode: 'none' | 'password' | 'bower_auth'
 }) {
+  const [action, setAction] = useState<'protection' | 'delete' | null>(null)
+
+  return (
+    <>
+      <RowActions name={props.hostname}>
+        <RowActionItem onSelect={() => setAction('protection')}>Edit protection</RowActionItem>
+        <RowActionSeparator />
+        <RowActionItem className="text-danger-600 focus:text-danger-600" onSelect={() => setAction('delete')}>Delete</RowActionItem>
+      </RowActions>
+      <RouteProtectionButton {...props} open={action === 'protection'} onOpenChange={(open) => setAction(open ? 'protection' : null)} />
+      <DeleteRouteButton {...props} open={action === 'delete'} onOpenChange={(open) => setAction(open ? 'delete' : null)} />
+    </>
+  )
+}
+
+function RouteProtectionButton({
+  projectId,
+  routeId,
+  hostname,
+  currentMode,
+  open,
+  onOpenChange,
+}: {
+  projectId: string
+  routeId: string
+  hostname: string
+  currentMode: 'none' | 'password' | 'bower_auth'
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
   const router = useRouter()
-  const [open, setOpen] = useState(false)
   const [mode, setMode] = useState(currentMode)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -260,7 +284,7 @@ export function RouteProtectionButton({
     setError(null)
     try {
       await updateRouteProtectionAction(projectId, routeId, new FormData(event.currentTarget))
-      setOpen(false)
+      onOpenChange(false)
       router.refresh()
     } catch (err) {
       setError(actionErrorMessage(err, 'Could not update route protection.'))
@@ -270,8 +294,7 @@ export function RouteProtectionButton({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(next) => { setOpen(next); if (next) { setMode(currentMode); setError(null) } }}>
-      <Button variant="ghost" size="sm" onClick={() => setOpen(true)}><ShieldCheck />Protection</Button>
+    <Dialog open={open} onOpenChange={(next) => { onOpenChange(next); if (next) { setMode(currentMode); setError(null) } }}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Route protection</DialogTitle>
@@ -314,17 +337,20 @@ export function RouteProtectionButton({
   )
 }
 
-export function DeleteRouteButton({
+function DeleteRouteButton({
   projectId,
   routeId,
   hostname,
+  open,
+  onOpenChange,
 }: {
   projectId: string
   routeId: string
   hostname: string
+  open: boolean
+  onOpenChange: (open: boolean) => void
 }) {
   const router = useRouter()
-  const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -334,7 +360,7 @@ export function DeleteRouteButton({
     setError(null)
     try {
       await deleteManagedRouteAction(projectId, routeId)
-      setOpen(false)
+      onOpenChange(false)
       router.refresh()
     } catch (err) {
       setError(actionErrorMessage(err, 'Could not delete route.'))
@@ -344,11 +370,7 @@ export function DeleteRouteButton({
   }
 
   return (
-    <div className="flex items-center justify-end gap-2">
-      <AlertDialog open={open} onOpenChange={(next) => { if (!busy) { setOpen(next); if (next) setError(null) } }}>
-        <AlertDialogTrigger asChild>
-          <Button variant="ghost" size="sm" disabled={busy} className="text-danger-500 hover:text-danger-500"><Trash2 />Delete</Button>
-        </AlertDialogTrigger>
+      <AlertDialog open={open} onOpenChange={(next) => { if (!busy) { onOpenChange(next); if (next) setError(null) } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete route {hostname}?</AlertDialogTitle>
@@ -369,6 +391,5 @@ export function DeleteRouteButton({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
   )
 }

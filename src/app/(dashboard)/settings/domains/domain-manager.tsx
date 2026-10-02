@@ -4,13 +4,13 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { actionErrorMessage } from '@/lib/action-error'
-import { Check, Copy, Globe2, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { Check, ChevronDown, Copy, Globe2, Plus, RefreshCw } from 'lucide-react'
 import {
   createOrganizationDomainAction,
   deleteOrganizationDomainAction,
   verifyOrganizationDomainAction,
 } from '@/lib/actions/domains'
-import { Badge } from '@/components/ui/badge'
+import { Chip } from '@/components/ui/badge'
 import { Button, IconButton } from '@/components/ui/button'
 import {
   Dialog,
@@ -31,6 +31,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { EmptyState, InlineNotice } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
@@ -38,6 +39,8 @@ import { Label } from '@/components/ui/label'
 import { Panel, PanelHeader } from '@/components/ui/panel'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { RowActions, RowActionItem, RowActionSeparator } from '@/components/ui/row-actions'
 
 type DomainRow = {
   id: string
@@ -159,7 +162,7 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
                 <TableHead>Status</TableHead>
                 <TableHead>Routes</TableHead>
                 <TableHead className="w-[420px] min-w-[380px]">DNS verification</TableHead>
-                <TableHead className="w-[64px] text-right">Actions</TableHead>
+                <TableHead className="w-[64px]"><span className="sr-only">Actions</span></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -182,7 +185,7 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
                               href={`/projects/${usage.projectSlug}/routes`}
                               className="hover:text-ink"
                             >
-                              {usage.projectName} · {usage.environmentName}
+                              <span className="font-mono">{usage.hostname}</span> → {usage.projectName} · {usage.environmentName}
                             </Link>
                           ))}
                           {item.usage.length > 2 ? <span>+{item.usage.length - 2} more</span> : null}
@@ -190,9 +193,9 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
                       ) : null}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={item.verifiedAt ? 'success' : 'warning'} className="whitespace-nowrap">
+                      <Chip tone={item.verifiedAt ? 'success' : 'warn'} className="whitespace-nowrap">
                         {item.verifiedAt ? 'Verified' : 'Pending verification'}
-                      </Badge>
+                      </Chip>
                     </TableCell>
                     <TableCell className="nums text-sm text-ink-soft">{item.usage.length}</TableCell>
                     <TableCell>
@@ -202,8 +205,9 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
                           DNS ownership verified
                         </div>
                       ) : (
-                        <details open={domains.filter((domain) => !domain.verifiedAt).length === 1} className="space-y-2.5 py-0.5">
-                          <summary className="cursor-pointer text-xs font-medium text-brand-700">Show DNS record</summary>
+                        <Collapsible defaultOpen={domains.filter((domain) => !domain.verifiedAt).length === 1} className="group space-y-2.5 py-0.5">
+                          <CollapsibleTrigger className="flex items-center gap-1 text-xs font-medium text-brand-700">Show DNS record <ChevronDown className="h-3.5 w-3.5 transition-transform group-data-[state=open]:rotate-180" /></CollapsibleTrigger>
+                          <CollapsibleContent className="space-y-2.5">
                           <p className="text-2xs text-ink-muted">Create this record at your DNS provider:</p>
                           <div className="grid grid-cols-[40px_minmax(0,1fr)_28px] items-center gap-x-2 gap-y-1.5">
                             <span className="text-2xs font-semibold uppercase tracking-wide text-ink-muted">Type</span>
@@ -244,7 +248,8 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
                               {isVerifying ? 'Checking…' : 'Check verification'}
                             </Button>
                           ) : null}
-                        </details>
+                          </CollapsibleContent>
+                        </Collapsible>
                       )}
                     </TableCell>
                     <TableCell>
@@ -262,19 +267,14 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <span>
-                                    <IconButton
-                                      label={isInUse ? 'Remove project routes before deleting this domain' : 'Delete domain'}
-                                      disabled={isDeleting || isInUse}
-                                      onClick={() => { setDeleteError(null); setDeletingId(item.id) }}
-                                    >
-                                      <Trash2 />
-                                    </IconButton>
+                                  <span tabIndex={isInUse ? 0 : undefined}>
+                                    <RowActions name={item.domain}><RowActionSeparator /><AlertDialogTrigger asChild><RowActionItem className="text-danger-600 focus:text-danger-600" disabled={isDeleting || isInUse}>Delete</RowActionItem></AlertDialogTrigger></RowActions>
                                   </span>
                                 </TooltipTrigger>
                                 {isInUse ? <TooltipContent>Remove the {item.usage.length} {item.usage.length === 1 ? 'route' : 'routes'} using this domain first</TooltipContent> : null}
                               </Tooltip>
                             </TooltipProvider>
+                            {isInUse ? <span className="sr-only">Remove project routes before deleting this domain.</span> : null}
                             <AlertDialogContent>
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Delete {item.domain}?</AlertDialogTitle>

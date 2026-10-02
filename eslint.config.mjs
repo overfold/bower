@@ -27,6 +27,46 @@ const bowerRules = {
         };
       },
     },
+    "no-low-contrast-focus": {
+      meta: { type: "problem", schema: [], messages: { contrast: "Use brand-500 for focus rings and focused borders." } },
+      create(context) {
+        const check = (node, value) => {
+          if (/ring-brand-(?:100|300)|focus(?:-visible)?:border-brand-300/.test(value)) context.report({ node, messageId: "contrast" });
+        };
+        return {
+          Literal(node) { if (typeof node.value === "string") check(node, node.value); },
+          TemplateElement(node) { check(node, context.sourceCode.getText(node)); },
+        };
+      },
+    },
+    "no-faint-text": {
+      meta: { type: "problem", schema: [], messages: { faint: "Do not use text-ink-faint for text; reserve it for decorative icons and non-text wrappers." } },
+      create(context) {
+        const textElements = new Set(["a", "button", "caption", "code", "dd", "dt", "figcaption", "h1", "h2", "h3", "h4", "h5", "h6", "label", "li", "option", "p", "span", "td", "th"]);
+        const classValue = (attribute) => {
+          if (!attribute?.value) return "";
+          if (attribute.value.type === "Literal") return String(attribute.value.value ?? "");
+          const expression = attribute.value.expression;
+          return expression?.type === "Literal" ? String(expression.value ?? "") : "";
+        };
+        const isText = (child) => {
+          if (child.type === "JSXText") return child.value.trim().length > 0;
+          if (child.type !== "JSXExpressionContainer" || child.expression.type === "JSXEmptyExpression") return false;
+          if (child.expression.type === "JSXElement" || child.expression.type === "JSXFragment") return false;
+          return !(child.expression.type === "Identifier" && /icon/i.test(child.expression.name));
+        };
+        return {
+          JSXElement(node) {
+            const opening = node.openingElement;
+            if (opening.name.type !== "JSXIdentifier" || !textElements.has(opening.name.name)) return;
+            const hidden = opening.attributes.some((attribute) => attribute.type === "JSXAttribute" && attribute.name.name === "aria-hidden");
+            if (hidden || !node.children.some(isText)) return;
+            const className = opening.attributes.find((attribute) => attribute.type === "JSXAttribute" && attribute.name.name === "className");
+            if (/\btext-ink-faint\b/.test(classValue(className))) context.report({ node: className, messageId: "faint" });
+          },
+        };
+      },
+    },
   },
 };
 
@@ -36,7 +76,7 @@ const eslintConfig = defineConfig([
   {
     files: ["src/**/*.{ts,tsx}"],
     plugins: { bower: bowerRules },
-    rules: { "bower/named-type-scale": "error" },
+    rules: { "bower/named-type-scale": "error", "bower/no-low-contrast-focus": "error", "bower/no-faint-text": "error" },
   },
   // Override default ignores of eslint-config-next.
   globalIgnores([

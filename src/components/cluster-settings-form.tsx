@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { UnsavedChangesBar } from '@/components/ui/unsaved-changes-bar'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { InlineNotice, useFeedback } from '@/components/ui/feedback'
@@ -22,6 +22,7 @@ export function ClusterSettingsForm({ org }: ClusterSettingsFormProps) {
   const [loading, setLoading] = useState(false)
   const [dirty, setDirty] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const formRef = useRef<HTMLFormElement>(null)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -45,27 +46,23 @@ export function ClusterSettingsForm({ org }: ClusterSettingsFormProps) {
 
   return (
     <Card className="max-w-3xl">
-      <form onSubmit={handleSubmit} onInput={() => setDirty(true)}>
+      <form ref={formRef} onSubmit={handleSubmit} onInput={() => setDirty(true)}>
         <CardHeader>
           <CardTitle>Trellis connection</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
           <div className="space-y-2">
-            <Label htmlFor="trellisApiUrl">Trellis API URL</Label>
+            <Label htmlFor="trellisApiUrl" optional>Trellis API URL</Label>
             <Input id="trellisApiUrl" name="trellisApiUrl" defaultValue={org.trellisApiUrl} placeholder="https://trellis.example.com" className="font-mono" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="trellisApiToken">Trellis API token</Label>
+            <Label htmlFor="trellisApiToken" optional>Trellis API token</Label>
             <Input id="trellisApiToken" name="trellisApiToken" type="password" defaultValue={org.trellisApiToken} autoComplete="off" mono />
           </div>
         </CardContent>
-        <CardFooter>
-          <Button variant="primary" type="submit" disabled={loading || !dirty} aria-busy={loading}>
-            {loading ? 'Saving…' : 'Save changes'}
-          </Button>
-        </CardFooter>
       </form>
+      <UnsavedChangesBar dirty={dirty} pending={loading} onDiscard={() => { formRef.current?.reset(); setDirty(false); setError(null) }} onSave={() => formRef.current?.requestSubmit()} />
     </Card>
   )
 }

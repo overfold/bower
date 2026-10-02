@@ -22,7 +22,7 @@ export function ResetBackoffButton({ namespace, job, group }: { namespace: strin
         })}
         loading={pending}
       >
-        {pending ? 'Resetting…' : 'Reset backoff'}
+        {pending ? 'Restarting…' : 'Restart now'}
       </Button>
       {error ? <p role="alert" className="max-w-56 text-right text-xs text-danger-500">{error}</p> : null}
     </div>
