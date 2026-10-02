@@ -1,6 +1,6 @@
 # UI screenshot audit
 
-In GitHub, open **Actions → UI screenshot audit → Run workflow**. Select the branch to capture. This workflow only runs manually; it does not deploy anything or require real Trellis credentials.
+In GitHub, open **Actions → ui-audit → Run workflow**. Select the branch to capture. This workflow only runs manually; it does not deploy anything or require real Trellis credentials.
 
 Download **bower-ui-audit-<run number>** from the run's artifacts. Extract it and open `index.html` for a filterable gallery. The gallery works directly from disk, with links to full-resolution PNGs. `captures.json` records each expected scenario and whether it was captured, failed, or missing. Failure screenshots and Playwright error context are under `diagnostics/`. Artifacts are retained for 14 days and uploaded even when capture fails.
 
@@ -29,7 +29,7 @@ npm run build
 npx playwright test --config scripts/ui-audit/playwright.config.mjs
 ```
 
-Ports 3100/3101 and 8128 must be free. Playwright owns both servers and stops them after the run. On Amp orbs, run the two server commands as supervised orb services instead, with the production environment from `playwright.config.mjs`, then set `UI_AUDIT_EXTERNAL_SERVERS=1` for capture. The output directory defaults to `ui-audit-output/`, which is Git-ignored. Reseeding clears previous screenshots/results/diagnostics to prevent stale captures from masking failures.
+Ports 3100/3101 and 8128 must be free. Playwright owns both servers and stops them after the run. The output directory defaults to `ui-audit-output/`, which is Git-ignored. Reseeding clears previous screenshots/results/diagnostics to prevent stale captures from masking failures.
 
 ## Maintaining coverage
 

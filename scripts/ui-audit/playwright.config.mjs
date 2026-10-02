@@ -19,7 +19,7 @@ export default defineConfig({
     locale: "en-GB",
     screenshot: "only-on-failure",
   },
-  // Orbs supervise long-lived services separately; CI owns them through Playwright.
+  // Skip server startup when servers are managed externally.
   webServer: process.env.UI_AUDIT_EXTERNAL_SERVERS
     ? undefined
     : [

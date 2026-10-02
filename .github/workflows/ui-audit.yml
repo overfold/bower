@@ -1,4 +1,4 @@
-name: UI screenshot audit
+name: ui-audit
 
 on:
   workflow_dispatch:

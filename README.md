@@ -130,7 +130,6 @@ When `AUTO_MIGRATE=true` is set, the container applies pending migrations on sta
 
 ## Further reading
 
-- [UI screenshot audit](docs/ui-audit.md) — manually capture production screens and flows with a fake cluster
 - [Configuration reference](docs/configuration.md) — all environment variables and defaults
 - [Deployment strategies](docs/deployment-strategies.md) — rolling, recreate, blue-green, canary, and auto-rollback
 - [Managed ingress](docs/managed-ingress.md) — how the per-namespace Caddy proxy works
