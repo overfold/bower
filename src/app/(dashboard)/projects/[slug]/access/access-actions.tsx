@@ -95,7 +95,7 @@ export function GrantAccessDialog({ projectId, teams, members, existingTeamIds, 
           Grant access
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>Grant project access</DialogTitle>
         </DialogHeader>
@@ -114,7 +114,7 @@ export function GrantAccessDialog({ projectId, teams, members, existingTeamIds, 
               />
               <div className="max-h-[240px] overflow-y-auto border-t border-line scroll-thin">
                 {items.length === 0 ? (
-                  <div className="px-4 py-6 text-center text-[13px] text-ink-muted">No results found.</div>
+                  <div className="px-4 py-6 text-center text-sm text-ink-muted">No results found.</div>
                 ) : (
                   items.map((item) => {
                     const isSelected = selected?.kind === item.kind && selected?.id === item.id
@@ -125,7 +125,7 @@ export function GrantAccessDialog({ projectId, teams, members, existingTeamIds, 
                         disabled={item.granted}
                         onClick={() => setSelected(item)}
                         className={cn(
-                          'flex w-full items-center gap-3 border-b border-line px-3 py-2.5 text-left text-[13px] transition-colors last:border-b-0',
+                          "flex w-full items-center gap-3 border-b border-line px-3 py-2.5 text-left text-sm transition-colors last:border-b-0",
                           item.granted
                             ? 'cursor-default opacity-50'
                             : isSelected

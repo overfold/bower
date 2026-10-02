@@ -18,6 +18,7 @@ import {
   CreateWebhookDialog, DeleteWebhookButton,
   CreateNotificationDialog, DeleteNotificationButton,
 } from './integration-actions'
+import { deployModeLabels, providerLabels } from '@/lib/labels'
 
 export default async function IntegrationsPage({
   params,
@@ -45,10 +46,7 @@ export default async function IntegrationsPage({
 
   return (
     <div className="space-y-8">
-      <div>
-        <SectionTitle>Integrations</SectionTitle>
-        <p className="mt-1 max-w-3xl text-[13px] text-ink-muted">Connect deployment triggers and notifications for this project.</p>
-      </div>
+      <div><SectionTitle>Integrations</SectionTitle><p className="mt-1 max-w-3xl text-sm text-ink-muted">Connect deployment triggers and notifications for this project.</p></div>
       <Panel>
         <PanelHeader title="Webhooks" hint={`${visibleHooks.length} ${visibleHooks.length === 1 ? 'webhook' : 'webhooks'}`} action={isAdmin && environment ? (
             <CreateWebhookDialog
@@ -81,11 +79,9 @@ export default async function IntegrationsPage({
                     <TableCell className="font-medium">
                       {row.serviceName}
                     </TableCell>
-                    <TableCell className="capitalize">
-                      {row.hook.provider}
-                    </TableCell>
+                    <TableCell>{providerLabels[row.hook.provider]}</TableCell>
                     <TableCell className="text-sm text-ink-muted">
-                      {row.hook.deployMode.replace(/_/g, ' ')}
+                      {deployModeLabels[row.hook.deployMode]}
                     </TableCell>
                     <TableCell>
                       <Badge variant={row.hook.isActive ? 'success' : 'outline'}>
@@ -127,11 +123,7 @@ export default async function IntegrationsPage({
                 {channels.map((channel) => (
                   <TableRow key={channel.id}>
                     <TableCell className="font-medium">{channel.name}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="capitalize">
-                        {channel.type}
-                      </Badge>
-                    </TableCell>
+                    <TableCell className="capitalize">{channel.type}</TableCell>
                     <TableCell>
                       <Badge variant={channel.isActive ? 'success' : 'outline'}>
                         {channel.isActive ? 'Active' : 'Inactive'}

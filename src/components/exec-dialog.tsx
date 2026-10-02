@@ -7,6 +7,7 @@ import { Terminal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { ResourceId } from '@/components/resource-id'
 
 type TerminalStatus = 'idle' | 'connecting' | 'connected' | 'exited' | 'error'
 
@@ -189,7 +190,7 @@ export function ExecDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button variant="default" size="sm">
-          <Terminal className="mr-1.5 h-3.5 w-3.5" />
+          <Terminal />
           Terminal
         </Button>
       </DialogTrigger>
@@ -231,7 +232,7 @@ export function ExecDialog({
           </div>
           <div className="flex min-h-5 items-center justify-between gap-4 text-2xs text-ink-muted">
             <span className="font-mono">
-              {allocationId.slice(0, 8)}{selectedTask ? ` · ${selectedTask}` : ''}
+              <ResourceId value={allocationId} />{selectedTask ? ` · ${selectedTask}` : ''}
             </span>
             <span>
               {status === 'connecting' && 'Connecting…'}

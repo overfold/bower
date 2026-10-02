@@ -47,14 +47,14 @@ export function Wordmark({ className, markClassName }: { className?: string; mar
   return (
     <span className={cn('inline-flex items-center gap-2', className)}>
       <LogoMark className={markClassName} />
-      <span className="text-[17px] font-bold tracking-tightest text-ink">bower</span>
+      <span className="text-lg font-bold tracking-tightest text-ink">bower</span>
     </span>
   )
 }
 
 export function Brand({ className, size = 'default' }: { className?: string; size?: 'sm' | 'default' | 'lg' }) {
   const markSize = size === 'sm' ? 'h-5 w-5' : size === 'lg' ? 'h-8 w-8' : 'h-6 w-6'
-  const textSize = size === 'sm' ? 'text-[17px]' : size === 'lg' ? 'text-2xl' : 'text-lg'
+  const textSize = size === 'sm' ? "text-lg" : size === 'lg' ? 'text-2xl' : 'text-lg'
 
   return (
     <span className={cn('inline-flex items-center gap-2', className)}>

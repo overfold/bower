@@ -1,11 +1,9 @@
 import Link from 'next/link'
-import { cn } from '@/lib/utils'
+import { ResourceId } from '@/components/resource-id'
 
-export function NodeLink({ id, className }: { id: string; className?: string }) {
+export function NodeLink({ id, name, className }: { id: string; name?: string | null; className?: string }) {
   if (!id) return <span className="text-ink-muted">—</span>
-  return (
-    <Link href={`/status/${encodeURIComponent(id)}`} title={id} className={cn('font-mono text-xs font-medium text-ink transition-colors hover:text-brand-500', className)}>
-      {id.slice(0, 8)}
-    </Link>
-  )
+  return <Link href={`/status/${encodeURIComponent(id)}`} className="text-ink transition-colors hover:text-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"><ResourceId value={id} name={name} className={className} /></Link>
 }
+
+export { ResourceId }

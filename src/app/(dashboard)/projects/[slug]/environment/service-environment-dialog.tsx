@@ -106,7 +106,7 @@ export function ServiceEnvironmentDialog({
       <DialogTrigger asChild>
         <Button variant="default" size="sm">Edit configuration</Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl">
+      <DialogContent size="lg">
         <DialogHeader><DialogTitle>{serviceName} · variables and secrets</DialogTitle></DialogHeader>
         <form onSubmit={submit}>
           <DialogBody>
@@ -130,7 +130,7 @@ export function ServiceEnvironmentDialog({
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[13px] font-semibold text-ink">Secret bindings</p>
+                    <p className="text-sm font-semibold text-ink">Secret bindings</p>
                     <p className="mt-0.5 text-2xs text-ink-muted">Bind a project secret to an environment variable or protected file.</p>
                   </div>
                   <Button variant="default" size="sm" type="button" onClick={addBinding} disabled={secretNames.length === 0}>
@@ -138,9 +138,9 @@ export function ServiceEnvironmentDialog({
                   </Button>
                 </div>
                 {secretNames.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-line-strong bg-sunken p-4 text-[12px] text-ink-muted">Create a project secret before adding a binding.</div>
+                  <div className="rounded-lg border border-dashed border-line-strong bg-sunken p-4 text-xs text-ink-muted">Create a project secret before adding a binding.</div>
                 ) : bindings.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-line-strong bg-sunken p-4 text-[12px] text-ink-muted">No secrets are bound to this service.</div>
+                  <div className="rounded-lg border border-dashed border-line-strong bg-sunken p-4 text-xs text-ink-muted">No secrets are bound to this service.</div>
                 ) : (
                   <div className="space-y-3">
                     {bindings.map((binding, index) => (

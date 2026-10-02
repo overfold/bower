@@ -1,5 +1,3 @@
-import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
 import { getDeploymentsByService } from '@/lib/queries'
 import { PageHeading } from '@/components/page-heading'
 import { ServiceActions } from './service-actions'
@@ -26,9 +24,6 @@ export async function ServiceHeader({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <Link href={`/projects/${slug}/services`} className="text-ink-muted transition-colors hover:text-ink" aria-label="Back to services">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
           <PageHeading as="h2" title={serviceName} />
         </div>
         {hasConfig && <ServiceActions

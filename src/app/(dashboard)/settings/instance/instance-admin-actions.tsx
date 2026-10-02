@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { actionErrorMessage } from '@/lib/action-error'
 import { useRouter } from 'next/navigation'
-import { Trash2 } from 'lucide-react'
+import { MoreHorizontal, ShieldMinus, UserMinus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -14,38 +14,47 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { toggleInstanceAdminAction } from '@/lib/actions/settings'
+import { removeOrganizationMemberAction } from '@/lib/actions/settings'
 import { InlineNotice } from '@/components/ui/feedback'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
-export function RemoveInstanceAdminButton({
+export function MemberActionsMenu({
+  membershipId,
+  memberName,
   email,
-  adminId,
-  currentUserId,
+  canRemoveInstanceAdmin,
+  canRemoveFromOrganization,
 }: {
+  membershipId: string
+  memberName: string
   email: string
-  adminId: string
-  currentUserId: string
+  canRemoveInstanceAdmin: boolean
+  canRemoveFromOrganization: boolean
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [open, setOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [action, setAction] = useState<'instance' | 'organization' | null>(null)
 
-  if (adminId === currentUserId) return null
+  if (!canRemoveInstanceAdmin && !canRemoveFromOrganization) return null
 
   function handleRemove(event: React.MouseEvent) {
     event.preventDefault()
     setError(null)
     startTransition(async () => {
       try {
-        const result = await toggleInstanceAdminAction(email, false)
+        const result = action === 'instance'
+          ? await toggleInstanceAdminAction(email, false)
+          : await removeOrganizationMemberAction(membershipId)
         if (result.error) {
           setError(result.error)
           return
         }
         setOpen(false)
+        setAction(null)
         router.refresh()
       } catch (err) {
         setError(actionErrorMessage(err, 'Could not remove administrator.'))
@@ -54,24 +63,32 @@ export function RemoveInstanceAdminButton({
   }
 
   return (
-    <AlertDialog open={open} onOpenChange={(next) => { if (!isPending) { setOpen(next); if (next) setError(null) } }}>
-      <AlertDialogTrigger asChild>
-        <Button variant="ghost" size="icon" disabled={isPending} aria-label={`Remove administrator ${email}`}>
-          <Trash2 className="h-4 w-4 text-ink-muted" />
-        </Button>
-      </AlertDialogTrigger>
+    <AlertDialog open={open} onOpenChange={(next) => { if (!isPending) { setOpen(next); if (!next) setAction(null); setError(null) } }}>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" disabled={isPending} aria-label={`Actions for ${memberName}`}>
+            <MoreHorizontal className="h-4 w-4 text-ink-muted" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          {canRemoveInstanceAdmin ? <DropdownMenuItem onSelect={() => { setAction('instance'); setOpen(true) }}><ShieldMinus className="mr-2 h-4 w-4" />Remove instance admin</DropdownMenuItem> : null}
+          {canRemoveFromOrganization ? <DropdownMenuItem className="text-danger-600" onSelect={() => { setAction('organization'); setOpen(true) }}><UserMinus className="mr-2 h-4 w-4" />Remove from organization</DropdownMenuItem> : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Remove {email} as instance administrator?</AlertDialogTitle>
+          <AlertDialogTitle>{action === 'instance' ? `Remove ${email} as instance administrator?` : `Remove ${memberName} from the organization?`}</AlertDialogTitle>
           <AlertDialogDescription>
-            This will revoke instance admin privileges for {email}. They will lose access to instance-level settings.
+            {action === 'instance'
+              ? `This revokes instance-wide administrative access for ${email}. Their organization membership is unchanged.`
+              : `This removes ${email} from this organization and revokes access granted by its teams. This does not delete their account.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
         {error ? <InlineNotice tone="error" className="mx-5">{error}</InlineNotice> : null}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
           <AlertDialogAction onClick={handleRemove} disabled={isPending} aria-busy={isPending}>
-            {isPending ? 'Removing…' : 'Remove administrator'}
+            {isPending ? 'Removing…' : action === 'instance' ? 'Remove instance admin' : 'Remove from organization'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

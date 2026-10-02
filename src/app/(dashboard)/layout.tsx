@@ -2,7 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { ORG_COOKIE_NAME } from '@/lib/constants'
-import { getUserOrganizations, getUserOrganization, getUserTeams, getProjectsForUser, getServicesForOrg, isInstanceAdmin } from '@/lib/queries'
+import { getUserOrganizations, getUserOrganization, getUserTeams, getProjectsForUser, getServicesForOrg, isInstanceAdmin, getDeploymentsForOrg, getOrgMembers } from '@/lib/queries'
 import { Sidebar } from '@/components/sidebar'
 import { HeaderBar } from '@/components/header-bar'
 import { PageTransition } from '@/components/page-transition'
@@ -28,12 +28,18 @@ export default async function DashboardLayout({
   const orgCtx = await getUserOrganization(user.id, preferredOrgId)
   if (!orgCtx) redirect('/login')
 
-  const teams = await getUserTeams(user.id, orgCtx.org.id)
-  const userProjects = await getProjectsForUser(orgCtx.org.id, user.id, orgCtx.role as 'owner' | 'admin' | 'member')
-  const orgServices = await getServicesForOrg(orgCtx.org.id)
+  const [teams, userProjects, orgServices, instanceAdmin, deployments, members] = await Promise.all([
+    getUserTeams(user.id, orgCtx.org.id),
+    getProjectsForUser(orgCtx.org.id, user.id, orgCtx.role as 'owner' | 'admin' | 'member'),
+    getServicesForOrg(orgCtx.org.id),
+    isInstanceAdmin(user.id),
+    getDeploymentsForOrg(orgCtx.org.id, 250),
+    getOrgMembers(orgCtx.org.id),
+  ])
   const accessibleProjectIds = new Set(userProjects.map((project) => project.id))
+  const accessibleProjectSlugs = new Set(userProjects.map((project) => project.slug))
   const visibleServices = orgServices.filter(({ project }) => accessibleProjectIds.has(project.id))
-  const instanceAdmin = await isInstanceAdmin(user.id)
+  const visibleDeployments = deployments.filter((deployment) => accessibleProjectSlugs.has(deployment.projectSlug))
   let trellisError: string | null = null
   try {
     const client = await getTrellisClient(orgCtx.org.id)
@@ -58,6 +64,7 @@ export default async function DashboardLayout({
 
   return (
     <FeedbackProvider>
+    <a href="#main-content" className="fixed left-3 top-3 z-[100] -translate-y-20 rounded-lg bg-surface px-3 py-2 text-sm font-medium shadow-pop focus:translate-y-0">Skip to content</a>
     <div className="flex min-h-screen w-full bg-canvas">
       <Sidebar
         user={{
@@ -65,12 +72,15 @@ export default async function DashboardLayout({
           email: user.email,
           avatarUrl: user.avatarUrl,
         }}
+        projects={userProjects.map((project) => ({ id: project.id, name: project.name, slug: project.slug }))}
+        currentOrg={currentOrg}
       />
       <div className="flex min-w-0 flex-1 flex-col lg:ml-[236px]">
         <HeaderBar
           orgs={orgs}
           currentOrg={currentOrg}
           teams={teams}
+          projects={userProjects.map((project) => ({ id: project.id, name: project.name, slug: project.slug }))}
           user={{
             name: user.name,
             email: user.email,
@@ -92,10 +102,12 @@ export default async function DashboardLayout({
             })),
             orgName: orgCtx.org.name,
             instanceAdmin,
+            deploymentLabels: Object.fromEntries(visibleDeployments.map((row) => [row.deployment.id, row.serviceName])),
+            memberLabels: Object.fromEntries(members.map((member) => [member.membership.userId, member.userName])),
           }}
         />
         <TrellisReadErrorProvider message={trellisError}>
-        <main className="min-w-0 flex-1 px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
+        <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
           <div className="mx-auto max-w-6xl">
             <PageTransition>{children}</PageTransition>
           </div>

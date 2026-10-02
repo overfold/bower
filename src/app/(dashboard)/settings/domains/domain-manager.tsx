@@ -31,13 +31,13 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { EmptyState, InlineNotice } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Panel, PanelHeader } from '@/components/ui/panel'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 type DomainRow = {
   id: string
@@ -173,7 +173,7 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
                 return (
                   <TableRow key={item.id}>
                     <TableCell>
-                      <div className="font-mono text-[12.5px] font-medium text-ink">{item.domain}</div>
+                      <div className="font-mono text-sm font-medium text-ink">{item.domain}</div>
                       {item.usage.length ? (
                         <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-2xs text-ink-muted">
                           {item.usage.slice(0, 2).map((usage) => (
@@ -190,27 +190,28 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
                       ) : null}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={item.verifiedAt ? 'success' : 'warning'}>
+                      <Badge variant={item.verifiedAt ? 'success' : 'warning'} className="whitespace-nowrap">
                         {item.verifiedAt ? 'Verified' : 'Pending verification'}
                       </Badge>
                     </TableCell>
-                    <TableCell className="nums text-[13px] text-ink-soft">{item.usage.length}</TableCell>
+                    <TableCell className="nums text-sm text-ink-soft">{item.usage.length}</TableCell>
                     <TableCell>
                       {item.verifiedAt ? (
-                        <div className="flex items-center gap-1.5 text-[12px] text-ink-muted">
+                        <div className="flex items-center gap-1.5 text-xs text-ink-muted">
                           <Check className="h-3.5 w-3.5 text-brand-500" />
                           DNS ownership verified
                         </div>
                       ) : (
-                        <div className="space-y-2.5 py-0.5">
-                          <p className="text-[11.5px] text-ink-muted">Create this record at your DNS provider:</p>
+                        <details open={domains.filter((domain) => !domain.verifiedAt).length === 1} className="space-y-2.5 py-0.5">
+                          <summary className="cursor-pointer text-xs font-medium text-brand-700">Show DNS record</summary>
+                          <p className="text-2xs text-ink-muted">Create this record at your DNS provider:</p>
                           <div className="grid grid-cols-[40px_minmax(0,1fr)_28px] items-center gap-x-2 gap-y-1.5">
                             <span className="text-2xs font-semibold uppercase tracking-wide text-ink-muted">Type</span>
-                            <code className="font-mono text-[11.5px] text-ink-soft">TXT</code>
+                            <code className="font-mono text-2xs text-ink-soft">TXT</code>
                             <span aria-hidden="true" />
 
                             <span className="text-2xs font-semibold uppercase tracking-wide text-ink-muted">Name</span>
-                            <code className="min-w-0 truncate rounded-md bg-sunken px-2 py-1 font-mono text-[11px] text-ink-soft" title={recordName}>
+                            <code className="min-w-0 truncate rounded-md bg-sunken px-2 py-1 font-mono text-2xs text-ink-soft" title={recordName}>
                               {recordName}
                             </code>
                             <IconButton
@@ -222,7 +223,7 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
                             </IconButton>
 
                             <span className="text-2xs font-semibold uppercase tracking-wide text-ink-muted">Value</span>
-                            <code className="min-w-0 truncate rounded-md bg-sunken px-2 py-1 font-mono text-[11px] text-ink-soft" title={recordValue}>
+                            <code className="min-w-0 truncate rounded-md bg-sunken px-2 py-1 font-mono text-2xs text-ink-soft" title={recordValue}>
                               {recordValue}
                             </code>
                             <IconButton
@@ -243,7 +244,7 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
                               {isVerifying ? 'Checking…' : 'Check verification'}
                             </Button>
                           ) : null}
-                        </div>
+                        </details>
                       )}
                     </TableCell>
                     <TableCell>
@@ -258,14 +259,22 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
                               }
                             }}
                           >
-                            <AlertDialogTrigger asChild>
-                              <IconButton
-                                label={isInUse ? 'Remove project routes before deleting this domain' : 'Delete domain'}
-                                disabled={isDeleting || isInUse}
-                              >
-                                <Trash2 />
-                              </IconButton>
-                            </AlertDialogTrigger>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span>
+                                    <IconButton
+                                      label={isInUse ? 'Remove project routes before deleting this domain' : 'Delete domain'}
+                                      disabled={isDeleting || isInUse}
+                                      onClick={() => { setDeleteError(null); setDeletingId(item.id) }}
+                                    >
+                                      <Trash2 />
+                                    </IconButton>
+                                  </span>
+                                </TooltipTrigger>
+                                {isInUse ? <TooltipContent>Remove the {item.usage.length} {item.usage.length === 1 ? 'route' : 'routes'} using this domain first</TooltipContent> : null}
+                              </Tooltip>
+                            </TooltipProvider>
                             <AlertDialogContent>
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Delete {item.domain}?</AlertDialogTitle>
@@ -298,7 +307,7 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
       </Panel>
 
       <Dialog open={adding} onOpenChange={setAdding}>
-        <DialogContent className="max-w-md">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>Add domain</DialogTitle>
             <DialogDescription>
@@ -317,7 +326,7 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
                     value={domain}
                     onChange={(event) => setDomain(event.target.value)}
                     placeholder="example.com"
-                    className="font-mono text-[12.5px]"
+                    className="font-mono text-sm"
                     autoComplete="off"
                     required
                   />

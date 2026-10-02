@@ -11,6 +11,7 @@ import {
   PanelsTopLeft,
   CornerDownLeft,
   Users,
+  Zap,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -19,7 +20,8 @@ interface SearchEntry {
   label: string
   hint: string
   href: string
-  kind: 'project' | 'service' | 'page'
+  kind: 'project' | 'service' | 'page' | 'action'
+  recent?: boolean
 }
 
 interface CommandPaletteProps {
@@ -51,12 +53,20 @@ const kindIcon = {
   project: FolderKanban,
   service: Server,
   page: PanelsTopLeft,
+  action: Zap,
 } as const
 
 export function CommandPalette({ open, onOpenChange, projects, services, orgName, instanceAdmin }: CommandPaletteProps) {
   const router = useRouter()
   const [query, setQuery] = useState('')
   const [cursor, setCursor] = useState(0)
+  const [recentHrefs, setRecentHrefs] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return []
+    try {
+      const stored: unknown = JSON.parse(localStorage.getItem('bower-recent-navigation') || '[]')
+      return Array.isArray(stored) ? stored.filter((href): href is string => typeof href === 'string') : []
+    } catch { return [] }
+  })
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLUListElement>(null)
   const resultsId = useId()
@@ -77,28 +87,47 @@ export function CommandPalette({ open, onOpenChange, projects, services, orgName
       kind: 'service',
     }))
     const pageEntries = pages.filter((page) => page.id !== 'pg-settings-instance' || instanceAdmin)
-    return [...projectEntries, ...serviceEntries, ...pageEntries]
+    const actions: SearchEntry[] = [
+      ...services.slice(0, 3).map((service) => ({ id: `deploy-${service.id}`, label: `Deploy ${service.name}…`, hint: `Action · ${service.projectName}`, href: `/projects/${service.projectSlug}/services/${service.slug}?action=deploy`, kind: 'action' as const })),
+      { id: 'action-new-project', label: 'New project', hint: 'Action', href: '/projects?action=new', kind: 'action' },
+      { id: 'action-invite', label: 'Invite people', hint: 'Action', href: '/settings/members?action=invite', kind: 'action' },
+    ]
+    return [...actions, ...projectEntries, ...serviceEntries, ...pageEntries]
   }, [projects, services, instanceAdmin])
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return entries.slice(0, 8)
-    return entries
+    if (!q) {
+      const recent = recentHrefs
+        .map((href) => entries.find((entry) => entry.href === href && entry.kind !== 'action'))
+        .filter((entry): entry is SearchEntry => Boolean(entry))
+        .map((entry) => ({ ...entry, recent: true }))
+      return [...entries.filter((entry) => entry.kind === 'action'), ...recent].slice(0, 10)
+    }
+    const matches = entries
       .filter((e) => `${e.label} ${e.hint}`.toLowerCase().includes(q))
       .slice(0, 10)
-  }, [entries, query])
+    if (matches.length === 0) {
+      const createEntry: SearchEntry = { id: 'action-new-project-named', label: `Create project “${query.trim()}”`, hint: 'Action', href: `/projects?action=new&name=${encodeURIComponent(query.trim())}`, kind: 'action' }
+      return [createEntry]
+    }
+    return matches
+  }, [entries, query, recentHrefs])
 
   const scrollActiveIntoView = useCallback((index: number) => {
-    const active = listRef.current?.children[index] as HTMLElement | undefined
+    const active = listRef.current?.querySelectorAll<HTMLElement>('[role="option"]')[index]
     active?.scrollIntoView({ block: 'nearest' })
   }, [])
 
   const go = useCallback(
     (href: string) => {
+      const nextRecent = [href, ...recentHrefs.filter((recent) => recent !== href)].slice(0, 5)
+      setRecentHrefs(nextRecent)
+      try { localStorage.setItem('bower-recent-navigation', JSON.stringify(nextRecent)) } catch { /* Storage can be unavailable. */ }
       router.push(href)
       onOpenChange(false)
     },
-    [router, onOpenChange],
+    [router, onOpenChange, recentHrefs],
   )
 
   const onKeyDown = useCallback(
@@ -134,7 +163,7 @@ export function CommandPalette({ open, onOpenChange, projects, services, orgName
           <DialogPrimitive.Portal forceMount>
             <DialogPrimitive.Overlay asChild>
               <motion.div
-                className="fixed inset-0 z-50 bg-black/30"
+                className="fixed inset-0 z-50 bg-ink/25"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -177,7 +206,7 @@ export function CommandPalette({ open, onOpenChange, projects, services, orgName
               aria-expanded={open}
               aria-controls={resultsId}
               aria-activedescendant={results[cursor] ? `${resultsId}-${cursor}` : undefined}
-              className="h-12 w-full bg-transparent text-[14px] text-ink placeholder:text-ink-faint focus:outline-none"
+              className="h-12 w-full bg-transparent text-sm text-ink placeholder:text-ink-muted focus:outline-none"
             />
             <kbd className="shrink-0 rounded border border-line bg-sunken px-1.5 py-0.5 text-2xs text-ink-muted">
               ESC
@@ -191,6 +220,7 @@ export function CommandPalette({ open, onOpenChange, projects, services, orgName
             role="listbox"
             aria-label="Results"
           >
+            {!query.trim() ? <li role="presentation" className="px-2.5 pb-1 pt-1 text-2xs font-semibold uppercase tracking-wider text-ink-muted">Actions and recently visited</li> : null}
             {results.map((entry, i) => {
               const Icon = kindIcon[entry.kind]
               const active = i === cursor
@@ -211,11 +241,11 @@ export function CommandPalette({ open, onOpenChange, projects, services, orgName
                   >
                     <Icon className="h-4 w-4 shrink-0 text-ink-muted" />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[13px] font-medium text-ink">
+                      <span className="block truncate text-sm font-medium text-ink">
                         {entry.label}
                       </span>
                       <span className="block truncate text-xs capitalize text-ink-muted">
-                        {entry.hint}
+                        {entry.recent ? `${entry.hint} · Recently visited` : entry.hint}
                       </span>
                     </span>
                     {active && (
@@ -226,7 +256,7 @@ export function CommandPalette({ open, onOpenChange, projects, services, orgName
               )
             })}
             {results.length === 0 && (
-              <li role="presentation" className="px-3 py-6 text-center text-[13px] text-ink-muted">
+              <li role="presentation" className="px-3 py-6 text-center text-sm text-ink-muted">
                 Nothing matches &ldquo;{query}&rdquo;.
               </li>
             )}

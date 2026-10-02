@@ -1,5 +1,7 @@
 export function formatCpu(value: number) {
-  return value >= 1000 ? `${(value / 1000).toFixed(value % 1000 ? 1 : 0)} cores` : `${value}m`
+  if (value < 1000) return `${value}m`
+  const cores = value / 1000
+  return `${cores.toFixed(value % 1000 ? 1 : 0)} ${cores === 1 ? 'core' : 'cores'}`
 }
 
 export function formatBytes(value: number) {

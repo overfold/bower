@@ -13,9 +13,9 @@ export function PageHeading({ title, description, actions, meta, className, as: 
   return (
     <header className={cn('flex flex-col items-stretch gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-x-8', className)}>
       <div className="min-w-0 max-w-2xl">
-        <Heading className="break-words text-[24px] font-bold leading-tight tracking-tightest text-ink sm:text-[26px]">{title}</Heading>
+        <Heading className="break-words text-2xl font-bold leading-tight tracking-tightest text-ink sm:text-2xl">{title}</Heading>
         {description ? (
-          <p className="mt-2 text-[13.5px] leading-relaxed text-ink-soft">{description}</p>
+          <p className="mt-2 text-sm leading-relaxed text-ink-soft">{description}</p>
         ) : null}
         {meta ? <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">{meta}</div> : null}
       </div>
@@ -26,7 +26,7 @@ export function PageHeading({ title, description, actions, meta, className, as: 
 
 export function MetaItem({ icon, label, value }: { icon?: React.ReactNode; label: string; value: React.ReactNode }) {
   return (
-    <div className="flex min-w-0 items-center gap-2 text-[12.5px]">
+    <div className="flex min-w-0 items-center gap-2 text-sm">
       {icon ? <span className="text-ink-faint">{icon}</span> : null}
       <span className="text-ink-muted">{label}</span>
       <span className="min-w-0 break-words font-medium text-ink">{value}</span>

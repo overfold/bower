@@ -273,6 +273,10 @@ test('allocation panels preserve successful logs and distinguish empty events/me
   let eventsFail = true
   let metricsFail = true
   const metrics = load(`${servicePath}/allocations/[allocationId]/allocation-metrics.tsx`, { '@/lib/actions/allocation-actions': {} })
+  const logs = load(`${servicePath}/allocations/[allocationId]/allocation-logs.tsx`, {
+    '@/lib/actions/allocation-actions': {},
+    '@/components/ui/feedback': { useFeedback: () => ({ toast() {} }), InlineNotice: ({ children }: { children: ReactElement }) => children },
+  })
   const page = load<Page>(`${servicePath}/allocations/[allocationId]/page.tsx`, {
     ...pageDependencies({
       listAllocations: async () => [{ id: 'a', namespace: 'production', job: 'web', group: 'main', job_revision: 1, phase: 'pending', health: 'unknown', created_at: '2026-09-30T00:00:00Z', last_transition_at: '2026-09-30T00:00:00Z' }],
@@ -281,7 +285,7 @@ test('allocation panels preserve successful logs and distinguish empty events/me
       getJob: async () => ({ revision: 1, spec: { task_groups: [{ name: 'main', tasks: [{ name: 'app' }] }] } }),
       getJobVersions: async () => [{ version: 1, revision: 1, spec: { task_groups: [{ name: 'main', tasks: [{ name: 'app' }] }] } }],
       getAllocationLogs: async () => 'independent log output',
-    }), './allocation-metrics': metrics,
+    }), './allocation-metrics': metrics, './allocation-logs': logs,
   })
   let html = renderToStaticMarkup(await page.default(props))
   assert.match(html, /Lifecycle events unavailable/)
@@ -348,4 +352,84 @@ test('metrics failure keeps node and independently observed ingress status visib
   assert.match(html, /unhealthy/)
   assert.match(html, /Route-sync freshness check failed/)
   assert.doesNotMatch(html, /Unable to reach cluster/)
+})
+
+test('project health is independent of the newest deployment result and timestamp', async () => {
+  const older = new Date('2026-09-20T12:00:00Z')
+  const newer = new Date('2026-10-01T12:00:00Z')
+  const latest = [
+    { projectId: 'p', serviceId: 'broken', status: 'failed', createdAt: older },
+    { projectId: 'p', serviceId: 'working', status: 'healthy', createdAt: newer },
+  ]
+  let selects = 0
+  const chain = (rows: unknown[]) => Object.assign(query(rows), {
+    groupBy() { return this }, orderBy() { return this },
+    limit() { throw new Error('Latest-per-service must not use a history limit') },
+  })
+  const queries = load<typeof import('./queries')>('src/lib/queries.ts', {
+    'next/headers': {},
+    '@/db': { db: {
+      select: () => chain([{ projectId: 'p', count: ++selects === 1 ? 2 : 3 }]),
+      selectDistinctOn: () => chain(latest),
+    } },
+  })
+  for (const order of [latest, [...latest].reverse()]) {
+    latest.splice(0, latest.length, ...order)
+    selects = 0
+    const [summary, empty] = await queries.getProjectSummaries(['p', 'empty'])
+    assert.equal(summary.healthStatus, 'failed')
+    assert.equal(summary.latestDeployment?.status, 'healthy')
+    assert.equal(summary.latestDeployment?.createdAt.toISOString(), newer.toISOString())
+    assert.equal(summary.serviceCount, 2)
+    assert.equal(summary.routeCount, 3)
+    assert.equal(empty.latestDeployment, null)
+    assert.equal(empty.healthStatus, null)
+  }
+})
+
+test('audit before/after-only details render changes, not an empty-state or unchanged fields', () => {
+  const { AuditLogList } = load<typeof import('../app/(dashboard)/audit/audit-log-list')>('src/app/(dashboard)/audit/audit-log-list.tsx', {})
+  const html = renderToStaticMarkup(createElement(AuditLogList, {
+    now: Date.parse('2026-10-02T12:00:00Z'),
+    entries: [{ id: 'event', action: 'service.update', resourceType: 'service', resourceId: 'web', userName: 'Alex', createdAt: '2026-10-01T12:00:00Z', details: { before: { replicas: 2, unchanged: 'same' }, after: { replicas: 5, unchanged: 'same' } } }],
+  }))
+  assert.match(html, /<del[^>]*>2<\/del>/)
+  assert.match(html, /<ins[^>]*>5<\/ins>/)
+  assert.doesNotMatch(html, /No additional details|unchanged/)
+})
+
+test('targeted rollback scopes the target and replays its spec rather than the latest previous spec', async () => {
+  const selected = { name: 'web-blue', namespace: 'production', task_groups: [{ name: 'main', tasks: [{ image: 'app:v2' }] }] }
+  const previous = { ...selected, name: 'web-green', task_groups: [{ name: 'main', tasks: [{ image: 'app:v3' }] }] }
+  let targetAvailable = true
+  let role = 'admin'
+  let reads = 0
+  let targetSql: { sql: string; params: unknown[] } | undefined
+  const applied: unknown[] = []
+  const actions = load<typeof import('./actions/services')>('src/lib/actions/services.ts', {
+    'next/navigation': navigation, 'next/cache': { revalidatePath() {} },
+    '@/lib/auth': {}, '@/lib/queries': {},
+    '@/lib/actions/shared': { requireService: async () => ({ ...access, projectRole: role }), recordAudit: async () => {} },
+    '@/lib/managed-proxy': {}, '@/lib/deployment-reconciler': {},
+    '@/lib/deployment-runtime': { recordDeploymentEvent: async () => {}, notifyDeployment: async () => {}, createDeploymentSpec: async () => ({}) },
+    '@/lib/trellis-instance': { getTrellisClient: async () => ({ planJob: async (spec: unknown) => { applied.push(spec); return {} }, applyJobPlan: async (spec: unknown) => { applied.push(spec); return { incarnation: 'i', version: 7, revision: 9 } } }) },
+    '@/db': { db: {
+      select: () => {
+        reads++
+        return Object.assign(query(reads === 1 ? [{ jobSpec: previous, previousJobSpec: previous }] : reads === 2 ? targetAvailable ? [{ jobSpec: selected }] : [] : [{ id: 'config', image: 'app:v4', deploymentStrategy: 'rolling' }], reads === 2 ? (sql) => { targetSql = new PgDialect().sqlToQuery(sql) } : undefined), { orderBy() { return this } })
+      },
+      insert: () => ({ values: () => ({ returning: async () => [{ id: 'rollback' }] }) }),
+      update: () => ({ set: () => ({ where: async () => {} }) }),
+    } },
+  })
+  await actions.rollbackServiceAction('service', 'env', 'selected-deployment')
+  assert.equal(applied.length, 2)
+  for (const spec of applied) assert.equal(JSON.stringify(spec), JSON.stringify(selected))
+  assert.deepEqual(targetSql?.params, ['selected-deployment', 'service', 'env', 'healthy'])
+  targetAvailable = false; reads = 0
+  await assert.rejects(actions.rollbackServiceAction('service', 'env', 'foreign-deployment'), /no successful stored JobSpec/)
+  assert.equal(applied.length, 2)
+  role = 'viewer'
+  await assert.rejects(actions.rollbackServiceAction('service', 'env', 'selected-deployment'), /permissions/)
+  assert.equal(applied.length, 2)
 })

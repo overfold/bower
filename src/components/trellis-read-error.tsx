@@ -20,7 +20,7 @@ export function TrellisReadError({ title, message }: { title: string; message: s
   const router = useRouter()
   const sharedError = useContext(SharedTrellisError)
   return (
-    <div role={message === sharedError ? 'status' : 'alert'} className="p-4 text-[13px] text-ink-muted">
+    <div role={message === sharedError ? 'status' : 'alert'} className="p-4 text-sm text-ink-muted">
       <p className="font-medium text-ink">{title}</p>
       {message !== sharedError ? <><p className="mt-1">{message}</p><Button variant="link" size="sm" onClick={() => router.refresh()} className="mt-2 px-0">Retry</Button></> : null}
     </div>

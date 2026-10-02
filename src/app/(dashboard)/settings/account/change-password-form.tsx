@@ -11,6 +11,7 @@ import { FieldError, InlineNotice, useFeedback } from '@/components/ui/feedback'
 export function ChangePasswordForm() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [dirty, setDirty] = useState(false)
   const [confirmationError, setConfirmationError] = useState<string | null>(null)
   const confirmationRef = useRef<HTMLInputElement>(null)
   const { toast } = useFeedback()
@@ -36,6 +37,7 @@ export function ChangePasswordForm() {
       else if (result?.success) {
         toast({ tone: 'success', title: 'Password updated.' })
         form.reset()
+        setDirty(false)
       } else setError('Password could not be updated. Please try again.')
     } catch {
       setError('Password could not be updated. Please try again.')
@@ -46,7 +48,7 @@ export function ChangePasswordForm() {
 
   return (
     <Card>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} onChange={() => setDirty(true)}>
         <CardHeader>
           <CardTitle>Change password</CardTitle>
         </CardHeader>
@@ -67,7 +69,7 @@ export function ChangePasswordForm() {
           </div>
         </CardContent>
         <CardFooter>
-          <Button variant="primary" type="submit" disabled={loading} aria-busy={loading}>
+          <Button variant="primary" type="submit" disabled={loading || !dirty} loading={loading}>
             {loading ? 'Saving…' : 'Update password'}
           </Button>
         </CardFooter>

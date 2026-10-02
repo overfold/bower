@@ -1,10 +1,12 @@
 import { cn } from '@/lib/utils'
 import { badgeVariants } from '@/components/ui/badge'
-
-export type Tone = 'brand' | 'warn' | 'danger' | 'info' | 'neutral'
+import { label } from '@/lib/labels'
+import type { Tone } from '@/lib/tone'
+export type { Tone } from '@/lib/tone'
 
 const toneChip: Record<Tone, string> = {
-  brand: badgeVariants({ variant: 'success' }),
+  brand: 'inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-brand-100 bg-brand-50 px-2 py-0.5 text-2xs font-medium text-brand-700',
+  success: badgeVariants({ variant: 'success' }),
   warn: badgeVariants({ variant: 'warning' }),
   danger: badgeVariants({ variant: 'danger' }),
   info: badgeVariants({ variant: 'info' }),
@@ -13,6 +15,7 @@ const toneChip: Record<Tone, string> = {
 
 const toneDot: Record<Tone, string> = {
   brand: 'bg-brand-500',
+  success: 'bg-ok-500',
   warn: 'bg-warn-500',
   danger: 'bg-danger-500',
   info: 'bg-info-500',
@@ -20,13 +23,14 @@ const toneDot: Record<Tone, string> = {
 }
 
 const statusTone: Record<string, Tone> = {
-  healthy: 'brand',
-  running: 'brand',
-  deploying: 'warn',
-  pending: 'neutral',
-  planning: 'neutral',
-  starting: 'warn',
-  placed: 'warn',
+  healthy: 'success',
+  running: 'success',
+  deploying: 'info',
+  rolling_back: 'info',
+  pending: 'info',
+  planning: 'info',
+  starting: 'info',
+  placed: 'info',
   stopping: 'neutral',
   stopped: 'neutral',
   completed: 'neutral',
@@ -40,10 +44,11 @@ const statusTone: Record<string, Tone> = {
   unknown: 'neutral',
   error: 'danger',
   degraded: 'warn',
+  backoff: 'warn',
   never: 'neutral',
 }
 
-const pulsingStatuses = new Set(['deploying', 'pending', 'planning', 'starting', 'placed', 'draining'])
+const pulsingStatuses = new Set(['deploying', 'rolling_back', 'pending', 'planning', 'starting', 'placed', 'draining'])
 
 export function Dot({ tone = 'neutral', pulse }: { tone?: Tone; pulse?: boolean }) {
   return (
@@ -74,14 +79,14 @@ export function StatusDot({ status, className }: { status: string; className?: s
   return (
     <Chip tone={tone} className={className}>
       <Dot tone={tone} pulse={pulse} />
-      <span className="capitalize">{status.replace(/_/g, ' ')}</span>
+      <span>{label(status)}</span>
     </Chip>
   )
 }
 
 export function Mono({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <span className={cn('font-mono text-[12.5px] text-ink-soft', className)}>{children}</span>
+    <span className={cn("font-mono text-sm text-ink-soft", className)}>{children}</span>
   )
 }
 

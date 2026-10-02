@@ -3,7 +3,7 @@
 import { useState, useTransition, useActionState } from 'react'
 import { actionErrorMessage } from '@/lib/action-error'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash2, Copy } from 'lucide-react'
+import { Plus, Trash2, Copy, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -34,18 +34,21 @@ export function CreateWebhookDialog({ projectId, services, environmentId }: Crea
   const boundAction = createWebhookAction.bind(null, projectId)
   const [state, formAction, isPending] = useActionState<WebhookCreationState, FormData>(boundAction, {})
   const [hideStaleError, setHideStaleError] = useState(false)
+  const [copied, setCopied] = useState<Set<string>>(new Set())
+  const endpointPath = `/api/webhooks/${state.token ?? ''}`
+  const endpoint = typeof window === 'undefined' ? endpointPath : `${window.location.origin}${endpointPath}`
 
   function handleClose() {
     setOpen(false)
   }
 
-  async function copyToken() {
-    if (!state.token) return
+  async function copy(value: string, key: string) {
     try {
-      await navigator.clipboard.writeText(state.token)
-      toast({ tone: 'success', title: 'Webhook token copied.' })
+      await navigator.clipboard.writeText(value)
+      setCopied((current) => new Set(current).add(key))
+      window.setTimeout(() => setCopied((current) => { const next = new Set(current); next.delete(key); return next }), 2000)
     } catch {
-      toast({ tone: 'error', title: 'Could not copy webhook token.' })
+      toast({ tone: 'error', title: 'Could not copy value.' })
     }
   }
 
@@ -57,27 +60,28 @@ export function CreateWebhookDialog({ projectId, services, environmentId }: Crea
           Add webhook
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent size="md">
         <DialogHeader>
-          <DialogTitle>Create webhook endpoint</DialogTitle>
+          <DialogTitle>{state.token ? 'Webhook created' : 'Create webhook endpoint'}</DialogTitle>
         </DialogHeader>
         {state.token ? (
           <>
             <DialogBody>
               <div className="space-y-3">
-                <p className="text-[13px] font-medium text-ink">Copy this webhook token now. It will not be shown again.</p>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 break-all rounded-lg border border-line bg-sunken px-3 py-2 font-mono text-[12.5px] text-ink">
-                    {state.token}
+                <p className="text-sm font-medium text-ink">Copy this webhook token now. It will not be shown again.</p>
+                {[['Endpoint URL', endpoint, 'url'], ['Token', state.token, 'token']].map(([label, value, key]) => <div key={key} className="space-y-1"><p className="text-xs font-medium text-ink-muted">{label}</p><div className="flex items-center gap-2">
+                  <code className="flex-1 break-all rounded-lg border border-line bg-sunken px-3 py-2 font-mono text-sm text-ink">
+                    {value}
                   </code>
-                  <Button variant="default" size="icon" onClick={copyToken} aria-label="Copy token">
-                    <Copy className="h-4 w-4" />
+                  <Button variant="default" size="sm" onClick={() => copy(value, key)}>
+                    {copied.has(key) ? <><Check />Copied</> : <><Copy />Copy</>}
                   </Button>
-                </div>
+                </div></div>)}
+                <div className="rounded-lg bg-sunken p-3 font-mono text-xs text-ink-soft">curl -X POST &apos;{endpoint}&apos; -H &apos;Authorization: Bearer {'<token>'}&apos;</div>
               </div>
             </DialogBody>
             <DialogFooter>
-              <Button variant="primary" size="sm" onClick={handleClose}>Done</Button>
+              <Button variant="primary" size="sm" onClick={handleClose} disabled={!copied.has('token')}>Done</Button>
             </DialogFooter>
           </>
         ) : (
@@ -217,7 +221,7 @@ export function CreateNotificationDialog({ projectId }: { projectId: string }) {
           Add channel
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>Add notification channel</DialogTitle>
         </DialogHeader>

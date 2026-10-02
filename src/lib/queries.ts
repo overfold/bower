@@ -166,6 +166,23 @@ export async function getServicesByProject(projectId: string) {
   return db.select().from(services).where(eq(services.projectId, projectId)).orderBy(services.name)
 }
 
+export async function getServiceSummaries(projectId: string, environmentId: string) {
+  const serviceRows = await getServicesByProject(projectId)
+  if (!serviceRows.length) return []
+  const { inArray } = await import('drizzle-orm')
+  const ids = serviceRows.map((service) => service.id)
+  const [configs, latest, routeCounts] = await Promise.all([
+    db.select().from(serviceConfigs).where(and(inArray(serviceConfigs.serviceId, ids), eq(serviceConfigs.environmentId, environmentId))),
+    getLatestDeploymentsByProject(projectId, environmentId),
+    db.select({ serviceId: routes.serviceId, count: sql<number>`count(*)::int` }).from(routes)
+      .where(and(inArray(routes.serviceId, ids), eq(routes.environmentId, environmentId))).groupBy(routes.serviceId),
+  ])
+  const configByService = new Map(configs.map((config) => [config.serviceId, config]))
+  const latestByService = new Map(latest.map((row) => [row.deployment.serviceId, row.deployment]))
+  const routesByService = new Map(routeCounts.map((row) => [row.serviceId, row.count]))
+  return serviceRows.map((service) => ({ service, config: configByService.get(service.id) ?? null, latestDeployment: latestByService.get(service.id) ?? null, routeCount: routesByService.get(service.id) ?? 0 }))
+}
+
 export async function getServicesForOrg(orgId: string) {
   return db.select({ service: services, project: projects }).from(services)
     .innerJoin(projects, eq(projects.id, services.projectId)).where(eq(projects.orgId, orgId)).orderBy(services.name)
@@ -205,11 +222,11 @@ export async function getDeploymentsByService(serviceId: string, limit = 20) {
   return db.select().from(deployments).where(eq(deployments.serviceId, serviceId)).orderBy(desc(deployments.createdAt)).limit(limit)
 }
 
-export async function getDeploymentsByProject(projectId: string, limit = 50, environmentId?: string) {
+export async function getDeploymentsByProject(projectId: string, limit: number | null = 50, environmentId?: string) {
   const svcIds = await db.select({ id: services.id }).from(services).where(eq(services.projectId, projectId))
   if (svcIds.length === 0) return []
   const { inArray } = await import('drizzle-orm')
-  return db.select({
+  const query = db.select({
     deployment: deployments, serviceName: services.name, serviceSlug: services.slug,
     environmentName: environments.name, userName: users.name,
   }).from(deployments)
@@ -220,16 +237,78 @@ export async function getDeploymentsByProject(projectId: string, limit = 50, env
       inArray(deployments.serviceId, svcIds.map((s) => s.id)),
       environmentId ? eq(deployments.environmentId, environmentId) : undefined,
     ))
-    .orderBy(desc(deployments.createdAt)).limit(limit)
+    .orderBy(desc(deployments.createdAt))
+  return limit === null ? query : query.limit(limit)
 }
 
-export async function getDeploymentsForOrg(orgId: string, limit = 50) {
+/** One newest deployment per service. This must not be derived from a truncated history list. */
+export async function getLatestDeploymentsByProject(projectId: string, environmentId?: string) {
+  return db.selectDistinctOn([deployments.serviceId], {
+    deployment: deployments,
+    serviceName: services.name,
+    serviceSlug: services.slug,
+  }).from(deployments)
+    .innerJoin(services, eq(services.id, deployments.serviceId))
+    .where(and(
+      eq(services.projectId, projectId),
+      environmentId ? eq(deployments.environmentId, environmentId) : undefined,
+    ))
+    .orderBy(deployments.serviceId, desc(deployments.createdAt))
+}
+
+export async function getLatestDeploymentsByProjectServices(projectIds: string[]) {
+  if (!projectIds.length) return []
+  const { inArray } = await import('drizzle-orm')
+  return db.selectDistinctOn([services.projectId, deployments.serviceId], {
+    projectId: services.projectId,
+    serviceId: deployments.serviceId,
+    status: deployments.status,
+    createdAt: deployments.createdAt,
+  }).from(deployments)
+    .innerJoin(services, eq(services.id, deployments.serviceId))
+    .where(inArray(services.projectId, projectIds))
+    .orderBy(services.projectId, deployments.serviceId, desc(deployments.createdAt))
+}
+
+export async function getProjectSummaries(projectIds: string[]) {
+  if (!projectIds.length) return []
+  const { inArray } = await import('drizzle-orm')
+  const [serviceRows, routeRows, latest] = await Promise.all([
+    db.select({ projectId: services.projectId, count: sql<number>`count(*)::int` })
+      .from(services).where(inArray(services.projectId, projectIds)).groupBy(services.projectId),
+    db.select({ projectId: routes.projectId, count: sql<number>`count(*)::int` })
+      .from(routes).where(inArray(routes.projectId, projectIds)).groupBy(routes.projectId),
+    getLatestDeploymentsByProjectServices(projectIds),
+  ])
+  const servicesByProject = new Map(serviceRows.map((row) => [row.projectId, row.count]))
+  const routesByProject = new Map(routeRows.map((row) => [row.projectId, row.count]))
+  const severity: Record<string, number> = { failed: 6, rolling_back: 5, rolled_back: 4, deploying: 3, planning: 2, pending: 1, healthy: 0 }
+  const healthByProject = new Map<string, typeof latest[number]['status']>()
+  const latestByProject = new Map<string, { status: typeof latest[number]['status']; createdAt: Date }>()
+  for (const row of latest) {
+    const health = healthByProject.get(row.projectId)
+    if (!health || (severity[row.status] ?? 0) > (severity[health] ?? 0)) healthByProject.set(row.projectId, row.status)
+    const current = latestByProject.get(row.projectId)
+    if (!current || row.createdAt > current.createdAt) {
+      latestByProject.set(row.projectId, { status: row.status, createdAt: row.createdAt })
+    }
+  }
+  return projectIds.map((projectId) => ({
+    projectId,
+    serviceCount: servicesByProject.get(projectId) ?? 0,
+    routeCount: routesByProject.get(projectId) ?? 0,
+    healthStatus: healthByProject.get(projectId) ?? null,
+    latestDeployment: latestByProject.get(projectId) ?? null,
+  }))
+}
+
+export async function getDeploymentsForOrg(orgId: string, limit: number | null = 50) {
   const projectIds = await db.select({ id: projects.id }).from(projects).where(eq(projects.orgId, orgId))
   if (projectIds.length === 0) return []
   const { inArray } = await import('drizzle-orm')
   const svcIds = await db.select({ id: services.id }).from(services).where(inArray(services.projectId, projectIds.map((p) => p.id)))
   if (svcIds.length === 0) return []
-  return db.select({
+  const query = db.select({
     deployment: deployments, serviceName: services.name, serviceSlug: services.slug,
     environmentName: environments.name, projectName: projects.name, projectSlug: projects.slug, userName: users.name,
   }).from(deployments)
@@ -238,7 +317,8 @@ export async function getDeploymentsForOrg(orgId: string, limit = 50) {
     .innerJoin(environments, eq(environments.id, deployments.environmentId))
     .leftJoin(users, eq(users.id, deployments.triggeredByUserId))
     .where(inArray(deployments.serviceId, svcIds.map((s) => s.id)))
-    .orderBy(desc(deployments.createdAt)).limit(limit)
+    .orderBy(desc(deployments.createdAt))
+  return limit === null ? query : query.limit(limit)
 }
 
 export async function getRoutesByProject(projectId: string) {
@@ -333,9 +413,10 @@ export async function getOrgMembers(orgId: string) {
     .where(eq(organizationMembers.orgId, orgId)).orderBy(users.name)
 }
 
-export async function getAuditLog(orgId: string, limit = 50) {
-  return db.select({ entry: auditLog, userName: users.name }).from(auditLog)
-    .leftJoin(users, eq(users.id, auditLog.userId)).where(eq(auditLog.orgId, orgId)).orderBy(desc(auditLog.createdAt)).limit(limit)
+export async function getAuditLog(orgId: string, limit: number | null = 50) {
+  const query = db.select({ entry: auditLog, userName: users.name }).from(auditLog)
+    .leftJoin(users, eq(users.id, auditLog.userId)).where(eq(auditLog.orgId, orgId)).orderBy(desc(auditLog.createdAt))
+  return limit === null ? query : query.limit(limit)
 }
 
 export async function getSecretsByProject(projectId: string) {

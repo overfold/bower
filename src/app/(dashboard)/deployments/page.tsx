@@ -12,7 +12,7 @@ export default async function DeploymentsPage() {
   if (!orgCtx) redirect('/login')
 
   const [allDeployments, projects] = await Promise.all([
-    getDeploymentsForOrg(orgCtx.org.id, 100),
+    getDeploymentsForOrg(orgCtx.org.id, null),
     getProjectsForUser(orgCtx.org.id, user.id, orgCtx.role),
   ])
   const visibleProjectSlugs = new Set(projects.map((project) => project.slug))

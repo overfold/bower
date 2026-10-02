@@ -2,36 +2,6 @@
 @import "@xterm/xterm/css/xterm.css";
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-muted: var(--sidebar-muted);
-  --color-success: var(--success);
-  --color-success-foreground: var(--success-foreground);
-  --color-warning: var(--warning);
-  --color-warning-foreground: var(--warning-foreground);
-
   --color-canvas: var(--canvas);
   --color-surface: var(--surface);
   --color-sunken: var(--sunken);
@@ -59,6 +29,10 @@
   --color-info-50: var(--info-50);
   --color-info-200: var(--info-200);
   --color-info-500: var(--info-500);
+  --color-ok-50: var(--ok-50);
+  --color-ok-200: var(--ok-200);
+  --color-ok-500: var(--ok-500);
+  --color-brand-950: #0b1915;
 
   --radius-sm: calc(var(--radius) - 2px);
   --radius-md: var(--radius);
@@ -74,6 +48,12 @@
 
   --text-2xs: 0.6875rem;
   --text-2xs--line-height: 1rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-md: 0.9375rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.625rem;
   --tracking-tightest: -0.035em;
 
   --ease-enter: cubic-bezier(0.22, 1, 0.36, 1);
@@ -86,187 +66,48 @@
 }
 
 :root {
+  color-scheme: light;
   --radius: 0.5rem;
-
-  --background: hsl(180 8% 95%);
-  --foreground: hsl(192 29% 7%);
-  --card: hsl(0 0% 100%);
-  --card-foreground: hsl(192 29% 7%);
-  --popover: hsl(0 0% 100%);
-  --popover-foreground: hsl(192 29% 7%);
-  --primary: hsl(172 77% 24%);
-  --primary-foreground: hsl(0 0% 100%);
-  --secondary: hsl(180 14% 97%);
-  --secondary-foreground: hsl(191 15% 29%);
-  --muted: hsl(180 14% 97%);
-  --muted-foreground: hsl(191 9% 40%);
-  --accent: hsl(180 14% 97%);
-  --accent-foreground: hsl(192 29% 7%);
-  --destructive: hsl(4 76% 40%);
-  --destructive-foreground: hsl(0 0% 100%);
-  --success: hsl(172 77% 24%);
-  --success-foreground: hsl(0 0% 100%);
-  --warning: hsl(26 90% 37%);
-  --warning-foreground: hsl(0 0% 100%);
-  --border: hsl(192 10% 90%);
-  --input: hsl(192 10% 90%);
-  --ring: hsl(172 33% 57%);
-  --sidebar: hsl(0 0% 100%);
-  --sidebar-foreground: hsl(191 15% 29%);
-  --sidebar-border: hsl(192 10% 90%);
-  --sidebar-accent: hsl(167 33% 95%);
-  --sidebar-accent-foreground: hsl(173 79% 15%);
-  --sidebar-muted: hsl(191 9% 42%);
-
-  --canvas: hsl(180 8% 95%);
-  --surface: hsl(0 0% 100%);
-  --sunken: hsl(180 14% 97%);
-  --line: hsl(192 10% 90%);
-  --line-strong: hsl(193 10% 83%);
-  --ink: hsl(192 29% 7%);
-  --ink-soft: hsl(191 15% 29%);
-  --ink-muted: hsl(191 9% 40%);
-  --ink-faint: hsl(191 9% 42%);
-  --brand-50: hsl(167 33% 95%);
-  --brand-100: hsl(169 33% 87%);
-  --brand-200: hsl(170 33% 74%);
-  --brand-300: hsl(172 33% 57%);
-  --brand-400: hsl(172 52% 36%);
-  --brand-500: hsl(172 77% 24%);
-  --brand-600: hsl(172 78% 20%);
-  --brand-700: hsl(173 79% 15%);
-  --brand-900: hsl(174 79% 9%);
-  --warn-50: hsl(34 92% 95%);
-  --warn-200: hsl(35 80% 82%);
-  --warn-500: hsl(26 90% 37%);
-  --danger-50: hsl(6 83% 95%);
-  --danger-200: hsl(7 73% 85%);
-  --danger-500: hsl(4 76% 40%);
-  --info-50: hsl(253 70% 96%);
-  --info-200: hsl(254 70% 88%);
-  --info-500: hsl(258 54% 52%);
+  --canvas: light-dark(hsl(180 8% 95%), hsl(186 20% 7%));
+  --surface: light-dark(hsl(0 0% 100%), hsl(186 18% 10%));
+  --sunken: light-dark(hsl(180 14% 97%), hsl(186 16% 8%));
+  --line: light-dark(hsl(192 10% 90%), hsl(186 16% 18%));
+  --line-strong: light-dark(hsl(193 10% 83%), hsl(186 14% 24%));
+  --ink: light-dark(hsl(192 29% 7%), hsl(185 15% 90%));
+  --ink-soft: light-dark(hsl(191 15% 29%), hsl(185 12% 72%));
+  --ink-muted: light-dark(hsl(191 9% 40%), hsl(191 10% 55%));
+  --ink-faint: light-dark(hsl(191 9% 42%), hsl(191 8% 55%));
+  --ok-50: light-dark(hsl(145 45% 95%), hsl(145 30% 13%));
+  --ok-200: light-dark(hsl(145 35% 80%), hsl(145 30% 30%));
+  --ok-500: light-dark(hsl(145 65% 25%), hsl(145 50% 65%));
+  --brand-50: light-dark(hsl(167 33% 95%), hsl(172 30% 14%));
+  --brand-100: light-dark(hsl(169 33% 87%), hsl(172 28% 18%));
+  --brand-200: light-dark(hsl(170 33% 74%), hsl(172 30% 28%));
+  --brand-300: light-dark(hsl(172 33% 57%), hsl(172 33% 42%));
+  --brand-400: light-dark(hsl(172 52% 36%), hsl(172 52% 36%));
+  --brand-500: light-dark(hsl(172 77% 24%), hsl(172 45% 55%));
+  --brand-600: light-dark(hsl(172 78% 20%), hsl(172 45% 60%));
+  --brand-700: light-dark(hsl(173 79% 15%), hsl(172 45% 55%));
+  --brand-900: light-dark(hsl(174 79% 9%), hsl(172 30% 75%));
+  --warn-50: light-dark(hsl(34 92% 95%), hsl(30 30% 14%));
+  --warn-200: light-dark(hsl(35 80% 82%), hsl(32 40% 40%));
+  --warn-500: light-dark(hsl(26 90% 37%), hsl(30 85% 50%));
+  --danger-50: light-dark(hsl(6 83% 95%), hsl(4 30% 14%));
+  --danger-200: light-dark(hsl(7 73% 85%), hsl(5 40% 40%));
+  --danger-500: light-dark(hsl(4 76% 40%), hsl(4 75% 68%));
+  --info-50: light-dark(hsl(253 70% 96%), hsl(254 25% 16%));
+  --info-200: light-dark(hsl(254 70% 88%), hsl(254 30% 40%));
+  --info-500: light-dark(hsl(258 54% 52%), hsl(258 50% 60%));
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --background: hsl(186 20% 7%);
-    --foreground: hsl(185 15% 90%);
-    --card: hsl(186 18% 10%);
-    --card-foreground: hsl(185 15% 90%);
-    --popover: hsl(186 18% 10%);
-    --popover-foreground: hsl(185 15% 90%);
-    --primary: hsl(172 60% 30%);
-    --primary-foreground: hsl(0 0% 100%);
-    --secondary: hsl(186 16% 15%);
-    --secondary-foreground: hsl(185 15% 80%);
-    --muted: hsl(186 16% 15%);
-    --muted-foreground: hsl(191 10% 55%);
-    --accent: hsl(186 16% 15%);
-    --accent-foreground: hsl(185 15% 90%);
-    --destructive: hsl(4 63% 50%);
-    --destructive-foreground: hsl(0 0% 100%);
-    --success: hsl(172 55% 40%);
-    --success-foreground: hsl(0 0% 100%);
-    --warning: hsl(30 85% 50%);
-    --warning-foreground: hsl(0 0% 100%);
-    --border: hsl(186 16% 18%);
-    --input: hsl(186 16% 18%);
-    --ring: hsl(172 40% 50%);
-    --sidebar: hsl(186 22% 6%);
-    --sidebar-foreground: hsl(185 15% 75%);
-    --sidebar-border: hsl(186 18% 14%);
-    --sidebar-accent: hsl(186 18% 14%);
-    --sidebar-accent-foreground: hsl(0 0% 100%);
-    --sidebar-muted: hsl(191 10% 55%);
-
-    --canvas: hsl(186 20% 7%);
-    --surface: hsl(186 18% 10%);
-    --sunken: hsl(186 16% 8%);
-    --line: hsl(186 16% 18%);
-    --line-strong: hsl(186 14% 24%);
-    --ink: hsl(185 15% 90%);
-    --ink-soft: hsl(185 12% 72%);
-    --ink-muted: hsl(191 10% 55%);
-    --ink-faint: hsl(191 8% 55%);
-    --brand-50: hsl(172 30% 14%);
-    --brand-100: hsl(172 28% 18%);
-    --brand-200: hsl(172 30% 28%);
-    --brand-300: hsl(172 33% 42%);
-    --brand-400: hsl(172 52% 36%);
-    --brand-500: hsl(172 45% 55%);
-    --brand-600: hsl(172 45% 60%);
-    --brand-700: hsl(172 45% 55%);
-    --brand-900: hsl(172 30% 75%);
-    --warn-50: hsl(30 30% 14%);
-    --warn-200: hsl(32 40% 40%);
-    --warn-500: hsl(30 85% 50%);
-    --danger-50: hsl(4 30% 14%);
-    --danger-200: hsl(5 40% 40%);
-    --danger-500: hsl(4 75% 68%);
-    --info-50: hsl(254 25% 16%);
-    --info-200: hsl(254 30% 40%);
-    --info-500: hsl(258 50% 60%);
+    color-scheme: dark;
   }
 }
 
 :root[data-theme="dark"] {
-  --background: hsl(186 20% 7%);
-  --foreground: hsl(185 15% 90%);
-  --card: hsl(186 18% 10%);
-  --card-foreground: hsl(185 15% 90%);
-  --popover: hsl(186 18% 10%);
-  --popover-foreground: hsl(185 15% 90%);
-  --primary: hsl(172 60% 30%);
-  --primary-foreground: hsl(0 0% 100%);
-  --secondary: hsl(186 16% 15%);
-  --secondary-foreground: hsl(185 15% 80%);
-  --muted: hsl(186 16% 15%);
-  --muted-foreground: hsl(191 10% 55%);
-  --accent: hsl(186 16% 15%);
-  --accent-foreground: hsl(185 15% 90%);
-  --destructive: hsl(4 63% 50%);
-  --destructive-foreground: hsl(0 0% 100%);
-  --success: hsl(172 55% 40%);
-  --success-foreground: hsl(0 0% 100%);
-  --warning: hsl(30 85% 50%);
-  --warning-foreground: hsl(0 0% 100%);
-  --border: hsl(186 16% 18%);
-  --input: hsl(186 16% 18%);
-  --ring: hsl(172 40% 50%);
-  --sidebar: hsl(186 22% 6%);
-  --sidebar-foreground: hsl(185 15% 75%);
-  --sidebar-border: hsl(186 18% 14%);
-  --sidebar-accent: hsl(186 18% 14%);
-  --sidebar-accent-foreground: hsl(0 0% 100%);
-  --sidebar-muted: hsl(191 10% 55%);
-
-  --canvas: hsl(186 20% 7%);
-  --surface: hsl(186 18% 10%);
-  --sunken: hsl(186 16% 8%);
-  --line: hsl(186 16% 18%);
-  --line-strong: hsl(186 14% 24%);
-  --ink: hsl(185 15% 90%);
-  --ink-soft: hsl(185 12% 72%);
-  --ink-muted: hsl(191 10% 55%);
-  --ink-faint: hsl(191 8% 55%);
-  --brand-50: hsl(172 30% 14%);
-  --brand-100: hsl(172 28% 18%);
-  --brand-200: hsl(172 30% 28%);
-  --brand-300: hsl(172 33% 42%);
-  --brand-400: hsl(172 52% 36%);
-  --brand-500: hsl(172 45% 55%);
-  --brand-600: hsl(172 45% 60%);
-  --brand-700: hsl(172 45% 55%);
-  --brand-900: hsl(172 30% 75%);
-  --warn-50: hsl(30 30% 14%);
-  --warn-200: hsl(32 40% 40%);
-  --warn-500: hsl(30 85% 50%);
-  --danger-50: hsl(4 30% 14%);
-  --danger-200: hsl(5 40% 40%);
-  --danger-500: hsl(4 75% 68%);
-  --info-50: hsl(254 25% 16%);
-  --info-200: hsl(254 30% 40%);
-  --info-500: hsl(258 50% 60%);
+  color-scheme: dark;
 }
 
 @keyframes accordion-down {
@@ -342,9 +183,15 @@
 }
 
 @layer base {
-  * { border-color: var(--border); }
+  * { border-color: var(--line); }
   body {
-    background-color: var(--background);
-    color: var(--foreground);
+    background-color: var(--canvas);
+    color: var(--ink);
   }
+}
+
+@layer components {
+  .text-link { color: var(--brand-700); }
+  .text-link:hover { text-decoration: underline; text-underline-offset: 4px; }
+  .text-link:focus-visible { outline: 2px solid var(--brand-300); outline-offset: 2px; border-radius: 2px; }
 }

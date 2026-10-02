@@ -12,9 +12,11 @@ interface MobileDrawerProps {
     email: string
     avatarUrl: string | null
   }
+  projects: { id: string; name: string; slug: string }[]
+  currentOrg: { id: string; name: string; slug: string; role: string }
 }
 
-function DrawerInner({ user }: MobileDrawerProps) {
+function DrawerInner({ user, projects, currentOrg }: MobileDrawerProps) {
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
@@ -40,14 +42,19 @@ function DrawerInner({ user }: MobileDrawerProps) {
           <DialogPrimitive.Close aria-label="Close navigation" className="absolute right-2 top-3 z-10 inline-flex h-10 w-10 items-center justify-center rounded-lg text-ink-muted hover:bg-sunken focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300">
             <X className="h-5 w-5" />
           </DialogPrimitive.Close>
-          <SidebarContent user={user} onNavigate={() => setOpen(false)} />
+          <SidebarContent
+            user={user}
+            projects={projects}
+            currentOrg={currentOrg}
+            onNavigate={() => setOpen(false)}
+          />
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
   )
 }
 
-export function MobileDrawer({ user }: MobileDrawerProps) {
+export function MobileDrawer(props: MobileDrawerProps) {
   const pathname = usePathname()
-  return <DrawerInner key={pathname} user={user} />
+  return <DrawerInner key={pathname} {...props} />
 }

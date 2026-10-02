@@ -24,14 +24,17 @@ interface Props {
     description: string | null
     createdAt: string
   }
+  counts: { services: number; routes: number; volumes: number }
 }
 
-export function ProjectSettingsForm({ project }: Props) {
+export function ProjectSettingsForm({ project, counts }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [dirty, setDirty] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [confirmation, setConfirmation] = useState('')
   const router = useRouter()
   const { toast } = useFeedback()
 
@@ -45,6 +48,7 @@ export function ProjectSettingsForm({ project }: Props) {
       if (result?.error) setError(result.error)
       else if (result?.success) {
         toast({ tone: 'success', title: 'Project settings saved.' })
+        setDirty(false)
         router.refresh()
       } else setError('Project settings could not be saved. Please try again.')
     } catch (err) {
@@ -71,11 +75,11 @@ export function ProjectSettingsForm({ project }: Props) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-3xl space-y-6">
       <Card>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} onChange={() => setDirty(true)}>
           <CardHeader>
-            <CardTitle className="text-base">Project details</CardTitle>
+            <CardTitle>Project details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
@@ -92,7 +96,7 @@ export function ProjectSettingsForm({ project }: Props) {
             </div>
           </CardContent>
           <CardFooter>
-            <Button variant="primary" type="submit" disabled={loading} aria-busy={loading}>
+            <Button variant="primary" type="submit" disabled={loading || !dirty} loading={loading}>
               {loading ? 'Saving…' : 'Save changes'}
             </Button>
           </CardFooter>
@@ -103,7 +107,7 @@ export function ProjectSettingsForm({ project }: Props) {
 
       <Card className="border-danger-200">
         <CardHeader>
-          <CardTitle className="text-base text-danger-500">Danger zone</CardTitle>
+          <CardTitle className="text-danger-500">Danger zone</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="mb-4 text-sm text-ink-muted">
@@ -112,12 +116,13 @@ export function ProjectSettingsForm({ project }: Props) {
           <AlertDialog open={deleteOpen} onOpenChange={(nextOpen) => {
             if (!deleting) {
               setDeleteOpen(nextOpen)
+              setConfirmation('')
               if (nextOpen) setDeleteError(null)
             }
           }}>
             <AlertDialogTrigger asChild>
               <Button variant="danger" size="sm" disabled={deleting}>
-                <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                <Trash2 />
                 Delete project
               </Button>
             </AlertDialogTrigger>
@@ -128,10 +133,17 @@ export function ProjectSettingsForm({ project }: Props) {
                   This action cannot be undone. All services, environments, and deployment history will be permanently deleted.
                 </AlertDialogDescription>
               </AlertDialogHeader>
+              <div className="space-y-3 px-5">
+                <ul className="list-disc space-y-1 pl-5 text-sm text-ink-muted">
+                  <li>{counts.services} {counts.services === 1 ? 'service' : 'services'} and their configuration</li><li>{counts.routes} {counts.routes === 1 ? 'route' : 'routes'} and {counts.volumes} {counts.volumes === 1 ? 'volume' : 'volumes'}, plus secrets</li><li>Deployment history</li>
+                </ul>
+                <Label htmlFor="confirm-project-name">Type <span className="font-semibold text-ink">{project.name}</span> to confirm</Label>
+                <Input id="confirm-project-name" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} autoComplete="off" />
+              </div>
               {deleteError ? <InlineNotice tone="error">{deleteError}</InlineNotice> : null}
               <AlertDialogFooter>
                 <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} disabled={deleting} aria-busy={deleting}>
+                <AlertDialogAction onClick={handleDelete} disabled={deleting || confirmation !== project.name} aria-busy={deleting}>
                   {deleting ? 'Deleting…' : 'Delete project'}
                 </AlertDialogAction>
               </AlertDialogFooter>

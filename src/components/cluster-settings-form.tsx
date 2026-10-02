@@ -20,6 +20,7 @@ export function ClusterSettingsForm({ org }: ClusterSettingsFormProps) {
   const router = useRouter()
   const { toast } = useFeedback()
   const [loading, setLoading] = useState(false)
+  const [dirty, setDirty] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -32,6 +33,7 @@ export function ClusterSettingsForm({ org }: ClusterSettingsFormProps) {
       if (result?.error) setError(result.error)
       else if (result?.success) {
         toast({ tone: 'success', title: 'Trellis settings saved.' })
+        setDirty(false)
         router.refresh()
       } else setError('Trellis settings could not be saved. Please try again.')
     } catch {
@@ -42,8 +44,8 @@ export function ClusterSettingsForm({ org }: ClusterSettingsFormProps) {
   }
 
   return (
-    <Card>
-      <form onSubmit={handleSubmit}>
+    <Card className="max-w-3xl">
+      <form onSubmit={handleSubmit} onInput={() => setDirty(true)}>
         <CardHeader>
           <CardTitle>Trellis connection</CardTitle>
         </CardHeader>
@@ -59,7 +61,7 @@ export function ClusterSettingsForm({ org }: ClusterSettingsFormProps) {
           </div>
         </CardContent>
         <CardFooter>
-          <Button variant="primary" type="submit" disabled={loading} aria-busy={loading}>
+          <Button variant="primary" type="submit" disabled={loading || !dirty} aria-busy={loading}>
             {loading ? 'Saving…' : 'Save changes'}
           </Button>
         </CardFooter>

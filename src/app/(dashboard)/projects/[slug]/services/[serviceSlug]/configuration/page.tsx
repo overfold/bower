@@ -30,7 +30,7 @@ export default async function ServiceConfigurationPage({
       <ServiceHeader slug={slug} serviceSlug={serviceSlug} serviceName={service.name} serviceId={service.id} environmentId={environment.id} hasConfig={Boolean(mergedConfig)} />
       <div>
         <SectionTitle>Configuration</SectionTitle>
-        <p className="mt-1 max-w-3xl text-[13px] text-ink-muted">Configure the image, deployment behavior, resources, and health checks for this service.</p>
+        <p className="mt-1 max-w-3xl text-sm text-ink-muted">Configure the image, deployment behavior, resources, and health checks for this service.</p>
       </div>
       <ConfigurationForm
         serviceId={service.id}

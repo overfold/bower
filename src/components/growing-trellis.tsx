@@ -355,7 +355,8 @@ export function GrowingTrellis({ className }: { className?: string }) {
     }
   }, [off])
 
-  const progress = off ? 1 : growthProgress(growthMs)
+  // Begin with a visible trellis rather than an almost-empty brand panel.
+  const progress = off ? 1 : 0.25 + 0.75 * growthProgress(growthMs)
 
   const grow = (delay: number, dur: number) =>
     off ? { duration: 0 } : { duration: dur, delay, ease: EASE }

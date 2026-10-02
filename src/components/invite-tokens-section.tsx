@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { actionErrorMessage } from '@/lib/action-error'
 import { Copy, Plus, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -26,6 +27,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { addOrganizationMemberAction } from '@/lib/actions/operations'
 import { createInvitationAction, revokeInvitationAction } from '@/lib/actions/settings'
 import { formatDate } from '@/lib/format'
 
@@ -57,19 +59,34 @@ export function InviteTokensSection({
   showInstanceAdmin,
   teams,
 }: InviteTokensSectionProps) {
+  const pathname = usePathname()
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [open, setOpen] = useState(false)
+  const [mode, setMode] = useState<'email' | 'link' | null>(null)
+  const [email, setEmail] = useState('')
   const [roleValue, setRoleValue] = useState<'owner' | 'admin' | 'member'>('member')
   const [uses, setUses] = useState('single')
   const [maxUses, setMaxUses] = useState('2')
   const [admin, setAdmin] = useState(false)
   const [note, setNote] = useState('')
-  const [expiresAt, setExpiresAt] = useState('')
+  const [expiry, setExpiry] = useState('7d')
+  const [customExpiry, setCustomExpiry] = useState('')
   const [teamIds, setTeamIds] = useState<string[]>([])
   const [link, setLink] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+  const [copied, setCopied] = useState(false)
   const { toast } = useFeedback()
   const canInvite = role !== 'member' || showInstanceAdmin
+
+  useEffect(() => {
+    if (searchParams.get('action') !== 'invite') return
+    if (canInvite) queueMicrotask(() => setOpen(true))
+    const next = new URLSearchParams(searchParams.toString())
+    next.delete('action')
+    router.replace(next.size ? `${pathname}?${next}` : pathname, { scroll: false })
+  }, [canInvite, pathname, router, searchParams])
 
   async function create() {
     setPending(true)
@@ -81,7 +98,9 @@ export function InviteTokensSection({
         maxUses: uses === 'unlimited' ? null : uses === 'limited' ? Number(maxUses) : 1,
         teamIds,
         note,
-        expiresAt,
+        expiresAt: expiry === 'never' ? '' : expiry === 'custom'
+          ? customExpiry
+          : new Date(Date.now() + Number(expiry.slice(0, -1)) * 24 * 60 * 60 * 1000).toISOString(),
       })
       if (result.error) setError(result.error)
       else setLink(result.inviteUrl ?? null)
@@ -92,9 +111,32 @@ export function InviteTokensSection({
     }
   }
 
+  async function addByEmail(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setPending(true)
+    setError(null)
+    const formData = new FormData()
+    formData.set('email', email)
+    formData.set('role', roleValue)
+    formData.set('grantInstanceAdmin', String(admin))
+    try {
+      await addOrganizationMemberAction(formData)
+      toast({ title: 'Member added.', tone: 'success' })
+      setOpen(false)
+      setEmail('')
+      setMode(null)
+    } catch (cause) {
+      setError(actionErrorMessage(cause, 'Could not add this person. They may need an invitation link.'))
+    } finally {
+      setPending(false)
+    }
+  }
+
   async function copy() {
     if (!link) return
     await navigator.clipboard.writeText(new URL(link, window.location.origin).toString())
+    setCopied(true)
+    window.setTimeout(() => setCopied(false), 2000)
     toast({ title: 'Invitation link copied', tone: 'success' })
   }
 
@@ -122,39 +164,53 @@ export function InviteTokensSection({
             if (pending) return
             setOpen(next)
             if (next) setError(null)
-            else setLink(null)
+            else { setLink(null); setMode(null); setCopied(false) }
           }}>
             <DialogTrigger asChild>
               <Button variant="primary" size="sm">
                 <Plus />
-                Invite member
+                Invite people
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Create invitation</DialogTitle>
+                <DialogTitle>{link ? 'Invitation created' : 'Invite people'}</DialogTitle>
                 <DialogDescription>
-                  Choose the access granted when someone uses this invitation.
+                  {link ? 'Copy and share this link now.' : 'Add an existing user by email or create a link for someone new.'}
                 </DialogDescription>
               </DialogHeader>
 
               {link ? (
                 <>
                   <DialogBody className="space-y-3">
-                    <p className="text-[13px] text-ink-muted">
+                    <p className="text-sm text-ink-muted">
                       Share this invitation link. The secret is kept inside the link.
                     </p>
                     <div className="flex gap-2">
                       <Input aria-label="Invitation link" readOnly value={invitationUrl} />
-                      <Button size="icon" onClick={copy} aria-label="Copy invitation link">
-                        <Copy />
+                      <Button onClick={copy} aria-label="Copy invitation link">
+                        <Copy /> {copied ? 'Copied' : 'Copy'}
                       </Button>
                     </div>
                   </DialogBody>
                   <DialogFooter>
-                    <Button onClick={() => { setOpen(false); setLink(null) }}>Done</Button>
+                    <Button variant="primary" disabled={!copied} onClick={() => { setOpen(false); setLink(null); setMode(null) }}>I’ve saved this</Button>
                   </DialogFooter>
                 </>
+              ) : mode === 'email' ? (
+                <form onSubmit={addByEmail}>
+                  <DialogBody className="space-y-4">
+                    <div className="space-y-2"><Label htmlFor="invite-email">Email</Label><Input id="invite-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required autoFocus /></div>
+                    <RoleFields role={role} showInstanceAdmin={showInstanceAdmin} roleValue={roleValue} setRoleValue={setRoleValue} admin={admin} setAdmin={setAdmin} />
+                    {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
+                  </DialogBody>
+                  <DialogFooter><Button type="button" onClick={() => setMode(null)}>Back</Button><Button variant="primary" type="submit" disabled={pending} aria-busy={pending}>{pending ? 'Adding…' : 'Add person'}</Button></DialogFooter>
+                </form>
+              ) : mode === null ? (
+                <DialogBody className="grid gap-3 sm:grid-cols-2">
+                  <button type="button" onClick={() => setMode('email')} className="rounded-lg border border-line p-4 text-left hover:bg-sunken"><span className="font-medium text-ink">By email</span><span className="mt-1 block text-xs text-ink-muted">Add an existing Bower user.</span></button>
+                  <button type="button" onClick={() => setMode('link')} className="rounded-lg border border-line p-4 text-left hover:bg-sunken"><span className="font-medium text-ink">Share a link</span><span className="mt-1 block text-xs text-ink-muted">Choose roles, teams, expiry, and uses.</span></button>
+                </DialogBody>
               ) : (
                 <>
                   <DialogBody className="space-y-5">
@@ -167,8 +223,8 @@ export function InviteTokensSection({
                         }}>
                           <SelectTrigger id="invitation-instance-role"><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="member">Member</SelectItem>
-                            <SelectItem value="admin">Administrator</SelectItem>
+                            <SelectItem value="member">User</SelectItem>
+                            <SelectItem value="admin">Instance admin</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -193,7 +249,7 @@ export function InviteTokensSection({
 
                     {teams.length ? (
                       <fieldset className="space-y-2.5">
-                        <legend className="text-[13px] font-medium text-ink">
+                        <legend className="text-sm font-medium text-ink">
                           Teams <span className="font-normal text-ink-muted">(optional)</span>
                         </legend>
                         <div className="grid gap-2 sm:grid-cols-2">
@@ -244,8 +300,9 @@ export function InviteTokensSection({
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="invitation-expires">Expires <span className="font-normal text-ink-muted">(optional)</span></Label>
-                      <Input id="invitation-expires" type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} />
+                      <Label htmlFor="invitation-expires">Expires</Label>
+                      <Select value={expiry} onValueChange={setExpiry}><SelectTrigger id="invitation-expires"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="1d">24 hours</SelectItem><SelectItem value="7d">7 days</SelectItem><SelectItem value="30d">30 days</SelectItem><SelectItem value="never">Never</SelectItem><SelectItem value="custom">Custom</SelectItem></SelectContent></Select>
+                      {expiry === 'custom' ? <Input aria-label="Custom expiry" type="datetime-local" value={customExpiry} onChange={(event) => setCustomExpiry(event.target.value)} required /> : null}
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="invitation-note">Note <span className="font-normal text-ink-muted">(optional)</span></Label>
@@ -282,7 +339,7 @@ export function InviteTokensSection({
           <TableBody>
             {invitations.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={canInvite ? 6 : 5} className="py-8 text-center text-[13px] text-ink-muted">
+                <TableCell colSpan={canInvite ? 6 : 5} className="py-8 text-center text-sm text-ink-muted">
                   No invitations yet.
                 </TableCell>
               </TableRow>
@@ -316,6 +373,20 @@ export function InviteTokensSection({
       </CardContent>
     </Card>
   )
+}
+
+function RoleFields({ role, showInstanceAdmin, roleValue, setRoleValue, admin, setAdmin }: {
+  role: string
+  showInstanceAdmin: boolean
+  roleValue: 'owner' | 'admin' | 'member'
+  setRoleValue: (value: 'owner' | 'admin' | 'member') => void
+  admin: boolean
+  setAdmin: (value: boolean) => void
+}) {
+  return <>
+    {showInstanceAdmin ? <div className="space-y-2"><Label htmlFor="email-instance-role">Instance role</Label><Select value={admin ? 'admin' : 'user'} onValueChange={(value) => setAdmin(value === 'admin')}><SelectTrigger id="email-instance-role"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="user">User</SelectItem><SelectItem value="admin">Instance admin</SelectItem></SelectContent></Select></div> : null}
+    <div className="space-y-2"><Label htmlFor="email-org-role">Organization role</Label><Select value={roleValue} onValueChange={(value) => setRoleValue(value as typeof roleValue)}><SelectTrigger id="email-org-role"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="member">Member</SelectItem><SelectItem value="admin">Admin</SelectItem>{role === 'owner' || showInstanceAdmin ? <SelectItem value="owner">Owner</SelectItem> : null}</SelectContent></Select></div>
+  </>
 }
 
 function RevokeInvitationButton({ invitation }: { invitation: Invitation }) {

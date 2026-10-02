@@ -1,6 +1,5 @@
 import { redirect, notFound } from 'next/navigation'
-import Link from 'next/link'
-import { ArrowLeft, Clock3 } from 'lucide-react'
+import { Clock3 } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth'
 import { getUserOrganization, getProjectBySlug, getProjectEnvironment, getServiceBySlug, getServiceConfigsWithEnvironments } from '@/lib/queries'
 import { getTrellisClient } from '@/lib/trellis-instance'
@@ -15,6 +14,8 @@ import { Chip, StatusDot } from '@/components/status'
 import { ExecDialog } from '@/components/exec-dialog'
 import { AllocationMetrics } from './allocation-metrics'
 import { AllocationStopButton } from './allocation-stop-button'
+import { AllocationLogs } from './allocation-logs'
+import { ResourceId } from '@/components/resource-id'
 import type { TrellisAllocation } from '@/types/trellis'
 import { formatTimestamp } from '@/lib/format'
 
@@ -75,18 +76,15 @@ export default async function AllocationDetailPage({
   return (
     <div className="space-y-6">
       <div className="flex items-start gap-3">
-        <Link href={`/projects/${slug}/services/${serviceSlug}`} className="mt-2 text-ink-muted transition-colors hover:text-ink" aria-label="Back to service">
-          <ArrowLeft className="h-4 w-4" />
-        </Link>
         <div className="min-w-0 flex-1">
           <PageHeading
-            title={allocationId.slice(0, 8)}
+            title={<ResourceId value={allocationId} copy />}
             meta={
               <>
                 <MetaItem label="Service" value={service.name} />
                 <MetaItem label="Phase" value={<StatusDot status={allocation.phase} />} />
                 <MetaItem label="Health" value={<StatusDot status={allocation.health} />} />
-                <MetaItem label="Namespace" value={<span className="font-mono text-[11.5px]">{allocation.namespace}</span>} />
+                <MetaItem label="Namespace" value={<span className="font-mono text-2xs">{allocation.namespace}</span>} />
               </>
             }
             actions={
@@ -118,7 +116,7 @@ export default async function AllocationDetailPage({
             <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-4">
               {allocation.draining && <Badge variant="warning">Draining</Badge>}
               {allocation.reason && <Chip tone={allocation.phase === 'failed' || allocation.phase === 'lost' ? 'danger' : 'neutral'}>{allocation.reason}</Chip>}
-              {allocation.message && <p className="text-[12.5px] text-ink-muted">{allocation.message}</p>}
+              {allocation.message && <p className="text-sm text-ink-muted">{allocation.message}</p>}
             </div>
           )}
         </div>
@@ -128,19 +126,19 @@ export default async function AllocationDetailPage({
         <SectionTitle>Lifecycle history</SectionTitle>
         <Panel>
           {events.status === 'rejected' ? <TrellisReadError title="Lifecycle events unavailable" message={trellisReadError(events.reason)} /> : history.length === 0 ? (
-            <div className="p-5 text-[13px] text-ink-muted">No lifecycle events have been recorded.</div>
+            <div className="p-5 text-sm text-ink-muted">No lifecycle events have been recorded.</div>
           ) : (
             <ol className="px-4 py-2">
               {history.map((event, index) => (
                 <li key={`${event.at}-${event.phase}-${index}`} className="relative flex gap-4 py-3.5">
                   {index < history.length - 1 && <span className="absolute left-[7px] top-7 h-[calc(100%-0.5rem)] w-px bg-line" aria-hidden="true" />}
-                  <span className="relative mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full border-[3px] border-surface bg-brand-500 ring-1 ring-line-strong" aria-hidden="true" />
+                  <span className={`relative mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full border-[3px] border-surface ring-1 ring-line-strong ${['failed', 'lost'].includes(event.phase) ? 'bg-danger-500' : ['draining', 'backoff'].includes(event.phase) ? 'bg-warn-500' : event.phase === 'running' ? 'bg-ok-500' : 'bg-info-500'}`} aria-hidden="true" />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <StatusDot status={event.phase} />
                       {event.reason && <Chip tone="neutral">{event.reason}</Chip>}
                     </div>
-                    <p className="mt-1.5 text-[13px] leading-relaxed text-ink-soft">{event.message || 'Lifecycle transition'}</p>
+                    <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">{event.message || 'Lifecycle transition'}</p>
                   </div>
                   <div className="flex shrink-0 items-center gap-1.5 text-2xs text-ink-muted">
                     <Clock3 className="h-3 w-3" />
@@ -153,14 +151,9 @@ export default async function AllocationDetailPage({
         </Panel>
       </div>
 
-      <div className="space-y-4">
+      <div id="logs" className="scroll-mt-20 space-y-4">
         <SectionTitle>Logs</SectionTitle>
-        {logs.length ? logs.map((result, index) => (
-          <Panel key={terminalTasks[index]}>
-            <PanelHeader title={terminalTasks[index]} />
-            {result.status === 'rejected' ? <TrellisReadError title="Logs unavailable" message={trellisReadError(result.reason)} /> : <pre className="max-h-96 overflow-auto p-4 font-mono text-xs leading-relaxed text-ink-soft">{result.value || 'No output'}</pre>}
-          </Panel>
-        )) : <Panel>{job.status === 'rejected' && versions.status === 'rejected' ? <TrellisReadError title="Task metadata unavailable" message={trellisReadError(job.reason)} /> : <div className="p-4 text-[13px] text-ink-muted">Task metadata is unavailable for this revision.</div>}</Panel>}
+        {logs.length ? <AllocationLogs serviceId={service.id} allocationId={allocationId} tasks={logs.map((result, index) => ({ name: terminalTasks[index], output: result.status === 'fulfilled' ? result.value : '', error: result.status === 'rejected' ? trellisReadError(result.reason) : null }))} /> : <Panel>{job.status === 'rejected' && versions.status === 'rejected' ? <TrellisReadError title="Task metadata unavailable" message={trellisReadError(job.reason)} /> : <div className="p-4 text-sm text-ink-muted">Task metadata is unavailable for this revision.</div>}</Panel>}
       </div>
     </div>
   )

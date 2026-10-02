@@ -138,14 +138,20 @@ export async function deployServiceFromAutomation(serviceId: string, environment
   return executeDeployment(serviceId, environmentId, trigger, userId)
 }
 
-export async function rollbackServiceAction(serviceId: string, environmentId: string) {
+export async function rollbackServiceAction(serviceId: string, environmentId: string, targetDeploymentId?: string) {
   const access = await requireService(serviceId); if (access.projectRole === 'viewer') throw new Error('Insufficient permissions.')
   const [last] = await db.select().from(deployments).where(and(eq(deployments.serviceId, serviceId), eq(deployments.environmentId, environmentId))).orderBy(desc(deployments.createdAt)).limit(1)
-  if (!last?.previousJobSpec) throw new Error('No stored previous JobSpec is available.')
-  const spec = last.previousJobSpec as TrellisJobSpec; const [config] = await db.select().from(serviceConfigs).where(and(eq(serviceConfigs.serviceId, serviceId), eq(serviceConfigs.environmentId, environmentId))).limit(1)
+  let storedSpec = last?.previousJobSpec
+  if (targetDeploymentId) {
+    const [target] = await db.select().from(deployments).where(and(eq(deployments.id, targetDeploymentId), eq(deployments.serviceId, serviceId), eq(deployments.environmentId, environmentId), eq(deployments.status, 'healthy'))).limit(1)
+    if (!target?.jobSpec) throw new Error('This deployment has no successful stored JobSpec available for rollback.')
+    storedSpec = target.jobSpec
+  }
+  if (!storedSpec) throw new Error('No stored previous JobSpec is available.')
+  const spec = storedSpec as TrellisJobSpec; const [config] = await db.select().from(serviceConfigs).where(and(eq(serviceConfigs.serviceId, serviceId), eq(serviceConfigs.environmentId, environmentId))).limit(1)
   if (!config) throw new Error('Configuration not found.')
   const image = spec.task_groups[0]?.tasks[0]?.image
-  const [deployment] = await db.insert(deployments).values({ serviceId, environmentId, imageBefore: config.image, imageAfter: image || config.image, strategy: config.deploymentStrategy, status: 'planning', triggeredByUserId: access.user.id, triggerType: 'rollback', jobSpec: spec, previousJobSpec: last.jobSpec, trellisJobName: spec.name }).returning()
+  const [deployment] = await db.insert(deployments).values({ serviceId, environmentId, imageBefore: config.image, imageAfter: image || config.image, strategy: config.deploymentStrategy, status: 'planning', triggeredByUserId: access.user.id, triggerType: 'rollback', jobSpec: spec, previousJobSpec: last?.jobSpec ?? null, trellisJobName: spec.name }).returning()
   await recordDeploymentEvent(deployment.id, 'planning', 'Planning the exact stored JobSpec for manual rollback.')
   try {
     const client = await getTrellisClient(access.org.id)
@@ -165,7 +171,7 @@ export async function rollbackServiceAction(serviceId: string, environmentId: st
     throw reported
   }
   await notifyDeployment(await createDeploymentSpec(serviceId, environmentId), 'deploying', access.user.id)
-  await recordAudit({ orgId: access.org.id, userId: access.user.id, action: 'service.rollback.requested', resourceType: 'deployment', resourceId: deployment.id, details: { environmentId } })
+  await recordAudit({ orgId: access.org.id, userId: access.user.id, action: 'service.rollback.requested', resourceType: 'deployment', resourceId: deployment.id, details: { environmentId, ...(targetDeploymentId ? { targetDeploymentId } : {}) } })
 }
 
 export async function refreshDeploymentStatusesAction(projectId: string) {

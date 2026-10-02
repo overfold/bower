@@ -6,7 +6,8 @@ import { Panel } from '@/components/ui/panel'
 import { EmptyState } from '@/components/ui/empty-state'
 import { CreateProjectDialog } from '@/components/create-project-dialog'
 import { BoxesIcon, SearchIcon } from 'lucide-react'
-import { formatDate, formatRelativeTime } from '@/lib/format'
+import { StatusDot } from '@/components/status'
+import { Time } from '@/components/time'
 
 interface ProjectRow {
   id: string
@@ -15,11 +16,9 @@ interface ProjectRow {
   description: string | null
   updatedAt: string
   serviceCount: number
-}
-
-function relTime(iso: string): string {
-  const days = Math.floor(Math.max(0, Date.now() - new Date(iso).getTime()) / 86_400_000)
-  return days < 30 ? formatRelativeTime(iso) : formatDate(iso)
+  routeCount: number
+  healthStatus: string | null
+  latestDeployment: { status: string; createdAt: string } | null
 }
 
 export function ProjectSearch({
@@ -47,7 +46,7 @@ export function ProjectSearch({
       <div className="relative max-w-xs">
         <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-faint" />
         <input
-          className="h-9 w-full rounded-lg border border-line bg-surface pl-8 pr-3 text-[13px] text-ink placeholder:text-ink-faint shadow-card transition-[border-color,box-shadow] duration-150 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
+          className="h-9 w-full rounded-lg border border-line bg-surface pl-8 pr-3 text-sm text-ink placeholder:text-ink-muted shadow-card transition-[border-color,box-shadow] duration-150 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
           placeholder="Filter projects"
           aria-label="Filter projects"
           value={query}
@@ -65,7 +64,7 @@ export function ProjectSearch({
           />
         </Panel>
       ) : (
-        <ul className="space-y-3">
+        <ul className="grid gap-3 xl:grid-cols-2">
           {filtered.map((project) => (
             <li key={project.id}>
               <Panel className="transition-[border-color,box-shadow] duration-150 hover:border-line-strong hover:shadow-raised">
@@ -74,21 +73,22 @@ export function ProjectSearch({
                     <div className="flex items-center gap-2.5">
                       <Link
                         href={`/projects/${project.slug}`}
-                        className="rounded text-[15px] font-semibold tracking-tight text-ink underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+                        className="rounded text-md font-semibold tracking-tight text-ink underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
                       >
                         {project.name}
                       </Link>
+                      {project.healthStatus ? <StatusDot status={project.healthStatus} /> : <span className="text-xs text-ink-muted">Not deployed</span>}
                     </div>
                     {project.description && (
-                      <p className="mt-1.5 text-[13px] leading-relaxed text-ink-soft">
+                      <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">
                         {project.description}
                       </p>
                     )}
-                    <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12.5px] text-ink-muted">
-                      <span>
-                        {project.serviceCount} {project.serviceCount === 1 ? 'service' : 'services'}
-                      </span>
-                      <span>updated {relTime(project.updatedAt)}</span>
+                    <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-ink-muted">
+                      {project.serviceCount === 0 ? <Link className="text-link" href={`/projects/${project.slug}/services`}>Add a service</Link> : <span>{project.serviceCount} {project.serviceCount === 1 ? 'service' : 'services'}</span>}
+                      <span>{project.routeCount} {project.routeCount === 1 ? 'route' : 'routes'}</span>
+                      {project.latestDeployment && <span className="flex items-center gap-2">Last deploy <StatusDot status={project.latestDeployment.status} /> <Time value={project.latestDeployment.createdAt} /></span>}
+                      <span>updated <Time value={project.updatedAt} /></span>
                     </div>
                   </div>
 

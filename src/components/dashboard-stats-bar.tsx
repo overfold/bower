@@ -33,6 +33,7 @@ interface DeploymentDay {
   total: number
   healthy: number
   failed: number
+  rolledBack: number
   active: number
 }
 
@@ -65,6 +66,7 @@ function deploymentSeries(deployments: DeploymentPoint[], days = 14): Deployment
       total: 0,
       healthy: 0,
       failed: 0,
+      rolledBack: 0,
       active: 0,
     }
   })
@@ -76,7 +78,8 @@ function deploymentSeries(deployments: DeploymentPoint[], days = 14): Deployment
 
     day.total += 1
     if (deployment.status === 'healthy') day.healthy += 1
-    else if (deployment.status === 'failed' || deployment.status === 'rolled_back') day.failed += 1
+    else if (deployment.status === 'failed') day.failed += 1
+    else if (deployment.status === 'rolled_back') day.rolledBack += 1
     else day.active += 1
   }
 
@@ -148,7 +151,7 @@ export function DashboardStatsBar({
 
   const series = deploymentSeries(deployments)
   const deploymentCount = series.reduce((sum, day) => sum + day.total, 0)
-  const completedCount = series.reduce((sum, day) => sum + day.healthy + day.failed, 0)
+  const completedCount = series.reduce((sum, day) => sum + day.healthy + day.failed + day.rolledBack, 0)
   const successfulCount = series.reduce((sum, day) => sum + day.healthy, 0)
   const successRate = completedCount > 0 ? Math.round((successfulCount / completedCount) * 100) : null
   const maxDailyDeployments = Math.max(1, ...series.map((day) => day.total))
@@ -199,16 +202,17 @@ export function DashboardStatsBar({
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-3 pt-0.5 text-2xs text-ink-muted" aria-hidden="true">
-              <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-brand-500" />healthy</span>
+              <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-ok-500" />healthy</span>
               <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-danger-500" />failed</span>
-              {hasActiveDeployments ? <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-warn-500" />in flight</span> : null}
+              <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-info-500" />rolled back</span>
+              {hasActiveDeployments ? <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-info-500" />in flight</span> : null}
             </div>
           </div>
 
           <div
             className="mt-3 flex h-12 items-end gap-1"
             role="img"
-            aria-label={`Deployment activity over the last 14 days: ${deploymentCount} deployments${successRate === null ? '' : `, ${successRate}% successful`}.`}
+            aria-label={`Deployment activity over the last 14 days: ${deploymentCount} deployments${successRate === null ? '' : `, ${successRate}% successful over 14 days`}.`}
           >
             {series.map((day) => {
               const height = day.total === 0 ? 4 : Math.max(10, (day.total / maxDailyDeployments) * 100)
@@ -216,15 +220,16 @@ export function DashboardStatsBar({
                 <div
                   key={day.key}
                   className="flex h-full min-w-0 flex-1 items-end"
-                  title={`${day.label}: ${day.total} total, ${day.healthy} healthy, ${day.failed} failed/rolled back${day.active ? `, ${day.active} in flight` : ''}`}
+                  title={`${day.label}: ${day.total} total, ${day.healthy} healthy, ${day.failed} failed, ${day.rolledBack} rolled back${day.active ? `, ${day.active} in flight` : ''}`}
                 >
                   <div
-                    className="flex w-full flex-col-reverse overflow-hidden rounded-[2px] bg-line"
+                    className="flex w-full flex-col-reverse overflow-hidden rounded-sm bg-line"
                     style={{ height: `${height}%` }}
                   >
-                    {day.healthy > 0 ? <span className="min-h-px bg-brand-500" style={{ flexGrow: day.healthy }} /> : null}
+                    {day.healthy > 0 ? <span className="min-h-px bg-ok-500" style={{ flexGrow: day.healthy }} /> : null}
                     {day.failed > 0 ? <span className="min-h-px bg-danger-500" style={{ flexGrow: day.failed }} /> : null}
-                    {day.active > 0 ? <span className="min-h-px bg-warn-500" style={{ flexGrow: day.active }} /> : null}
+                    {day.rolledBack > 0 ? <span className="min-h-px bg-info-500" style={{ flexGrow: day.rolledBack }} /> : null}
+                    {day.active > 0 ? <span className="min-h-px bg-info-500" style={{ flexGrow: day.active }} /> : null}
                   </div>
                 </div>
               )

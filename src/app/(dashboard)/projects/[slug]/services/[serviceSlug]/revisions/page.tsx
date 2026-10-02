@@ -52,7 +52,7 @@ export default async function RevisionsPage({ params }: { params: Promise<{ slug
 
       <div>
         <SectionTitle>Deployment history</SectionTitle>
-        <p className="mt-1 max-w-3xl text-[13px] text-ink-muted">Bower’s deployment journal is the durable history. Trellis retains only the 10 newest versions of the current live job and removes that history when the job is deleted.</p>
+        <p className="mt-1 max-w-3xl text-sm text-ink-muted">Bower’s deployment journal is the durable history. Trellis retains only the 10 newest versions of the current live job and removes that history when the job is deleted.</p>
       </div>
 
       {journal.length === 0 ? (
@@ -96,7 +96,7 @@ export default async function RevisionsPage({ params }: { params: Promise<{ slug
 
       <div>
         <SectionTitle>Retained Trellis versions</SectionTitle>
-        <p className="mt-1 text-[13px] text-ink-muted">Version advances for every accepted spec change; revision advances only when execution content changes.</p>
+        <p className="mt-1 text-sm text-ink-muted">Version advances for every accepted spec change; revision advances only when execution content changes.</p>
       </div>
       {!activeConfig ? <Panel><EmptyState icon={<History className="h-4 w-4" />} title="No service configuration" body="Configure this service before viewing live Trellis history." /></Panel>
         : historyError ? <Panel><TrellisReadError title="Trellis history unavailable" message={historyError} /></Panel>

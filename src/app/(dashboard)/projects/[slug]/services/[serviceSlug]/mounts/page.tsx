@@ -36,7 +36,7 @@ export default async function ServiceMountsPage({ params }: {
   return (
     <div className="space-y-6">
       <ServiceHeader slug={slug} serviceSlug={serviceSlug} serviceName={service.name} serviceId={service.id} environmentId={environment.id} hasConfig={Boolean(config)} />
-      <div><SectionTitle>Volume mounts</SectionTitle><p className="mt-1 max-w-3xl text-[13px] text-ink-muted">Attach project volumes to this service and configure only the container mount path and access mode.</p></div>
+      <div><SectionTitle>Volume mounts</SectionTitle><p className="mt-1 max-w-3xl text-sm text-ink-muted">Attach project volumes to this service and configure only the container mount path and access mode.</p></div>
       <Panel>
         <PanelHeader title="Mounts" hint={`${attached.length} attached`} action={config ? <VolumeMountEditor serviceId={service.id} environmentId={environment.id} mounts={attached} volumes={available.map((volume) => volume.name)} /> : undefined} />
         {!config ? (
@@ -44,7 +44,7 @@ export default async function ServiceMountsPage({ params }: {
         ) : attached.length === 0 ? (
           <EmptyState icon={<HardDrive className="h-4 w-4" />} title="No volumes attached" body={available.length ? 'Attach a project volume to persist or share data.' : 'Define a project volume first.'} />
         ) : (
-          <ul className="divide-y divide-line">{attached.map((mount) => <li key={mount.name} className="grid gap-2 px-4 py-3 text-[13px] sm:grid-cols-3"><span className="font-mono font-medium">{mount.name}</span><span className="font-mono text-xs text-ink-muted">{mount.container_path}</span><span className="text-ink-muted">{mount.read_only ? 'Read-only' : 'Read/write'}</span></li>)}</ul>
+          <ul className="divide-y divide-line">{attached.map((mount) => <li key={mount.name} className="grid gap-2 px-4 py-3 text-sm sm:grid-cols-3"><span className="font-mono font-medium">{mount.name}</span><span className="font-mono text-xs text-ink-muted">{mount.container_path}</span><span className="text-ink-muted">{mount.read_only ? 'Read-only' : 'Read/write'}</span></li>)}</ul>
         )}
       </Panel>
     </div>

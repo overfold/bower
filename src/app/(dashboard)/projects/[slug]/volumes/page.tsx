@@ -25,7 +25,7 @@ export default async function ProjectVolumesPage({ params }: {
     <div className="space-y-5">
       <div>
         <SectionTitle>Volumes</SectionTitle>
-        <p className="mt-1 max-w-3xl text-[13px] leading-relaxed text-ink-muted">
+        <p className="mt-1 max-w-3xl text-sm leading-relaxed text-ink-muted">
           Define persistent storage that can be attached by multiple services. Managed local storage remains pinned to its Trellis node.
         </p>
       </div>

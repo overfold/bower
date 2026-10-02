@@ -10,18 +10,12 @@ import {
 } from '@/lib/queries'
 import { getVerifiedOrganizationDomains } from '@/lib/domain-queries'
 import { requireContext, requireProject } from '@/lib/actions/shared'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { EmptyState, InlineNotice } from '@/components/ui/empty-state'
-import { Panel, PanelHeader } from '@/components/ui/panel'
+import { Panel, PanelHeader, SectionTitle } from '@/components/ui/panel'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { AddRouteDialog, DeleteRouteButton, RouteProtectionButton } from './route-actions'
-
-const tlsBadgeVariant: Record<string, 'success' | 'secondary' | 'outline'> = {
-  auto: 'success',
-  custom: 'secondary',
-  none: 'outline',
-}
+import { protectionLabels, tlsLabels } from '@/lib/labels'
 
 export default async function RoutesPage({ params }: { params: Promise<{ slug: string }> }) {
   const ctx = await requireContext()
@@ -47,8 +41,8 @@ export default async function RoutesPage({ params }: { params: Promise<{ slug: s
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold tracking-tight text-ink">Routes</h2>
-          <p className="mt-1 text-[13px] text-ink-muted">
+          <SectionTitle>Routes</SectionTitle>
+          <p className="mt-1 text-sm text-ink-muted">
             Route verified hostnames to this project’s services.
           </p>
         </div>
@@ -102,16 +96,14 @@ export default async function RoutesPage({ params }: { params: Promise<{ slug: s
             <TableBody>
               {visibleRoutes.map((row) => (
                 <TableRow key={row.route.id}>
-                  <TableCell className="font-mono text-[12.5px] font-medium text-ink">{row.route.domain}</TableCell>
+                  <TableCell className="font-mono text-sm font-medium text-ink">{row.route.domain}</TableCell>
                   <TableCell className="font-mono text-xs text-ink-muted">{row.route.pathPrefix}</TableCell>
-                  <TableCell className="text-[13px]">{row.serviceName}:{row.route.port}</TableCell>
+                  <TableCell className="text-sm">{row.serviceName}:{row.route.port}</TableCell>
                   <TableCell>
-                    <Badge variant={tlsBadgeVariant[row.route.tlsMode] ?? 'outline'}>{row.route.tlsMode}</Badge>
+                    <span className="text-sm text-ink-muted">{tlsLabels[row.route.tlsMode]}</span>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={row.route.protectionMode === 'none' ? 'outline' : 'secondary'}>
-                      {row.route.protectionMode === 'bower_auth' ? 'Bower auth' : row.route.protectionMode}
-                    </Badge>
+                    <span className="text-sm text-ink-muted">{protectionLabels[row.route.protectionMode]}</span>
                   </TableCell>
                   <TableCell>
                     {canManage ? (

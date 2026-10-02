@@ -16,7 +16,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { formatDate } from '@/lib/format'
+import { formatTimestamp } from '@/lib/format'
 
 interface ApiKey {
   id: string
@@ -71,13 +71,13 @@ export function ApiKeysSection({ keys }: { keys: ApiKey[] }) {
         <Dialog open={open} onOpenChange={(v) => { if (loading) return; setOpen(v); setError(null); if (!v) { setNewKey(null); setCopied(false) } }}>
           <DialogTrigger asChild>
             <Button variant="primary" size="sm">
-              <Plus className="mr-1.5 h-4 w-4" />
+              <Plus />
               New key
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Create API key</DialogTitle>
+              <DialogTitle>{newKey ? 'API key created' : 'Create API key'}</DialogTitle>
             </DialogHeader>
               {newKey ? (<>
               <DialogBody>
@@ -85,12 +85,13 @@ export function ApiKeysSection({ keys }: { keys: ApiKey[] }) {
                   <p className="text-sm text-ink-muted">Copy this key now. It will not be shown again.</p>
                   <div className="flex items-center gap-2">
                     <code className="flex-1 rounded-md bg-sunken px-3 py-2 font-mono text-xs break-all">{newKey}</code>
-                    <Button variant="default" size="icon" onClick={handleCopy} aria-label="Copy API key">
+                    <Button variant="default" onClick={handleCopy} aria-label="Copy API key">
                       {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      {copied ? 'Copied' : 'Copy'}
                     </Button>
                   </div>
                 </div>
-              </DialogBody><DialogFooter><Button variant="primary" onClick={() => { setOpen(false); setNewKey(null) }}>Done</Button></DialogFooter></>) : (
+              </DialogBody><DialogFooter><Button variant="primary" disabled={!copied} onClick={() => { setOpen(false); setNewKey(null) }}>I’ve saved this</Button></DialogFooter></>) : (
                 <form onSubmit={handleCreate}>
                   <DialogBody className="space-y-4">
                   {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
@@ -162,10 +163,10 @@ function RevokeableRow({ apiKey }: { apiKey: ApiKey }) {
       <TableCell>{apiKey.name}</TableCell>
       <TableCell className="font-mono text-xs">{apiKey.keyPrefix}...</TableCell>
       <TableCell className="text-ink-muted">
-        {apiKey.lastUsedAt ? formatDate(apiKey.lastUsedAt) : 'Never'}
+        {apiKey.lastUsedAt ? formatTimestamp(apiKey.lastUsedAt) : 'Never'}
       </TableCell>
       <TableCell className="text-ink-muted">
-        {formatDate(apiKey.createdAt)}
+        {formatTimestamp(apiKey.createdAt)}
       </TableCell>
       <TableCell>
         <AlertDialog open={open} onOpenChange={(next) => { if (pending) return; setOpen(next); if (next) setError(null) }}>

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Square } from 'lucide-react'
 import { stopAllocationDetailAction } from '@/lib/actions/allocation-actions'
 import { Button } from '@/components/ui/button'
+import { ResourceId } from '@/components/resource-id'
 import { InlineNotice } from '@/components/ui/feedback'
 import {
   AlertDialog,
@@ -52,15 +53,15 @@ export function AllocationStopButton({
     <AlertDialog open={open} onOpenChange={(value) => { if (!stopping) { setOpen(value); if (value) setError(null) } }}>
       <AlertDialogTrigger asChild>
         <Button variant="danger" size="sm" type="button" disabled={disabled}>
-          <Square className="h-3.5 w-3.5" />
+          <Square />
           Stop
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Stop allocation {allocationId.slice(0, 8)}?</AlertDialogTitle>
+          <AlertDialogTitle>Stop allocation <ResourceId value={allocationId} />?</AlertDialogTitle>
           <AlertDialogDescription>
-            Stop allocation <span className="font-mono text-ink">{allocationId.slice(0, 8)}</span>. A replacement may be created if the service still requires this replica.
+            Stop allocation <ResourceId value={allocationId} />. A replacement may be created if the service still requires this replica.
           </AlertDialogDescription>
         </AlertDialogHeader>
         {error ? <InlineNotice tone="error" className="mx-5">{error}</InlineNotice> : null}

@@ -49,7 +49,7 @@ export function CreateOrganizationDialog() {
           New organization
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>Create organization</DialogTitle>
         </DialogHeader>
@@ -69,7 +69,7 @@ export function CreateOrganizationDialog() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="instance-trellis-url">Trellis API URL <span className="font-normal text-ink-muted">(optional)</span></Label>
-              <Input id="instance-trellis-url" name="trellisApiUrl" type="url" placeholder="https://trellis.example.com" className="font-mono text-[12.5px]" />
+              <Input id="instance-trellis-url" name="trellisApiUrl" type="url" placeholder="https://trellis.example.com" className="font-mono text-sm" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="instance-trellis-token">Trellis API token <span className="font-normal text-ink-muted">(optional)</span></Label>
@@ -78,7 +78,7 @@ export function CreateOrganizationDialog() {
           </DialogBody>
           <DialogFooter>
             <Button variant="default" type="button" size="sm" onClick={handleClose} disabled={loading}>Cancel</Button>
-            <Button type="submit" variant="primary" size="sm" disabled={loading}>
+            <Button type="submit" variant="primary" size="sm" loading={loading}>
               {loading ? 'Creating…' : 'Create organization'}
             </Button>
           </DialogFooter>

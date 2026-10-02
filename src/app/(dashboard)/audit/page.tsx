@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
-import { getUserOrganization, getAuditLog } from '@/lib/queries'
+import { getUserOrganization, getAuditLog, getDeploymentsForOrg, getServicesForOrg } from '@/lib/queries'
 import { PageHeading } from '@/components/page-heading'
-import { Panel, PanelHeader } from '@/components/ui/panel'
+import { Panel } from '@/components/ui/panel'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ScrollText } from 'lucide-react'
 import { AuditLogList } from './audit-log-list'
@@ -13,13 +13,26 @@ export default async function AuditLogPage() {
   const orgCtx = await getUserOrganization(user.id)
   if (!orgCtx) redirect('/login')
 
-  const entries = await getAuditLog(orgCtx.org.id)
+  // eslint-disable-next-line react-hooks/purity
+  const requestTime = Date.now()
+  const [entries, services, deployments] = await Promise.all([
+    getAuditLog(orgCtx.org.id, null),
+    getServicesForOrg(orgCtx.org.id),
+    getDeploymentsForOrg(orgCtx.org.id, null),
+  ])
+  const resourceNames = new Map<string, string>()
+  for (const { service, project } of services) {
+    resourceNames.set(service.id, service.name)
+    resourceNames.set(project.id, project.name)
+  }
+  for (const deployment of deployments) resourceNames.set(deployment.deployment.id, deployment.serviceName)
 
   const mapped = entries.map((e) => ({
     id: e.entry.id,
     action: e.entry.action,
     resourceType: e.entry.resourceType,
     resourceId: e.entry.resourceId,
+    resourceName: resourceNames.get(e.entry.resourceId),
     details: (e.entry.details ?? {}) as Record<string, unknown>,
     createdAt: e.entry.createdAt,
     userName: e.userName,
@@ -28,7 +41,7 @@ export default async function AuditLogPage() {
   return (
     <div className="space-y-6">
       <PageHeading
-        title="Audit Log"
+        title="Audit log"
         description="Review changes and actions across the organization."
       />
 
@@ -41,13 +54,7 @@ export default async function AuditLogPage() {
           />
         </Panel>
       ) : (
-        <Panel>
-          <PanelHeader
-            title={`${mapped.length} events`}
-            hint="Retained for 365 days"
-          />
-          <AuditLogList entries={mapped} />
-        </Panel>
+        <AuditLogList entries={mapped} now={requestTime} />
       )}
     </div>
   )

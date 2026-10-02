@@ -34,7 +34,7 @@ export default function RegisterPage() {
   return (
     <div className="space-y-5">
       <div className="space-y-1">
-        <h2 className="text-[15px] font-semibold tracking-tight">Create account</h2>
+        <h2 className="text-md font-semibold tracking-tight">Create account</h2>
         <p className="text-xs leading-relaxed text-ink-muted">
           Create your Bower account.
         </p>
@@ -81,9 +81,9 @@ export default function RegisterPage() {
       </form>
 
       <div className="border-t border-line pt-4">
-        <p className="text-center text-[12.5px] text-ink-muted">
+        <p className="text-center text-sm text-ink-muted">
           Already have an account?{' '}
-          <Link href={`/login${typeof window === 'undefined' ? '' : window.location.search}`} className="font-medium text-brand-700 hover:underline">
+          <Link href={`/login${typeof window === 'undefined' ? '' : window.location.search}`} className="text-link font-medium">
             Sign in
           </Link>
         </p>

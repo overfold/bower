@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { Brand } from '@/components/brand'
@@ -17,10 +18,10 @@ import { logoutAction } from '@/lib/auth-actions'
 import {
   LayoutDashboard,
   FolderKanban,
-  Rocket,
-  Activity,
   ScrollText,
   Settings,
+  Server,
+  History,
   UserCircle,
   LogOut,
 } from 'lucide-react'
@@ -34,8 +35,8 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: 'Overview', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Projects', href: '/projects', icon: FolderKanban },
-  { label: 'Deployments', href: '/deployments', icon: Rocket },
-  { label: 'Cluster', href: '/status', icon: Activity },
+  { label: 'Deployments', href: '/deployments', icon: History },
+  { label: 'Cluster', href: '/status', icon: Server },
   { label: 'Audit log', href: '/audit', icon: ScrollText },
   { label: 'Settings', href: '/settings', icon: Settings },
 ]
@@ -63,10 +64,26 @@ interface SidebarUser {
 
 interface SidebarProps {
   user: SidebarUser
+  projects?: { id: string; name: string; slug: string }[]
+  currentOrg?: { id: string; name: string; slug: string; role: string }
 }
 
-export function SidebarContent({ user, onNavigate }: { user: SidebarUser; onNavigate?: () => void }) {
+export function SidebarContent({ user, onNavigate, projects = [], currentOrg }: SidebarProps & { onNavigate?: () => void }) {
   const pathname = usePathname()
+  const [recentSlugs, setRecentSlugs] = useState<string[]>([])
+  const recentKey = `bower-recent-projects.${currentOrg?.id ?? ''}.${user.email}`
+  useEffect(() => {
+    try {
+      const stored: unknown = JSON.parse(localStorage.getItem(recentKey) || '[]')
+      const slugs = Array.isArray(stored) ? stored.filter((value): value is string => typeof value === 'string') : []
+      const current = pathname.match(/^\/projects\/([^/]+)/)?.[1]
+      const next = current && projects.some((project) => project.slug === current) ? [current, ...slugs.filter((slug) => slug !== current)].slice(0, 5) : slugs
+      localStorage.setItem(recentKey, JSON.stringify(next))
+      const frame = requestAnimationFrame(() => setRecentSlugs(next))
+      return () => cancelAnimationFrame(frame)
+    } catch { /* Storage can be unavailable. */ }
+  }, [pathname, recentKey, projects])
+  const recentProjects = recentSlugs.flatMap((slug) => projects.filter((project) => project.slug === slug))
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-surface">
@@ -77,8 +94,10 @@ export function SidebarContent({ user, onNavigate }: { user: SidebarUser; onNavi
       </div>
 
       <nav aria-label="Main navigation" className="min-h-0 flex-1 overflow-y-auto px-2 pb-4 scroll-thin">
-        <div className="space-y-0.5">
-          {navItems.map((item) => {
+        {([['Workspace', navItems.slice(0, 3)], ['Platform', navItems.slice(3)] ] as const).map(([label, items]) => <div key={label} className="mb-4 space-y-0.5">
+          {label === 'Platform' && recentProjects.length ? <div className="mb-4 space-y-0.5"><p className="px-2.5 pb-1 text-2xs font-semibold uppercase tracking-wider text-ink-muted">Recent projects</p>{recentProjects.map((project) => <Link key={project.id} href={`/projects/${project.slug}`} onClick={onNavigate} className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-ink-soft hover:bg-sunken hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"><FolderKanban className="h-4 w-4 shrink-0" aria-hidden="true" /><span className="min-w-0 truncate">{project.name}</span></Link>)}</div> : null}
+          <p className="px-2.5 pb-1 text-2xs font-semibold uppercase tracking-wider text-ink-muted">{label}</p>
+          {items.map((item) => {
             const active = isActive(pathname, item.href)
             return (
               <Link
@@ -87,7 +106,7 @@ export function SidebarContent({ user, onNavigate }: { user: SidebarUser; onNavi
                 onClick={onNavigate}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
-                  'flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[13px] font-medium transition-colors duration-150',
+                  "flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300",
                   active
                     ? 'bg-brand-50 text-brand-700'
                     : 'text-ink-soft hover:bg-sunken hover:text-ink'
@@ -98,7 +117,7 @@ export function SidebarContent({ user, onNavigate }: { user: SidebarUser; onNavi
               </Link>
             )
           })}
-        </div>
+        </div>)}
       </nav>
 
       <Separator className="bg-line" />
@@ -118,12 +137,12 @@ export function SidebarContent({ user, onNavigate }: { user: SidebarUser; onNavi
                   </AvatarFallback>
                 </Avatar>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[12.5px] font-medium text-ink">{user.name}</span>
+                  <span className="block truncate text-sm font-medium text-ink">{user.name}</span>
                   <span className="block truncate text-2xs text-ink-muted">{user.email}</span>
                 </span>
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent side="top" align="start" sideOffset={8} className="w-[var(--radix-dropdown-menu-trigger-width)]">
+            <DropdownMenuContent side="top" align="start" sideOffset={20} className="w-[var(--radix-dropdown-menu-trigger-width)]">
               <DropdownMenuItem asChild>
                 <Link href="/settings/account" onClick={onNavigate} className="flex items-center gap-2">
                   <UserCircle className="h-4 w-4" />
@@ -146,10 +165,10 @@ export function SidebarContent({ user, onNavigate }: { user: SidebarUser; onNavi
   )
 }
 
-export function Sidebar({ user }: SidebarProps) {
+export function Sidebar({ user, projects, currentOrg }: SidebarProps) {
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-[236px] flex-col border-r border-line bg-surface lg:flex">
-      <SidebarContent user={user} />
+      <SidebarContent user={user} projects={projects} currentOrg={currentOrg} />
     </aside>
   )
 }

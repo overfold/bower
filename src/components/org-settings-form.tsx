@@ -21,6 +21,7 @@ export function OrgSettingsForm({ org }: OrgSettingsFormProps) {
   const router = useRouter()
   const { toast } = useFeedback()
   const [loading, setLoading] = useState(false)
+  const [dirty, setDirty] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -33,6 +34,7 @@ export function OrgSettingsForm({ org }: OrgSettingsFormProps) {
       if (result?.error) setError(result.error)
       else if (result?.success) {
         toast({ tone: 'success', title: 'Organization settings saved.' })
+        setDirty(false)
         router.refresh()
       } else setError('Organization settings could not be saved. Please try again.')
     } catch {
@@ -43,8 +45,8 @@ export function OrgSettingsForm({ org }: OrgSettingsFormProps) {
   }
 
   return (
-    <Card>
-      <form onSubmit={handleSubmit}>
+    <Card className="max-w-3xl">
+      <form onSubmit={handleSubmit} onInput={() => setDirty(true)}>
         <CardHeader>
           <CardTitle>Organization details</CardTitle>
         </CardHeader>
@@ -56,7 +58,7 @@ export function OrgSettingsForm({ org }: OrgSettingsFormProps) {
           </div>
         </CardContent>
         <CardFooter>
-          <Button variant="primary" type="submit" disabled={loading} aria-busy={loading}>
+          <Button variant="primary" type="submit" disabled={loading || !dirty} aria-busy={loading}>
             {loading ? 'Saving…' : 'Save changes'}
           </Button>
         </CardFooter>

@@ -15,7 +15,9 @@ import { DeploymentPoller } from '@/components/deployment-poller'
 import { ServiceHeader } from './service-header'
 import { Boxes, Rocket } from 'lucide-react'
 import type { TrellisAllocation } from '@/types/trellis'
-import { formatDate, formatTimestamp } from '@/lib/format'
+import { Time } from '@/components/time'
+import { ResourceId } from '@/components/resource-id'
+import { deploymentStrategyLabels, deploymentTriggerLabels } from '@/lib/labels'
 
 export default async function ServiceDetailPage({
   params,
@@ -94,7 +96,7 @@ export default async function ServiceDetailPage({
                     <TableRow key={allocation.id}>
                       <TableCell>
                         <Link href={`/projects/${slug}/services/${serviceSlug}/allocations/${allocation.id}`} className="font-mono text-xs font-medium text-ink transition-colors hover:text-brand-500">
-                          {allocation.id.slice(0, 8)}
+                          <ResourceId value={allocation.id} />
                         </Link>
                       </TableCell>
                       <TableCell>
@@ -103,7 +105,7 @@ export default async function ServiceDetailPage({
                       </TableCell>
                       <TableCell><StatusDot status={allocation.health} /></TableCell>
                       <TableCell><NodeLink id={allocation.node_id} /></TableCell>
-                      <TableCell className="whitespace-nowrap text-ink-muted">{formatTimestamp(allocation.created_at)}</TableCell>
+                      <TableCell className="whitespace-nowrap text-ink-muted"><Time value={allocation.created_at} /></TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -141,10 +143,10 @@ export default async function ServiceDetailPage({
                     <TableRow key={d.id}>
                       <TableCell><StatusDot status={d.status} /></TableCell>
                       <TableCell className="max-w-48 truncate font-mono text-xs">{d.imageAfter}</TableCell>
-                      <TableCell className="capitalize">{d.strategy.replace(/_/g, ' ')}</TableCell>
-                      <TableCell className="capitalize">{d.triggerType.replace(/_/g, ' ')}</TableCell>
+                      <TableCell>{deploymentStrategyLabels[d.strategy]}</TableCell>
+                      <TableCell>{deploymentTriggerLabels[d.triggerType]}</TableCell>
                       <TableCell className="text-ink-muted">
-                        {formatDate(d.createdAt)}
+                        <Time value={d.createdAt} />
                       </TableCell>
                     </TableRow>
                   ))}

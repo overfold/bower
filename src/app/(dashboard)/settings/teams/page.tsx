@@ -2,15 +2,13 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { ORG_COOKIE_NAME } from '@/lib/constants'
-import { getUserOrganization, getTeamsByOrg, getTeamMembers, getOrgMembers } from '@/lib/queries'
+import { getUserOrganization, getTeamsByOrg, getTeamMembers, getOrgMembers, getTeamProjectAccessList } from '@/lib/queries'
 import { PageHeading } from '@/components/page-heading'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { TeamActions, AddTeamMemberDialog, RemoveTeamMemberButton } from './team-actions'
-import { Users, ChevronRight } from 'lucide-react'
+import { Users } from 'lucide-react'
 
 export default async function TeamsPage() {
   const user = await getCurrentUser()
@@ -33,8 +31,8 @@ export default async function TeamsPage() {
 
   const teamsWithDetails = await Promise.all(
     teams.map(async (team) => {
-      const members = await getTeamMembers(team.id)
-      return { team, members }
+      const [members, projectAccess] = await Promise.all([getTeamMembers(team.id), getTeamProjectAccessList(team.id)])
+      return { team, members, projectAccess }
     }),
   )
 
@@ -56,25 +54,16 @@ export default async function TeamsPage() {
           />
         </Card>
       ) : (
-        <div className="space-y-2">
-          {teamsWithDetails.map(({ team, members }) => (
-            <Card key={team.id}>
-              <Collapsible>
-                <CardHeader>
-                  <CollapsibleTrigger className="flex min-w-0 items-center gap-2">
-                    <ChevronRight className="h-4 w-4 shrink-0 text-ink-muted transition-transform duration-200 [[data-state=open]>&]:rotate-90" />
-                    <CardTitle>{team.name}</CardTitle>
-                    <Badge variant="secondary">{members.length} {members.length === 1 ? 'member' : 'members'}</Badge>
-                  </CollapsibleTrigger>
-                  <div className="flex items-center gap-1">
-                    <TeamActions mode="edit" teamId={team.id} teamName={team.name} />
-                    <TeamActions mode="delete" teamId={team.id} teamName={team.name} />
-                  </div>
-                </CardHeader>
-                <CollapsibleContent>
-                  <CardContent className="p-0">
-                    <div className="flex items-center justify-between border-b border-line px-4 py-3">
-                      <h3 className="text-[13px] font-semibold tracking-tight text-ink">Members</h3>
+        <Card>
+          <Table>
+            <TableHeader><TableRow><TableHead>Team</TableHead><TableHead>Members</TableHead><TableHead>Project access</TableHead><TableHead className="w-[120px] text-right">Actions</TableHead></TableRow></TableHeader>
+            <TableBody>
+              {teamsWithDetails.map(({ team, members, projectAccess }) => (
+                <TableRow key={team.id} className="align-top">
+                  <TableCell className="font-medium text-ink">{team.name}</TableCell>
+                  <TableCell>
+                    <div className="min-w-[260px] space-y-2">
+                      <div className="flex justify-between gap-3 text-xs text-ink-muted"><span>{members.length} {members.length === 1 ? 'member' : 'members'}</span>
                       <AddTeamMemberDialog
                         teamId={team.id}
                         orgMembers={orgMemberList}
@@ -82,39 +71,19 @@ export default async function TeamsPage() {
                       />
                     </div>
                     {members.length === 0 ? (
-                      <div className="px-4 py-8 text-center text-[13px] text-ink-muted">No members assigned.</div>
+                      <span className="text-sm text-ink-muted">No members assigned</span>
                     ) : (
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Name</TableHead>
-                            <TableHead>Email</TableHead>
-                            <TableHead className="w-[56px]" />
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {members.map((member) => (
-                            <TableRow key={member.membership.id}>
-                              <TableCell className="font-medium text-ink">{member.userName}</TableCell>
-                              <TableCell className="text-ink-muted">{member.userEmail}</TableCell>
-                              <TableCell>
-                                <RemoveTeamMemberButton
-                                  teamId={team.id}
-                                  membershipId={member.membership.id}
-                                  memberName={member.userName}
-                                />
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+                      <ul className="divide-y divide-line">{members.map((member) => <li key={member.membership.id} className="flex items-center justify-between gap-3 py-1.5"><span><span className="text-sm text-ink">{member.userName}</span><span className="ml-2 text-xs text-ink-muted">{member.userEmail}</span></span><RemoveTeamMemberButton teamId={team.id} membershipId={member.membership.id} memberName={member.userName} /></li>)}</ul>
                     )}
-                  </CardContent>
-                </CollapsibleContent>
-              </Collapsible>
-            </Card>
-          ))}
-        </div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-sm text-ink-soft">{projectAccess.length ? projectAccess.map((access) => access.projectName).join(', ') : 'No project access'}</TableCell>
+                  <TableCell><div className="flex justify-end gap-1"><TeamActions mode="edit" teamId={team.id} teamName={team.name} /><TeamActions mode="delete" teamId={team.id} teamName={team.name} /></div></TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
       )}
     </div>
   )

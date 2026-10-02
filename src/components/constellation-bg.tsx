@@ -49,7 +49,7 @@ export function ConstellationBg() {
       ctx!.clearRect(0, 0, w, h)
 
       const style = getComputedStyle(canvas!)
-      const primary = style.getPropertyValue('--primary').trim() || 'hsl(230 65% 56%)'
+      const primary = style.getPropertyValue('--brand-500').trim() || 'hsl(172 77% 24%)'
 
       for (const p of particles) {
         p.x += p.vx

@@ -1,6 +1,4 @@
-import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
-import { ArrowLeft } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth'
 import { getUserOrganization } from '@/lib/queries'
 import { getTrellisClient } from '@/lib/trellis-instance'
@@ -14,6 +12,8 @@ import { DrainToggle } from '../drain-toggle'
 import { formatBytes, formatCpu } from '../format'
 import type { TrellisNode } from '@/types/trellis'
 import { formatTimestamp } from '@/lib/format'
+import { ResourceId } from '@/components/resource-id'
+import { label } from '@/lib/labels'
 
 export default async function NodePage({ params }: { params: Promise<{ nodeId: string }> }) {
   const user = await getCurrentUser()
@@ -36,8 +36,7 @@ export default async function NodePage({ params }: { params: Promise<{ nodeId: s
     nodeError = trellisReadError(error)
   }
   if (!node && !nodeError) notFound()
-  const back = <Link href="/status" className="inline-flex items-center gap-2 text-[13px] text-ink-muted hover:text-ink"><ArrowLeft className="h-4 w-4" />Back to cluster</Link>
-  if (!node) return <div className="space-y-6">{back}<PageHeading title={nodeId.slice(0, 8)} description="Node" /><Panel><TrellisReadError title="Node unavailable" message={nodeError!} /></Panel></div>
+  if (!node) return <div className="space-y-6"><PageHeading title={<ResourceId value={nodeId} copy />} description="Node" /><Panel><TrellisReadError title="Node unavailable" message={nodeError!} /></Panel></div>
 
   const capacity = nodeCapacity(node)
   const allocatable = nodeAllocatable(node)
@@ -46,8 +45,7 @@ export default async function NodePage({ params }: { params: Promise<{ nodeId: s
 
   return (
     <div className="space-y-6">
-      {back}
-      <PageHeading title={node.id.slice(0, 8)} description="Node" meta={<MetaItem label="Status" value={<StatusDot status={node.status} />} />} actions={ctx.role === 'owner' ? <DrainToggle nodeId={node.id} drain={node.status === 'draining'} /> : undefined} />
+      <PageHeading title={<ResourceId value={node.id} name={node.id} copy />} description="Node" meta={<MetaItem label="Status" value={<StatusDot status={node.status} />} />} actions={ctx.role === 'owner' ? <DrainToggle nodeId={node.id} drain={node.status === 'draining'} /> : undefined} />
       <Panel>
         <PanelHeader title="Node details" />
         <dl className="grid gap-x-8 p-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -55,17 +53,17 @@ export default async function NodePage({ params }: { params: Promise<{ nodeId: s
           <KeyValue label="Port">{node.port}</KeyValue>
           <KeyValue label="Version" mono>{node.version || '—'}</KeyValue>
           <KeyValue label="OS">{node.os || '—'} / {node.arch || '—'}</KeyValue>
-          <KeyValue label="Control-plane membership">{node.control_plane || 'Not reported'}</KeyValue>
+          <KeyValue label="Control-plane membership">{node.control_plane ? label(node.control_plane) : 'Not reported'}</KeyValue>
           <KeyValue label="Last heartbeat">{formatTimestamp(node.last_heartbeat)}</KeyValue>
-          <KeyValue label="Heartbeat freshness"><Chip tone={heartbeat === 'fresh' ? 'brand' : heartbeat === 'stale' ? 'danger' : 'neutral'}>{heartbeat}</Chip></KeyValue>
+          <KeyValue label="Heartbeat freshness"><Chip tone={heartbeat === 'fresh' ? 'success' : heartbeat === 'stale' ? 'danger' : 'neutral'}>{label(heartbeat)}</Chip></KeyValue>
         </dl>
       </Panel>
       <Panel>
         <PanelHeader title="Capacity" />
         {metricsError ? <TrellisReadError title="Allocated resources unavailable" message={metricsError} /> : (
           <div className="grid gap-5 p-4 sm:grid-cols-2">
-            <div><p className="text-[13px] text-ink-soft">CPU allocated · {formatCpu(allocated.cpu)} / {formatCpu(allocatable.cpu)}</p><div className="mt-2"><Meter value={allocatable.cpu > 0 ? Math.round(allocated.cpu / allocatable.cpu * 100) : 0} label="Node CPU allocated" /></div></div>
-            <div><p className="text-[13px] text-ink-soft">Memory allocated · {formatBytes(allocated.memory)} / {formatBytes(allocatable.memory)}</p><div className="mt-2"><Meter value={allocatable.memory > 0 ? Math.round(allocated.memory / allocatable.memory * 100) : 0} label="Node memory allocated" /></div></div>
+            <div><p className="text-sm text-ink-soft">CPU allocated · {formatCpu(allocated.cpu)} / {formatCpu(allocatable.cpu)}</p><div className="mt-2"><Meter value={allocatable.cpu > 0 ? Math.round(allocated.cpu / allocatable.cpu * 100) : 0} label="Node CPU allocated" /></div></div>
+            <div><p className="text-sm text-ink-soft">Memory allocated · {formatBytes(allocated.memory)} / {formatBytes(allocatable.memory)}</p><div className="mt-2"><Meter value={allocatable.memory > 0 ? Math.round(allocated.memory / allocatable.memory * 100) : 0} label="Node memory allocated" /></div></div>
           </div>
         )}
         <dl className="grid gap-x-8 border-t border-line px-4 py-2 sm:grid-cols-2">
@@ -83,7 +81,7 @@ export default async function NodePage({ params }: { params: Promise<{ nodeId: s
       </Panel>
       <Panel>
         <PanelHeader title="Capabilities" />
-        <div className="flex flex-wrap gap-2 p-4">{node.capabilities?.length ? node.capabilities.map((capability) => <Chip key={capability}>{capability}</Chip>) : <span className="text-[13px] text-ink-muted">None reported</span>}</div>
+        <div className="p-4 text-sm text-ink-muted">{node.capabilities?.join(', ') || 'None reported'}</div>
       </Panel>
     </div>
   )

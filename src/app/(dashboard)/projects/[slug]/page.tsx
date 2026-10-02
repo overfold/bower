@@ -6,6 +6,7 @@ import {
   getProjectBySlug,
   getProjectEnvironment,
   getDeploymentsByProject,
+  getLatestDeploymentsByProject,
   getRoutesByProject,
   getServicesByProject,
 } from '@/lib/queries'
@@ -14,17 +15,8 @@ import { Badge } from '@/components/ui/badge'
 import { StatusDot } from '@/components/status'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Rocket, Globe } from 'lucide-react'
-
-function relTime(date: Date | string): string {
-  const ms = Date.now() - new Date(date).getTime()
-  const mins = Math.floor(ms / 60_000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  const days = Math.floor(hrs / 24)
-  return `${days}d ago`
-}
+import { Time } from '@/components/time'
+import { tlsLabels } from '@/lib/labels'
 
 function imageTag(image: string | null): string {
   if (!image) return '-'
@@ -52,18 +44,18 @@ export default async function ProjectOverviewPage({
     getRoutesByProject(project.id),
     getServicesByProject(project.id),
   ])
-  const deployments = environment ? await getDeploymentsByProject(project.id, 5, environment.id) : []
+  const [deployments, latestDeployments] = environment ? await Promise.all([
+    getDeploymentsByProject(project.id, 5, environment.id),
+    getLatestDeploymentsByProject(project.id, environment.id),
+  ]) : [[], []]
+  const latestByService = new Map(latestDeployments.map((row) => [row.deployment.serviceId, row]))
   const routeRows = environment
     ? allRoutes.filter((row) => row.route.environmentId === environment.id)
     : []
 
   return (
     <div className="space-y-5">
-      <div>
-        <SectionTitle>Overview</SectionTitle>
-        <p className="mt-1 text-[13px] text-ink-muted">See this project’s services, recent deployments, and routes.</p>
-      </div>
-
+      <div><SectionTitle>Overview</SectionTitle><p className="mt-1 text-sm text-ink-muted">See this project’s services, recent deployments, and routes.</p></div>
       <Panel>
         <PanelHeader title="Services" />
         <ul className="divide-y divide-line">
@@ -71,22 +63,22 @@ export default async function ProjectOverviewPage({
             <li className="px-4 py-3 text-xs text-ink-muted">No services configured</li>
           ) : (
             services.map((service) => {
-              const lastDeploy = deployments.find((row) => row.deployment.serviceId === service.id)
+              const lastDeploy = latestByService.get(service.id)
               return (
                 <li key={service.id} className="px-4 py-3">
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
-                      <Link href={`/projects/${slug}/services/${service.slug}`} className="rounded text-[13px] font-medium text-ink underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300">
+                      <Link href={`/projects/${slug}/services/${service.slug}`} className="rounded text-sm font-medium text-ink underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300">
                         {service.name}
                       </Link>
-                      {lastDeploy ? <p className="mt-1 font-mono text-[11px] text-ink-muted">{imageTag(lastDeploy.deployment.imageAfter)}</p> : null}
+                      {lastDeploy ? <p className="mt-1 font-mono text-2xs text-ink-muted">{imageTag(lastDeploy.deployment.imageAfter)}</p> : null}
                     </div>
                     {lastDeploy ? (
                       <div className="flex shrink-0 flex-col items-end gap-1.5">
                         <StatusDot status={lastDeploy.deployment.status} />
-                        <span className="text-2xs text-ink-faint">{relTime(lastDeploy.deployment.createdAt)}</span>
+                        <Time value={lastDeploy.deployment.createdAt} mode="auto" />
                       </div>
-                    ) : null}
+                    ) : <Badge variant="outline">Not deployed</Badge>}
                   </div>
                 </li>
               )
@@ -103,7 +95,7 @@ export default async function ProjectOverviewPage({
             action={
               <Link
                 href={`/projects/${slug}/deployments`}
-                className="rounded text-[12.5px] font-medium text-brand-600 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+                className="text-link text-sm font-medium"
               >
                 View all
               </Link>
@@ -127,17 +119,15 @@ export default async function ProjectOverviewPage({
                   <div className="flex min-w-0 items-center gap-3">
                     <StatusDot status={row.deployment.status} />
                     <div className="min-w-0">
-                      <p className="truncate text-[13px] text-ink">
+                      <p className="truncate text-sm text-ink">
                         {row.serviceName}
                       </p>
-                      <p className="mt-0.5 truncate font-mono text-[11px] text-ink-muted">
+                      <p className="mt-0.5 truncate font-mono text-2xs text-ink-muted">
                         {imageTag(row.deployment.imageAfter)}
                       </p>
                     </div>
                   </div>
-                  <span className="shrink-0 text-2xs text-ink-faint">
-                    {relTime(row.deployment.createdAt)}
-                  </span>
+                  <Time value={row.deployment.createdAt} mode="auto" />
                 </li>
               ))}
             </ul>
@@ -161,12 +151,10 @@ export default async function ProjectOverviewPage({
                 {routeRows.slice(0, 4).map((row) => (
                   <li key={row.route.id} className="px-4 py-3">
                     <div className="flex items-center justify-between gap-3">
-                      <span className="min-w-0 truncate font-mono text-[13px] text-ink">
+                      <span className="min-w-0 truncate font-mono text-sm text-ink">
                         {row.route.domain}
                       </span>
-                      <Badge variant={row.route.tlsMode === 'auto' ? 'success' : 'outline'}>
-                        TLS {row.route.tlsMode}
-                      </Badge>
+                      <span className="text-sm text-ink-muted">{tlsLabels[row.route.tlsMode]}</span>
                     </div>
                     <p className="mt-1 text-2xs text-ink-muted">
                       {row.route.pathPrefix} → {row.serviceName}:{row.route.port}
@@ -177,7 +165,7 @@ export default async function ProjectOverviewPage({
               <div className="border-t border-line px-4 py-3">
                 <Link
                   href={`/projects/${slug}/routes`}
-                  className="rounded text-[12.5px] font-medium text-brand-600 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+                  className="text-link text-sm font-medium"
                 >
                   Manage routes
                 </Link>

@@ -20,7 +20,7 @@ import { SecretActions } from './secret-actions'
 import { CreateEnvironmentVariableDialog, DeleteEnvironmentVariableButton } from './environment-variable-controls'
 import { ServiceEnvironmentDialog } from './service-environment-dialog'
 import type { BowerSecretBinding } from '@/lib/job-builder'
-import { formatDate } from '@/lib/format'
+import { Time } from '@/components/time'
 
 function recordEntries(value: unknown) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return [] as Array<[string, string]>
@@ -59,12 +59,8 @@ export default async function EnvironmentPage({ params }: { params: Promise<{ sl
 
   return (
     <div className="space-y-6">
-      <div>
-        <SectionTitle>Environment</SectionTitle>
-        <p className="mt-1 max-w-3xl text-[13px] text-ink-muted">Manage variables and secrets shared by this project’s services.</p>
-      </div>
-
-      <div className="grid gap-5 xl:grid-cols-2">
+      <div><SectionTitle>Environment</SectionTitle><p className="mt-1 max-w-3xl text-sm text-ink-muted">Manage variables and secrets shared by this project’s services.</p></div>
+      <div className="grid gap-5">
         <Panel>
           <PanelHeader
             title="Environment variables"
@@ -76,11 +72,12 @@ export default async function EnvironmentPage({ params }: { params: Promise<{ sl
           ) : (
             <div className="overflow-x-auto">
               <Table>
-                <TableHeader><TableRow><TableHead>Name</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Value</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
                 <TableBody>
-                  {environmentVariables.map(([name]) => (
+                  {environmentVariables.map(([name, value]) => (
                     <TableRow key={name}>
                       <TableCell className="font-mono text-xs font-medium">{name}</TableCell>
+                      <TableCell className="max-w-md truncate font-mono text-xs text-ink-muted" title={value}>{value}</TableCell>
                       <TableCell className="text-right">{canManage ? <DeleteEnvironmentVariableButton projectId={project.id} environmentId={environment.id} name={name} /> : null}</TableCell>
                     </TableRow>
                   ))}
@@ -106,7 +103,7 @@ export default async function EnvironmentPage({ params }: { params: Promise<{ sl
                   {secrets.map((row) => (
                     <TableRow key={row.secret.id}>
                       <TableCell className="font-mono text-xs font-medium">{row.secret.name}</TableCell>
-                      <TableCell className="text-ink-muted">{formatDate(row.secret.lastRotatedAt)}</TableCell>
+                      <TableCell className="text-ink-muted"><Time value={row.secret.lastRotatedAt} mode="auto" /></TableCell>
                       <TableCell className="text-right">{canManage ? <SecretActions projectId={project.id} secretId={row.secret.id} secretName={row.secret.trellisSecretName} /> : null}</TableCell>
                     </TableRow>
                   ))}
@@ -117,10 +114,10 @@ export default async function EnvironmentPage({ params }: { params: Promise<{ sl
         </Panel>
       </div>
 
-      <div className="space-y-4">
+      <div id="service-bindings" className="scroll-mt-24 space-y-4">
         <div className="space-y-1">
           <SectionTitle>Service variables and secrets</SectionTitle>
-          <p className="text-[13px] text-ink-muted">Configure variables and secret bindings that apply only to an individual service.</p>
+          <p className="text-sm text-ink-muted">Configure variables and secret bindings that apply only to an individual service.</p>
         </div>
         {serviceRows.length === 0 ? (
           <Panel><EmptyState icon={<Box className="h-4 w-4" />} title="No services" body="Create a service to configure its variables and secrets." /></Panel>
@@ -149,15 +146,15 @@ export default async function EnvironmentPage({ params }: { params: Promise<{ sl
                 />
                 <div className="grid gap-0 divide-y divide-line lg:grid-cols-2 lg:divide-x lg:divide-y-0">
                   <div className="p-4">
-                    <p className="mb-3 text-[12px] font-semibold uppercase tracking-wide text-ink-muted">Variables</p>
-                    {variables.length === 0 ? <p className="text-[13px] text-ink-muted">No service-specific variables.</p> : (
-                      <div className="space-y-2.5">{variables.map(([name, value]) => <div key={name} className="grid grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] gap-4 text-[12.5px]"><span className="truncate font-mono font-medium text-ink">{name}</span><span className="truncate font-mono text-ink-muted">{value}</span></div>)}</div>
+                    <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Variables</p>
+                    {variables.length === 0 ? <p className="text-sm text-ink-muted">No service-specific variables.</p> : (
+                      <div className="space-y-2.5">{variables.map(([name, value]) => <div key={name} className="grid grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] gap-4 text-sm"><span className="truncate font-mono font-medium text-ink">{name}</span><span className="truncate font-mono text-ink-muted">{value}</span></div>)}</div>
                     )}
                   </div>
                   <div className="p-4">
-                    <p className="mb-3 text-[12px] font-semibold uppercase tracking-wide text-ink-muted">Secret bindings</p>
-                    {secretBindings.length === 0 ? <p className="text-[13px] text-ink-muted">No secrets are bound.</p> : (
-                      <div className="space-y-2.5">{secretBindings.map((binding, index) => <div key={`${binding.name}-${index}`} className="flex items-center justify-between gap-4 text-[12.5px]"><span className="truncate font-mono font-medium text-ink">{binding.name}</span><span className="truncate font-mono text-ink-muted">{binding.target === 'env' ? binding.env : binding.path}</span></div>)}</div>
+                    <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Secret bindings</p>
+                    {secretBindings.length === 0 ? <p className="text-sm text-ink-muted">No secrets are bound.</p> : (
+                      <div className="space-y-2.5">{secretBindings.map((binding, index) => <div key={`${binding.name}-${index}`} className="flex items-center justify-between gap-4 text-sm"><span className="truncate font-mono font-medium text-ink">{binding.name}</span><span className="truncate font-mono text-ink-muted">{binding.target === 'env' ? binding.env : binding.path}</span></div>)}</div>
                     )}
                   </div>
                 </div>

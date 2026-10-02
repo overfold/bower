@@ -10,7 +10,6 @@ import {
 } from '@/lib/queries'
 import { PageHeading } from '@/components/page-heading'
 import { InviteTokensSection } from '@/components/invite-tokens-section'
-import { AddMemberDialog } from './add-member-dialog'
 import { MembersTable } from './members-table'
 
 export default async function MembersSettingsPage() {
@@ -55,13 +54,13 @@ export default async function MembersSettingsPage() {
       <PageHeading
         title="Members"
         description={`Manage members, teams, and invitations for ${orgCtx.org.name}.`}
-        actions={<AddMemberDialog canManage={canManageRoles} showInstanceAdmin={showInstanceAdmin} />}
       />
 
       <MembersTable
         members={serializedMembers}
         teams={teamOptions}
         canManageRoles={canManageRoles}
+        canRemoveMembers={orgCtx.role === 'owner'}
         showInstanceAdmin={showInstanceAdmin}
         currentUserId={user.id}
       />

@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { actionErrorMessage } from '@/lib/action-error'
-import { unstable_rethrow } from 'next/navigation'
+import { unstable_rethrow, usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { createProjectAction } from '@/lib/actions/projects'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogBody, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
@@ -12,10 +12,34 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Plus } from 'lucide-react'
 
+let projectActionClaimed = false
+
 export function CreateProjectDialog() {
+  const pathname = usePathname()
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [open, setOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [requestedName, setRequestedName] = useState('')
+
+  useEffect(() => {
+    if (searchParams.get('action') !== 'new') {
+      projectActionClaimed = false
+      return
+    }
+    if (projectActionClaimed) return
+    projectActionClaimed = true
+    const name = searchParams.get('name') ?? ''
+    queueMicrotask(() => {
+      setRequestedName(name)
+      setOpen(true)
+    })
+    const next = new URLSearchParams(searchParams.toString())
+    next.delete('action')
+    next.delete('name')
+    router.replace(next.size ? `${pathname}?${next}` : pathname, { scroll: false })
+  }, [pathname, router, searchParams])
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -46,7 +70,7 @@ export function CreateProjectDialog() {
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button variant="primary" size="sm">
-          <Plus className="mr-1.5 h-4 w-4" />
+          <Plus />
           New project
         </Button>
       </DialogTrigger>
@@ -59,7 +83,7 @@ export function CreateProjectDialog() {
             {error && <InlineNotice tone="error">{error}</InlineNotice>}
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
-              <Input id="name" name="name" placeholder="my-project" required />
+              <Input key={requestedName} id="name" name="name" placeholder="my-project" defaultValue={requestedName} required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>

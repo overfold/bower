@@ -5,12 +5,12 @@ import Link from 'next/link'
 import { SearchIcon } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { MemberRoleSelect } from './member-role-select'
-import { RemoveInstanceAdminButton } from '../instance/instance-admin-actions'
+import { MemberActionsMenu } from '../instance/instance-admin-actions'
+import { instanceRoleLabels, organizationRoleLabels } from '@/lib/labels'
 
 interface TeamRef {
   id: string
@@ -37,6 +37,7 @@ interface MembersTableProps {
   members: MemberRow[]
   teams: TeamOption[]
   canManageRoles: boolean
+  canRemoveMembers: boolean
   showInstanceAdmin: boolean
   currentUserId: string
 }
@@ -45,6 +46,7 @@ export function MembersTable({
   members,
   teams,
   canManageRoles,
+  canRemoveMembers,
   showInstanceAdmin,
   currentUserId,
 }: MembersTableProps) {
@@ -92,7 +94,8 @@ export function MembersTable({
     () => new Set(members.map((member) => member.userId)).size,
     [members],
   )
-  const columnCount = 4 + (showInstanceAdmin ? 1 : 0) + (canManageRoles ? 1 : 0)
+  const columnCount = 5 + (showInstanceAdmin ? 1 : 0)
+  const showFilters = members.length > 10
 
   return (
     <Card>
@@ -116,7 +119,7 @@ export function MembersTable({
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-0.5">
+          {showFilters ? <div className="flex flex-wrap items-center gap-0.5">
             {showInstanceAdmin ? (
               <Select value={instanceRoleFilter} onValueChange={setInstanceRoleFilter}>
                 <SelectTrigger className="w-[164px]" aria-label="Filter by instance role">
@@ -124,8 +127,8 @@ export function MembersTable({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All instance roles</SelectItem>
-                  <SelectItem value="admin">Instance admin</SelectItem>
-                  <SelectItem value="user">User</SelectItem>
+                  <SelectItem value="admin">{instanceRoleLabels.admin}</SelectItem>
+                  <SelectItem value="user">{instanceRoleLabels.user}</SelectItem>
                 </SelectContent>
               </Select>
             ) : null}
@@ -138,9 +141,9 @@ export function MembersTable({
                 <SelectItem value="all">
                   {showInstanceAdmin ? 'All organization roles' : 'All roles'}
                 </SelectItem>
-                <SelectItem value="owner">Owner</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="member">Member</SelectItem>
+                <SelectItem value="owner">{organizationRoleLabels.owner}</SelectItem>
+                <SelectItem value="admin">{organizationRoleLabels.admin}</SelectItem>
+                <SelectItem value="member">{organizationRoleLabels.member}</SelectItem>
               </SelectContent>
             </Select>
 
@@ -157,7 +160,7 @@ export function MembersTable({
                 ))}
               </SelectContent>
             </Select>
-          </div>
+          </div> : null}
         </div>
       </CardHeader>
 
@@ -170,13 +173,13 @@ export function MembersTable({
               {showInstanceAdmin ? <TableHead>Instance Role</TableHead> : null}
               <TableHead>{showInstanceAdmin ? 'Organization Role' : 'Role'}</TableHead>
               <TableHead>Teams</TableHead>
-              {canManageRoles ? <TableHead className="w-[136px]" /> : null}
+              <TableHead className="w-[52px]"><span className="sr-only">Actions</span></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={columnCount} className="py-8 text-center text-[13px] text-ink-muted">
+                <TableCell colSpan={columnCount} className="py-8 text-center text-sm text-ink-muted">
                   No members match the current filters.
                 </TableCell>
               </TableRow>
@@ -187,59 +190,43 @@ export function MembersTable({
                     <Link href={`/settings/members/${member.userId}`} className="group flex items-center gap-2.5">
                       <Avatar className="h-7 w-7 rounded-md">
                         {member.avatar ? <AvatarImage src={member.avatar} /> : null}
-                        <AvatarFallback>
+                        <AvatarFallback className="bg-brand-50 text-brand-700">
                           {member.name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="text-[13px] font-medium text-ink transition-colors group-hover:text-brand-700">{member.name}</span>
+                      <span className="text-sm font-medium text-ink transition-colors group-hover:text-brand-700">{member.name}</span>
                     </Link>
                   </TableCell>
                   <TableCell className="text-ink-muted">{member.email}</TableCell>
 
                   {showInstanceAdmin ? (
-                    <TableCell>
-                      {member.isInstanceAdmin ? (
-                        <div className="flex items-center gap-2">
-                          <Badge variant="default">Admin</Badge>
-                          <RemoveInstanceAdminButton
-                            email={member.email}
-                            adminId={member.userId}
-                            currentUserId={currentUserId}
-                          />
-                        </div>
-                      ) : (
-                        <Badge variant="secondary">User</Badge>
-                      )}
+                    <TableCell className="text-sm text-ink-soft">
+                      {instanceRoleLabels[member.isInstanceAdmin ? 'admin' : 'user']}
                     </TableCell>
                   ) : null}
 
                   <TableCell>
-                    <Badge variant={member.role === 'owner' ? 'default' : 'secondary'} className="capitalize">
-                      {member.role}
-                    </Badge>
+                    {canManageRoles ? <MemberRoleSelect membershipId={member.membershipId} role={member.role} canManage disabledReason={member.role === 'owner' ? 'The organization owner role cannot be changed here.' : undefined} /> : organizationRoleLabels[member.role]}
                   </TableCell>
 
                   <TableCell>
                     {member.teams.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {member.teams.map((team) => (
-                          <Badge key={team.id} variant="secondary">{team.name}</Badge>
-                        ))}
-                      </div>
+                      <span className="text-sm text-ink-soft">{member.teams.map((team) => team.name).join(', ')}</span>
                     ) : (
                       <span className="text-ink-muted">—</span>
                     )}
                   </TableCell>
 
-                  {canManageRoles ? (
-                    <TableCell>
-                      <MemberRoleSelect
-                        membershipId={member.membershipId}
-                        role={member.role}
-                        canManage={canManageRoles}
-                      />
-                    </TableCell>
-                  ) : null}
+                  <TableCell>
+                    <MemberActionsMenu
+                      membershipId={member.membershipId}
+                      memberName={member.name}
+                      email={member.email}
+                      canRemoveInstanceAdmin={showInstanceAdmin && member.isInstanceAdmin && member.userId !== currentUserId}
+                      canRemoveFromOrganization={canRemoveMembers && member.userId !== currentUserId}
+                    />
+                  </TableCell>
+
                 </TableRow>
               ))
             )}

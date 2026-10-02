@@ -1,111 +1,27 @@
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
 import { getUserOrganization, getProjectBySlug, getDeploymentsByProject, getProjectEnvironment } from '@/lib/queries'
-import { Panel, SectionTitle } from '@/components/ui/panel'
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
-import { StatusDot } from '@/components/status'
 import { DeploymentPoller } from '@/components/deployment-poller'
-import { EmptyState } from '@/components/ui/empty-state'
-import { Rocket } from 'lucide-react'
-import { formatDisplayToken, formatTimestamp } from '@/lib/format'
+import { SectionTitle } from '@/components/ui/panel'
+import { DeploymentFilters } from '../../../deployments/deployment-filters'
 
-const activeStatuses = ['pending', 'planning', 'deploying']
-
-function imageShort(image: string | null): string {
-  if (!image) return '-'
-  const parts = image.split('/')
-  const last = parts[parts.length - 1]
-  if (last.length > 40) return last.slice(0, 37) + '...'
-  return last
-}
-
-export default async function DeploymentsPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>
-}) {
+export default async function DeploymentsPage({ params }: { params: Promise<{ slug: string }> }) {
   const user = await getCurrentUser()
   if (!user) redirect('/login')
-
   const ctx = await getUserOrganization(user.id)
   if (!ctx) redirect('/login')
-
   const { slug } = await params
   const project = await getProjectBySlug(ctx.org.id, slug)
   if (!project) redirect('/projects')
-
   const environment = await getProjectEnvironment(project.id)
-  const rows = environment ? await getDeploymentsByProject(project.id, 50, environment.id) : []
-  const hasActive = rows.some((r) =>
-    activeStatuses.includes(r.deployment.status)
-  )
+  const rows = environment ? await getDeploymentsByProject(project.id, null, environment.id) : []
+  const items = rows.map((row) => ({ ...row, projectName: project.name, projectSlug: slug }))
 
   return (
     <div className="space-y-5">
-      <div>
-        <SectionTitle>Deployment history</SectionTitle>
-        <p className="mt-1 text-[13px] text-ink-muted">Review deployments for every service in this project.</p>
-      </div>
-
-      <DeploymentPoller active={hasActive} />
-
-      {rows.length === 0 ? (
-        <Panel>
-          <EmptyState
-            icon={<Rocket className="h-4 w-4" />}
-            title="No deployments yet"
-            body="Deploy a service to see its history here."
-          />
-        </Panel>
-      ) : (
-        <Panel>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Status</TableHead>
-                <TableHead>Service</TableHead>
-                <TableHead>Image</TableHead>
-                <TableHead>Triggered by</TableHead>
-                <TableHead>Strategy</TableHead>
-                <TableHead>Time</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((row) => (
-                <TableRow key={row.deployment.id}>
-                  <TableCell>
-                    <StatusDot status={row.deployment.status} />
-                  </TableCell>
-                  <TableCell className="font-medium"><Link className="underline-offset-2 hover:underline" href={`/projects/${slug}/deployments/${row.deployment.id}`}>{row.serviceName}</Link></TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {imageShort(row.deployment.imageAfter)}
-                  </TableCell>
-                  <TableCell className="text-ink-muted">
-                    {row.userName ?? formatDisplayToken(row.deployment.triggerType)}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">
-                      {formatDisplayToken(row.deployment.strategy)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-ink-muted text-sm">
-                    {formatTimestamp(row.deployment.createdAt)}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Panel>
-      )}
+      <div><SectionTitle>Deployment history</SectionTitle><p className="mt-1 text-sm text-ink-muted">Review deployments for every service in this project.</p></div>
+      <DeploymentPoller active={rows.some((row) => ['pending', 'planning', 'deploying', 'rolling_back'].includes(row.deployment.status))} />
+      <DeploymentFilters items={items} projects={[project.name]} environments={environment ? [environment.name] : []} />
     </div>
   )
 }

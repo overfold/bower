@@ -10,7 +10,8 @@ import {
 import { requireProject } from '@/lib/actions/shared'
 import { PageHeading, MetaItem } from '@/components/page-heading'
 import { ProjectTabs } from '@/components/project-tabs'
-import { formatDate } from '@/lib/format'
+import { ProjectShell } from './project-shell'
+import { Time } from '@/components/time'
 
 export default async function ProjectLayout({
   children,
@@ -36,9 +37,7 @@ export default async function ProjectLayout({
   ])
   const deployments = environment ? await getDeploymentsByProject(project.id, 1, environment.id) : []
 
-  const lastDeploy = deployments[0]
-    ? formatDate(deployments[0].deployment.createdAt)
-    : 'never'
+  const lastDeploy = deployments[0] ? <Time value={deployments[0].deployment.createdAt} /> : 'Never'
 
   const tabs = [
     { label: 'Overview', href: '' },
@@ -52,8 +51,7 @@ export default async function ProjectLayout({
     { label: 'Settings', href: '/settings' },
   ]
 
-  return (
-    <div className="space-y-0">
+  const header = <>
       <PageHeading
         title={project.name}
         description={project.description ?? undefined}
@@ -67,7 +65,7 @@ export default async function ProjectLayout({
       <div className="mt-6 border-b border-line">
         <ProjectTabs slug={slug} tabs={tabs} />
       </div>
-      <div className="pt-6">{children}</div>
-    </div>
-  )
+    </>
+
+  return <ProjectShell header={header}>{children}</ProjectShell>
 }

@@ -3,11 +3,11 @@ import { getCurrentUser } from '@/lib/auth'
 import { getUserOrganization, getProjectBySlug, getProjectAccess, getTeamsByOrg, getOrgMembers } from '@/lib/queries'
 import { Panel, SectionTitle } from '@/components/ui/panel'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Shield, UserRound, Users } from 'lucide-react'
 import { GrantAccessDialog, RevokeAccessButton } from './access-actions'
 import { formatDate } from '@/lib/format'
+import { roleLabels } from '@/lib/labels'
 
 export default async function AccessPage({ params }: { params: Promise<{ slug: string }> }) {
   const user = await getCurrentUser()
@@ -32,7 +32,7 @@ export default async function AccessPage({ params }: { params: Promise<{ slug: s
       <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <SectionTitle>Project access</SectionTitle>
-          <p className="mt-1 text-[13px] text-ink-muted">
+          <p className="mt-1 text-sm text-ink-muted">
             Each person receives the combined permissions granted by their organization role, team memberships, and individual project access.
           </p>
         </div>
@@ -76,7 +76,7 @@ export default async function AccessPage({ params }: { params: Promise<{ slug: s
                       <span className="font-medium text-ink">{teamName}</span>
                     </div>
                   </TableCell>
-                  <TableCell><Badge variant="secondary" className="capitalize">{access.role}</Badge></TableCell>
+                  <TableCell>{roleLabels[access.role]}</TableCell>
                   <TableCell className="whitespace-nowrap text-xs text-ink-muted">{formatDate(access.createdAt)}</TableCell>
                   {isAdmin && (
                     <TableCell>
@@ -96,7 +96,7 @@ export default async function AccessPage({ params }: { params: Promise<{ slug: s
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell><Badge variant="secondary" className="capitalize">{access.role}</Badge></TableCell>
+                  <TableCell>{roleLabels[access.role]}</TableCell>
                   <TableCell className="whitespace-nowrap text-xs text-ink-muted">{formatDate(access.createdAt)}</TableCell>
                   {isAdmin && (
                     <TableCell>

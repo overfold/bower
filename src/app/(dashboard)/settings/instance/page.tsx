@@ -5,6 +5,7 @@ import { PageHeading } from '@/components/page-heading'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { CreateOrganizationDialog } from './create-organization-form'
+import { ConfigureOrganizationLink } from './configure-organization-link'
 
 export default async function InstanceSettingsPage() {
   const user = await getCurrentUser()
@@ -39,7 +40,9 @@ export default async function InstanceSettingsPage() {
                 <TableRow key={org.id}>
                   <TableCell className="font-medium text-ink">{org.name}</TableCell>
                   <TableCell className="nums text-ink-muted">{memberCount}</TableCell>
-                  <TableCell className="max-w-[360px] truncate font-mono text-[12.5px] text-ink-muted">{org.trellisApiUrl}</TableCell>
+                  <TableCell className="max-w-[360px] truncate font-mono text-sm text-ink-muted">
+                    {org.trellisApiUrl || <span className="flex items-center gap-2 font-sans"><span>Not configured</span><ConfigureOrganizationLink organizationId={org.id} /></span>}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

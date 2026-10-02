@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Cpu, MemoryStick } from 'lucide-react'
 import { getAllocationMetricsAction } from '@/lib/actions/allocation-actions'
 import { Panel } from '@/components/ui/panel'
 import { formatTimestamp } from '@/lib/format'
@@ -95,9 +94,6 @@ export function AllocationMetrics({
               {cpuMillicores === null ? (taskCount ? 'Sampling…' : error ? 'Unavailable' : 'No samples') : `${Math.max(0, cpuMillicores).toFixed(cpuMillicores >= 100 ? 0 : 1)} mCPU`}
             </p>
           </div>
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-sunken text-ink-muted">
-            <Cpu className="h-4 w-4" />
-          </div>
         </div>
         <p className="mt-3 text-2xs text-ink-muted">
           {error ? (taskCount ? 'Latest sample unavailable; showing last known data.' : initialError || 'Metrics unavailable; retrying automatically.') : taskCount ? `Across ${taskCount} ${taskCount === 1 ? 'task' : 'tasks'} · sampled ${sampledAt}` : 'No metrics samples returned; retrying automatically.'}
@@ -109,9 +105,6 @@ export function AllocationMetrics({
           <div>
             <p className="text-xs font-medium text-ink-muted">Memory usage</p>
             <p className="nums mt-1.5 text-2xl font-semibold tracking-tight text-ink">{taskCount ? formatBytes(memoryBytes) : error ? 'Unavailable' : 'No samples'}</p>
-          </div>
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-sunken text-ink-muted">
-            <MemoryStick className="h-4 w-4" />
           </div>
         </div>
         <p className="mt-3 text-2xs text-ink-muted">

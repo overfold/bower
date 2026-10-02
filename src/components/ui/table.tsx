@@ -1,10 +1,10 @@
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 
-const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement>>(
-  ({ className, ...props }, ref) => (
+const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement> & { minWidth?: 'md' }>(
+  ({ className, minWidth, ...props }, ref) => (
     <div className="w-full overflow-x-auto scroll-thin scroll-horizontal [--scroll-surface:var(--surface)]" tabIndex={0} role="region" aria-label="Scrollable table">
-      <table ref={ref} className={cn('w-full min-w-[640px] border-collapse text-left', className)} {...props} />
+      <table ref={ref} className={cn('w-full border-collapse text-left', minWidth === 'md' && 'min-w-[640px]', className)} {...props} />
     </div>
   ),
 )
@@ -41,7 +41,7 @@ TableHead.displayName = 'TableHead'
 
 const TableCell = React.forwardRef<HTMLTableCellElement, React.TdHTMLAttributes<HTMLTableCellElement>>(
   ({ className, ...props }, ref) => (
-    <td ref={ref} className={cn('border-b border-line px-4 py-3 align-middle text-[13px] text-ink-soft [&:has([role=checkbox])]:pr-0', className)} {...props} />
+    <td ref={ref} className={cn("border-b border-line px-4 py-3 align-middle text-sm text-ink-soft [&:has([role=checkbox])]:pr-0", className)} {...props} />
   ),
 )
 TableCell.displayName = 'TableCell'

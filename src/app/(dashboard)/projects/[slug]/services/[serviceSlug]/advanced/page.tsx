@@ -32,7 +32,7 @@ export default async function AdvancedPage({
 
       <div className="space-y-2">
         <SectionTitle>Advanced execution</SectionTitle>
-        <p className="max-w-3xl text-[13px] leading-relaxed text-ink-muted">
+        <p className="max-w-3xl text-sm leading-relaxed text-ink-muted">
           Runtime isolation and workload API access for this service.
         </p>
       </div>
@@ -53,7 +53,7 @@ export default async function AdvancedPage({
             mayBypassMultitenancy={instanceAdminMayBypassMultitenancy(user.isInstanceAdmin)}
           />
         ) : (
-          <div className="p-4 text-[13px] text-ink-muted">No service configuration found.</div>
+          <div className="p-4 text-sm text-ink-muted">No service configuration found.</div>
         )}
       </Panel>
     </div>

@@ -19,8 +19,8 @@ export default async function AccountSettingsPage() {
       <AccountSettingsForm
         user={{ name: user.name, email: user.email, avatarUrl: user.avatarUrl }}
       />
-      <ChangePasswordForm />
-      <ApiKeysSection
+      <section id="password" className="max-w-3xl scroll-mt-20"><ChangePasswordForm /></section>
+      <section id="api-keys" className="max-w-3xl scroll-mt-20"><ApiKeysSection
         keys={apiKeysList.map((k) => ({
           id: k.id,
           name: k.name,
@@ -28,7 +28,7 @@ export default async function AccountSettingsPage() {
           lastUsedAt: k.lastUsedAt?.toISOString() ?? null,
           createdAt: k.createdAt.toISOString(),
         }))}
-      />
+      /></section>
     </div>
   )
 }

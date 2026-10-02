@@ -40,12 +40,12 @@ export function AcceptInvitationCard({ token, status, organizationRole, grantIns
     <main className="mx-auto flex min-h-[100dvh] max-w-lg items-center px-4 py-8">
       <Card className="w-full">
         <CardHeader>
-          <h1 className="truncate text-[13px] font-semibold tracking-tight text-ink">{active ? 'Accept invitation' : 'Invitation unavailable'}</h1>
+          <h1 className="truncate text-sm font-semibold tracking-tight text-ink">{active ? 'Accept invitation' : 'Invitation unavailable'}</h1>
         </CardHeader>
         <CardContent className="space-y-4">
           {active ? <p className="text-sm text-ink-muted">This invitation grants {organizationRole ? `${organizationRole} access to an organization` : 'access'}{grantInstanceAdmin ? `${organizationRole ? ' and' : ''} instance administrator access` : ''}.</p> : <p className="text-sm text-ink-muted">{status === 'used' ? 'This invitation has already been accepted.' : status === 'expired' ? 'This invitation has expired.' : status === 'revoked' ? 'This invitation has been revoked.' : 'This invitation is invalid.'}</p>}
           {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
-          {active ? <Button variant="primary" onClick={accept} disabled={pending} aria-busy={pending}>{pending ? 'Accepting…' : 'Accept invitation'}</Button> : <Link href="/login" className="inline-flex font-medium text-brand-600 hover:underline">Return to Bower sign in</Link>}
+          {active ? <Button variant="primary" onClick={accept} disabled={pending} aria-busy={pending}>{pending ? 'Accepting…' : 'Accept invitation'}</Button> : <Link href="/login" className="text-link inline-flex font-medium">Return to Bower sign in</Link>}
         </CardContent>
       </Card>
     </main>

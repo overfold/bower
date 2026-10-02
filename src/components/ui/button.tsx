@@ -5,18 +5,19 @@ import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-enter focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 focus-visible:ring-offset-1 focus-visible:ring-offset-canvas disabled:pointer-events-none disabled:opacity-45 active:translate-y-px [&_svg]:pointer-events-none [&_svg:not([class*=h-]):not([class*=size-])]:size-4 [&_svg]:shrink-0',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-enter focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 focus-visible:ring-offset-1 focus-visible:ring-offset-canvas disabled:pointer-events-none disabled:opacity-50 active:translate-y-px [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
   {
     variants: {
       variant: {
-        primary: 'bg-primary text-primary-foreground shadow-card hover:brightness-90',
+        primary: 'bg-brand-500 text-white shadow-card hover:bg-brand-600 active:bg-brand-700',
         default: 'bg-surface text-ink border border-line shadow-card hover:border-line-strong hover:bg-sunken',
         ghost: 'text-ink-soft hover:bg-sunken hover:text-ink',
         danger: 'bg-surface text-danger-500 border border-danger-200 hover:bg-danger-50',
+        destructive: 'bg-danger-500 text-white hover:bg-danger-500/90',
         link: 'text-brand-700 underline-offset-4 hover:underline',
       },
       size: {
-        sm: 'h-8 px-2.5 text-[13px]',
+        sm: 'h-8 px-2.5 text-sm [&_svg]:size-3.5',
         md: 'h-9 px-3.5 text-sm',
         lg: 'h-11 px-5 text-sm',
         icon: 'h-8 w-8',
@@ -30,13 +31,14 @@ export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean
+  loading?: boolean
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, children, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, loading, children, ...props }, ref) => {
     const Comp = asChild ? Slot : 'button'
-    return <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props}>
-      {asChild ? children : <>{props['aria-busy'] === true ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}{children}</>}
+    return <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} aria-busy={loading || props['aria-busy']} disabled={loading || props.disabled}>
+      {asChild ? children : <>{loading || props['aria-busy'] === true ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}{children}</>}
     </Comp>
   },
 )

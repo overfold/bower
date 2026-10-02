@@ -16,7 +16,7 @@ export function PanelHeader({ title, hint, action, className, as: Heading = 'h2'
   return (
     <CardHeader className={cn('flex-col items-stretch sm:flex-row sm:items-center', className)}>
       <div className="min-w-0 flex-1">
-        <Heading className="break-words text-[13px] font-semibold tracking-tight text-ink">
+        <Heading className="break-words text-md font-semibold tracking-tight text-ink">
           {title}
         </Heading>
         {hint ? <p className="mt-0.5 break-words text-xs text-ink-muted">{hint}</p> : null}
@@ -38,7 +38,7 @@ export function KeyValue({ label, children, mono }: { label: string; children: R
   return (
     <div className="min-w-0 py-2.5">
       <dt className="text-xs text-ink-muted">{label}</dt>
-      <dd className={cn('mt-1 truncate text-[13px] text-ink', mono && 'font-mono text-[12.5px]')}>
+      <dd className={cn("mt-1 truncate text-sm text-ink", mono && "font-mono text-sm")}>
         {children}
       </dd>
     </div>

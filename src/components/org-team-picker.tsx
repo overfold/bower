@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
-import { Building2, ChevronsUpDown, Check, Users } from 'lucide-react'
+import { Building2, ChevronsUpDown, Check } from 'lucide-react'
 import { switchOrgAction } from '@/lib/auth-actions'
 import { cn } from '@/lib/utils'
 import {
@@ -10,7 +10,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
@@ -32,7 +31,7 @@ interface OrgTeamPickerProps {
   teams: TeamEntry[]
 }
 
-export function OrgTeamPicker({ orgs, currentOrg, teams }: OrgTeamPickerProps) {
+export function OrgTeamPicker({ orgs, currentOrg }: OrgTeamPickerProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [open, setOpen] = useState(false)
@@ -50,7 +49,7 @@ export function OrgTeamPicker({ orgs, currentOrg, teams }: OrgTeamPickerProps) {
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger
         className={cn(
-          'flex min-w-0 max-w-full items-center gap-1.5 rounded-md px-1.5 py-2 text-left text-[13px] font-medium text-ink transition-colors sm:py-1',
+          "flex min-w-0 max-w-full items-center gap-1.5 rounded-md px-1.5 py-2 text-left text-sm font-medium text-ink transition-colors sm:py-1",
           'hover:bg-sunken focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300',
           isPending && 'opacity-60',
         )}
@@ -76,19 +75,6 @@ export function OrgTeamPicker({ orgs, currentOrg, teams }: OrgTeamPickerProps) {
             )}
           </DropdownMenuItem>
         ))}
-
-        {teams.length > 0 && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>Your teams</DropdownMenuLabel>
-            {teams.map((team) => (
-              <DropdownMenuItem key={team.id} className="gap-2" disabled>
-                <Users className="h-3.5 w-3.5 shrink-0 text-ink-muted" />
-                <span className="flex-1 truncate">{team.name}</span>
-              </DropdownMenuItem>
-            ))}
-          </>
-        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )

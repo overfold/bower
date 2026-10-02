@@ -16,6 +16,8 @@ export function CreateServiceDialog({ projectSlug }: { projectSlug: string }) {
   const [open, setOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [image, setImage] = useState('')
+  const imageValid = /^[\w.-]+(?::\d+)?(?:\/[\w.-]+)*(?:[:@][\w][\w.:-]*)?$/.test(image)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -46,11 +48,11 @@ export function CreateServiceDialog({ projectSlug }: { projectSlug: string }) {
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button variant="primary" size="sm">
-          <Plus className="mr-1.5 h-4 w-4" />
+          <Plus />
           New service
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent size="lg" onOpenAutoFocus={(event) => { event.preventDefault(); document.getElementById('name')?.focus() }}>
         <DialogHeader>
           <DialogTitle>Create service</DialogTitle>
         </DialogHeader>
@@ -59,11 +61,12 @@ export function CreateServiceDialog({ projectSlug }: { projectSlug: string }) {
             {error && <InlineNotice tone="error">{error}</InlineNotice>}
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
-              <Input id="name" name="name" placeholder="api-server" required />
+              <Input id="name" name="name" placeholder="Checkout API" required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="image">Image</Label>
-              <Input id="image" name="image" placeholder="nginx:latest" required mono />
+              <Input id="image" name="image" value={image} onChange={(event) => setImage(event.target.value)} placeholder="docker.io/library/nginx:latest" required mono aria-invalid={image.length > 0 && !imageValid} />
+              <p className={`text-xs ${image.length > 0 && !imageValid ? 'text-danger-500' : 'text-ink-muted'}`}>Use a registry/repository image reference with a tag or digest.</p>
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
@@ -85,18 +88,19 @@ export function CreateServiceDialog({ projectSlug }: { projectSlug: string }) {
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="cpu">CPU (millicores)</Label>
-                <Input id="cpu" name="cpu" type="number" defaultValue={100} min={1} step={1} required />
+                <Label htmlFor="cpu">CPU</Label>
+                <div className="relative"><Input id="cpu" name="cpu" type="number" defaultValue={100} min={1} step={1} className="pr-12" required /><span className="pointer-events-none absolute right-3 top-2.5 text-xs text-ink-muted">mCPU</span></div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="memory">Memory (MB)</Label>
-                <Input id="memory" name="memory" type="number" defaultValue={128} min={1 / 1048576} step="any" required />
+                <Label htmlFor="memory">Memory</Label>
+                <div className="relative"><Input id="memory" name="memory" type="number" defaultValue={128} min={1 / 1048576} step="any" className="pr-10" required /><span className="pointer-events-none absolute right-3 top-2.5 text-xs text-ink-muted">MB</span></div>
               </div>
             </div>
+            <p className="text-xs text-ink-muted">The service is created without deploying. Review its configuration, then deploy when ready.</p>
           </DialogBody>
           <DialogFooter>
             <Button type="button" size="sm" onClick={() => setOpen(false)} disabled={loading}>Cancel</Button>
-            <Button variant="primary" type="submit" size="sm" disabled={loading} aria-busy={loading}>
+            <Button variant="primary" type="submit" size="sm" disabled={loading || !imageValid} loading={loading}>
               {loading ? 'Creating…' : 'Create service'}
             </Button>
           </DialogFooter>

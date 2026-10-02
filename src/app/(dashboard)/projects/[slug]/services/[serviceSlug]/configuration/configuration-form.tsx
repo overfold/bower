@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { actionErrorMessage } from '@/lib/action-error'
 import { useRouter } from 'next/navigation'
 import { updateServiceConfigOverridesAction } from '@/lib/actions/base-service-config'
@@ -29,6 +29,20 @@ export function ConfigurationForm({ serviceId, environmentId, config }: Configur
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [healthType, setHealthType] = useState(config?.healthCheckType ?? '')
+  const [strategy, setStrategy] = useState(config?.deploymentStrategy ?? 'rolling')
+  const [dirty, setDirty] = useState(false)
+  const formRef = useRef<HTMLFormElement>(null)
+
+  useEffect(() => {
+    const warn = (event: BeforeUnloadEvent) => { if (dirty) event.preventDefault() }
+    const guardLink = (event: MouseEvent) => {
+      const link = (event.target as Element).closest('a[href]')
+      if (dirty && link && !window.confirm('Discard your unsaved service configuration?')) event.preventDefault()
+    }
+    window.addEventListener('beforeunload', warn)
+    document.addEventListener('click', guardLink, true)
+    return () => { window.removeEventListener('beforeunload', warn); document.removeEventListener('click', guardLink, true) }
+  }, [dirty])
 
   const d = {
     image: config?.image ?? '',
@@ -53,6 +67,7 @@ export function ConfigurationForm({ serviceId, environmentId, config }: Configur
     try {
       const formData = new FormData(e.currentTarget)
       await updateServiceConfigOverridesAction(serviceId, environmentId, formData)
+      setDirty(false)
       toast({ tone: 'success', title: 'Service configuration saved.' })
       router.refresh()
     } catch (err) {
@@ -63,7 +78,7 @@ export function ConfigurationForm({ serviceId, environmentId, config }: Configur
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4" aria-busy={saving}>
+    <form ref={formRef} onSubmit={handleSubmit} onChange={(event) => { if (!(event.target instanceof HTMLSelectElement)) setDirty(true) }} className="space-y-4" aria-busy={saving}>
       {error && <InlineNotice tone="error">{error}</InlineNotice>}
       <div className="hidden">
         <input type="hidden" name="resourceTier" value="custom" />
@@ -93,7 +108,7 @@ export function ConfigurationForm({ serviceId, environmentId, config }: Configur
             </div>
             <div className="space-y-2">
               <Label htmlFor="strategy">Deployment strategy</Label>
-              <Select name="strategy" defaultValue={d.deploymentStrategy}>
+              <Select name="strategy" value={strategy} onValueChange={(value) => { setStrategy(value as typeof strategy); setDirty(true) }}>
                 <SelectTrigger id="strategy"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="rolling">Rolling</SelectItem>
@@ -128,7 +143,7 @@ export function ConfigurationForm({ serviceId, environmentId, config }: Configur
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="healthType">Type</Label>
               <input type="hidden" name="healthType" value={healthType} />
-              <Select value={healthType || 'none'} onValueChange={(value) => setHealthType(value === 'none' ? '' : value)}>
+              <Select value={healthType || 'none'} onValueChange={(value) => { setHealthType(value === 'none' ? '' : value); setDirty(true) }}>
                 <SelectTrigger id="healthType"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">None</SelectItem>
@@ -161,11 +176,12 @@ export function ConfigurationForm({ serviceId, environmentId, config }: Configur
         </div>
       </Panel>
 
-      <div className="flex justify-end">
+      {dirty && <div className="sticky bottom-4 z-20 flex items-center justify-between rounded-xl border border-line bg-surface px-4 py-3 shadow-raised">
+        <span className="text-sm font-medium text-ink">Unsaved changes</span><div className="flex gap-2"><Button type="button" onClick={() => { formRef.current?.reset(); setDirty(false); setHealthType(config?.healthCheckType ?? ''); setStrategy(config?.deploymentStrategy ?? 'rolling') }}>Discard</Button>
         <Button variant="primary" type="submit" disabled={saving} aria-busy={saving}>
           {saving ? 'Saving…' : 'Save configuration'}
         </Button>
-      </div>
+        </div></div>}
     </form>
   )
 }

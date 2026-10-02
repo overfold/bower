@@ -37,6 +37,12 @@ export async function getAllocationMetricsAction(serviceId: string, allocationId
   return client.getAllocationMetrics(allocationId, allocation.namespace)
 }
 
+export async function getAllocationLogsAction(serviceId: string, allocationId: string, task: string) {
+  const { access, allocation } = await getOwnedAllocation(serviceId, allocationId)
+  const client = await getTrellisClient(access.org.id)
+  return client.getAllocationLogs(allocationId, task, allocation.namespace)
+}
+
 export async function stopAllocationDetailAction(serviceId: string, allocationId: string) {
   const { access, allocation } = await getOwnedAllocation(serviceId, allocationId)
   if (access.projectRole === 'viewer') throw new Error('Insufficient permissions.')

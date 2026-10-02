@@ -52,7 +52,7 @@ function CreateTeamDialog() {
           New team
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>Create team</DialogTitle>
         </DialogHeader>
@@ -104,7 +104,7 @@ function EditTeamDialog({ teamId, teamName }: { teamId: string; teamName: string
           <Pencil className="h-3.5 w-3.5 text-ink-muted" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>Edit team</DialogTitle>
         </DialogHeader>
@@ -262,11 +262,12 @@ export function AddTeamMemberDialog({ teamId, orgMembers, existingMemberIds }: {
   return (
     <Dialog open={open} onOpenChange={(v) => { if (pending) return; if (!v) handleClose(); else { setError(null); setOpen(true) } }}>
       <DialogTrigger asChild>
-        <Button variant="primary" size="icon" aria-label="Add member">
+        <Button variant="default" size="sm">
           <Plus className="h-4 w-4" />
+          Add member
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>Add team member</DialogTitle>
         </DialogHeader>
@@ -306,7 +307,7 @@ export function AddTeamMemberDialog({ teamId, orgMembers, existingMemberIds }: {
                     type="button"
                     onClick={() => selectSuggestion(m.email)}
                     onMouseMove={() => setActiveIndex(index)}
-                    className={`flex w-full items-center gap-3 border-b border-line px-3 py-2.5 text-left text-[13px] transition-colors last:border-b-0 hover:bg-sunken ${activeIndex === index ? 'bg-sunken' : ''}`}
+                    className={`flex w-full items-center gap-3 border-b border-line px-3 py-2.5 text-left text-sm transition-colors last:border-b-0 hover:bg-sunken ${activeIndex === index ? 'bg-sunken' : ''}`}
                   >
                     <User className="h-4 w-4 shrink-0 text-ink-muted" />
                     <div className="min-w-0 flex-1">

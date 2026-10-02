@@ -54,7 +54,7 @@ export function AddMemberDialog({ canManage, showInstanceAdmin }: { canManage: b
           Add member
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>Add member</DialogTitle>
         </DialogHeader>
@@ -101,7 +101,7 @@ export function AddMemberDialog({ canManage, showInstanceAdmin }: { canManage: b
             <Button variant="default" type="button" size="sm" onClick={handleClose} disabled={pending}>
               Cancel
             </Button>
-            <Button variant="primary" type="submit" size="sm" disabled={pending}>
+            <Button variant="primary" type="submit" size="sm" loading={pending}>
               {pending ? 'Adding...' : 'Add member'}
             </Button>
           </DialogFooter>

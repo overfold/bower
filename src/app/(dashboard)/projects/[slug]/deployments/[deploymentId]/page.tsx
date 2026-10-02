@@ -1,23 +1,28 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { Fragment } from 'react'
 import { and, eq } from 'drizzle-orm'
 import { db } from '@/db'
-import { deploymentEvents, deployments, services } from '@/db/schema'
+import { deploymentEvents, deployments, services, users } from '@/db/schema'
 import { requireContext, requireProject } from '@/lib/actions/shared'
 import { getProjectBySlug } from '@/lib/queries'
-import { Panel, PanelHeader, SectionTitle } from '@/components/ui/panel'
+import { Panel, PanelHeader, KeyValue } from '@/components/ui/panel'
 import { StatusDot } from '@/components/status'
 import { formatTimestamp } from '@/lib/format'
+import { InlineNotice } from '@/components/ui/feedback'
+import { DeploymentDiagnosticActions } from './deployment-diagnostic-actions'
+import { label } from '@/lib/labels'
 
 export default async function DeploymentDetailPage({ params }: { params: Promise<{ slug: string; deploymentId: string }> }) {
   const { slug, deploymentId } = await params
   const ctx = await requireContext()
   const project = await getProjectBySlug(ctx.org.id, slug)
   if (!project) notFound()
-  await requireProject(project.id)
-  const [row] = await db.select({ deployment: deployments, service: services })
+  const access = await requireProject(project.id)
+  const [row] = await db.select({ deployment: deployments, service: services, userName: users.name })
     .from(deployments)
     .innerJoin(services, eq(services.id, deployments.serviceId))
+    .leftJoin(users, eq(users.id, deployments.triggeredByUserId))
     .where(and(eq(deployments.id, deploymentId), eq(services.projectId, project.id)))
     .limit(1)
   if (!row) notFound()
@@ -25,10 +30,39 @@ export default async function DeploymentDetailPage({ params }: { params: Promise
     .where(eq(deploymentEvents.deploymentId, deploymentId))
     .orderBy(deploymentEvents.createdAt)
 
+  const duration = row.deployment.completedAt
+    ? Math.max(0, Math.round((row.deployment.completedAt.getTime() - row.deployment.startedAt.getTime()) / 1000))
+    : null
+  const failedEvent = events.findLast((event) => /fail|error/i.test(`${event.type} ${event.message}`))
+  const allocationDetails = events.flatMap((event) => {
+    const details = event.details as Record<string, unknown>
+    return Array.isArray(details.allocations) ? details.allocations : []
+  })
+  const failedAllocation = allocationDetails.find((allocation) => allocation && typeof allocation.id === 'string')
+  const serviceHref = `/projects/${slug}/services/${row.service.slug}`
+
   return <div className="space-y-5">
-    <div><Link href={`/projects/${slug}/deployments`} className="text-sm text-ink-muted hover:text-ink">← Deployments</Link><SectionTitle>Deployment diagnostics</SectionTitle><div className="mt-2 flex items-center gap-3"><StatusDot status={row.deployment.status} /><span className="font-mono text-xs">{row.service.name} · {row.deployment.imageAfter}</span></div></div>
+    <div className="flex flex-wrap items-start justify-between gap-3"><div className="space-y-3"><h1 className="text-xl font-semibold text-ink">{row.service.name} deployment</h1><StatusDot status={row.deployment.status} /></div>{access.projectRole !== 'viewer' ? <DeploymentDiagnosticActions serviceId={row.service.id} environmentId={row.deployment.environmentId} rollbackTarget={row.deployment.status === 'healthy' && row.deployment.jobSpec ? { id: row.deployment.id, image: row.deployment.imageAfter } : undefined} /> : null}</div>
+    {row.deployment.status === 'failed' && <InlineNotice tone="danger">{failedEvent?.message ?? 'The deployment failed. Review the event timeline for details.'} <Link className="underline underline-offset-2" href={failedAllocation ? `${serviceHref}/allocations/${encodeURIComponent(failedAllocation.id)}#logs` : serviceHref}>{failedAllocation ? 'View allocation logs' : 'View service allocations'}</Link></InlineNotice>}
+    <Panel><PanelHeader title="Summary" /><dl className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
+      <KeyValue label="Service">{row.service.name}</KeyValue>
+      <div className="min-w-0 py-2.5 sm:col-span-2"><dt className="text-xs text-ink-muted">Image before → after</dt><dd className="mt-1 break-all font-mono text-sm text-ink">{row.deployment.imageBefore ?? '—'} → {row.deployment.imageAfter}</dd></div>
+      <KeyValue label="Trigger">{label(row.deployment.triggerType)} · {row.userName ?? 'System'}</KeyValue>
+      <KeyValue label="Strategy">{label(row.deployment.strategy)}</KeyValue>
+      <KeyValue label="Started">{formatTimestamp(row.deployment.startedAt)}</KeyValue>
+      <KeyValue label="Duration">{duration === null ? 'In progress' : `${duration}s`}</KeyValue>
+    </dl></Panel>
     <Panel><PanelHeader title="Events" />
-      {events.length ? <ol className="divide-y divide-line">{events.map((event) => <li key={event.id} className="p-4"><p className="font-medium text-ink">{event.message}</p><p className="mt-1 text-xs text-ink-muted">{event.type} · {formatTimestamp(event.createdAt)}</p>{Object.keys(event.details as object).length ? <pre className="mt-3 overflow-auto rounded bg-sunken p-3 text-xs text-ink-soft">{JSON.stringify(event.details, null, 2)}</pre> : null}</li>)}</ol> : <p className="p-4 text-sm text-ink-muted">No deployment events were recorded.</p>}
+      {events.length ? <ol className="px-4">{events.map((event) => {
+        const failed = /fail|error/i.test(`${event.type} ${event.message}`)
+        const tone = failed ? 'bg-danger-500' : /backoff|blocked/i.test(event.type) ? 'bg-warn-500' : /healthy|complete|success/i.test(event.type) ? 'bg-ok-500' : 'bg-info-500'
+        return <li key={event.id} className="relative border-l border-line py-4 pl-5">
+          <span className={`absolute -left-1.5 top-5 h-3 w-3 rounded-full ${tone}`} />
+          <p className={`font-medium ${failed ? 'text-danger-500' : 'text-ink'}`}>{event.message}</p>
+          <p className="mt-1 text-xs text-ink-muted">{label(event.type)} · {formatTimestamp(event.createdAt)}</p>
+          {Object.keys(event.details as object).length ? <details className="mt-3"><summary className="text-link cursor-pointer text-xs font-medium">Details</summary><dl className="mt-2 grid max-w-3xl grid-cols-[minmax(6rem,0.4fr)_minmax(0,1fr)] gap-x-4 gap-y-2 rounded bg-sunken p-3 text-xs">{Object.entries(event.details as Record<string, unknown>).map(([key, value]) => <Fragment key={key}><dt className="text-ink-muted">{label(key)}</dt><dd className="whitespace-pre-wrap break-words font-mono text-ink-soft">{typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}</dd></Fragment>)}</dl></details> : null}
+        </li>
+      })}</ol> : <p className="p-4 text-sm text-ink-muted">No deployment events were recorded.</p>}
     </Panel>
   </div>
 }

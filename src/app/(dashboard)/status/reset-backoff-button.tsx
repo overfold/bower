@@ -20,7 +20,7 @@ export function ResetBackoffButton({ namespace, job, group }: { namespace: strin
             setError(reason instanceof Error ? reason.message : 'Reset failed.')
           }
         })}
-        disabled={pending}
+        loading={pending}
       >
         {pending ? 'Resetting…' : 'Reset backoff'}
       </Button>
