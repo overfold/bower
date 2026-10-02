@@ -1,0 +1,51 @@
+name: UI screenshot audit
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: bower
+          POSTGRES_PASSWORD: bower
+          POSTGRES_DB: bower_ui_audit
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U bower -d bower_ui_audit"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://bower:bower@127.0.0.1:5432/bower_ui_audit
+      UI_AUDIT_OUTPUT: ui-audit-output
+      NEXT_TELEMETRY_DISABLED: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run db:migrate
+      - run: node scripts/ui-audit/seed.mjs
+      - run: npm run build
+      - name: Capture production UI
+        run: npx playwright test --config scripts/ui-audit/playwright.config.mjs
+      - name: Upload screenshots and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bower-ui-audit-${{ github.run_number }}
+          path: ui-audit-output/
+          if-no-files-found: error
+          retention-days: 14
