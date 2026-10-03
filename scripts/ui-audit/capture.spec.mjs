@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, webkit } from "@playwright/test";
 import { readFile, mkdir, readdir } from "node:fs/promises";
 import path from "node:path";
 import postgres from "postgres";
@@ -28,6 +28,7 @@ test.beforeAll(async ({ browser }) => {
   try {
     const page = await context.newPage();
     await page.goto("/login");
+    await page.waitForFunction(() => Object.keys(document.querySelector('form') ?? {}).some((key) => key.startsWith('__reactProps$')));
     await page.getByLabel("Email address").fill("alex@example.test");
     await page.getByLabel("Password", { exact: true }).fill("Audit-only-2026!");
     await click(page, "Sign in");
@@ -142,7 +143,7 @@ const dialogs = [
   ["add-channel", `${project}/integrations`, "New notification channel"],
   ["delete-channel", `${project}/integrations`, "Delete Production alerts"],
   ["delete-project", `${project}/settings`, "Delete project"],
-  ["rollback-service", service, "Roll back to…"],
+  ["rollback-service", service, "Roll back…"],
   ["attach-volume", `${service}/mounts`, "Attach volume"],
   ["new-api-key", "/settings/account", "New key"],
   ["revoke-api-key", "/settings/account", "Revoke GitHub Actions"],
@@ -186,10 +187,15 @@ for (const [name, route, button] of dialogs)
       await expect(
         page.locator('[role="dialog"], [role="alertdialog"]'),
       ).toBeVisible();
-      if (name === "terminal")
+      if (name === "terminal") {
         await expect(
           page.getByText("Connected", { exact: true }),
         ).toBeVisible();
+        const dialog = page.getByRole('dialog');
+        await expect(dialog.getByRole('heading', { name: 'Terminal · storefront-alloc-1' })).toBeVisible();
+        const bottomGap = await dialog.evaluate((element) => element.getBoundingClientRect().bottom - element.querySelector('[aria-label="Interactive allocation terminal"]').parentElement.getBoundingClientRect().bottom);
+        expect(bottomGap).toBeGreaterThanOrEqual(16);
+      }
     },
   });
 const state = (name, route, setup, extra = {}) =>
@@ -201,7 +207,7 @@ state("empty-project-environment", "/projects/internal-tools/environment", async
 for (const slug of ["commerce", "internal-tools"])
   state(`${slug}-unified-settings`, `/projects/${slug}/settings`, async (page) => {
     await expect(page.locator("#volumes")).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Project settings", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("navigation", { name: "Project settings", exact: true })).toBeVisible();
     const widths = await page.locator("#general > div > .rounded-xl, #access .rounded-xl, #integrations .rounded-xl, #volumes .rounded-xl").evaluateAll((cards) => cards.map((card) => card.getBoundingClientRect().width));
     expect(widths.length).toBeGreaterThan(0);
     expect(new Set(widths).size).toBe(1);
@@ -209,7 +215,7 @@ for (const slug of ["commerce", "internal-tools"])
 for (const tab of ["Details", "Lifecycle"])
   state(`allocation-${tab.toLowerCase()}`, allocation, async (page) => {
     await page.getByRole("tab", { name: tab, exact: true }).click();
-    await expect(page.getByRole("heading", { name: tab === "Details" ? "Allocation details" : "Lifecycle history", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: tab, exact: true })).toBeVisible();
     if (tab === "Details") await expect(page.getByLabel("Sampling CPU usage")).toHaveCount(0);
   }, { fullPage: true });
 state("failing-service-cause", `${project}/services/order-worker`, async (page) => {
@@ -224,7 +230,7 @@ state("terminal-fullscreen", allocation, async (page) => {
 });
 state("active-release-rollback-target", `${project}/deployments/${fixture.deploymentId}`, async (page) => {
   await expect(page.getByRole("heading", { name: "Events", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Roll back to storefront:v2.3.0", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Roll back…", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Roll back to storefront:v2.4.1", exact: true })).toHaveCount(0);
 }, { fullPage: true });
 state("add-variable", `${project}/environment`, async (page) => {
@@ -414,11 +420,13 @@ state("invite-custom-expiry", "/settings/members", async (page) => {
   await choose(page, "Expires", "Choose a date");
   await page.getByLabel("Expiry date").fill("2030-12-31");
 });
-state("member-actions", `/settings/members/${fixture.memberId}`, (page) => click(page, "Actions for Sam Rivera"));
+state("member-actions", `/settings/members/${fixture.memberId}`, async (page) => {
+  await expect(page.getByRole('heading', { name: 'Danger zone', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Actions for Sam Rivera', exact: true })).toHaveCount(0);
+});
 for (const [name, action] of [["remove-instance-admin", "Remove instance admin"], ["remove-organization-member", "Remove from organization"]])
   state(name, `/settings/members/${fixture.memberId}`, async (page) => {
-    await click(page, "Actions for Sam Rivera");
-    await page.getByRole("menuitem", { name: action, exact: true }).click();
+    await click(page, action);
     await expect(page.getByRole("alertdialog")).toBeVisible();
   });
 state("delete-project-confirmed-name", `${project}/settings`, async (page) => {
@@ -427,7 +435,7 @@ state("delete-project-confirmed-name", `${project}/settings`, async (page) => {
   await expect(page.getByRole("alertdialog").getByRole("button", { name: "Delete project", exact: true })).toBeEnabled();
 });
 state("rollback-to-deployment", `${project}/deployments/${fixture.rollbackDeploymentId}`, async (page) => {
-  await page.getByRole("button", { name: /^Roll back to / }).click();
+  await click(page, 'Roll back…');
   await expect(page.getByRole("alertdialog")).toBeVisible();
 });
 state("failed-deployment-rollback", `${project}/deployments/${fixture.failedDeploymentId}`, async (page) => {
@@ -435,7 +443,7 @@ state("failed-deployment-rollback", `${project}/deployments/${fixture.failedDepl
   await expect(rollback).toHaveClass(/bg-brand-500/);
   await expect(page.getByRole("button", { name: "Redeploy", exact: true })).not.toHaveClass(/bg-brand-500/);
   await expect(page.getByRole("link", { name: "Edit configuration", exact: true })).toHaveAttribute("href", `${service}/configuration`);
-  await expect(page.getByRole("link", { name: "View allocation logs", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open allocation", exact: true })).toBeVisible();
 });
 for (const [name, route] of [["organization", "/deployments"], ["project", `${project}/deployments`]])
   state(`${name}-deployments-page-two`, route, async (page) => {
@@ -460,12 +468,12 @@ state("domain-dns-expanded", "/settings/domains", async (page) => {
 });
 state("configuration-dirty", `${service}/configuration`, async (page) => {
   await page.getByLabel("Container image", { exact: true }).fill("ghcr.io/acme/storefront:v2.5.0");
-  await expect(page.getByText("Unsaved changes", { exact: true })).toBeVisible();
+  await expect(page.getByText(/^Unsaved changes/)).toBeVisible();
   await page.getByRole("button", { name: "Save changes", exact: true }).scrollIntoViewIfNeeded();
 });
 state("advanced-dirty", `${service}/advanced`, async (page) => {
   await choose(page, "Isolation", "Sandboxed");
-  await expect(page.getByText("Unsaved changes", { exact: true })).toBeVisible();
+  await expect(page.getByText(/^Unsaved changes/)).toBeVisible();
 });
 for (const empty of [false, true])
   state(`allocation-logs-search-${empty ? "empty" : "results"}`, allocation, async (page) => {
@@ -510,6 +518,7 @@ state("focus-brand-ring", "/projects", async (page) => {
   await control.focus();
   await expect(control).toHaveClass(/focus-visible:ring-\[3px\]/);
   await expect(control).toHaveClass(/focus-visible:ring-brand-100/);
+  await expect(control).toHaveClass(/focus-visible:border-brand-500/);
   await expect(control).toBeFocused();
 });
 state("focus-text-link", "/login", async (page) => {
@@ -539,13 +548,67 @@ state("configuration-discard", `${service}/configuration`, async (page) => {
   const image = page.getByLabel("Container image", { exact: true });
   const original = await image.inputValue();
   await image.fill("ghcr.io/acme/storefront:discard-me");
-  await expect(page.getByText("Unsaved changes", { exact: true })).toBeVisible();
+  await expect(page.getByText(/^Unsaved changes/)).toBeVisible();
   await click(page, "Discard");
   await expect(image).toHaveValue(original);
-  await expect(page.getByText("Unsaved changes", { exact: true })).toHaveCount(0);
+  await expect(page.getByText(/^Unsaved changes/)).toHaveCount(0);
+});
+state("configuration-variable-draft", `${service}/configuration`, async (page) => {
+  const writes = [];
+  page.on('request', (request) => { if (request.method() === 'POST' && request.postData()?.includes('envVars')) writes.push(request); });
+  const sql = postgres(process.env.DATABASE_URL);
+  const [original] = await sql`SELECT c.* FROM service_configs c JOIN services s ON s.id=c.service_id JOIN projects p ON p.id=s.project_id WHERE p.slug='commerce' AND s.slug='storefront'`;
+  try {
+    await page.getByLabel('Replicas', { exact: true }).fill('3');
+    await page.getByLabel('CPU', { exact: true }).fill('0.75');
+    await click(page, 'New variable');
+    await page.getByRole('dialog').getByLabel('Key', { exact: true }).fill('CHECKLIST_DRAFT');
+    await page.getByRole('dialog').getByLabel('Value', { exact: true }).fill('audit-only');
+    await click(page, 'Create variable');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(page.getByText('Unsaved changes · 2 fields, 1 variable', { exact: true })).toBeVisible();
+    expect(writes).toHaveLength(0);
+    const [unsaved] = await sql`SELECT env_vars FROM service_configs WHERE id=${original.id}`;
+    expect(unsaved.env_vars).not.toHaveProperty('CHECKLIST_DRAFT');
+    await click(page, 'Discard');
+    await expect(page.getByText('CHECKLIST_DRAFT', { exact: true })).toHaveCount(0);
+    await expect(page.getByLabel('Replicas', { exact: true })).toHaveValue(String(original.replicas));
+    await click(page, 'Edit LOG_FORMAT');
+    await page.getByRole('dialog').getByLabel('Value', { exact: true }).fill('checklist-value');
+    await page.getByRole('dialog').getByRole('button', { name: 'Save changes', exact: true }).click();
+    await click(page, 'Edit PORT');
+    await click(page, 'Remove override');
+    await page.getByLabel('Replicas', { exact: true }).fill('3');
+    await expect(page.getByText('Unsaved changes · 1 field, 2 variables', { exact: true })).toBeVisible();
+    expect(writes).toHaveLength(0);
+    await click(page, 'Save changes');
+    await expect(page.getByText(/^Unsaved changes/)).toHaveCount(0);
+    expect(writes).toHaveLength(1);
+    const [saved] = await sql`SELECT replicas, env_vars FROM service_configs WHERE id=${original.id}`;
+    expect(saved.replicas).toBe(3);
+    expect(saved.env_vars.LOG_FORMAT).toBe('checklist-value');
+    expect(saved.env_vars).not.toHaveProperty('PORT');
+    await page.reload();
+    await expect(page.getByLabel('Replicas', { exact: true })).toHaveValue('3');
+  } finally {
+    await sql`UPDATE service_configs SET replicas=${original.replicas}, env_vars=${sql.json(original.env_vars)}, overrides=${original.overrides ? sql.json(original.overrides) : null} WHERE id=${original.id}`;
+    await sql.end();
+  }
+});
+state("checklist-inline-validation", `${project}/environment`, async (page) => {
+  await click(page, 'New variable');
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Key', { exact: true }).fill('1INVALID');
+  await dialog.getByLabel('Value', { exact: true }).fill('audit-only');
+  await click(page, 'Create variable');
+  const key = dialog.getByLabel('Key', { exact: true });
+  await expect(key).toBeFocused();
+  await expect(key).toHaveAttribute('aria-invalid', 'true');
+  await expect(dialog.getByRole('alert')).toHaveCount(0);
+  await expect(dialog.locator('#' + await key.getAttribute('aria-describedby'))).toHaveClass(/text-danger-500/);
 });
 state("invitation-named-context", "/invite/audit-invite", async (page) => {
-  await expect(page.getByText(/Alex Morgan invited you to join Acme Cloud as member\./)).toBeVisible();
+  await expect(page.getByText(/Alex Morgan invited you to join Acme Cloud as a member\./)).toBeVisible();
   await expect(page.getByText("alex@example.test", { exact: true })).toBeVisible();
 });
 state("public-not-found", "/invite/audit-invite/missing", async (page) => {
@@ -606,7 +669,7 @@ for (const kind of ["api-key", "invitation", "webhook"])
         await page.getByRole("dialog").getByText(/^curl -X POST/).evaluateAll((elements) => {
           for (const el of elements) el.textContent = "curl -X POST '[REDACTED endpoint]' -H 'Authorization: Bearer <token>'";
         });
-        await page.locator('[role="dialog"] input[readonly]').evaluateAll((elements) => {
+        await page.locator('[role="dialog"] input[readonly], [role="dialog"] textarea[readonly]').evaluateAll((elements) => {
           for (const el of elements) {
             el.value = "[REDACTED — disposable audit credential]";
             el.setAttribute("value", el.value);
@@ -651,6 +714,62 @@ test("every UI page route is represented", async () => {
     [],
   );
 });
+test('create service persists each health-check type without deploying', async ({ browser }) => {
+  const context = await browser.newContext({ baseURL });
+  await context.addCookies([...authCookies, { name: 'bower_org', value: fixture.orgId, url: baseURL }]);
+  const sql = postgres(process.env.DATABASE_URL);
+  try {
+    const page = await context.newPage();
+    for (const type of ['None', 'HTTP', 'TCP', 'Script']) {
+      await page.goto(`${project}/services`);
+      await click(page, 'New service');
+      await page.getByLabel('Name', { exact: true }).fill(`Audit health ${type}`);
+      await page.getByLabel('Image', { exact: true }).fill('nginx:alpine');
+      await choose(page, 'Type', type);
+      if (type === 'HTTP') await page.getByLabel('Path', { exact: true }).fill('/healthz');
+      if (type === 'HTTP' || type === 'TCP') await page.getByLabel('Port', { exact: true }).fill('3001');
+      if (type === 'Script') await page.getByLabel('Command', { exact: true }).fill('check --ready');
+      await click(page, 'Create service');
+      await page.waitForURL(`**/services/audit-health-${type.toLowerCase()}`);
+      for (const table of ['base_service_configs', 'service_configs']) {
+        const [saved] = await sql`SELECT c.* FROM ${sql(table)} c JOIN services s ON s.id=c.service_id WHERE s.slug=${`audit-health-${type.toLowerCase()}`}`;
+        expect(saved.health_check_type).toBe(type === 'None' ? null : type.toLowerCase());
+        expect(saved.health_check_port).toBe(type === 'HTTP' || type === 'TCP' ? 3001 : null);
+        expect(saved.health_check_path).toBe(type === 'HTTP' ? '/healthz' : null);
+        expect(saved.health_check_command).toEqual(type === 'Script' ? ['check', '--ready'] : []);
+      }
+    }
+  } finally {
+    await sql`DELETE FROM services WHERE slug IN ('audit-health-none', 'audit-health-http', 'audit-health-tcp', 'audit-health-script')`;
+    await sql.end();
+    await context.close();
+  }
+});
+
+test('mono URLs in Chrome and Linux WebKit at 100%', async ({ browser }) => {
+  const safariApproximation = await webkit.launch();
+  try {
+    for (const [engine, name] of [[browser, 'chrome'], [safariApproximation, 'webkit']]) {
+      const context = await engine.newContext({ baseURL, viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 2 });
+      try {
+        // WebKit does not send production Secure cookies over this local HTTP
+        // fixture; Chromium treats loopback as a secure-context exception.
+        await context.addCookies([...authCookies.map((cookie) => ({ ...cookie, secure: false })), { name: 'bower_org', value: fixture.orgId, url: baseURL }]);
+        const page = await context.newPage();
+        for (const route of ['/settings/organization', '/settings/instance', '/settings/account', '/status']) {
+          await page.goto(route);
+          await page.waitForFunction(() => Number(getComputedStyle(document.querySelector('#main-content > div > div')).opacity) === 1);
+          await page.evaluate(() => document.fonts.ready);
+          const values = await page.locator('.font-mono').evaluateAll((elements) => elements.map((element) => element instanceof HTMLInputElement ? element.value : element.textContent).filter((value) => /^https?:/.test(value ?? '')));
+          if (route !== '/status') expect(values.length).toBeGreaterThan(0);
+          for (const value of values) expect(value).not.toMatch(/https?:\s+\/\//);
+          await mkdir(`${output}/mono`, { recursive: true });
+          await page.screenshot({ path: `${output}/mono/${name}-${route.split('/').at(-1)}.png`, fullPage: true });
+        }
+      } finally { await context.close(); }
+    }
+  } finally { await safariApproximation.close(); }
+});
 for (const scenario of scenarios)
   test(scenario.name, {
     annotation: {
@@ -688,6 +807,8 @@ for (const scenario of scenarios)
             ? "/login"
             : ["access", "integrations", "volumes"].some((section) => scenario.route === `${project}/${section}`)
               ? `${project}/settings`
+              : scenario.route === '/settings/cluster' ? '/settings/organization'
+              : scenario.route === `${service}/advanced` ? `${service}/configuration`
               : scenario.route.split("?")[0];
     await expect(page).toHaveURL((url) => url.pathname === expectedPath);
     await expect(page.locator("body")).not.toContainText(

@@ -75,7 +75,21 @@ export function formatMemory(bytes: number): string {
 }
 
 export function formatReadyReplicas(ready: number | null | undefined, desired: number): string {
-  return ready == null ? `Unavailable / ${desired} ready` : `${ready}/${desired} ready`
+  return ready == null ? `Unavailable · ${desired} desired` : formatRatio(ready, desired, 'ready')
+}
+
+export function formatRatio(value: number, total: number, noun: string): string {
+  return `${value}/${total} ${noun}`
+}
+
+export function formatPercent(value: number): string {
+  return `${Math.round(value)}%`
+}
+
+export function deploymentImageTag(image: string): string {
+  if (image.includes('@')) return image.slice(image.lastIndexOf('@') + 1)
+  const name = image.split('/').at(-1) ?? image
+  return name.includes(':') ? name.slice(name.lastIndexOf(':') + 1) : 'latest'
 }
 
 export function shortDeploymentImage(image?: string | null) {

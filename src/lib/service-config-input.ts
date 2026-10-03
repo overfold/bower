@@ -69,7 +69,23 @@ export function parseServiceConfigInput(formData: FormData, limits?: TrellisJobL
     ? parseResourceInputs(String(formData.get('cpu') ?? ''), String(formData.get('memory') ?? ''))
     : { cpu: TIERS[tier][0], memory: TIERS[tier][1] }
   validateWorkloadAdmissionBounds(replicas, cpu, memory, limits)
-  const healthCheckType = String(formData.get('healthType') ?? '') || null
+  return {
+    image, replicas, resourceTier: tier, cpu, memory,
+    deploymentStrategy: parseDeploymentStrategy(String(formData.get('strategy') ?? 'rolling')),
+    ...parseHealthCheckInput(formData),
+    envVars: parseKeyValueLines(String(formData.get('envVars') ?? ''), 'env'),
+    labels: parseKeyValueLines(String(formData.get('labels') ?? ''), 'label'),
+    volumes: validateVolumeMounts(parseJsonInput(formData, 'volumes', [])),
+    secretBindings: validateSecretBindings(parseJsonInput(formData, 'secretBindings', [])),
+    autoRollbackSeconds: Math.max(30, Number(formData.get('autoRollbackSeconds')) || 300),
+    canarySteps: validateCanarySteps(parseJsonInput(formData, 'canarySteps', [10, 25, 50, 100])),
+    updatedAt: new Date(),
+  } as const
+}
+
+export function parseHealthCheckInput(formData: FormData) {
+  const type = String(formData.get('healthType') ?? '')
+  const healthCheckType = type === 'none' ? null : type || null
   if (healthCheckType !== null && healthCheckType !== 'http' && healthCheckType !== 'tcp' && healthCheckType !== 'script') {
     throw new Error('Invalid health check type.')
   }
@@ -93,17 +109,8 @@ export function parseServiceConfigInput(formData: FormData, limits?: TrellisJobL
     throw new Error('Health check durations exceed the Trellis nanosecond range.')
   }
   return {
-    image, replicas, resourceTier: tier, cpu, memory,
-    deploymentStrategy: parseDeploymentStrategy(String(formData.get('strategy') ?? 'rolling')),
     healthCheckType, healthCheckPort, healthCheckPath, healthCheckCommand,
     healthCheckInterval, healthCheckTimeout,
     healthCheckThreshold: integerField(formData, 'healthThreshold', 'Health check threshold', 3),
-    envVars: parseKeyValueLines(String(formData.get('envVars') ?? ''), 'env'),
-    labels: parseKeyValueLines(String(formData.get('labels') ?? ''), 'label'),
-    volumes: validateVolumeMounts(parseJsonInput(formData, 'volumes', [])),
-    secretBindings: validateSecretBindings(parseJsonInput(formData, 'secretBindings', [])),
-    autoRollbackSeconds: Math.max(30, Number(formData.get('autoRollbackSeconds')) || 300),
-    canarySteps: validateCanarySteps(parseJsonInput(formData, 'canarySteps', [10, 25, 50, 100])),
-    updatedAt: new Date(),
   } as const
 }

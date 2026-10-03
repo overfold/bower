@@ -10,9 +10,11 @@ interface UnsavedChangesBarProps {
   onSave: () => void
   pending?: boolean
   saveLabel?: string
+  count?: number
+  summary?: string
 }
 
-export function UnsavedChangesBar({ dirty, onDiscard, onSave, pending = false, saveLabel = 'Save changes' }: UnsavedChangesBarProps) {
+export function UnsavedChangesBar({ dirty, onDiscard, onSave, pending = false, saveLabel = 'Save changes', count, summary }: UnsavedChangesBarProps) {
   const [anchor, setAnchor] = useState<{ left: number; width: number } | null>(null)
   useEffect(() => {
     if (!dirty) return
@@ -57,7 +59,7 @@ export function UnsavedChangesBar({ dirty, onDiscard, onSave, pending = false, s
   return createPortal(
     <div style={{ left: anchor.left, width: anchor.width }} className="fixed bottom-4 z-40 flex justify-center">
     <div role="status" className="flex w-full max-w-3xl flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface px-4 py-3 shadow-raised">
-      <p className="text-sm font-medium text-ink">Unsaved changes</p>
+      <p className="text-sm font-medium text-ink">{summary ?? (count ? `${count} unsaved ${count === 1 ? 'change' : 'changes'}` : 'Unsaved changes')}</p>
       <div className="flex items-center gap-2">
         <Button type="button" onClick={onDiscard} disabled={pending}>Discard</Button>
         <Button type="button" variant="primary" onClick={onSave} loading={pending}>{saveLabel}</Button>

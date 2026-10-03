@@ -123,15 +123,6 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
     <div className="space-y-4">
       {error && !adding ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
 
-      <InlineNotice tone="neutral" icon={<Globe2 className="h-4 w-4" />}>
-        <p className="font-medium text-ink">Verify ownership with a one-time DNS check</p>
-        <p className="mt-0.5 text-xs text-ink-muted">
-          For each pending domain, add the TXT record shown below at your DNS provider
-          {canManage ? ', then click Check verification after it propagates.' : '. An organization admin can check it after it propagates.'}
-          {' '}Bower never creates or changes DNS records.
-        </p>
-      </InlineNotice>
-
       <Panel>
         <PanelHeader
           title="Managed domains"
@@ -188,21 +179,16 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
                     </TableCell>
                     <TableCell className="nums text-sm text-ink-soft">
                       {item.usage.length ? (
-                        <DropdownMenu><DropdownMenuTrigger className="text-link">{item.usage.length} {item.usage.length === 1 ? 'route' : 'routes'}</DropdownMenuTrigger><DropdownMenuContent align="start">{[...new Map(item.usage.map((usage) => [usage.projectSlug, usage])).values()].map((usage) => <DropdownMenuItem key={usage.projectSlug} asChild><Link href={`/projects/${usage.projectSlug}/routes`}>{usage.projectName} routes</Link></DropdownMenuItem>)}</DropdownMenuContent></DropdownMenu>
+                        <DropdownMenu><DropdownMenuTrigger className="text-link">{item.usage.length}</DropdownMenuTrigger><DropdownMenuContent align="start">{[...new Map(item.usage.map((usage) => [usage.projectSlug, usage])).values()].map((usage) => <DropdownMenuItem key={usage.projectSlug} asChild><Link href={`/projects/${usage.projectSlug}/routes`}>{usage.projectName} routes</Link></DropdownMenuItem>)}</DropdownMenuContent></DropdownMenu>
                       ) : '0'}
                     </TableCell>
                     <TableCell>
-                      {item.verifiedAt ? (
-                        <div className="flex items-center gap-1.5 text-xs text-ink-muted">
-                          <Check className="h-3.5 w-3.5 text-brand-500" />
-                          DNS ownership verified
-                        </div>
-                      ) : (
+                      {!item.verifiedAt ? (
                         <button type="button" className="flex items-center gap-1 text-xs font-medium text-brand-700" aria-expanded={expandedId === item.id} onClick={() => setExpandedId(expandedId === item.id ? null : item.id)}>
                           {expandedId === item.id ? 'Hide DNS record' : 'Show DNS record'}
                           <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expandedId === item.id ? 'rotate-180' : ''}`} />
                         </button>
-                      )}
+                      ) : null}
                     </TableCell>
                     <TableCell>
                       <div className="flex justify-end">
@@ -257,35 +243,38 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
                     <TableRow>
                       <TableCell colSpan={5} className="bg-sunken px-6 py-4">
                         <div className="space-y-3">
-                          <p className="text-xs text-ink-muted">Create this TXT record at your DNS provider:</p>
-                          <div className="grid max-w-3xl grid-cols-[48px_minmax(0,1fr)_28px] items-center gap-x-2 gap-y-2">
+                          <p className="text-xs text-ink-muted">Add this TXT record at your DNS provider, then check verification. Bower never changes DNS records.</p>
+                          <div className="grid max-w-3xl grid-cols-[48px_minmax(0,1fr)] items-center gap-x-2 gap-y-2">
                             <span className="overline">Type</span>
                             <code className="font-mono text-2xs text-ink-soft">TXT</code>
-                            <span aria-hidden="true" />
 
                             <span className="overline">Name</span>
+                            <div className="flex min-w-0 items-center gap-2">
                             <code className="min-w-0 truncate rounded-md bg-sunken px-2 py-1 font-mono text-2xs text-ink-soft" title={recordName}>
                               {recordName}
                             </code>
                             <IconButton
-                              className="h-7 w-7"
+                              className="h-7 w-7 shrink-0"
                               label="Copy TXT record name"
                               onClick={() => copy(recordName, `name:${item.id}`)}
                             >
                               {copied === `name:${item.id}` ? <Check /> : <Copy />}
                             </IconButton>
+                            </div>
 
                             <span className="overline">Value</span>
+                            <div className="flex min-w-0 items-center gap-2">
                             <code className="min-w-0 truncate rounded-md bg-sunken px-2 py-1 font-mono text-2xs text-ink-soft" title={recordValue}>
                               {recordValue}
                             </code>
                             <IconButton
-                              className="h-7 w-7"
+                              className="h-7 w-7 shrink-0"
                               label="Copy TXT record value"
                               onClick={() => copy(recordValue, `value:${item.id}`)}
                             >
                               {copied === `value:${item.id}` ? <Check /> : <Copy />}
                             </IconButton>
+                            </div>
                           </div>
                           {canManage ? (
                             <Button

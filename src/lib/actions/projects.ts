@@ -79,6 +79,8 @@ export async function createProjectAction(
 
 export async function updateProjectAction(projectId: string, formData: FormData): Promise<{ error?: string; success?: boolean }> {
   const ctx = await requireProject(projectId); if (ctx.projectRole !== 'admin') throw new Error('Insufficient permissions.')
+  const submittedSlug = formData.get('slug')
+  if (submittedSlug !== null && (typeof submittedSlug !== 'string' || submittedSlug !== ctx.project.slug)) return { error: 'Project slugs cannot be changed.' }
   const hasOwningTeam = formData.has('owningTeamId')
   const owningTeamId = hasOwningTeam ? String(formData.get('owningTeamId') ?? '') || null : ctx.project.owningTeamId
   if (owningTeamId) {

@@ -5,16 +5,16 @@ import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-enter focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:pointer-events-none disabled:opacity-50 active:translate-y-px [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-transparent font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-enter focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:pointer-events-none disabled:border-line disabled:bg-sunken disabled:text-ink-muted active:translate-y-px [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
   {
     variants: {
       variant: {
         primary: 'bg-brand-500 text-white hover:bg-brand-600 active:bg-brand-700',
-        default: 'bg-surface text-ink border border-line hover:border-line-strong hover:bg-sunken',
+        default: 'border-line bg-surface text-ink hover:border-line-strong hover:bg-sunken',
         ghost: 'text-ink-soft hover:bg-sunken hover:text-ink',
-        danger: 'bg-surface text-danger-500 border border-danger-200 hover:bg-danger-50',
+        danger: 'border-danger-200 bg-surface text-danger-500 hover:bg-danger-50',
         destructive: 'bg-danger-500 text-white hover:bg-danger-600',
-        link: 'text-brand-700 underline-offset-4 hover:underline',
+        link: 'border-transparent text-brand-700 underline-offset-4 hover:underline disabled:border-transparent disabled:bg-transparent',
       },
       size: {
         sm: 'h-8 px-2.5 text-sm [&_svg]:size-3.5',
@@ -56,7 +56,7 @@ const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
       aria-label={label}
       title={label}
       className={cn(
-        'inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-muted transition-[background-color,color] duration-150 ease-enter hover:bg-sunken hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:pointer-events-none disabled:opacity-40 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
+        'inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent text-ink-muted transition-[background-color,color] duration-150 ease-enter hover:bg-sunken hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:pointer-events-none disabled:border-line disabled:bg-sunken disabled:text-ink-muted [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
         className,
       )}
       {...props}

@@ -4,10 +4,9 @@ import { getOrgMembers, getTeamMembershipsForOrg, getUserOrganization, isInstanc
 import { PageHeading } from '@/components/page-heading'
 import { Panel, PanelHeader, KeyValue } from '@/components/ui/panel'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { formatTimestamp } from '@/lib/format'
+import { Time } from '@/components/time'
 import { MemberRoleSelect } from '../member-role-select'
 import { MemberActionsMenu } from '../../instance/instance-admin-actions'
-import { organizationRoleLabels } from '@/lib/labels'
 
 export default async function MemberPage({ params }: { params: Promise<{ userId: string }> }) {
   const user = await getCurrentUser()
@@ -41,16 +40,14 @@ export default async function MemberPage({ params }: { params: Promise<{ userId:
         <PanelHeader title="Member details" />
         <dl className="grid gap-x-8 p-4 sm:grid-cols-2 lg:grid-cols-4">
           <KeyValue label="Email">{member.userEmail}</KeyValue>
-          {showInstanceRole ? <KeyValue label="Instance role">{member.isInstanceAdmin ? 'Instance admin' : 'User'}</KeyValue> : null}
-          <KeyValue label="Organization role">{organizationRoleLabels[member.membership.role]}</KeyValue>
-          <KeyValue label="Joined organization">{formatTimestamp(member.membership.createdAt)}</KeyValue>
+          <KeyValue label="Instance role">{member.isInstanceAdmin ? 'Admin' : 'User'}</KeyValue>
+          <KeyValue label="Joined"><Time value={member.membership.createdAt} mode="absolute" /></KeyValue>
         </dl>
       </Panel>
-      {(canManageRoles || canRemove) ? <Panel>
-        <PanelHeader title="Access" />
+      {canManageRoles ? <Panel>
+        <PanelHeader title="Organization role" />
         <div className="flex flex-wrap items-end justify-between gap-4 p-4">
           <div className="space-y-2"><p className="text-xs font-medium text-ink-muted">Organization role</p>{member.membership.role === 'owner' ? <p className="text-sm text-ink">Owner</p> : <MemberRoleSelect membershipId={member.membership.id} role={member.membership.role} canManage={canManageRoles} />}</div>
-          <MemberActionsMenu membershipId={member.membership.id} memberName={member.userName} email={member.userEmail} canRemoveInstanceAdmin={showInstanceRole && member.isInstanceAdmin && user.id !== userId} canRemoveFromOrganization={canRemove} />
         </div>
       </Panel> : null}
       <Panel>
@@ -61,6 +58,10 @@ export default async function MemberPage({ params }: { params: Promise<{ userId:
           </ul>
         ) : <p className="p-4 text-sm text-ink-muted">This member does not belong to any teams.</p>}
       </Panel>
+      {(canRemove || (showInstanceRole && member.isInstanceAdmin && user.id !== userId)) ? <Panel>
+        <PanelHeader title="Danger zone" />
+        <div className="flex items-center justify-between gap-4 p-4"><p className="text-sm text-ink-muted">Remove elevated or organization access for this member.</p><MemberActionsMenu presentation="buttons" membershipId={member.membership.id} memberName={member.userName} email={member.userEmail} canRemoveInstanceAdmin={showInstanceRole && member.isInstanceAdmin && user.id !== userId} canRemoveFromOrganization={canRemove} /></div>
+      </Panel> : null}
     </div>
   )
 }

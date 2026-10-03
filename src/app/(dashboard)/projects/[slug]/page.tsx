@@ -16,12 +16,13 @@ import { Rocket, Globe, Server } from 'lucide-react'
 import { Time } from '@/components/time'
 import { tlsLabels } from '@/lib/labels'
 import { getProjectLiveServices } from '@/lib/service-health-query'
-import { LastDeployFailed } from '@/components/last-deploy-failed'
 import { CreateServiceDialog } from '@/components/create-service-dialog'
 import { requireProject } from '@/lib/actions/shared'
 import { Button } from '@/components/ui/button'
 import { DeploymentsTable } from '@/components/deployments-table'
 import { formatReadyReplicas } from '@/lib/format'
+import { NeedsAttention } from '@/components/needs-attention'
+import { needsAttentionRows } from '@/lib/needs-attention'
 
 function imageTag(image: string | null): string {
   if (!image) return '-'
@@ -50,14 +51,17 @@ export default async function ProjectOverviewPage({
     getRoutesByProject(project.id),
   ])
   const [deployments, live] = await Promise.all([
-    environment ? getDeploymentsByProject(project.id, 5, environment.id) : [],
+    environment ? getDeploymentsByProject(project.id, null, environment.id) : [],
     getProjectLiveServices(ctx.org.id, project.id, environment),
   ])
   const services = live.services
   const routeRows = environment
     ? allRoutes.filter((row) => row.route.environmentId === environment.id)
     : []
-  const attention = services.filter(({ health, latestDeployment }) => ['down', 'degraded', 'unhealthy'].includes(health) || latestDeployment?.status === 'failed')
+  // eslint-disable-next-line react-hooks/purity
+  const requestTime = Date.now()
+  const attentionRows = needsAttentionRows({ deployments: deployments.map((row) => ({ ...row, projectSlug: slug })), allocations: services.flatMap((row) => row.allocations), jobs: live.jobs, targets: services.map(({ service, config }) => ({ namespace: environment?.trellisNamespace ?? '', job: config?.activeJobName ?? null, serviceName: service.name, serviceSlug: service.slug, projectSlug: slug })), now: requestTime })
+  if (live.error) attentionRows.unshift({ id: 'runtime-error', status: 'unknown', serviceName: 'Service health', cause: 'Couldn’t check service health', href: '/status', action: 'Open status' })
   const setupService = services.find(({ latestDeployment }) => latestDeployment?.status === 'healthy') ?? services[0]
   const deployed = services.some(({ latestDeployment }) => latestDeployment?.status === 'healthy')
   const settingUp = services.length === 0 || routeRows.length === 0
@@ -73,9 +77,7 @@ export default async function ProjectOverviewPage({
           <li className="flex items-center justify-between gap-4 p-4 text-ink-muted"><div><p className="font-medium">3. Add a route</p><p className="text-sm">{deployed ? 'Expose your service to traffic.' : 'Available after the first deployment.'}</p></div>{deployed && access.projectRole === 'admin' ? <Button asChild variant="primary"><Link href={`/projects/${slug}/routes`}>Add route</Link></Button> : <Button disabled>Add route</Button>}</li>
         </ol>
       </Panel> : null}
-      {attention.length ? <Panel><PanelHeader title="Needs attention" />
-        <ul className="divide-y divide-line">{attention.map(({ service, latestDeployment, health }) => <li key={service.id} className="flex items-center gap-4 px-4 py-3"><Chip tone="danger">{latestDeployment?.status === 'failed' ? 'Failed' : 'Unhealthy'}</Chip><div className="min-w-0 flex-1"><Link className="font-medium text-link" href={`/projects/${slug}/services/${service.slug}`}>{service.name}</Link><p className="text-xs text-ink-muted">{latestDeployment?.status === 'failed' ? 'The latest deployment failed.' : 'One or more health checks are failing.'}</p></div>{latestDeployment?.status === 'failed' ? <LastDeployFailed href={`/projects/${slug}/deployments/${latestDeployment.id}`} /> : <StatusDot status={health} />}</li>)}</ul>
-      </Panel> : null}
+      <NeedsAttention rows={attentionRows} />
       {services.length > 0 && !settingUp ? <>
       <Panel>
         <PanelHeader title="Service health" action={services.length ? <Link href={`/projects/${slug}/services`} className="text-link text-sm font-medium">View all</Link> : undefined} />
@@ -107,7 +109,7 @@ export default async function ProjectOverviewPage({
               />
             </div>
           ) : (
-            <DeploymentsTable preset="project" rows={deployments.map((row) => ({ ...row, projectName: project.name, projectSlug: project.slug }))} />
+            <DeploymentsTable preset="compact" rows={deployments.slice(0, 5).map((row) => ({ ...row, projectName: project.name, projectSlug: project.slug }))} />
           )}
         </Panel>
 
@@ -132,10 +134,10 @@ export default async function ProjectOverviewPage({
                       <span className="min-w-0 truncate font-mono text-sm text-ink">
                         {row.route.domain}
                       </span>
-                      <span className="text-sm text-ink-muted">{tlsLabels[row.route.tlsMode]}</span>
+                      {row.route.tlsMode !== 'auto' ? <Chip tone="neutral">{tlsLabels[row.route.tlsMode]}</Chip> : null}
                     </div>
                     <p className="mt-1 text-2xs text-ink-muted">
-                      {row.route.pathPrefix} → {row.serviceName}:{row.route.port}
+                      {row.route.pathPrefix} → {row.serviceName} · port {row.route.port}
                     </p>
                   </li>
                 ))}

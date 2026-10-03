@@ -98,9 +98,9 @@ export function MembersTable({
         </div>
 
         <div className="flex flex-1 flex-wrap items-center gap-2 xl:justify-end">
-          <div className="min-w-[190px] flex-1 sm:max-w-[240px]">
+          <div className="min-w-[240px] flex-1">
             <SearchInput
-              placeholder="Search members..."
+              placeholder="Search"
               aria-label="Search members"
               value={search}
               onChange={(event) => setSearch(event.target.value)}

@@ -26,12 +26,14 @@ export function MemberActionsMenu({
   email,
   canRemoveInstanceAdmin,
   canRemoveFromOrganization,
+  presentation = 'menu',
 }: {
   membershipId: string
   memberName: string
   email: string
   canRemoveInstanceAdmin: boolean
   canRemoveFromOrganization: boolean
+  presentation?: 'menu' | 'buttons'
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -64,7 +66,10 @@ export function MemberActionsMenu({
 
   return (
     <AlertDialog open={open} onOpenChange={(next) => { if (!isPending) { setOpen(next); if (!next) setAction(null); setError(null) } }}>
-      <DropdownMenu>
+      {presentation === 'buttons' ? <div className="flex flex-wrap gap-2">
+        {canRemoveInstanceAdmin ? <Button onClick={() => { setAction('instance'); setOpen(true) }}>Remove instance admin</Button> : null}
+        {canRemoveFromOrganization ? <Button variant="destructive" onClick={() => { setAction('organization'); setOpen(true) }}>Remove from organization</Button> : null}
+      </div> : <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon" disabled={isPending} aria-label={`Actions for ${memberName}`}>
             <MoreHorizontal className="h-4 w-4 text-ink-muted" />
@@ -74,7 +79,7 @@ export function MemberActionsMenu({
           {canRemoveInstanceAdmin ? <DropdownMenuItem onSelect={() => { setAction('instance'); setOpen(true) }}><ShieldMinus className="mr-2 h-4 w-4" />Remove instance admin</DropdownMenuItem> : null}
           {canRemoveFromOrganization ? <DropdownMenuItem className="text-danger-600" onSelect={() => { setAction('organization'); setOpen(true) }}><UserMinus className="mr-2 h-4 w-4" />Remove from organization</DropdownMenuItem> : null}
         </DropdownMenuContent>
-      </DropdownMenu>
+      </DropdownMenu>}
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{action === 'instance' ? `Remove ${memberName} as instance administrator?` : `Remove ${memberName} from the organization?`}</AlertDialogTitle>

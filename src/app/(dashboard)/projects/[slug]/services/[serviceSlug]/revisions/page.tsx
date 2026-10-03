@@ -44,7 +44,7 @@ export default async function RevisionsPage({ params }: { params: Promise<{ slug
   return (
     <div className="space-y-6">
       <div>
-        <SectionTitle>Deployment history</SectionTitle>
+        <SectionTitle>Deployments</SectionTitle>
         <p className="mt-1 max-w-3xl text-sm text-ink-muted">Only the most recent configurations can be restored.</p>
       </div>
 

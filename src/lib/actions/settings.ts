@@ -14,7 +14,7 @@ import { ORG_COOKIE_NAME } from '@/lib/constants'
 
 export async function updateOrganizationAction(
   formData: FormData,
-): Promise<{ error?: string; success?: boolean }> {
+): Promise<{ error?: string; fieldErrors?: Record<string, string>; success?: boolean }> {
   const user = await getCurrentUser()
   if (!user) return { error: 'Not authenticated.' }
 
@@ -23,9 +23,14 @@ export async function updateOrganizationAction(
   if (ctx.role === 'member') return { error: 'Insufficient permissions.' }
 
   const name = formData.get('name')
+  const slug = formData.get('slug')
   const trellisApiUrl = formData.get('trellisApiUrl')
   const trellisApiToken = formData.get('trellisApiToken')
   const updates: Record<string, unknown> = { updatedAt: new Date() }
+
+  if (slug !== null && (typeof slug !== 'string' || slug !== ctx.org.slug)) {
+    return { fieldErrors: { slug: 'Organization slugs cannot be changed.' } }
+  }
 
   if (typeof name === 'string' && name.trim()) updates.name = name.trim()
   if (typeof trellisApiUrl === 'string') updates.trellisApiUrl = trellisApiUrl.trim()
@@ -177,18 +182,19 @@ export async function updateAccountAction(
 
 export async function changePasswordAction(
   formData: FormData,
-): Promise<{ error?: string; success?: boolean }> {
+): Promise<{ error?: string; fieldErrors?: Record<string, string>; success?: boolean }> {
   const user = await getCurrentUser()
   if (!user) return { error: 'Not authenticated.' }
 
   const currentPassword = formData.get('currentPassword')
   const newPassword = formData.get('newPassword')
-  if (typeof currentPassword !== 'string' || typeof newPassword !== 'string') return { error: 'Both passwords are required.' }
-  if (newPassword.length < 8) return { error: 'New password must be at least 8 characters.' }
+  if (typeof currentPassword !== 'string' || !currentPassword) return { fieldErrors: { currentPassword: 'Enter your current password.' } }
+  if (typeof newPassword !== 'string' || !newPassword) return { fieldErrors: { newPassword: 'Enter a new password.' } }
+  if (newPassword.length < 8) return { fieldErrors: { newPassword: 'Use at least 8 characters.' } }
 
   const userRows = await db.select().from(users).where(eq(users.id, user.id)).limit(1)
   if (userRows.length === 0) return { error: 'User not found.' }
-  if (!(await verifyPassword(currentPassword, userRows[0].passwordHash))) return { error: 'Current password is incorrect.' }
+  if (!(await verifyPassword(currentPassword, userRows[0].passwordHash))) return { fieldErrors: { currentPassword: 'Current password is incorrect.' } }
 
   const newHash = await hashPassword(newPassword)
   await db.update(users).set({ passwordHash: newHash, updatedAt: new Date() }).where(eq(users.id, user.id))

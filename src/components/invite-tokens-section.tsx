@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { actionErrorMessage } from '@/lib/action-error'
+import { formatRatio } from '@/lib/format'
 import { Plus, Trash2, X } from 'lucide-react'
 import { Chip } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -28,8 +29,8 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { createInvitationAction, revokeInvitationAction } from '@/lib/actions/settings'
-import { formatDate } from '@/lib/format'
 import { OneTimeSecret } from '@/components/one-time-secret'
+import { Time } from '@/components/time'
 
 type Invitation = {
   id: string
@@ -124,7 +125,7 @@ export function InviteTokensSection({
       <CardHeader className="min-h-0 py-3">
         <div className="min-w-0">
           <CardTitle>Invitations</CardTitle>
-          <CardDescription>Share invitation links with the roles and number of uses you choose.</CardDescription>
+          <CardDescription>Create links that grant selected roles and can be limited by acceptance count.</CardDescription>
         </div>
         {canInvite ? (
           <Dialog open={open} onOpenChange={(next) => {
@@ -288,7 +289,7 @@ export function InviteTokensSection({
               <TableHead>Status</TableHead>
               <TableHead>Expires</TableHead>
               <TableHead>Created by</TableHead>
-              {canInvite ? <TableHead className="w-12" /> : null}
+              {canInvite ? <TableHead className="w-12"><span className="sr-only">Actions</span></TableHead> : null}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -308,9 +309,9 @@ export function InviteTokensSection({
                       {invitation.grantInstanceAdmin ? <span className="text-xs text-ink-muted">Instance admin</span> : null}
                     </div>
                   </TableCell>
-                  <TableCell>{invitation.useCount} / {invitation.maxUses ?? 'Unlimited'}</TableCell>
+                  <TableCell>{invitation.maxUses === null ? `${invitation.useCount} uses · unlimited` : formatRatio(invitation.useCount, invitation.maxUses, 'uses')}</TableCell>
                   <TableCell><Chip tone={invitationStatus === 'Active' ? 'success' : 'neutral'}>{invitationStatus}</Chip></TableCell>
-                  <TableCell className="whitespace-nowrap">{invitation.expiresAt ? formatDate(invitation.expiresAt) : 'Never'}</TableCell>
+                  <TableCell className="whitespace-nowrap">{invitation.expiresAt ? <Time value={invitation.expiresAt} mode="absolute" /> : 'Never'}</TableCell>
                   <TableCell>{invitation.createdByName ?? '—'}</TableCell>
                   {canInvite ? (
                     <TableCell>
@@ -351,7 +352,7 @@ function RevokeInvitationButton({ invitation }: { invitation: Invitation }) {
     }
   }
 
-  const target = invitation.note ? `“${invitation.note}”` : `created ${formatDate(invitation.createdAt)}`
+  const target = invitation.note ? `“${invitation.note}”` : 'this invitation'
   return (
     <AlertDialog open={open} onOpenChange={(next) => { if (!pending) { setOpen(next); if (next) setError(null) } }}>
       <AlertDialogTrigger asChild><Button variant="ghost" size="icon" disabled={pending} aria-label={`Revoke invitation ${target}`}><Trash2 /></Button></AlertDialogTrigger>

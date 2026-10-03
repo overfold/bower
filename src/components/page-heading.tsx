@@ -10,10 +10,15 @@ interface PageHeadingProps {
 }
 
 export function PageHeading({ title, description, actions, meta, className, as: Heading = 'h1' }: PageHeadingProps) {
+  const headingStyle = {
+    h1: 'text-2xl font-bold tracking-tightest',
+    h2: 'text-lg font-semibold tracking-tight',
+    h3: 'text-sm font-semibold',
+  }[Heading]
   return (
     <header className={cn('flex flex-col items-stretch gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-x-8', className)}>
       <div className="min-w-0 max-w-2xl">
-        <Heading className="break-words text-2xl font-bold leading-tight tracking-tightest text-ink sm:text-2xl">{title}</Heading>
+        <Heading className={cn('break-words leading-tight text-ink', headingStyle)}>{title}</Heading>
         {description ? (
           <p className="mt-2 text-sm leading-relaxed text-ink-soft">{description}</p>
         ) : null}

@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -15,7 +16,6 @@ const W = 800
 const H = 1000
 const LATTICE_PITCH = 70
 const SAMPLE_STEP = 26
-const VINE_TIMING_RATE = 0.006
 
 const GROWTH_TOTAL_MS = 60 * 60 * 1000
 const GROWTH_FAST_START_MS = 5 * 60 * 1000
@@ -40,11 +40,6 @@ function mulberry32(seed: number): () => number {
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296
   }
-}
-
-const rng = mulberry32(0x76696e65)
-function between(lo: number, hi: number) {
-  return lo + rng() * (hi - lo)
 }
 
 function clamp(value: number, lo = 0, hi = 1) {
@@ -106,8 +101,6 @@ interface Vine {
   d: string
   len: number
   width: number
-  delay: number
-  dur: number
   tip: Pt
   tipAngle: number
   tipFlip: boolean
@@ -133,16 +126,8 @@ interface RainDrop {
   opacity: number
 }
 
-const CORRIDORS: Corridor[] = [
-  { cx: 120, height: 0.88, amp: 26, cycles: 3.4, phase: 0.2, drift: 22 },
-  { cx: 310, height: 0.64, amp: 20, cycles: 2.4, phase: 1.9, drift: -18 },
-  { cx: 500, height: 0.80, amp: 24, cycles: 3.0, phase: 0.9, drift: 20 },
-  { cx: 690, height: 0.52, amp: 18, cycles: 2.0, phase: 2.6, drift: -16 },
-]
-
-const LATTICE_DUR = 2.1
-
-function buildVine(c: Corridor, delay: number, idx: number): Vine {
+function buildVine(c: Corridor, idx: number, random: () => number): Vine {
+  const between = (lo: number, hi: number) => lo + random() * (hi - lo)
   const climb = H * c.height
   const n = Math.max(4, Math.round(climb / SAMPLE_STEP))
   const pts: Pt[] = []
@@ -173,42 +158,27 @@ function buildVine(c: Corridor, delay: number, idx: number): Vine {
     d: catmullRom(pts),
     len: len * 1.04,
     width: between(2.1, 2.7),
-    delay,
-    dur: climb * VINE_TIMING_RATE,
     tip,
     tipAngle: deg(tipTan),
     tipFlip: tipTan[0] > 0,
   }
 }
 
-const VINES: Vine[] = (() => {
-  let t = LATTICE_DUR
-  return CORRIDORS.map((c, i) => {
-    const v = buildVine(c, t, i)
-    t = v.delay + v.dur + between(0.4, 1.1)
-    return v
-  })
-})()
-
-const VINE_TIMELINE_START = VINES[0]?.delay ?? 0
-const VINE_TIMELINE_END = VINES.reduce(
-  (end, vine) => Math.max(end, vine.delay + vine.dur),
-  VINE_TIMELINE_START + 1,
-)
-
-function localVineProgress(vine: Vine, progress: number) {
-  const span = VINE_TIMELINE_END - VINE_TIMELINE_START
-  const start = (vine.delay - VINE_TIMELINE_START) / span
-  const end = (vine.delay + vine.dur - VINE_TIMELINE_START) / span
-  return clamp((progress - start) / Math.max(end - start, 0.001))
+function buildVines(width: number, cardWidth: number): Vine[] {
+  const random = mulberry32(0x76696e65)
+  // Keep the centered 420px auth card clear. On narrow screens the vines hug
+  // the outer edges rather than crossing behind the card horizontally.
+  const cardHalf = Math.min(cardWidth / 2, Math.max(0, width / 2 - 20))
+  const center = width / 2
+  const edgeSpace = Math.max(12, center - cardHalf)
+  const corridors: Corridor[] = [
+    { cx: edgeSpace * 0.28, height: 0.88, amp: Math.min(26, edgeSpace * 0.12), cycles: 3.4, phase: 0.2, drift: 0 },
+    { cx: edgeSpace * 0.72, height: 0.64, amp: Math.min(20, edgeSpace * 0.1), cycles: 2.4, phase: 1.9, drift: 0 },
+    { cx: width - edgeSpace * 0.72, height: 0.80, amp: Math.min(24, edgeSpace * 0.11), cycles: 3.0, phase: 0.9, drift: 0 },
+    { cx: width - edgeSpace * 0.28, height: 0.52, amp: Math.min(18, edgeSpace * 0.09), cycles: 2.0, phase: 2.6, drift: 0 },
+  ]
+  return corridors.map((c, i) => buildVine(c, i, random))
 }
-
-const RAIL_N = Math.ceil((W + H) / LATTICE_PITCH)
-const DR = Array.from(
-  { length: RAIL_N },
-  (_, i) => (i - Math.ceil(H / LATTICE_PITCH)) * LATTICE_PITCH,
-)
-const UR = Array.from({ length: RAIL_N }, (_, i) => i * LATTICE_PITCH)
 
 const rainRng = mulberry32(0x7261696e)
 function rainBetween(lo: number, hi: number) {
@@ -233,6 +203,8 @@ const RAIN_STROKE = 'hsl(176 35% 82%)'
 
 export function GrowingTrellis({ className }: { className?: string }) {
   const id = useId()
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [dimensions, setDimensions] = useState({ width: W, height: H })
   const [growthMs, setGrowthMs] = useState(0)
   const [raining, setRaining] = useState(false)
   const growthMsRef = useRef(0)
@@ -253,6 +225,29 @@ export function GrowingTrellis({ className }: { className?: string }) {
   )
   const serverRM = useCallback(() => false, [])
   const off = useSyncExternalStore(subRM, snapRM, serverRM)
+
+  useEffect(() => {
+    const element = containerRef.current
+    if (!element) return
+    const measure = () => {
+      const { width, height } = element.getBoundingClientRect()
+      if (width > 0 && height > 0) setDimensions({ width, height })
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+
+  const viewWidth = H * (dimensions.width / dimensions.height)
+  const cardWidth = 420 * (H / dimensions.height)
+  const vines = useMemo(() => buildVines(viewWidth, cardWidth), [viewWidth, cardWidth])
+  const railCount = Math.ceil((viewWidth + H) / LATTICE_PITCH)
+  const downRails = Array.from(
+    { length: railCount },
+    (_, i) => (i - Math.ceil(H / LATTICE_PITCH)) * LATTICE_PITCH,
+  )
+  const upRails = Array.from({ length: railCount }, (_, i) => i * LATTICE_PITCH)
 
   useEffect(() => {
     if (off) return
@@ -362,15 +357,15 @@ export function GrowingTrellis({ className }: { className?: string }) {
     off ? { duration: 0 } : { duration: dur, delay, ease: EASE }
 
   return (
-    <div className={cn('pointer-events-none select-none', className)} aria-hidden="true">
+    <div ref={containerRef} className={cn('pointer-events-none select-none', className)} aria-hidden="true">
       <svg
-        viewBox={'0 0 ' + W + ' ' + H}
-        preserveAspectRatio="xMidYMax slice"
+        viewBox={'0 0 ' + viewWidth + ' ' + H}
+        preserveAspectRatio="none"
         className="h-full w-full"
       >
         {/* Lattice grid */}
         <g stroke={TRELLIS_STROKE} strokeOpacity="0.14" strokeWidth="1">
-          {DR.map((c, i) => (
+          {downRails.map((c, i) => (
             <motion.line
               key={id + 'd' + i}
               x1={c}
@@ -384,7 +379,7 @@ export function GrowingTrellis({ className }: { className?: string }) {
               transition={grow(i * 0.025, 1.1)}
             />
           ))}
-          {UR.map((c, i) => (
+          {upRails.map((c, i) => (
             <motion.line
               key={id + 'u' + i}
               x1={c}
@@ -401,8 +396,8 @@ export function GrowingTrellis({ className }: { className?: string }) {
         </g>
 
         {/* Fixed vine paths reveal slowly as visible auth-page time accumulates. */}
-        {VINES.map((v) => {
-          const vineProgress = off ? 1 : localVineProgress(v, progress)
+        {vines.map((v) => {
+          const vineProgress = progress
           const tipProgress = off ? 1 : clamp((vineProgress - 0.965) / 0.035)
 
           return (

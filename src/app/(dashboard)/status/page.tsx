@@ -13,11 +13,10 @@ import { TrellisReadError } from '@/components/trellis-read-error'
 import { NodeLink } from '@/components/node-link'
 import { parseNodeAllocatedResources } from '@/lib/trellis-resource-metrics'
 import { PageHeading } from '@/components/page-heading'
-import { Panel, PanelHeader, KeyValue } from '@/components/ui/panel'
-import { Chip, Dot, Meter, Mono, StatusDot } from '@/components/status'
-import { EmptyState } from '@/components/ui/empty-state'
+import { Panel, PanelHeader } from '@/components/ui/panel'
+import { Chip, Meter, Mono, StatusDot } from '@/components/status'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { ChevronRight, Server } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { DrainToggle } from './drain-toggle'
 import { ResetBackoffButton } from './reset-backoff-button'
 import { formatCpu, formatMemory } from '@/lib/format'
@@ -54,6 +53,7 @@ export default async function StatusPage() {
   let clusterError: string | null = null
   let metricsError: string | null = null
   let operationsError: string | null = null
+  let allocationsAvailable = namespaces.length > 0
 
   try {
     const client = await getTrellisClient(orgCtx.org.id)
@@ -70,11 +70,15 @@ export default async function StatusPage() {
       const allocationResult = namespaceResults[index * 2]
       const jobResult = namespaceResults[index * 2 + 1]
       if (allocationResult?.status === 'fulfilled') allocations.push(...allocationResult.value as TrellisAllocation[])
-      else if (allocationResult?.status === 'rejected') operationsError ??= trellisReadError(allocationResult.reason)
+      else if (allocationResult?.status === 'rejected') {
+        allocationsAvailable = false
+        operationsError ??= trellisReadError(allocationResult.reason)
+      }
       if (jobResult?.status === 'fulfilled') jobs.push(...(jobResult.value as TrellisJob[]).map((job) => ({ namespace, job })))
       else if (jobResult?.status === 'rejected') operationsError ??= trellisReadError(jobResult.reason)
     })
   } catch (error) {
+    allocationsAvailable = false
     clusterError = metricsError = operationsError = trellisReadError(error)
   }
 
@@ -99,28 +103,24 @@ export default async function StatusPage() {
     ...row,
     observation: managedProxyObservation(allocations, row.namespace, row.proxy.trellisJobName, row.proxy.configHash),
   }))
+  const drainingNodes = nodes.filter((node) => node.status === 'draining' && (!allocationsAvailable || allocations.some((allocation) => allocation.node_id === node.id && !['stopped', 'failed', 'lost'].includes(allocation.phase)))).length
 
   return (
     <div className="space-y-6">
       <PageHeading title="Status" description="Monitor cluster capacity, placement, restart cooldowns, and managed ingress." />
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        <Panel>
-          <PanelHeader title="Connection" action={<StatusDot status={clusterError ? 'unhealthy' : 'healthy'} />} />
-          <dl className="px-4"><KeyValue label="Control-plane API" mono>{orgCtx.org.trellisApiUrl ?? '—'}</KeyValue></dl>
-          {clusterError ? <TrellisReadError title="Node data unavailable" message={clusterError} /> : null}
-        </Panel>
-        <Panel>
-          <PanelHeader title="Capacity" hint={`${nodes.length} node${nodes.length === 1 ? '' : 's'}`} />
-          {metricsError || clusterError ? <TrellisReadError title="Capacity data unavailable" message={metricsError || clusterError!} /> : <div className="grid gap-5 p-4 sm:grid-cols-2">
-            <div><span className="text-sm text-ink-soft">CPU allocated · {formatCpu(allocatedCpu)} / {formatCpu(totalAllocatableCpu)}</span><div className="mt-2"><Meter value={cpuPct} label="Cluster CPU allocated" /></div></div>
-            <div><span className="text-sm text-ink-soft">Memory allocated · {formatMemory(allocatedMemory)} / {formatMemory(totalAllocatableMemory)}</span><div className="mt-2"><Meter value={memoryPct} label="Cluster memory allocated" /></div></div>
-          </div>}
-        </Panel>
-      </div>
+      <Panel aria-label="Cluster status summary">
+        <div className="grid items-center gap-4 p-4 sm:grid-cols-2 lg:grid-cols-[auto_auto_1fr_1fr]">
+          <div><p className="text-xs text-ink-muted">Connection</p><StatusDot status={clusterError ? 'unhealthy' : 'healthy'} /></div>
+          <p className="nums text-sm">{clusterError ? 'Nodes unavailable' : `${nodes.length} nodes · ${drainingNodes} draining`}</p>
+          <div><p className="text-xs text-ink-muted">CPU allocated · {formatCpu(allocatedCpu)} / {formatCpu(totalAllocatableCpu)}</p><Meter value={cpuPct} label="Cluster CPU allocated" /></div>
+          <div><p className="text-xs text-ink-muted">Memory allocated · {formatMemory(allocatedMemory)} / {formatMemory(totalAllocatableMemory)}</p><Meter value={memoryPct} label="Cluster memory allocated" /></div>
+        </div>
+        {clusterError ? <TrellisReadError title="Node data unavailable" message={clusterError} /> : metricsError ? <TrellisReadError title="Capacity data unavailable" message={metricsError} /> : null}
+      </Panel>
 
       <Panel>
-        <PanelHeader title="Pending allocations" hint={pending.length ? `${pending.length} waiting across ${reasonCounts.length} reason${reasonCounts.length === 1 ? '' : 's'}` : 'No placement backlog'} />
+        {pending.length || operationsError ? <PanelHeader title="Pending allocations" hint={pending.length ? `${pending.length} waiting across ${reasonCounts.length} reason${reasonCounts.length === 1 ? '' : 's'}` : undefined} /> : null}
         {operationsError ? <TrellisReadError title="Allocation diagnostics incomplete" message={operationsError} /> : null}
         {pending.length > 0 ? <>
           <div className="flex flex-wrap gap-2 border-b border-line p-4">{reasonCounts.map(({ reason, count }) => <Chip key={reason} tone="warn"><span className="nums">{count}</span> {reason.replaceAll('_', ' ')}</Chip>)}</div>
@@ -136,16 +136,16 @@ export default async function StatusPage() {
               </TableRow>
             })}
           </TableBody></Table>
-        </> : !operationsError ? <p className="border-t border-line px-4 py-3 text-sm text-ink-muted">No placement backlog.</p> : null}
+        </> : !operationsError ? <p className="px-4 py-3 text-sm text-ink-muted">No pending allocations</p> : null}
       </Panel>
 
       {backoffs.length > 0 ? <Panel>
         <PanelHeader title="Restart pending" hint="After repeated crashes, Bower waits before starting the service again. Fix the cause, then restart." />
-        <Table><TableHeader><TableRow><TableHead>Job / group</TableHead><TableHead>Failures</TableHead><TableHead>Last failure</TableHead><TableHead>Next replacement</TableHead><TableHead /></TableRow></TableHeader><TableBody>
+        <Table><TableHeader><TableRow><TableHead>Service</TableHead><TableHead>Failures</TableHead><TableHead>Last failure</TableHead><TableHead>Next restart</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader><TableBody>
           {backoffs.map(({ namespace, job, backoff }) => {
             const target = targetForJob(namespace, job)
             return <TableRow key={`${namespace}/${job}/${backoff.group}`}>
-              <TableCell>{target ? <Link href={`/projects/${target.projectSlug}/services/${target.serviceSlug}`} className="font-medium text-brand-500 hover:underline">{job} / {backoff.group}</Link> : <Mono>{job} / {backoff.group}</Mono>}<p className="mt-1 text-xs text-ink-muted">{namespace}</p></TableCell>
+              <TableCell>{target ? <Link href={`/projects/${target.projectSlug}/services/${target.serviceSlug}`} className="font-medium text-link">{target.serviceName}</Link> : <Mono>{job}</Mono>}</TableCell>
               <TableCell className="nums">{backoff.failures}</TableCell>
               <TableCell><span className="whitespace-nowrap">{formatRelativeTime(backoff.last_failure_at)}</span><p className="mt-1 max-w-sm text-xs text-ink-muted">{backoff.message || backoff.reason || 'Allocation failed'}</p></TableCell>
               <TableCell><span className="whitespace-nowrap">{formatTimestamp(backoff.next_replacement_at)}</span><p className="mt-1 text-xs text-ink-muted">in {untilTime(backoff.next_replacement_at)}</p></TableCell>
@@ -157,22 +157,24 @@ export default async function StatusPage() {
 
       <Panel>
         <PanelHeader title="Nodes" />
-        {clusterError ? <TrellisReadError title="Nodes unavailable" message={clusterError} /> : nodes.length === 0 ? <EmptyState icon={<Server className="h-4 w-4" />} title="No nodes" body="No nodes are registered with this cluster." /> : <Table>
-          <TableHeader><TableRow><TableHead>Node</TableHead><TableHead>Status</TableHead><TableHead>IP</TableHead><TableHead>Version</TableHead><TableHead>OS</TableHead><TableHead>Allocated</TableHead><TableHead>Capabilities</TableHead><TableHead className="text-right">Actions</TableHead><TableHead><span className="sr-only">Open</span></TableHead></TableRow></TableHeader>
+        {clusterError ? <TrellisReadError title="Nodes unavailable" message={clusterError} /> : nodes.length === 0 ? <p className="border-t border-line px-4 py-3 text-sm text-ink-muted">No nodes are registered with this cluster.</p> : <Table>
+          <TableHeader><TableRow><TableHead>Node</TableHead><TableHead>Status</TableHead><TableHead>Address</TableHead><TableHead>Software</TableHead><TableHead>System</TableHead><TableHead>Resources</TableHead><TableHead>Capabilities</TableHead>{orgCtx.role === 'owner' ? <TableHead className="w-12 text-right"><span className="sr-only">Actions</span></TableHead> : null}<TableHead className="w-8"><span className="sr-only">Open</span></TableHead></TableRow></TableHeader>
           <TableBody>{nodes.map((node) => {
             const allocated = allocatedByNode.get(node.id)
             const allocatable = nodeAllocatable(node)
             const allocatedCpuPct = allocatable.cpu > 0 ? Math.round((allocated?.cpu ?? 0) / allocatable.cpu * 100) : 0
             const allocatedMemoryPct = allocatable.memory > 0 ? Math.round((allocated?.memory ?? 0) / allocatable.memory * 100) : 0
+            const activeCount = allocations.filter((allocation) => allocation.node_id === node.id && !['stopped', 'failed', 'lost'].includes(allocation.phase)).length
+            const drained = allocationsAvailable && node.status === 'draining' && activeCount === 0
             return <ClickableTableRow key={node.id} href={`/status/${encodeURIComponent(node.id)}`} label={`View node ${node.id}`}>
               <TableCell><NodeLink id={node.id} name={node.id} /></TableCell>
-              <TableCell><StatusDot status={node.status === 'healthy' ? 'ready' : node.status} /></TableCell>
+              <TableCell><StatusDot status={drained ? 'drained' : node.status === 'healthy' ? 'ready' : node.status} />{drained ? <p className="mt-1 text-xs text-ink-muted">No allocations left. Ready for maintenance.</p> : null}</TableCell>
               <TableCell><Mono>{node.host}</Mono></TableCell>
               <TableCell><Mono>{node.version || '—'}</Mono></TableCell>
               <TableCell className="whitespace-nowrap text-ink-muted">{node.os || '—'} / {node.arch || '—'}</TableCell>
               <TableCell>{metricsError ? <span className="text-ink-muted">Unavailable</span> : <div className="grid min-w-48 grid-cols-2 gap-3"><div><Meter value={allocatedCpuPct} label={`${node.id} CPU allocated`} /><span className="text-xs text-ink-muted">{formatCpu(allocated?.cpu ?? 0)} / {formatCpu(allocatable.cpu)}</span></div><div><Meter value={allocatedMemoryPct} label={`${node.id} memory allocated`} /><span className="text-xs text-ink-muted">{formatMemory(allocated?.memory ?? 0)} / {formatMemory(allocatable.memory)}</span></div></div>}</TableCell>
               <TableCell><span className="text-xs text-ink-muted">{node.capabilities?.join(', ') || 'None reported'}</span></TableCell>
-              <TableCell className="text-right"><DrainToggle nodeId={node.id} drain={node.status === 'draining'} allocationCount={allocations.filter((allocation) => allocation.node_id === node.id && !['stopped', 'failed', 'lost'].includes(allocation.phase)).length} /></TableCell>
+              {orgCtx.role === 'owner' ? <TableCell className="text-right"><DrainToggle nodeId={node.id} drain={node.status === 'draining'} allocationCount={activeCount} /></TableCell> : null}
               <TableCell><ChevronRight className="ml-auto size-4 text-ink-faint" /></TableCell>
             </ClickableTableRow>
           })}</TableBody>
@@ -181,12 +183,11 @@ export default async function StatusPage() {
 
       {proxies.length > 0 ? <Panel>
         <PanelHeader title="Managed ingress" hint="Whether Bower’s proxy has picked up your latest routes." />
-        <Table><TableHeader><TableRow><TableHead>Target</TableHead><TableHead>Routes</TableHead><TableHead>Submission</TableHead><TableHead>Observed convergence</TableHead><TableHead className="text-right">Submitted</TableHead></TableRow></TableHeader><TableBody>
+        <Table><TableHeader><TableRow><TableHead>Proxy</TableHead><TableHead>Routes</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Updated</TableHead></TableRow></TableHeader><TableBody>
           {observedProxies.map((row) => <TableRow key={row.proxy.id}>
             <TableCell><Mono className="text-ink">{row.proxy.trellisJobName}</Mono><p className="mt-1 text-xs text-ink-muted">{row.projectName} · {row.environmentName} · port {row.proxy.port}</p></TableCell>
             <TableCell className="nums">{routeCountMap.get(row.proxy.environmentId) ?? 0}</TableCell>
-            <TableCell><Chip tone={row.proxy.status === 'error' ? 'danger' : 'neutral'}>{row.proxy.status === 'error' ? 'Apply failed' : 'Accepted'}</Chip><p className="mt-1 font-mono text-2xs text-ink-muted">target {row.proxy.configHash?.slice(0, 10) || 'unknown'}</p></TableCell>
-            <TableCell><Chip tone={row.observation.status === 'running' ? 'success' : row.observation.status === 'pending' ? 'info' : 'danger'}><Dot tone={row.observation.status === 'running' ? 'success' : row.observation.status === 'pending' ? 'info' : 'danger'} pulse={row.observation.status === 'pending'} />{row.observation.convergence === 'converged' ? 'Converged' : row.observation.status}</Chip>{row.observation.failureKind ? <p className="mt-1 text-xs font-medium text-danger-500">{row.observation.failureKind === 'route-sync' ? 'Route discovery / sync failed' : row.observation.failureKind === 'listener' ? 'Listener check failed' : 'Managed listener or route-sync health check failed'}</p> : null}{row.observation.diagnostic ? <p className="mt-1 max-w-md text-xs text-ink-muted">{row.observation.diagnostic}</p> : null}</TableCell>
+            <TableCell><Chip tone={row.proxy.status === 'error' || row.observation.status === 'unhealthy' ? 'danger' : row.observation.convergence === 'converged' ? 'success' : 'warn'}>{row.proxy.status === 'error' || row.observation.status === 'unhealthy' ? 'Failed' : row.observation.convergence === 'converged' ? 'Applied' : 'Pending'}</Chip>{row.observation.diagnostic ? <p className="mt-1 max-w-md text-xs text-ink-muted">{row.observation.diagnostic}</p> : null}</TableCell>
             <TableCell className="whitespace-nowrap text-right text-ink-muted">{formatRelativeTime(row.proxy.updatedAt)}</TableCell>
           </TableRow>)}
         </TableBody></Table>

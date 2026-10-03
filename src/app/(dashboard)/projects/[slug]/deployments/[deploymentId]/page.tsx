@@ -41,7 +41,7 @@ export default async function DeploymentDetailPage({ params }: { params: Promise
   const client = await getTrellisClient(ctx.org.id)
   const runtime = configRow ? await client.getJob(jobName, configRow.environment.trellisNamespace).catch(() => null) : null
   const active = runningRelease(journal, runtime ? { name: jobName, version: runtime.version, revision: runtime.revision } : null)
-  const previousSuccessful = earlierSuccessfulReleases(journal, active)[0]
+  const rollbackTargets = earlierSuccessfulReleases(journal, active)
 
   const failedEvent = events.findLast((event) => /fail|error/i.test(`${event.type} ${event.message}`))
   const allocationDetails = events.flatMap((event) => {
@@ -69,21 +69,19 @@ export default async function DeploymentDetailPage({ params }: { params: Promise
   const serviceHref = `/projects/${slug}/services/${row.service.slug}`
 
   return <div className="space-y-5">
-    <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><Link href={serviceHref} className="text-sm font-medium text-link">{row.service.name}</Link><h1 className="mt-1 break-words text-2xl font-semibold text-ink">{shortDeploymentImage(row.deployment.imageAfter)}</h1><div className="mt-2 flex flex-wrap items-center gap-2"><DeploymentStatus status={row.deployment.status} /><span className="text-sm text-ink-muted"><Time value={row.deployment.createdAt} mode="absolute" /> · {label(row.deployment.triggerType)}</span></div></div>{access.projectRole !== 'viewer' ? <DeploymentDiagnosticActions serviceId={row.service.id} environmentId={row.deployment.environmentId} rollbackTarget={previousSuccessful ? { id: previousSuccessful.id, image: previousSuccessful.imageAfter } : undefined} configurationHref={`${serviceHref}/configuration`} /> : null}</div>
-    {row.deployment.status === 'failed' && <InlineNotice tone="danger"><p className="font-medium">{failedEvent?.message ?? 'The deployment failed.'}</p>{failureLogs.length ? <pre className="mt-2 max-h-52 overflow-auto rounded bg-sunken p-3 text-xs text-ink">{failureLogs.join('\n')}</pre> : <p className="mt-1 text-sm">{failureLogError ? `Allocation logs unavailable: ${failureLogError}` : 'No allocation log output was available.'}</p>}<div className="mt-2"><Button asChild size="sm"><Link href={failedAllocation ? `${serviceHref}/allocations/${encodeURIComponent(failedAllocation.id)}#logs` : serviceHref}>View allocation logs</Link></Button></div></InlineNotice>}
-    <Panel><PanelHeader title="Summary" /><dl className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3">
-      <div className="min-w-0 py-2.5 sm:col-span-2 lg:col-span-3"><dt className="text-xs text-ink-muted">Image before → after</dt><dd className="mt-1 break-all font-mono text-sm text-ink">{row.deployment.imageBefore ?? '—'} → {row.deployment.imageAfter}</dd></div>
-      <KeyValue label="Service"><Link href={serviceHref} className="text-link">{row.service.name}</Link></KeyValue>
-      <KeyValue label="Trigger">{label(row.deployment.triggerType)} · {row.userName ?? 'System'}</KeyValue>
+    <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><Link href={serviceHref} className="text-sm font-medium text-link">{row.service.name}</Link><div className="mt-1 flex flex-wrap items-center gap-3"><h1 className="break-words text-2xl font-bold text-ink">{shortDeploymentImage(row.deployment.imageAfter)}</h1><DeploymentStatus status={row.deployment.status} /></div><div className="mt-2 text-sm text-ink-muted"><Time value={row.deployment.createdAt} mode="absolute" /> · {label(row.deployment.triggerType)} · {row.userName ?? 'System'}</div></div>{access.projectRole !== 'viewer' ? <DeploymentDiagnosticActions serviceId={row.service.id} serviceName={row.service.name} environmentId={row.deployment.environmentId} failed={row.deployment.status === 'failed'} runningImage={active?.imageAfter} rollbackTargets={rollbackTargets.map((target) => ({ id: target.id, image: target.imageAfter }))} configurationHref={`${serviceHref}/configuration`} /> : null}</div>
+    {row.deployment.status === 'failed' && <InlineNotice tone="danger"><p className="font-medium">{failedEvent?.message ?? 'The deployment failed.'}</p>{failureLogs.length ? <pre className="mt-2 max-h-52 overflow-auto rounded bg-sunken p-3 text-xs text-ink">{failureLogs.join('\n')}</pre> : <p className="mt-1 text-sm text-ink-muted">{failureLogError ? `Allocation logs unavailable: ${failureLogError}` : 'No log output was captured.'}</p>}<div className="mt-2"><Button asChild size="sm"><Link href={failedAllocation ? `${serviceHref}/allocations/${encodeURIComponent(failedAllocation.id)}` : serviceHref}>Open allocation</Link></Button></div></InlineNotice>}
+    <Panel><PanelHeader title="Summary" /><dl className="px-4">
+      <KeyValue label="Image" mono>{row.deployment.imageBefore ? <><span className="text-ink-muted">{row.deployment.imageBefore}</span> → </> : null}{row.deployment.imageAfter}</KeyValue>
       <KeyValue label="Strategy">{label(row.deployment.strategy)}</KeyValue>
-      <KeyValue label="Started"><Time value={row.deployment.startedAt} mode="absolute" /></KeyValue>
       <KeyValue label="Duration">{row.deployment.completedAt ? formatDeploymentDuration(row.deployment.startedAt, row.deployment.completedAt) : 'In progress'}</KeyValue>
+      <KeyValue label="Revision">{row.deployment.trellisRevision ?? '—'}</KeyValue>
     </dl></Panel>
     <Panel><PanelHeader title="Events" />
       {events.length ? <Timeline items={events.map((event) => {
         const failed = /fail|error/i.test(`${event.type} ${event.message}`)
         const tone = failed ? 'danger' : /backoff|blocked/i.test(event.type) ? 'warning' : /healthy|complete|success/i.test(event.type) ? 'success' : 'neutral'
-        return { id: event.id, title: event.message, tone, time: <Time value={event.createdAt} mode="absolute" />, description: <>{label(event.type)}{Object.keys(event.details as object).length ? <EventDetails details={event.details as Record<string, unknown>} /> : null}</> }
+        return { id: event.id, title: event.message, titleTooltip: event.type, tone, time: <Time value={event.createdAt} mode="absolute" />, description: Object.keys(event.details as object).length ? <EventDetails details={event.details as Record<string, unknown>} /> : null }
       })} /> : <p className="p-4 text-sm text-ink-muted">No deployment events were recorded.</p>}
     </Panel>
   </div>

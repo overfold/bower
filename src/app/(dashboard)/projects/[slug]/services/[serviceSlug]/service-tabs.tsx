@@ -9,7 +9,6 @@ const items = [
   { label: 'Overview', suffix: '' },
   { label: 'Configuration', suffix: '/configuration' },
   { label: 'Mounts', suffix: '/mounts' },
-  { label: 'Advanced', suffix: '/advanced' },
   { label: 'Deployments', suffix: '/revisions' },
 ]
 

@@ -37,7 +37,7 @@ export default async function ServiceMountsPage({ params }: {
 
   return (
     <div className="space-y-6">
-      <div><SectionTitle>Volume mounts</SectionTitle><p className="mt-1 max-w-3xl text-sm text-ink-muted">Attach project volumes to this service and configure only the container mount path and access mode.</p></div>
+      <div><SectionTitle>Mounts</SectionTitle><p className="mt-1 max-w-3xl text-sm text-ink-muted">Attach project volumes to this service.</p></div>
       <Panel>
         <PanelHeader title="Mounts" hint={`${attached.length} attached`} action={config ? <VolumeMountEditor serviceId={service.id} environmentId={environment.id} mounts={attached} volumes={available.map((volume) => volume.name)} /> : undefined} />
         {!config ? (

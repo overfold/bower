@@ -53,16 +53,16 @@ export function AccountSettingsForm({ user }: AccountSettingsFormProps) {
         </CardHeader>
         <CardContent className="space-y-6">
           {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
-          <div className="space-y-2">
+          <div className="max-w-xl space-y-2">
             <Label htmlFor="name">Name</Label>
             <Input id="name" name="name" defaultValue={user.name} required />
           </div>
-          <div className="space-y-2">
+          <div className="max-w-xl space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input id="email" type="email" defaultValue={user.email} disabled className="bg-sunken" aria-describedby="email-help" />
             <p id="email-help" className="text-xs text-ink-muted">Email cannot be changed.</p>
           </div>
-          <div className="space-y-2">
+          <div className="max-w-[720px] space-y-2">
             <Label htmlFor="avatarUrl" optional>Avatar URL</Label>
             <Input id="avatarUrl" name="avatarUrl" defaultValue={user.avatarUrl ?? ''} mono />
             <p className="text-xs text-ink-muted">Enter a public image URL, for example <span className="font-mono">https://example.com/avatar.png</span>.</p>

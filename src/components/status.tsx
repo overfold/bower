@@ -54,7 +54,14 @@ export function DeploymentStatus({ status, className }: { status: string; classN
 }
 
 export function AllocationStatus({ phase, health, className }: { phase: string; health?: string | null; className?: string }) {
-  return <StatusDot status={phase === 'running' && health ? health : phase} className={className} />
+  return <StatusDot status={allocationStatus(phase, health)} className={className} />
+}
+
+/** Shared allocation presentation used by detail, service, node, and dashboard views. */
+export function allocationStatus(phase: string, health?: string | null): string {
+  if (phase === 'running' && health) return health
+  if (phase === 'failed' || phase === 'lost' || phase === 'dead') return 'failing'
+  return phase
 }
 
 export function Mono({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -64,7 +71,7 @@ export function Mono({ children, className }: { children: React.ReactNode; class
 }
 
 export function Meter({ value, tone = 'brand', label }: { value: number; tone?: Tone; label?: string }) {
-  const resolved: Tone = tone === 'brand' && value >= 85 ? 'danger' : tone === 'brand' && value >= 70 ? 'warn' : tone
+  const resolved: Tone = tone === 'brand' && value >= 100 ? 'danger' : tone === 'brand' && value >= 85 ? 'warn' : tone
   return (
     <div className="flex items-center gap-2">
       <div
@@ -74,7 +81,7 @@ export function Meter({ value, tone = 'brand', label }: { value: number; tone?: 
       >
         <div
           className={cn('h-full rounded-full transition-[width] duration-300 ease-move', toneDot[resolved])}
-          style={{ width: `${Math.min(100, Math.max(2, value))}%` }}
+          style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
         />
       </div>
       <span className="nums w-8 shrink-0 text-right text-xs text-ink-muted">{value}%</span>

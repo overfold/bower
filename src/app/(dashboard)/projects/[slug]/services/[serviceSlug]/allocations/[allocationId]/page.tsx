@@ -14,11 +14,11 @@ import { ExecDialog } from '@/components/exec-dialog'
 import { AllocationMetrics } from './allocation-metrics'
 import { AllocationStopButton } from './allocation-stop-button'
 import { AllocationLogs } from './allocation-logs'
-import { ResourceId } from '@/components/resource-id'
 import type { TrellisAllocation } from '@/types/trellis'
 import { Time } from '@/components/time'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Timeline } from '@/components/timeline'
+import { statusLabel } from '@/lib/status'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 export default async function AllocationDetailPage({
@@ -84,12 +84,10 @@ export default async function AllocationDetailPage({
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <PageHeading
-            title={allocationId}
+            title={<span className="flex flex-wrap items-center gap-3">{allocationId} <AllocationStatus phase={allocation.phase} health={allocation.health} /></span>}
             meta={
               <>
                 <MetaItem label="Service" value={<a className="text-link" href={`/projects/${slug}/services/${serviceSlug}`}>{service.name}</a>} />
-                <MetaItem label="Status" value={<AllocationStatus phase={allocation.phase} health={allocation.health} />} />
-                <MetaItem label="ID" value={<ResourceId value={allocationId} copy />} />
                 <MetaItem label="Namespace" value={<span className="font-mono text-2xs">{allocation.namespace}</span>} />
               </>
             }
@@ -104,8 +102,9 @@ export default async function AllocationDetailPage({
       </div>
 
       <Tabs defaultValue="logs">
-      <TabsList aria-label="Allocation sections"><TabsTrigger value="logs">Logs</TabsTrigger><TabsTrigger value="details">Details</TabsTrigger><TabsTrigger value="lifecycle">Lifecycle</TabsTrigger></TabsList>
+      <TabsList aria-label="Allocation sections" className="w-full justify-start gap-1 rounded-none border-0 bg-transparent p-0"><TabsTrigger value="logs" className="rounded-none border-b-2 border-transparent px-3 py-2.5 data-[state=active]:border-brand-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none">Logs</TabsTrigger><TabsTrigger value="details" className="rounded-none border-b-2 border-transparent px-3 py-2.5 data-[state=active]:border-brand-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none">Details</TabsTrigger><TabsTrigger value="lifecycle" className="rounded-none border-b-2 border-transparent px-3 py-2.5 data-[state=active]:border-brand-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none">Lifecycle</TabsTrigger></TabsList>
       <TabsContent value="details" forceMount className="space-y-4 data-[state=inactive]:hidden">
+      <SectionTitle>Details</SectionTitle>
       <AllocationMetrics serviceId={service.id} allocationId={allocationId} cpuLimit={cpuLimit} memoryLimit={memoryLimit} initialMetrics={metrics.status === 'fulfilled' ? metrics.value : []} initialError={metrics.status === 'rejected' ? trellisReadError(metrics.reason) : null} />
 
       <Panel id="details" className="scroll-mt-20">
@@ -132,12 +131,12 @@ export default async function AllocationDetailPage({
       </Panel>
       </TabsContent>
       <TabsContent value="lifecycle" id="lifecycle" forceMount className="space-y-4 data-[state=inactive]:hidden">
-        <SectionTitle>Lifecycle history</SectionTitle>
+        <SectionTitle>Lifecycle</SectionTitle>
         <Panel>
           {events.status === 'rejected' ? <TrellisReadError title="Lifecycle events unavailable" message={trellisReadError(events.reason)} /> : history.length === 0 ? (
             <div className="p-5 text-sm text-ink-muted">No lifecycle events have been recorded.</div>
           ) : (
-            <Timeline items={history.map((event, index) => ({ id: `${event.at}-${event.phase}-${index}`, title: <>{event.phase}{event.reason ? <Chip tone="neutral">{event.reason}</Chip> : null}</>, description: event.message || 'Lifecycle transition', time: <Time value={event.at} mode="absolute" />, tone: index < history.length - 1 ? 'neutral' : ['failed', 'lost'].includes(event.phase) ? 'danger' : event.phase === 'running' ? 'success' : 'neutral' }))} />
+            <Timeline items={history.map((event, index) => ({ id: `${event.at}-${event.phase}-${index}`, title: event.phase === 'placed' && allocation.node_id ? `Placed on ${allocation.node_id}` : ['failed', 'lost'].includes(event.phase) ? 'Failing' : statusLabel(event.phase) ?? event.phase.charAt(0).toUpperCase() + event.phase.slice(1), titleTooltip: event.reason || event.phase, description: event.message || 'Lifecycle transition', time: <Time value={event.at} mode="absolute" />, tone: index < history.length - 1 ? 'neutral' : ['failed', 'lost'].includes(event.phase) ? 'danger' : event.phase === 'running' ? 'success' : 'neutral' }))} />
           )}
         </Panel>
       </TabsContent>

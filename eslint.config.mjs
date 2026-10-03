@@ -28,10 +28,10 @@ const bowerRules = {
       },
     },
     "no-low-contrast-focus": {
-      meta: { type: "problem", schema: [], messages: { contrast: "Use brand-500 for button focus, or the complete 3px brand-100 ring and brand-300 border for form controls." } },
+      meta: { type: "problem", schema: [], messages: { contrast: "Use brand-500 for button focus, or the complete 3px brand-100 ring and brand-500 border for form controls." } },
       create(context) {
         const check = (node, value) => {
-          const controlFocus = value.includes('focus-visible:ring-[3px]') && value.includes('focus-visible:ring-brand-100') && value.includes('focus-visible:border-brand-300');
+          const controlFocus = value.includes('focus-visible:ring-[3px]') && value.includes('focus-visible:ring-brand-100') && value.includes('focus-visible:border-brand-500');
           if (!controlFocus && /ring-brand-(?:100|300)|focus(?:-visible)?:border-brand-300/.test(value)) context.report({ node, messageId: "contrast" });
         };
         return {

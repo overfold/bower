@@ -71,6 +71,7 @@ export default async function EnvironmentPage({ params }: { params: Promise<{ sl
           services={variableServices}
           secretLabels={secretLabels}
           canManage={canManage}
+          updatedAt={environment.updatedAt.toISOString()}
         />
 
         <Panel>
@@ -84,7 +85,7 @@ export default async function EnvironmentPage({ params }: { params: Promise<{ sl
           ) : (
             <div className="overflow-x-auto">
               <Table>
-                <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Rotated</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Time</TableHead><TableHead className="text-right"><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
                 <TableBody>
                   {secrets.map((row) => (
                     <TableRow key={row.secret.id}>

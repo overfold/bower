@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { formatCpu, formatDate, formatDisplayToken, formatMemory, formatReadyReplicas, formatRelativeTime, formatTimestamp, timestampTitle } from './format'
+import { deploymentImageTag, formatRatio, formatPercent, formatCpu, formatDate, formatDisplayToken, formatMemory, formatReadyReplicas, formatRelativeTime, formatTimestamp, timestampTitle } from './format'
 
 const NOW = Date.parse('2026-01-02T00:00:00.000Z')
 
@@ -42,7 +42,15 @@ test('resource formatters cap CPU precision and switch memory units at one GiB',
 
 test('ready replica formatting makes unavailable observations explicit', () => {
   assert.equal(formatReadyReplicas(2, 3), '2/3 ready')
-  assert.equal(formatReadyReplicas(null, 3), 'Unavailable / 3 ready')
+  assert.equal(formatReadyReplicas(null, 3), 'Unavailable · 3 desired')
+})
+
+test('ratios, percentages, and image tags have consistent compact formatting', () => {
+  assert.equal(formatRatio(2, 10, 'uses'), '2/10 uses')
+  assert.equal(formatPercent(66.7), '67%')
+  assert.equal(deploymentImageTag('registry.test:5000/acme/storefront:v2.4.1'), 'v2.4.1')
+  assert.equal(deploymentImageTag('registry.test:5000/storefront'), 'latest')
+  assert.equal(deploymentImageTag('acme/storefront@sha256:abc'), 'sha256:abc')
 })
 
 test('timestamps follow viewer timezone across midnight and include UTC in the tooltip', () => {

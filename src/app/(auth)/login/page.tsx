@@ -61,8 +61,9 @@ export default function LoginPage() {
             autoComplete="current-password"
             required
           />
+          <p className="text-xs text-ink-muted">Forgot your password? Ask an instance admin to reset it.</p>
         </div>
-        <Button variant="primary" type="submit" className="mt-1 w-full" size="lg" disabled={loading} aria-busy={loading}>
+        <Button variant="primary" type="submit" className="mt-1 w-full" size="md" disabled={loading} aria-busy={loading}>
           {loading ? (
             <>
               Signing in&hellip;

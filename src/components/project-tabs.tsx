@@ -41,7 +41,7 @@ export function ProjectTabs({ slug, tabs }: { slug: string; tabs: TabItem[] }) {
                   'nums rounded-md px-1.5 py-px text-2xs font-semibold',
                   isActive
                     ? 'bg-brand-50 text-brand-700'
-                    : 'bg-sunken text-ink-muted',
+                    : 'border border-line bg-surface text-ink-soft',
                 )}
               >
                 {tab.count}

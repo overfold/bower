@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { InlineNotice } from '@/components/ui/feedback'
+import { AuthLayout } from '@/components/auth-layout'
 
 export default async function RoutePasswordPage({
   searchParams,
@@ -14,8 +15,8 @@ export default async function RoutePasswordPage({
   try { if (returnTo) hostname = new URL(returnTo).hostname } catch { /* Invalid requests are explained below. */ }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-canvas p-6">
-      <section className="w-full max-w-sm rounded-xl border border-line bg-surface p-6">
+    <AuthLayout>
+      <section>
         <div className="space-y-1">
           <h1 className="break-all text-lg font-semibold tracking-tight text-ink">{hostname ?? 'Protected site'}</h1>
           <p className="text-sm leading-6 text-ink-muted">This site is password protected.</p>
@@ -29,13 +30,13 @@ export default async function RoutePasswordPage({
               <Label htmlFor="route-password">Password</Label>
               <Input id="route-password" name="password" type="password" autoComplete="current-password" autoFocus required />
             </div>
-            <Button variant="primary" type="submit" className="w-full" size="lg">Continue</Button>
+            <Button variant="primary" type="submit" className="w-full" size="md">Continue</Button>
           </form>
         ) : (
           <InlineNotice tone="error" className="mt-6">This route authorization request is invalid.</InlineNotice>
         )}
         <p className="mt-6 text-center text-xs text-ink-muted">Protected by Bower</p>
       </section>
-    </main>
+    </AuthLayout>
   )
 }

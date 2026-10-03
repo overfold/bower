@@ -250,6 +250,7 @@ function pageDependencies(client: unknown) {
     '@/lib/actions/shared': { getProjectRole: async () => 'admin' },
     '@/lib/trellis-instance': { getTrellisClient: async () => client }, '@/components/trellis-read-error': readError,
     './service-header': { ServiceHeader: () => null }, './service-actions': { ServiceActions: () => null },
+    './allocations/[allocationId]/allocation-metrics': { AllocationMetrics: () => null },
     '@/components/deployment-poller': { DeploymentPoller: () => null }, '@/components/exec-dialog': { ExecDialog: () => null },
     './allocation-stop-button': { AllocationStopButton: () => null },
   }
@@ -351,7 +352,7 @@ test('metrics failure keeps node and independently observed ingress status visib
   const html = renderToStaticMarkup(await page.default())
   assert.match(html, /node-a/)
   assert.match(html, /Capacity data unavailable/)
-  assert.match(html, /unhealthy/)
+  assert.match(html, /Failed/)
   assert.match(html, /Route-sync freshness check failed/)
   assert.doesNotMatch(html, /Unable to reach cluster/)
 })

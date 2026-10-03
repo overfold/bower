@@ -52,12 +52,12 @@ export function ClusterSettingsForm({ org }: ClusterSettingsFormProps) {
         </CardHeader>
         <CardContent className="space-y-6">
           {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
-          <div className="space-y-2">
+          <div className="max-w-[720px] space-y-2">
             <Label htmlFor="trellisApiUrl" optional>Trellis API URL</Label>
             <Input id="trellisApiUrl" name="trellisApiUrl" defaultValue={org.trellisApiUrl} className="font-mono" />
             <p className="text-xs text-ink-muted">The full URL of the Trellis API, for example <span className="font-mono">https://trellis.example.com</span>.</p>
           </div>
-          <div className="space-y-2">
+          <div className="max-w-[720px] space-y-2">
             <Label htmlFor="trellisApiToken" optional>Trellis API token</Label>
             <Input id="trellisApiToken" name="trellisApiToken" type="password" defaultValue={org.trellisApiToken} autoComplete="off" mono />
           </div>

@@ -17,6 +17,7 @@ import { Panel, PanelHeader, SectionTitle } from '@/components/ui/panel'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { AddRouteDialog, RouteActions } from './route-actions'
 import { protectionLabels, tlsLabels } from '@/lib/labels'
+import { Chip } from '@/components/status'
 
 export default async function RoutesPage({ params }: { params: Promise<{ slug: string }> }) {
   const ctx = await requireContext()
@@ -100,7 +101,6 @@ export default async function RoutesPage({ params }: { params: Promise<{ slug: s
                 <TableHead>Hostname</TableHead>
                 <TableHead>Path</TableHead>
                 <TableHead>Target</TableHead>
-                <TableHead>TLS</TableHead>
                 <TableHead>Protection</TableHead>
                 <TableHead className="w-[96px]"><span className="sr-only">Actions</span></TableHead>
               </TableRow>
@@ -108,12 +108,9 @@ export default async function RoutesPage({ params }: { params: Promise<{ slug: s
             <TableBody>
               {visibleRoutes.map((row) => (
                 <TableRow key={row.route.id}>
-                  <TableCell className="font-mono text-sm font-medium text-ink">{row.route.domain}</TableCell>
+                  <TableCell><span className="font-mono text-sm font-medium text-ink">{row.route.domain}</span>{row.route.tlsMode !== 'auto' ? <Chip tone="neutral" className="ml-2">{tlsLabels[row.route.tlsMode]}</Chip> : null}</TableCell>
                   <TableCell className="font-mono text-xs text-ink-muted">{row.route.pathPrefix}</TableCell>
-                  <TableCell className="text-sm">{row.serviceName}:{row.route.port}</TableCell>
-                  <TableCell>
-                    <span className="text-sm text-ink-muted">{tlsLabels[row.route.tlsMode]}</span>
-                  </TableCell>
+                  <TableCell className="text-sm">{row.serviceName} · port {row.route.port}</TableCell>
                   <TableCell>
                     <span className="text-sm text-ink-muted">{protectionLabels[row.route.protectionMode]}</span>
                   </TableCell>

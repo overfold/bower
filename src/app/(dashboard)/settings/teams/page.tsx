@@ -56,7 +56,7 @@ export default async function TeamsPage() {
                   <TableCell className="font-medium"><Link className="text-link" href={`/settings/teams/${team.id}`}>{team.name}</Link></TableCell>
                   <TableCell className="nums text-ink-muted">{members.length}</TableCell>
                   <TableCell className="nums text-ink-muted">{projectAccess.length}</TableCell>
-                  <TableCell><TeamRowActions teamId={team.id} teamName={team.name} /></TableCell>
+                  <TableCell className="text-right"><TeamRowActions teamId={team.id} teamName={team.name} /></TableCell>
                   <TableCell><ChevronRight className="ml-auto h-4 w-4 text-ink-muted" aria-hidden="true" /></TableCell>
                 </ClickableTableRow>
               ))}

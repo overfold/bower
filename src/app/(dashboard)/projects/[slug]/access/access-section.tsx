@@ -66,7 +66,7 @@ export default async function AccessSection({ params }: { params: Promise<{ slug
 
       {!hasGrants ? (
         <Panel>
-          <PanelHeader title="0 entities" action={grantAction} />
+          <PanelHeader title="0 with access" action={grantAction} />
           <EmptyState
             icon={<Shield className="h-4 w-4" />}
             title="No project access"
@@ -75,7 +75,7 @@ export default async function AccessSection({ params }: { params: Promise<{ slug
         </Panel>
       ) : (
         <Panel>
-          <PanelHeader title={`${entityCount} ${entityCount === 1 ? 'entity' : 'entities'}`} action={grantAction} />
+          <PanelHeader title={`${entityCount} with access`} action={grantAction} />
           <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -83,7 +83,7 @@ export default async function AccessSection({ params }: { params: Promise<{ slug
                 <TableHead>Entity</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Source</TableHead>
-                <TableHead className="text-right">Granted</TableHead>
+                <TableHead className="text-right">Time</TableHead>
                 {isAdmin && <TableHead className="w-[56px]"><span className="sr-only">Actions</span></TableHead>}
                 <TableHead className="w-12"><span className="sr-only">View</span></TableHead>
               </TableRow>
@@ -101,7 +101,7 @@ export default async function AccessSection({ params }: { params: Promise<{ slug
                   <TableCell>Direct team</TableCell>
                   <TableCell className="whitespace-nowrap text-right text-xs text-ink-muted"><Time value={access.createdAt} /></TableCell>
                   {isAdmin && (
-                    <TableCell>
+                    <TableCell className="text-right">
                       <RevokeAccessButton projectId={project.id} accessId={access.id} kind="team" name={teamName} />
                     </TableCell>
                   )}
@@ -124,7 +124,7 @@ export default async function AccessSection({ params }: { params: Promise<{ slug
                   <TableCell>{source}</TableCell>
                   <TableCell className="whitespace-nowrap text-right text-xs text-ink-muted">{direct ? <Time value={direct.access.createdAt} /> : '—'}</TableCell>
                   {isAdmin && direct ? (
-                    <TableCell>
+                    <TableCell className="text-right">
                       <RevokeAccessButton projectId={project.id} accessId={direct.access.id} kind="user" name={member.userName} email={member.userEmail} />
                     </TableCell>
                   ) : isAdmin ? <TableCell /> : null}

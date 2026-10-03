@@ -11,7 +11,7 @@ const SharedTrellisError = createContext<string | null>(null)
 export function TrellisReadErrorProvider({ message, children }: { message: string | null; children: React.ReactNode }) {
   const router = useRouter()
   return <SharedTrellisError.Provider value={message}>
-    {message ? <PageBanner tone="warning" title="Trellis is unavailable.">{message}<span className="mt-2 flex flex-wrap items-center gap-3"><Button size="sm" onClick={() => router.refresh()}>Retry connection</Button><Link href="/settings/cluster" className="font-medium underline">Check cluster settings</Link></span></PageBanner> : null}
+    {message ? <PageBanner tone="warning" title="Trellis is unavailable.">{message}<span className="mt-2 flex flex-wrap items-center gap-3"><Button size="sm" onClick={() => router.refresh()}>Retry connection</Button><Link href="/settings/organization#connection" className="font-medium underline">Check connection settings</Link></span></PageBanner> : null}
     {children}
   </SharedTrellisError.Provider>
 }

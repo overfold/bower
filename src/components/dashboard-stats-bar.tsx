@@ -1,6 +1,6 @@
 import { Panel } from '@/components/ui/panel'
 import type { TrellisAllocation } from '@/types/trellis'
-import { formatCpu, formatMemory } from '@/lib/format'
+import { formatCpu, formatMemory, formatPercent, formatRatio } from '@/lib/format'
 import { allocationHealthSummary } from '@/lib/service-health'
 
 type DeploymentStatus =
@@ -150,7 +150,7 @@ export function DashboardStatsBar({
       <div className="grid gap-px bg-line sm:grid-cols-2 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(300px,1.7fr)]">
         <StatCell
           label="Allocation health"
-          value={clusterAvailable ? `${healthyAllocations}/${total} healthy` : '—'}
+          value={clusterAvailable ? formatRatio(healthyAllocations, total, 'healthy') : '—'}
           detail={allocationDetail}
         />
         <StatCell
@@ -173,15 +173,15 @@ export function DashboardStatsBar({
               <div className="mt-2 flex items-baseline gap-2.5">
                 <p className="nums text-2xl font-semibold tracking-tight text-ink">{deploymentCount}</p>
                 <p className="text-xs text-ink-muted">
-                  {successRate === null ? 'No completed deployments' : `${successRate}% successful`}
+                  {successRate === null ? 'No completed deployments' : `${formatPercent(successRate)} successful`}
                 </p>
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-3 pt-0.5 text-2xs text-ink-muted" aria-hidden="true">
-              <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-ok-500" />succeeded</span>
-              <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-danger-500" />failed</span>
-              <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-info-500" />rolled back</span>
-              {hasActiveDeployments ? <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-ink-faint" />in progress</span> : null}
+              <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-ok-500" />Succeeded</span>
+              <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-danger-500" />Failed</span>
+              <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-info-500" />Rolled back</span>
+              {hasActiveDeployments ? <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-ink-faint" />In progress</span> : null}
             </div>
           </div>
 
@@ -199,7 +199,7 @@ export function DashboardStatsBar({
                   title={`${day.label}: ${day.total} total, ${day.healthy} healthy, ${day.failed} failed, ${day.rolledBack} rolled back${day.active ? `, ${day.active} in flight` : ''}`}
                 >
                   <div
-                    className="flex w-full flex-col-reverse overflow-hidden bg-line"
+                    className="flex w-2 flex-col-reverse overflow-hidden rounded-t-sm"
                     style={{ height: `${height}%` }}
                   >
                     {day.healthy > 0 ? <span className="min-h-px bg-ok-500" style={{ flexGrow: day.healthy }} /> : null}

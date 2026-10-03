@@ -6,11 +6,12 @@ import { Button } from '@/components/ui/button'
 import { useFeedback } from '@/components/ui/feedback'
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, AlertDialogCancel } from '@/components/ui/alert-dialog'
 import { rollbackServiceAction } from '@/lib/actions/services'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 export function RestoreRevisionButton({ serviceId, environmentId, deploymentId, image }: { serviceId: string; environmentId: string; deploymentId: string; image: string }) {
   const [pending, startTransition] = useTransition()
   const { toast } = useFeedback()
-  return <AlertDialog><AlertDialogTrigger asChild><Button size="sm" variant="ghost" loading={pending}><RotateCcw />Roll back</Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Roll back to {image}?</AlertDialogTitle><AlertDialogDescription>This replaces the service with the exact configuration saved for this deployment.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><Button variant="primary" loading={pending} onClick={() => startTransition(async () => {
+  return <AlertDialog><TooltipProvider><Tooltip><TooltipTrigger asChild><AlertDialogTrigger asChild><Button size="icon" variant="ghost" loading={pending} aria-label="Roll back to this release"><RotateCcw /></Button></AlertDialogTrigger></TooltipTrigger><TooltipContent>Roll back to this release</TooltipContent></Tooltip></TooltipProvider><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Roll back to <span className="font-mono">{image}</span>?</AlertDialogTitle><AlertDialogDescription>This replaces the service with the exact configuration saved for this deployment.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><Button variant="primary" loading={pending} onClick={() => startTransition(async () => {
     try { await rollbackServiceAction(serviceId, environmentId, deploymentId); toast({ tone: 'success', title: 'Rollback started.' }) }
     catch (reason) { toast({ tone: 'error', title: 'Could not roll back', description: reason instanceof Error ? reason.message : 'The configuration could not be restored.' }) }
   })}>Roll back</Button></AlertDialogFooter></AlertDialogContent></AlertDialog>

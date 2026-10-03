@@ -210,11 +210,12 @@ export function ExecDialog({
           Terminal
         </Button>
       </DialogTrigger>
-      <DialogContent className={fullScreen ? 'h-screen max-h-screen w-screen max-w-none grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-none' : 'max-w-6xl overflow-hidden'}>
-        <DialogHeader>
-          <DialogTitle>Interactive terminal</DialogTitle>
+      <DialogContent className={fullScreen ? 'h-screen max-h-screen w-screen max-w-none grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-none' : 'max-h-[calc(100dvh-2rem)] max-w-6xl overflow-hidden'}>
+        <DialogHeader className="pr-24">
+          <DialogTitle>Terminal · {allocationId}</DialogTitle>
+          <Button className="absolute right-14 top-4" variant="ghost" size="icon" type="button" onClick={() => setFullScreen((value) => !value)} aria-label={fullScreen ? 'Exit full screen' : 'Full screen'}>{fullScreen ? <Minimize2 /> : <Maximize2 />}</Button>
         </DialogHeader>
-        <DialogBody className={fullScreen ? 'flex max-h-none min-h-0 flex-col gap-3' : 'space-y-3'}>
+        <DialogBody className={fullScreen ? 'flex max-h-none min-h-0 flex-col gap-3' : 'max-h-none space-y-3'}>
           {tasks.length > 1 && (
             <div className="flex items-center justify-between gap-3">
               <span className="text-xs font-medium text-ink-soft">Task</span>
@@ -236,14 +237,13 @@ export function ExecDialog({
               </Select>
             </div>
           )}
-          <div className="flex justify-end"><Button size="sm" type="button" onClick={() => setFullScreen((value) => !value)}>{fullScreen ? <Minimize2 /> : <Maximize2 />}{fullScreen ? 'Exit full screen' : 'Full screen'}</Button></div>
           <div
             className={`${fullScreen ? 'min-h-0 flex-1 ' : ''}overflow-hidden rounded-md border border-line-strong bg-[#0b1113] p-2`}
             onMouseDown={() => terminalElement?.querySelector('textarea')?.focus()}
           >
             <div
               ref={setTerminalElement}
-              className={fullScreen ? 'h-full w-full' : 'h-[60vh] min-h-[420px] w-full'}
+              className={fullScreen ? 'h-full w-full' : 'h-[min(60vh,calc(100dvh-12rem))] w-full'}
               aria-label="Interactive allocation terminal"
             />
           </div>

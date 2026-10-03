@@ -15,7 +15,7 @@ import {
 import { Plus, Users, User } from 'lucide-react'
 import { RowActions, RowActionItem, RowActionSeparator } from '@/components/ui/row-actions'
 import { cn } from '@/lib/utils'
-import { InlineNotice } from '@/components/ui/feedback'
+import { FieldError, InlineNotice } from '@/components/ui/feedback'
 
 type SearchItem =
   | { kind: 'team'; id: string; name: string; granted: boolean }
@@ -36,6 +36,7 @@ export function GrantAccessDialog({ projectId, teams, members, existingTeamIds, 
   const [role, setRole] = useState<string>('viewer')
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const [searchError, setSearchError] = useState<string | null>(null)
 
   const items = useMemo(() => {
     const all: SearchItem[] = [
@@ -59,11 +60,12 @@ export function GrantAccessDialog({ projectId, teams, members, existingTeamIds, 
 
   function handleSubmit() {
     if (!selected || selected.granted) {
-      setError('Choose a team or member from the search results.')
+      setSearchError('Choose a team or member from the search results.')
       document.getElementById('access-search')?.focus()
       return
     }
     setError(null)
+    setSearchError(null)
     const formData = new FormData()
     formData.set('kind', selected.kind)
     formData.set('role', role)
@@ -89,6 +91,7 @@ export function GrantAccessDialog({ projectId, teams, members, existingTeamIds, 
     setSelected(null)
     setSearch('')
     setError(null)
+    setSearchError(null)
     setRole('viewer')
   }
 
@@ -105,12 +108,14 @@ export function GrantAccessDialog({ projectId, teams, members, existingTeamIds, 
           <DialogTitle>Grant project access</DialogTitle>
         </DialogHeader>
         <DialogBody className="space-y-4">
-          {error && <InlineNotice tone="error">{error}</InlineNotice>}
+          {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
           <div className="space-y-2">
             <Label htmlFor="access-search">Search teams and members</Label>
             <div className="overflow-hidden rounded-lg border border-line-strong bg-surface">
               <Input
                 id="access-search"
+                aria-invalid={Boolean(searchError)}
+                aria-describedby={searchError ? 'access-search-error' : undefined}
                 placeholder="Search by name or email..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -128,7 +133,7 @@ export function GrantAccessDialog({ projectId, teams, members, existingTeamIds, 
                         key={`${item.kind}-${item.id}`}
                         type="button"
                         disabled={item.granted}
-                        onClick={() => setSelected(item)}
+                        onClick={() => { setSelected(item); setSearchError(null) }}
                         className={cn(
                           "flex w-full items-center gap-3 border-b border-line px-3 py-2.5 text-left text-sm transition-colors last:border-b-0",
                           item.granted
@@ -161,9 +166,9 @@ export function GrantAccessDialog({ projectId, teams, members, existingTeamIds, 
                 )}
               </div> : null}
             </div>
+            <div id="access-search-error"><FieldError>{searchError}</FieldError></div>
           </div>
-          {selected && !selected.granted && (
-            <div className="space-y-2">
+          <div className="space-y-2">
               <Label htmlFor="access-role">Role</Label>
               <Select value={role} onValueChange={setRole}>
                 <SelectTrigger id="access-role" aria-describedby="access-role-help"><SelectValue /></SelectTrigger>
@@ -174,10 +179,9 @@ export function GrantAccessDialog({ projectId, teams, members, existingTeamIds, 
                 </SelectContent>
               </Select>
               <p id="access-role-help" className="text-xs text-ink-muted">
-                {selected.kind === 'team' ? `All members of ${selected.name}` : selected.name} will receive {role} access to this project.
+                {selected ? `${selected.kind === 'team' ? `All members of ${selected.name}` : selected.name} will receive ${role} access to this project.` : 'Choose the role that will be granted.'}
               </p>
             </div>
-          )}
         </DialogBody>
         <DialogFooter>
           <Button variant="default" size="sm" onClick={handleClose} disabled={pending}>Cancel</Button>

@@ -18,10 +18,10 @@ export default async function OrganizationSettingsPage() {
         title="Organization"
       />
 
-      <OrgSettingsForm
+      <section id="details" className="scroll-mt-20"><OrgSettingsForm
         org={{ id: orgCtx.org.id, name: orgCtx.org.name, slug: orgCtx.org.slug }}
-      />
-      <ClusterSettingsForm org={{ trellisApiUrl: orgCtx.org.trellisApiUrl, trellisApiToken: orgCtx.org.trellisApiToken }} />
+      /></section>
+      <section id="connection" className="scroll-mt-20"><ClusterSettingsForm org={{ trellisApiUrl: orgCtx.org.trellisApiUrl, trellisApiToken: orgCtx.org.trellisApiToken }} /></section>
     </div>
   )
 }

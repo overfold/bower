@@ -37,3 +37,15 @@ test('service mutations replace values and bindings at env and file destinations
   assert.deepEqual(valued.secretBindings, [{ name: 'token-secret', target: 'env', env: 'TOKEN' }])
   assert.deepEqual(removeServiceVariable(valued, 'TOKEN').secretBindings, [])
 })
+
+test('distinct variable edits stay staged and the original remains available for discard', () => {
+  const original = {
+    id: '1', name: 'Web', envVars: { FIRST: 'one', SECOND: 'two' }, secretBindings: [],
+  }
+  const firstEdit = setServiceValue(original, 'FIRST', 'changed')
+  const secondEdit = setServiceValue(firstEdit, 'SECOND', 'also-changed')
+
+  assert.deepEqual(secondEdit.envVars, { FIRST: 'changed', SECOND: 'also-changed' })
+  assert.deepEqual(original.envVars, { FIRST: 'one', SECOND: 'two' })
+  assert.deepEqual(original, { id: '1', name: 'Web', envVars: { FIRST: 'one', SECOND: 'two' }, secretBindings: [] })
+})

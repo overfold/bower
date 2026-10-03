@@ -8,7 +8,7 @@ import { Panel, PanelHeader } from '@/components/ui/panel'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Time } from '@/components/time'
 import { cn } from '@/lib/utils'
-import { auditActionSentence, auditResourceName } from '@/lib/labels'
+import { auditActionSentence, auditResourceName, label } from '@/lib/labels'
 
 const PAGE_SIZE = 25
 
@@ -31,16 +31,18 @@ const actorIcons = {
 function DiffColumns({ details }: { details: Record<string, unknown> }) {
   const before = details.before && typeof details.before === 'object' ? details.before as Record<string, unknown> : null
   const after = details.after && typeof details.after === 'object' ? details.after as Record<string, unknown> : null
+  const scalarDiff = 'before' in details && 'after' in details && !(before && after)
   const diffKeys = before && after ? [...new Set([...Object.keys(before), ...Object.keys(after)])].filter((key) => JSON.stringify(before[key]) !== JSON.stringify(after[key])) : []
-  const entries = Object.entries(details).filter(([key]) => !(before && after && (key === 'before' || key === 'after')))
-  if (entries.length === 0 && diffKeys.length === 0) return <p className="text-xs text-ink-muted">No additional details.</p>
+  const entries = Object.entries(details).filter(([key]) => !((scalarDiff || (before && after)) && (key === 'before' || key === 'after')))
+  if (entries.length === 0 && diffKeys.length === 0 && !scalarDiff) return <p className="text-xs text-ink-muted">No additional details.</p>
 
   return (
     <div className="rounded-lg border border-line bg-sunken p-3">
       <p className="overline">Details</p>
       <dl className="mt-2 grid max-w-3xl grid-cols-[minmax(8rem,0.4fr)_minmax(0,1fr)] gap-x-4 gap-y-2">
+        {scalarDiff ? <><dt className="text-xs text-ink-muted">Change</dt><dd className="font-mono text-xs"><span className="text-ink-muted">{String(details.before ?? '—')}</span><span className="mx-2 text-ink-muted">→</span>{String(details.after ?? '—')}</dd></> : null}
         {diffKeys.map((key) => <div key={`diff-${key}`} className="contents">
-          <dt className="text-xs text-ink-muted">{key}</dt>
+          <dt className="text-xs text-ink-muted">{label(key)}</dt>
           <dd className="min-w-0 break-words font-mono text-code">
             <span className="text-ink-muted">{typeof before![key] === 'object' ? JSON.stringify(before![key]) : String(before![key] ?? '—')}</span>
             <span className="mx-2 text-ink-muted" aria-label="changed to">→</span>
@@ -49,7 +51,7 @@ function DiffColumns({ details }: { details: Record<string, unknown> }) {
         </div>)}
         {entries.map(([k, v]) => (
           <div key={k} className="contents">
-            <dt className="text-xs text-ink-muted">{k}</dt>
+            <dt className="text-xs text-ink-muted">{label(k)}</dt>
             <dd className="min-w-0 whitespace-pre-wrap break-words font-mono text-xs text-ink-soft">{typeof v === 'object' ? JSON.stringify(v, null, 2) : String(v)}</dd>
           </div>
         ))}
@@ -84,8 +86,8 @@ export function AuditLogList({ entries, now }: { entries: AuditEntry[]; now: num
   return (
     <Panel>
       <PanelHeader title={`${filtered.length} event${filtered.length === 1 ? '' : 's'}`} hint="Retained for 365 days" />
-      <div className="grid gap-2 border-b border-line p-3 sm:grid-cols-2 lg:grid-cols-5">
-        <SearchInput value={query} onChange={(event) => { setQuery(event.target.value); setPage(1) }} placeholder="Search audit log…" aria-label="Search audit log" />
+      <div className="flex flex-wrap gap-2 border-b border-line p-3 [&_button[role=combobox]]:w-auto">
+        <SearchInput value={query} onChange={(event) => { setQuery(event.target.value); setPage(1) }} placeholder="Search" aria-label="Search audit log" />
         <AuditSelect label="actor" value={actor} setValue={setActor} options={actors} />
         <AuditSelect label="action" value={action} setValue={setAction} options={actions} />
         <AuditSelect label="resource" value={resource} setValue={setResource} options={resources} />

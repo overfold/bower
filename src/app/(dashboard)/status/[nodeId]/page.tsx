@@ -5,9 +5,9 @@ import { getTrellisClient } from '@/lib/trellis-instance'
 import { nodeAllocatable, nodeCapacity, observationFreshness, trellisReadError } from '@/lib/trellis-runtime'
 import { parseNodeAllocatedResources } from '@/lib/trellis-resource-metrics'
 import { TrellisReadError } from '@/components/trellis-read-error'
-import { PageHeading, MetaItem } from '@/components/page-heading'
+import { PageHeading } from '@/components/page-heading'
 import { Panel, PanelHeader, KeyValue } from '@/components/ui/panel'
-import { Chip, StatusDot } from '@/components/status'
+import { AllocationStatus, Chip, StatusDot } from '@/components/status'
 import { DrainToggle } from '../drain-toggle'
 import { formatCpu, formatMemory } from '@/lib/format'
 import type { TrellisAllocation, TrellisNode } from '@/types/trellis'
@@ -53,15 +53,17 @@ export default async function NodePage({ params }: { params: Promise<{ nodeId: s
   const metrics = observationFreshness(node.metrics_at)
   const cpuUsed = node.cpu_usage == null ? null : node.cpu_usage * allocatable.cpu
   const cpuUsedPct = cpuUsed != null && allocatable.cpu > 0 ? Math.min(100, cpuUsed / allocatable.cpu * 100) : null
-  const cpuAllocatedPct = allocatable.cpu > 0 ? Math.min(100, allocated.cpu / allocatable.cpu * 100) : 0
+  const cpuAllocatedPct = allocatable.cpu > 0 ? allocated.cpu / allocatable.cpu * 100 : 0
   const memoryUsed = node.memory_used ?? null
   const memoryUsedPct = memoryUsed != null && allocatable.memory > 0 ? Math.min(100, memoryUsed / allocatable.memory * 100) : null
-  const memoryAllocatedPct = allocatable.memory > 0 ? Math.min(100, allocated.memory / allocatable.memory * 100) : 0
+  const memoryAllocatedPct = allocatable.memory > 0 ? allocated.memory / allocatable.memory * 100 : 0
   const targets = await getOperationalTargetsForOrg(ctx.org.id)
+  const activeAllocations = allocations.filter((allocation) => !['stopped', 'failed', 'lost'].includes(allocation.phase))
+  const nodeDrained = allocationsError === null && node.status === 'draining' && activeAllocations.length === 0
 
   return (
     <div className="space-y-6">
-      <PageHeading title={node.id} meta={<MetaItem label="Status" value={<StatusDot status={node.status === 'healthy' ? 'ready' : node.status} />} />} actions={ctx.role === 'owner' ? <DrainToggle nodeId={node.id} drain={node.status === 'draining'} /> : undefined} />
+      <PageHeading title={<span className="flex flex-wrap items-center gap-3">{node.id}<StatusDot status={nodeDrained ? 'drained' : node.status === 'healthy' ? 'ready' : node.status} /></span>} description={nodeDrained ? 'No allocations left. Ready for maintenance.' : undefined} actions={ctx.role === 'owner' ? <DrainToggle nodeId={node.id} drain={node.status === 'draining'} allocationCount={activeAllocations.length} /> : undefined} />
       <Panel>
         <PanelHeader title="Node details" />
         <dl className="grid gap-x-8 p-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -90,10 +92,10 @@ export default async function NodePage({ params }: { params: Promise<{ nodeId: s
       </Panel>
       <Panel>
         <PanelHeader title="Allocations on this node" hint={`${allocations.length} allocation${allocations.length === 1 ? '' : 's'}`} />
-        {allocationsError ? <TrellisReadError title="Allocations unavailable" message={allocationsError} /> : allocations.length ? <Table><TableHeader><TableRow><TableHead>Allocation</TableHead><TableHead>Service</TableHead><TableHead>Status</TableHead><TableHead>Started</TableHead><TableHead><span className="sr-only">Open</span></TableHead></TableRow></TableHeader><TableBody>{allocations.map((allocation) => {
+        {allocationsError ? <TrellisReadError title="Allocations unavailable" message={allocationsError} /> : allocations.length ? <Table><TableHeader><TableRow><TableHead>Allocation</TableHead><TableHead>Service</TableHead><TableHead>Status</TableHead><TableHead>Time</TableHead><TableHead><span className="sr-only">Open</span></TableHead></TableRow></TableHeader><TableBody>{allocations.map((allocation) => {
           const target = targets.find((item) => item.namespace === allocation.namespace && (item.job === allocation.job || item.serviceSlug === allocation.labels?.['bower/service']))
           const href = target ? `/projects/${target.projectSlug}/services/${target.serviceSlug}/allocations/${allocation.id}` : null
-          const cells = <><TableCell>{href ? <Link className="relative z-10 text-link hover:underline" href={href}><ResourceId value={allocation.id} /></Link> : <ResourceId value={allocation.id} />}</TableCell><TableCell>{target?.serviceName ?? allocation.job}</TableCell><TableCell><StatusDot status={allocation.phase === 'running' ? allocation.health : allocation.phase} /></TableCell><TableCell><Time value={allocation.created_at} mode="absolute" /></TableCell><TableCell>{href ? <ChevronRight className="ml-auto size-4 text-ink-faint" /> : null}</TableCell></>
+          const cells = <><TableCell>{href ? <Link className="relative z-10 text-link hover:underline" href={href}><ResourceId value={allocation.id} /></Link> : <ResourceId value={allocation.id} />}</TableCell><TableCell>{target?.serviceName ?? allocation.job}</TableCell><TableCell><AllocationStatus phase={allocation.phase} health={allocation.health} /></TableCell><TableCell><Time value={allocation.created_at} mode="absolute" /></TableCell><TableCell>{href ? <ChevronRight className="ml-auto size-4 text-ink-faint" /> : null}</TableCell></>
           return href ? <ClickableTableRow key={allocation.id} href={href} label={`View allocation ${allocation.id}`}>{cells}</ClickableTableRow> : <TableRow key={allocation.id}>{cells}</TableRow>
         })}</TableBody></Table> : <p className="border-t border-line px-4 py-3 text-sm text-ink-muted">No allocations are currently placed on this node.</p>}
       </Panel>
@@ -103,7 +105,8 @@ export default async function NodePage({ params }: { params: Promise<{ nodeId: s
 
 function ResourceBar({ label, used, allocated, total, usedPct, allocatedPct }: { label: string; used: string | null; allocated: string | null; total: string; usedPct: number | null; allocatedPct: number | null }) {
   const title = `${label}: ${used ?? 'usage unavailable'} used, ${allocated ?? 'allocation unavailable'} allocated, ${total} total`
-  return <div><p className="text-sm text-ink-soft">{label} · {total}</p><div className="relative mt-2 h-3 rounded-md bg-line" title={title} role="img" aria-label={title}>{allocatedPct != null ? <span className="absolute inset-y-0 left-0 rounded-md bg-info-500" style={{ width: `${allocatedPct}%` }} /> : null}{usedPct != null ? <span className="absolute -top-1 h-5 w-0.5 bg-ink" style={{ left: `calc(${usedPct}% - 1px)` }} /> : null}</div><div className="mt-2 flex gap-4 text-xs text-ink-muted"><span><i className="mr-1 inline-block h-2 w-0.5 bg-ink" />Used {used ?? 'Unavailable'}</span><span><i className="mr-1 inline-block h-2 w-2 bg-info-500" />Allocated {allocated ?? 'Unavailable'}</span></div></div>
+  const overallocated = allocatedPct != null && allocatedPct > 100
+  return <div><p className="text-sm text-ink-soft">{label} · {total}</p><div className="relative mt-2 h-3 overflow-hidden rounded-md bg-line" title={title} role="img" aria-label={title}>{allocatedPct != null ? <span className={`absolute inset-y-0 left-0 rounded-md ${overallocated ? 'bg-warn-500' : 'bg-brand-200'}`} style={{ width: `${Math.min(100, allocatedPct)}%` }} /> : null}{usedPct != null ? <span className="absolute inset-y-0 left-0 rounded-md bg-brand-500" style={{ width: `${Math.min(100, usedPct)}%` }} /> : null}</div><div className="mt-2 flex flex-wrap gap-4 text-xs text-ink-muted"><span><i className="mr-1 inline-block h-2 w-2 bg-brand-500" />Used {used ?? 'Unavailable'}</span><span><i className={`mr-1 inline-block h-2 w-2 ${overallocated ? 'bg-warn-500' : 'bg-brand-200'}`} />Allocated {allocated ?? 'Unavailable'}{overallocated ? ' · Overallocated' : ''}</span></div></div>
 }
 
 function PlainNodeLabel({ label: text, trellis }: { label: string; trellis: string }) {

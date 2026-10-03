@@ -11,8 +11,8 @@ import { FieldError, InlineNotice, useFeedback } from '@/components/ui/feedback'
 export function ChangePasswordForm() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [dirty, setDirty] = useState(false)
   const [confirmationError, setConfirmationError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const confirmationRef = useRef<HTMLInputElement>(null)
   const { toast } = useFeedback()
 
@@ -22,6 +22,7 @@ export function ChangePasswordForm() {
     const formData = new FormData(form)
     setError(null)
     setConfirmationError(null)
+    setFieldErrors({})
     setLoading(true)
     const newPw = formData.get('newPassword') as string
     const confirm = formData.get('confirmPassword') as string
@@ -33,11 +34,11 @@ export function ChangePasswordForm() {
     }
     try {
       const result = await changePasswordAction(formData)
-      if (result?.error) setError(result.error)
+      if (result?.fieldErrors) { setFieldErrors(result.fieldErrors); form.querySelector<HTMLElement>(`#${Object.keys(result.fieldErrors)[0]}`)?.focus() }
+      else if (result?.error) setError(result.error)
       else if (result?.success) {
         toast({ tone: 'success', title: 'Password updated.' })
         form.reset()
-        setDirty(false)
       } else setError('Password could not be updated. Please try again.')
     } catch {
       setError('Password could not be updated. Please try again.')
@@ -48,7 +49,7 @@ export function ChangePasswordForm() {
 
   return (
     <Card>
-      <form onSubmit={handleSubmit} onChange={() => setDirty(true)}>
+      <form onSubmit={handleSubmit} onInvalid={(event) => { event.preventDefault(); const field = event.target as HTMLInputElement; if (field.name === 'confirmPassword') setConfirmationError(field.validationMessage); else setFieldErrors((current) => ({ ...current, [field.name]: field.validationMessage })); field.form?.querySelector<HTMLElement>(':invalid')?.focus() }}>
         <CardHeader>
           <CardTitle>Change password</CardTitle>
         </CardHeader>
@@ -56,19 +57,21 @@ export function ChangePasswordForm() {
           {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
           <div className="space-y-2">
             <Label htmlFor="currentPassword">Current password</Label>
-            <Input id="currentPassword" name="currentPassword" type="password" required />
+            <Input id="currentPassword" name="currentPassword" type="password" required className="max-w-xl" aria-invalid={Boolean(fieldErrors.currentPassword)} aria-describedby={fieldErrors.currentPassword ? 'current-password-error' : undefined} />
+            <div id="current-password-error"><FieldError>{fieldErrors.currentPassword}</FieldError></div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="newPassword">New password</Label>
-            <Input id="newPassword" name="newPassword" type="password" required minLength={8} />
+            <Input id="newPassword" name="newPassword" type="password" required minLength={8} className="max-w-xl" aria-invalid={Boolean(fieldErrors.newPassword)} aria-describedby={fieldErrors.newPassword ? 'new-password-error' : undefined} />
+            <div id="new-password-error"><FieldError>{fieldErrors.newPassword}</FieldError></div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="confirmPassword">Confirm new password</Label>
-            <Input ref={confirmationRef} id="confirmPassword" name="confirmPassword" type="password" required minLength={8} aria-invalid={Boolean(confirmationError)} aria-describedby={confirmationError ? 'confirm-password-error' : undefined} />
+            <Input ref={confirmationRef} id="confirmPassword" name="confirmPassword" type="password" required minLength={8} className="max-w-xl" aria-invalid={Boolean(confirmationError)} aria-describedby={confirmationError ? 'confirm-password-error' : undefined} />
             <div id="confirm-password-error"><FieldError>{confirmationError}</FieldError></div>
           </div>
         </CardContent>
-        <CardFooter><Button variant="primary" type="submit" disabled={!dirty || loading} loading={loading}>Update password</Button></CardFooter>
+        <CardFooter><Button variant="primary" type="submit" disabled={loading} loading={loading}>Update password</Button></CardFooter>
       </form>
     </Card>
   )

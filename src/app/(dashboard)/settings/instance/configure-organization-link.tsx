@@ -17,7 +17,7 @@ export function ConfigureOrganizationLink({ organizationId }: { organizationId: 
       loading={pending}
       onClick={() => startTransition(async () => {
         await switchOrgAction(organizationId)
-        router.push('/settings/cluster')
+        router.push('/settings/organization#connection')
       })}
     >
       {pending ? 'Opening…' : 'Configure'}

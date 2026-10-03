@@ -53,11 +53,11 @@ export function OrgSettingsForm({ org }: OrgSettingsFormProps) {
         </CardHeader>
         <CardContent className="space-y-6">
           {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
-          <div className="space-y-2">
+          <div className="max-w-xl space-y-2">
             <Label htmlFor="name">Organization name</Label>
             <Input id="name" name="name" defaultValue={org.name} required />
           </div>
-          <div className="space-y-2"><Label>Slug</Label><Input value={org.slug} readOnly mono /></div>
+          <div className="max-w-xl space-y-2"><Label htmlFor="organization-slug">Slug</Label><Input id="organization-slug" name="slug" value={org.slug} readOnly mono className="bg-sunken" aria-describedby="organization-slug-help" /><p id="organization-slug-help" className="text-xs text-ink-muted">Set when the organization was created.</p></div>
         </CardContent>
       </form>
       <UnsavedChangesBar dirty={dirty} pending={loading} onDiscard={() => { formRef.current?.reset(); setDirty(false); setError(null) }} onSave={() => formRef.current?.requestSubmit()} />

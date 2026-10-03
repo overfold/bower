@@ -67,7 +67,7 @@ export default function RegisterPage() {
             minLength={8}
           />
         </div>
-        <Button variant="primary" type="submit" className="mt-1 w-full" size="lg" disabled={loading} aria-busy={loading}>
+        <Button variant="primary" type="submit" className="mt-1 w-full" size="md" disabled={loading} aria-busy={loading}>
           {loading ? (
             <>
               Creating account&hellip;

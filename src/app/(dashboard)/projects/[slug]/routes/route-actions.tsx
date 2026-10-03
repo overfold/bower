@@ -120,7 +120,7 @@ export function AddRouteDialog({
                 <span className={prefix.trim() ? undefined : 'text-ink-muted'}>{prefix.trim() ? preview : `<prefix>.${selectedDomain?.domain ?? 'example.com'}`}</span> → {services.find((service) => service.id === serviceId)?.name ?? 'service'} on port {port}
               </div>
 
-              <fieldset className="space-y-4"><legend className="mb-3 text-sm font-semibold text-ink">Destination</legend>
+              <fieldset className="space-y-4 border-t border-line pt-4"><legend className="overline mb-3">Destination</legend>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
@@ -174,7 +174,7 @@ export function AddRouteDialog({
               </div>
               </fieldset>
 
-              <fieldset className="space-y-4"><legend className="mb-3 text-sm font-semibold text-ink">Security</legend>
+              <fieldset className="space-y-4 border-t border-line pt-4"><legend className="overline mb-3">Security</legend>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="tlsMode">TLS</Label>
@@ -203,22 +203,15 @@ export function AddRouteDialog({
                       <SelectItem value="bower_auth">Bower account</SelectItem>
                     </SelectContent>
                   </Select>
+                  {protectionMode !== 'password' ? <p className="!mt-1.5 text-xs leading-5 text-ink-muted">{protectionMode === 'bower_auth' ? 'Only Bower users with Viewer, Deployer, or Admin access to this project can continue.' : 'Anyone who can reach this hostname can access the service.'}</p> : null}
                 </div>
-                <div className="space-y-2">
                 {protectionMode === 'password' ? (
                   <div className="space-y-2">
                     <Label htmlFor="routePassword">Route password</Label>
                     <Input id="routePassword" name="routePassword" type="password" minLength={8} required autoComplete="new-password" />
                     <p className="text-2xs text-ink-muted">Visitors enter this password on a Bower page.</p>
                   </div>
-                ) : (
-                  <p className="text-xs leading-5 text-ink-muted">
-                    {protectionMode === 'bower_auth'
-                      ? 'Only Bower users with Viewer, Deployer, or Admin access to this project can continue.'
-                      : 'Anyone who can reach this hostname can access the service.'}
-                  </p>
-                )}
-                </div>
+                ) : null}
               </div>
               </fieldset>
             </div>

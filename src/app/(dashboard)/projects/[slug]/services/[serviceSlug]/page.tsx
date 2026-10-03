@@ -7,7 +7,7 @@ import { allocationBelongsToService, trellisReadError } from '@/lib/trellis-runt
 import { TrellisReadError } from '@/components/trellis-read-error'
 import { NodeLink } from '@/components/node-link'
 import { getProjectRole } from '@/lib/actions/shared'
-import { Panel, SectionTitle } from '@/components/ui/panel'
+import { Panel, PanelHeader, SectionTitle } from '@/components/ui/panel'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { EmptyState } from '@/components/ui/empty-state'
 import { AllocationStatus } from '@/components/status'
@@ -16,7 +16,7 @@ import { Boxes, ChevronRight, Rocket } from 'lucide-react'
 import type { TrellisAllocation } from '@/types/trellis'
 import { Time } from '@/components/time'
 import { ResourceId } from '@/components/resource-id'
-import { formatCpu, formatMemory } from '@/lib/format'
+import { AllocationMetrics } from './allocations/[allocationId]/allocation-metrics'
 import { DeploymentsTable } from '@/components/deployments-table'
 import { ClickableTableRow } from '@/components/clickable-table-row'
 
@@ -60,11 +60,8 @@ export default async function ServiceDetailPage({
   }
   allocationRows.sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
   const metrics = allocationError ? [] : await Promise.allSettled(allocationRows.map((allocation) => getTrellisClient(orgCtx.org.id).then((client) => client.getAllocationMetrics(allocation.id, allocation.namespace))))
-  const memoryUsed = metrics.reduce((total, result) => total + (result.status === 'fulfilled' ? result.value.reduce((sum, sample) => sum + Math.max(0, sample.memory_usage_bytes), 0) : 0), 0)
   const cpuLimit = (selectedConfig?.config.cpu ?? 0) * (selectedConfig?.config.replicas ?? 0)
   const memoryLimit = (selectedConfig?.config.memory ?? 0) * (selectedConfig?.config.replicas ?? 0)
-  const ready = allocationRows.filter((allocation) => allocation.phase === 'running' && allocation.health === 'healthy').length
-  const cpuAllocated = (selectedConfig?.config.cpu ?? 0) * ready
 
   const hasActiveDeployment = selectedDeployments.some((d) =>
     ['pending', 'planning', 'deploying'].includes(d.status)
@@ -73,11 +70,9 @@ export default async function ServiceDetailPage({
   return (
     <div className="space-y-6">
       <DeploymentPoller active={hasActiveDeployment} />
+      <SectionTitle>Overview</SectionTitle>
 
-      <div className="grid gap-4 sm:grid-cols-2" aria-label="Service resource usage">
-        <Panel className="p-4"><p className="text-xs font-medium text-ink-muted">CPU allocation</p><p className="nums mt-1.5 text-2xl font-semibold text-ink">{formatCpu(cpuAllocated)} / {formatCpu(cpuLimit)}</p><div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-raised"><div className="h-full rounded-full bg-brand-500" style={{ width: `${cpuLimit ? Math.min(100, cpuAllocated / cpuLimit * 100) : 0}%` }} /></div></Panel>
-        <Panel className="p-4"><p className="text-xs font-medium text-ink-muted">Memory usage</p><p className="nums mt-1.5 text-2xl font-semibold text-ink">{formatMemory(memoryUsed)} / {formatMemory(memoryLimit)}</p><div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-raised"><div className="h-full rounded-full bg-brand-500" style={{ width: `${memoryLimit ? Math.min(100, memoryUsed / memoryLimit * 100) : 0}%` }} /></div></Panel>
-      </div>
+      <AllocationMetrics serviceId={service.id} allocationIds={allocationRows.map((allocation) => allocation.id)} initialMetrics={metrics.flatMap((result) => result.status === 'fulfilled' ? result.value : [])} initialError={allocationError || (metrics.some((result) => result.status === 'rejected') ? 'Metrics unavailable.' : null)} cpuLimit={cpuLimit} memoryLimit={memoryLimit} />
 
       <div className="space-y-5">
         <SectionTitle>Current allocations</SectionTitle>
@@ -98,7 +93,7 @@ export default async function ServiceDetailPage({
                     <TableHead>Allocation</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Node</TableHead>
-                    <TableHead className="text-right">Created</TableHead>
+                    <TableHead className="text-right">Time</TableHead>
                     <TableHead className="w-12"><span className="sr-only">View</span></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -128,9 +123,9 @@ export default async function ServiceDetailPage({
       </div>
 
       <div className="space-y-5">
-        <SectionTitle>Recent deployments</SectionTitle>
         {selectedDeployments.length === 0 ? (
           <Panel>
+            <PanelHeader title="Recent deployments" action={<Link href={`/projects/${slug}/services/${serviceSlug}/revisions`} className="text-link text-sm font-medium">View all</Link>} />
             <EmptyState
               icon={<Rocket className="h-4 w-4" />}
               title="No deployments yet"
@@ -139,9 +134,8 @@ export default async function ServiceDetailPage({
           </Panel>
         ) : (
           <Panel>
-            <div className="overflow-x-auto">
-              <DeploymentsTable preset="project" rows={selectedDeployments.map((deployment) => ({ deployment, serviceName: service.name, serviceSlug: service.slug, projectName: project.name, projectSlug: project.slug }))} />
-            </div>
+            <PanelHeader title="Recent deployments" action={<Link href={`/projects/${slug}/services/${serviceSlug}/revisions`} className="text-link text-sm font-medium">View all</Link>} />
+            <DeploymentsTable preset="service-compact" rows={selectedDeployments.slice(0, 5).map((deployment) => ({ deployment, serviceName: service.name, serviceSlug: service.slug, projectName: project.name, projectSlug: project.slug }))} />
           </Panel>
         )}
       </div>

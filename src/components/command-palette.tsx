@@ -42,7 +42,7 @@ const pages: SearchEntry[] = [
   { id: 'pg-settings', label: 'Settings', hint: 'Page', href: '/settings', kind: 'page' },
   { id: 'pg-settings-account', label: 'Account settings', hint: 'Page', href: '/settings/account', kind: 'page' },
   { id: 'pg-settings-instance', label: 'Instance settings', hint: 'Page', href: '/settings/instance', kind: 'page' },
-  { id: 'pg-settings-cluster', label: 'Cluster settings', hint: 'Page', href: '/settings/cluster', kind: 'page' },
+  { id: 'pg-settings-cluster', label: 'Connection settings', hint: 'Page', href: '/settings/organization#connection', kind: 'page' },
   { id: 'pg-settings-organization', label: 'Organization settings', hint: 'Page', href: '/settings/organization', kind: 'page' },
   { id: 'pg-settings-teams', label: 'Teams settings', hint: 'Page', href: '/settings/teams', kind: 'page' },
   { id: 'pg-settings-members', label: 'Members settings', hint: 'Page', href: '/settings/members', kind: 'page' },
@@ -101,6 +101,7 @@ export function CommandPalette({ open, onOpenChange, projects, services, orgName
       const recent = recentHrefs
         .map((href) => entries.find((entry) => entry.href === href && entry.kind !== 'action'))
         .filter((entry): entry is SearchEntry => Boolean(entry))
+        .slice(0, 5)
         .map((entry) => ({ ...entry, recent: true }))
       const goTo = pages.slice(0, 6).filter((page) => !recent.some((entry) => entry.href === page.href))
       return [...recent, ...goTo, ...entries.filter((entry) => entry.kind === 'action')]
@@ -222,7 +223,7 @@ export function CommandPalette({ open, onOpenChange, projects, services, orgName
               const active = i === cursor
               return (
                 <li key={entry.id}>
-                  {!query.trim() && (i === 0 || (entry.recent ? 'recent' : entry.kind) !== (results[i - 1].recent ? 'recent' : results[i - 1].kind)) ? <p className="overline px-2.5 pb-1 pt-2">{entry.recent ? 'Recent pages' : entry.kind === 'action' ? 'Actions' : 'Go to'}</p> : null}
+                  {!query.trim() && (i === 0 || (entry.recent ? 'recent' : entry.kind) !== (results[i - 1].recent ? 'recent' : results[i - 1].kind)) ? <p className="overline px-2.5 pb-1 pt-2">{entry.recent ? 'Recent' : entry.kind === 'action' ? 'Actions' : 'Go to'}</p> : null}
                   <button
                     type="button"
                     role="option"
@@ -240,9 +241,6 @@ export function CommandPalette({ open, onOpenChange, projects, services, orgName
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium text-ink">
                         {entry.label}
-                      </span>
-                      <span className="block truncate text-xs capitalize text-ink-muted">
-                        {entry.recent ? `${entry.hint} · Recently visited` : entry.hint}
                       </span>
                     </span>
                     {active && (

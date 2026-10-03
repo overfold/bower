@@ -15,7 +15,7 @@ import { createDeploymentSpec, notifyDeployment, recordDeploymentEvent } from '@
 import { reconcileProjectDeployments } from '@/lib/deployment-reconciler'
 import { cleanupTrellisResources } from '@/lib/trellis-cleanup'
 import type { TrellisJobSpec } from '@/types/trellis'
-import { parseDeploymentStrategy, parseResourceInputs, positiveInteger, validateWorkloadAdmissionBounds } from '@/lib/service-config-input'
+import { parseDeploymentStrategy, parseHealthCheckInput, parseResourceInputs, positiveInteger, validateWorkloadAdmissionBounds } from '@/lib/service-config-input'
 import { validateCanarySteps } from '@/lib/workload-input'
 
 type Trigger = 'manual' | 'webhook' | 'rollback' | 'auto_rollback'
@@ -94,10 +94,12 @@ export async function createServiceAction(projectSlug: string, formData: FormDat
   const environment = await getProjectEnvironment(project.id)
   let resources: ReturnType<typeof parseResourceInputs>
   let strategy: ReturnType<typeof parseDeploymentStrategy>
+  let healthCheck: ReturnType<typeof parseHealthCheckInput>
   let replicas: number | null
   try {
     resources = parseResourceInputs(String(formData.get('cpu') ?? '100'), String(formData.get('memory') ?? '128'))
     strategy = parseDeploymentStrategy(String(formData.get('strategy') ?? 'recreate'))
+    healthCheck = parseHealthCheckInput(formData)
     replicas = formData.has('replicas') ? positiveInteger(Number(formData.get('replicas')), 'Replicas') : null
     validateWorkloadAdmissionBounds(replicas ?? Math.max(1, environment?.defaultReplicas ?? 1), resources.cpu, resources.memory, await getTrellisJobLimits(ctx.org.id))
   } catch (error) {
@@ -110,6 +112,7 @@ export async function createServiceAction(projectSlug: string, formData: FormDat
     serviceId: service.id, image, replicas: baseReplicas, cpu, memory,
     resourceTier: (environment?.resourceTier ?? 'small') as 'small' | 'medium' | 'large' | 'xl' | 'custom',
     deploymentStrategy: strategy,
+    ...healthCheck,
   })
   if (environment) await db.insert(serviceConfigs).values({
     serviceId: service.id, environmentId: environment.id, image,
@@ -117,6 +120,7 @@ export async function createServiceAction(projectSlug: string, formData: FormDat
     cpu, memory,
     resourceTier: environment.resourceTier as 'small' | 'medium' | 'large' | 'xl' | 'custom',
     deploymentStrategy: strategy,
+    ...healthCheck,
   }).returning()
   await recordAudit({ orgId: ctx.org.id, userId: user.id, action: 'service.created', resourceType: 'service', resourceId: service.id, details: { before: null, after: { name, image } } })
   revalidatePath(`/projects/${projectSlug}`)

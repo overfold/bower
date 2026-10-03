@@ -36,6 +36,8 @@ export function auditResourceName(entry: { resourceName?: string; details: Recor
 
 export function auditActionSentence(action: string, resourceName?: string, details: Record<string, unknown> = {}): string {
   const name = resourceName || 'the resource'
+  const image = typeof details.image === 'string' ? details.image : typeof details.after === 'string' ? details.after : details.after && typeof details.after === 'object' && 'image' in details.after && typeof details.after.image === 'string' ? details.after.image : ''
+  const serviceName = typeof details.serviceName === 'string' ? details.serviceName : typeof details.name === 'string' ? details.name : name
   const member = typeof details.email === 'string' ? details.email : typeof details.memberName === 'string' ? details.memberName : 'a member'
   const sentences: Record<string, string> = {
     'account.password.changed': 'changed their password',
@@ -45,6 +47,7 @@ export function auditActionSentence(action: string, resourceName?: string, detai
     'api_key.created': `created API key ${name}`,
     'api_key.revoked': `revoked API key ${name}`,
     'deployment.auto_rollback': `automatically rolled back ${name}`,
+    'deployment.reconciled': `reconciled ${serviceName}`,
     'deployment.manual': `deployed ${name} manually`,
     'deployment.promotion': `promoted ${name}`,
     'deployment.rollback': `rolled back ${name}`,
@@ -74,6 +77,7 @@ export function auditActionSentence(action: string, resourceName?: string, detai
     'route.deleted': `deleted route ${name}`,
     'route.protection.updated': `updated access protection for ${name}`,
     'service.create': `created service ${name}`,
+    'service.deploy': `deployed ${serviceName}${image ? ` ${image.split('/').at(-1)?.split(':').at(-1)}` : ''}`,
     'service.created': `created service ${name}`,
     'service.update': `updated service ${name}`,
     'service.deleted': `deleted service ${name}`,
@@ -94,6 +98,7 @@ export function auditActionSentence(action: string, resourceName?: string, detai
     'organization.updated': `updated organization ${name}`,
     'job.replacement_backoff.reset': `restarted ${name} after a cooldown`,
     'project.created': `created project ${name}`,
+    'project.update': `updated ${name}`,
     'project.deleted': `deleted project ${name}`,
     'project.updated': `updated project ${name}`,
     'project.volume.saved': `saved volume ${name}`,
@@ -104,6 +109,7 @@ export function auditActionSentence(action: string, resourceName?: string, detai
     'project.access.user.revoked': `revoked user access to ${name}`,
     'route.updated': `updated route ${name}`,
     'secret.rotated': `rotated secret ${name}`,
+    'secret.rotate': `rotated secret ${typeof details.secretName === 'string' ? details.secretName : name}`,
     'secret.deleted': `deleted secret ${name}`,
     'team.created': `created team ${name}`,
     'team.updated': `updated team ${name}`,
@@ -113,5 +119,5 @@ export function auditActionSentence(action: string, resourceName?: string, detai
     'webhook.created': `created webhook ${name}`,
     'webhook.deleted': `deleted webhook ${name}`,
   }
-  return sentences[action] ?? `${label(action.replaceAll('.', '_'))} · ${name}`
+  return sentences[action] ?? `performed ${action} on ${name}`
 }

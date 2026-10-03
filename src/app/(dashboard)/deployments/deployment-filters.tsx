@@ -72,8 +72,8 @@ export function DeploymentFilters({ items, projects, environments, scope = 'orga
           title={`${filtered.length} deployment${filtered.length === 1 ? '' : 's'}`}
           action={
             <div className="flex w-full flex-col gap-1 sm:w-auto sm:flex-row">
-              <div className="relative">
-                <SearchInput value={query} onChange={(event) => { setQuery(event.target.value); setPage(1) }} placeholder="Search deployments…" aria-label="Search deployments" className="h-10 pr-9 [&::-webkit-search-cancel-button]:appearance-none sm:h-8 sm:w-[190px]" />
+              <div className="relative min-w-[240px] flex-1">
+                <SearchInput value={query} onChange={(event) => { setQuery(event.target.value); setPage(1) }} placeholder="Search services, projects, images…" aria-label="Search deployments" className="h-10 pr-9 [&::-webkit-search-cancel-button]:appearance-none sm:h-8" />
                 {query ? <button type="button" aria-label="Clear search" className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 text-ink-muted hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" onClick={() => { setQuery(''); setPage(1) }}><X className="size-3.5" /></button> : null}
               </div>
               {scope === 'organization' ? <Select value={projectFilter} onValueChange={setProjectFilter}>

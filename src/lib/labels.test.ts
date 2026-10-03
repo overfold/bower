@@ -1,17 +1,13 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import test from 'node:test'
 import { auditActionSentence } from './labels'
 
 test('every emitted literal audit action has an explicit sentence', () => {
-  const files = [
-    'src/app/api/exec/context/route.ts',
-    ...['allocation-actions', 'base-service-config', 'domains', 'environment-variables', 'integrations', 'operations', 'project-volumes', 'projects', 'routes', 'service-settings', 'services', 'settings']
-      .map((name) => `src/lib/actions/${name}.ts`),
-    'src/lib/invitations.ts',
-  ]
-  const emitted = new Set<string>()
+  const sourceFiles = (directory: string): string[] => readdirSync(directory, { withFileTypes: true }).flatMap((entry) => entry.isDirectory() ? sourceFiles(join(directory, entry.name)) : entry.name.endsWith('.ts') || entry.name.endsWith('.tsx') ? [join(directory, entry.name)] : [])
+  const files = sourceFiles('src').filter((file) => !file.endsWith('.test.ts'))
+  const emitted = new Set<string>(['project.update', 'secret.rotate', 'service.deploy', 'deployment.reconciled'])
   for (const file of files) {
     const source = readFileSync(join(process.cwd(), file), 'utf8')
     for (const call of source.matchAll(/recordAudit\(\{[\s\S]*?\}\)/g)) {
@@ -26,6 +22,13 @@ test('every emitted literal audit action has an explicit sentence', () => {
   }
 })
 
-test('unknown audit actions are humanized rather than described as an update', () => {
-  assert.equal(auditActionSentence('custom.sync_requested', 'billing'), 'Custom sync requested · billing')
+test('unknown actions retain the actual action and resource', () => {
+  assert.equal(auditActionSentence('custom.sync_requested', 'billing'), 'performed custom.sync_requested on billing')
+})
+
+test('common audit actions have specific sentences and deployment tags', () => {
+  assert.equal(auditActionSentence('project.update', 'Commerce Platform'), 'updated Commerce Platform')
+  assert.equal(auditActionSentence('secret.rotate', 'DATABASE_URL'), 'rotated secret DATABASE_URL')
+  assert.equal(auditActionSentence('service.deploy', 'Storefront', { image: 'ghcr.io/acme/storefront:v2.4.1' }), 'deployed Storefront v2.4.1')
+  assert.equal(auditActionSentence('deployment.reconciled', 'Storefront'), 'reconciled Storefront')
 })

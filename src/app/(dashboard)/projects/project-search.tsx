@@ -75,7 +75,7 @@ export function ProjectSearch({
                         {project.name}
                       </Link>
               </td>
-              <td className="px-4 py-3">{project.serviceCount === 0 ? <span className="text-sm text-ink-muted">Not deployed</span> : <Chip tone={project.healthStatus === 'healthy' ? 'success' : 'danger'}>{project.healthStatus === 'healthy' ? 'Healthy' : `${Math.max(1, project.failedDeployments.length)} of ${project.serviceCount} failing`}</Chip>}</td>
+              <td className="px-4 py-3">{project.serviceCount === 0 ? <span className="text-sm text-ink-muted">No services</span> : <Chip tone={project.healthStatus === 'healthy' ? 'success' : 'danger'}>{project.healthStatus === 'healthy' ? 'Healthy' : `${Math.max(1, project.failedDeployments.length)} of ${project.serviceCount} failing`}</Chip>}</td>
               <td className="px-4 py-3 text-sm text-ink-muted">{project.serviceCount}</td><td className="px-4 py-3 text-sm text-ink-muted">{project.routeCount}</td>
               <td className="px-4 py-3 text-sm text-ink-muted">{project.latestDeployment ? <Time value={project.latestDeployment.createdAt} /> : 'Never'}</td>
               <td className="px-4 py-3"><Link href={`/projects/${project.slug}`} aria-label={`Open ${project.name}`} className="absolute inset-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"><span className="sr-only">Open {project.name}</span></Link><ChevronRight className="ml-auto size-4 text-ink-faint" aria-hidden="true" /></td>

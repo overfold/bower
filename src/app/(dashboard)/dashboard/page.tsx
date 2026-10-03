@@ -18,18 +18,9 @@ import { PageHeading } from '@/components/page-heading'
 import { Panel, PanelHeader } from '@/components/ui/panel'
 import { StatusDot, DeploymentStatus, Chip, Dot, Mono } from '@/components/status'
 import { EmptyState } from '@/components/ui/empty-state'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { DeploymentPoller } from '@/components/deployment-poller'
 import { DashboardStatsBar } from '@/components/dashboard-stats-bar'
 import { DeploymentsTable } from '@/components/deployments-table'
-import { Button } from '@/components/ui/button'
 import {
   Rocket,
   UserIcon,
@@ -41,9 +32,10 @@ import {
 } from 'lucide-react'
 import type { TrellisAllocation, TrellisNode, TrellisJob } from '@/types/trellis'
 import { formatRelativeTime } from '@/lib/format'
-import { currentJobAllocations, allocationHealthSummary } from '@/lib/service-health'
+import { currentJobAllocations } from '@/lib/service-health'
 import { auditActionSentence, auditResourceName } from '@/lib/labels'
-import { Time } from '@/components/time'
+import { NeedsAttention } from '@/components/needs-attention'
+import { needsAttentionRows } from '@/lib/needs-attention'
 
 const triggerMeta: Record<string, { icon: React.ComponentType<{ className?: string }>; label: string }> = {
   manual: { icon: UserIcon, label: 'Manual' },
@@ -115,7 +107,6 @@ export default async function DashboardPage() {
     clusterError = allocationsError = metricsError = jobsError = trellisReadError(error)
   }
 
-  const healthyNodes = nodes.filter((n) => n.status === 'healthy').length
   const totalCpu = nodes.reduce((sum, n) => sum + n.cpu, 0)
   const allocatedCpu = nodes.reduce((sum, n) => sum + (allocatedByNode.get(n.id)?.cpu ?? 0), 0)
   const totalMem = nodes.reduce((sum, n) => sum + n.memory, 0)
@@ -123,14 +114,12 @@ export default async function DashboardPage() {
   // One request timestamp keeps the 24-hour boundary stable for the rendered view.
   // eslint-disable-next-line react-hooks/purity
   const requestTime = Date.now()
-  const failedLastDay = visibleDeployments.filter((row) => row.deployment.status === 'failed' && requestTime - row.deployment.createdAt.getTime() <= 86_400_000).length
-  const failedRows = visibleDeployments.filter((row) => row.deployment.status === 'failed' && requestTime - row.deployment.createdAt.getTime() <= 86_400_000)
   const currentAllocations = currentJobAllocations(allocations, jobs)
-  const failingAllocations = currentAllocations.filter((allocation) => allocation.health === 'unhealthy' || ['failed', 'lost'].includes(allocation.phase))
   const visibleTargets = targets.filter((target) => accessibleProjectSlugs.has(target.projectSlug))
-  const unhealthyAllocations = allocationHealthSummary(currentAllocations).failing
-  const backoffEntries = jobs.reduce((count, job) => count + (job.replacement_backoff?.length ?? 0), 0)
-  const drainingNodes = nodes.filter((node) => node.status === 'draining').length
+  const isDrained = (node: TrellisNode) => !allocationsError && node.status === 'draining' && !allocations.some((allocation) => allocation.node_id === node.id && !['stopped', 'failed', 'lost', 'completed', 'dead'].includes(allocation.phase))
+  const drainingNodes = nodes.filter((node) => node.status === 'draining' && !isDrained(node)).length
+  const attentionRows = needsAttentionRows({ deployments: visibleDeployments, allocations: currentAllocations, jobs, targets: visibleTargets, nodes, now: requestTime })
+  if (clusterError || allocationsError || jobsError) attentionRows.unshift({ id: 'cluster-error', status: 'unknown', serviceName: 'Cluster health', cause: 'Couldn’t check the cluster', href: '/status', action: 'Open status' })
   const resourceNames = new Map<string, string>(projectList.map((project) => [project.id, project.name]))
   for (const { service } of visibleServices) resourceNames.set(service.id, service.name)
   for (const row of visibleDeployments) resourceNames.set(row.deployment.id, row.serviceName)
@@ -143,19 +132,7 @@ export default async function DashboardPage() {
         title="Home"
       />
 
-      {clusterError || allocationsError || jobsError || failedLastDay + unhealthyAllocations + backoffEntries + drainingNodes > 0 ? <Panel className="overflow-hidden"><PanelHeader title="Needs attention" />
-        <Table><TableHeader><TableRow><TableHead>Status</TableHead><TableHead>What</TableHead><TableHead>Cause</TableHead><TableHead>Since</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader><TableBody>
-          {clusterError || allocationsError || jobsError ? <TableRow><TableCell><Chip tone="danger">Unavailable</Chip></TableCell><TableCell>Cluster health</TableCell><TableCell>Couldn’t check the cluster</TableCell><TableCell>Now</TableCell><TableCell className="text-right"><Button asChild size="sm"><Link href="/status">Open status</Link></Button></TableCell></TableRow> : <>
-            {failedRows.map((row) => <TableRow key={`deployment-${row.deployment.id}`}><TableCell><DeploymentStatus status="failed" /></TableCell><TableCell>{row.serviceName}</TableCell><TableCell>Deployment failed</TableCell><TableCell><Time value={row.deployment.createdAt} /></TableCell><TableCell className="text-right"><Button asChild size="sm"><Link href={`/projects/${row.projectSlug}/deployments/${row.deployment.id}`}>View diagnostics</Link></Button></TableCell></TableRow>)}
-            {failingAllocations.map((allocation) => {
-              const target = visibleTargets.find((target) => target.namespace === allocation.namespace && target.job === allocation.job)
-              return <TableRow key={`allocation-${allocation.id}`}><TableCell><StatusDot status="failing" /></TableCell><TableCell><Mono>{allocation.id}</Mono></TableCell><TableCell>{allocation.message || allocation.reason || 'Health checks are failing'}</TableCell><TableCell><Time value={allocation.last_transition_at} /></TableCell><TableCell className="text-right"><Button asChild size="sm"><Link href={target ? `/projects/${target.projectSlug}/services/${target.serviceSlug}/allocations/${encodeURIComponent(allocation.id)}` : '/status'}>View logs</Link></Button></TableCell></TableRow>
-            })}
-            {nodes.filter((node) => node.status === 'draining').map((node) => <TableRow key={`node-${node.id}`}><TableCell><StatusDot status="draining" /></TableCell><TableCell><Mono>{node.id}</Mono></TableCell><TableCell>Allocations are being moved</TableCell><TableCell title="The cluster does not report when draining began">—</TableCell><TableCell className="text-right"><Button asChild size="sm"><Link href={`/status/${encodeURIComponent(node.id)}`}>View progress</Link></Button></TableCell></TableRow>)}
-            {jobs.flatMap((job) => (job.replacement_backoff ?? []).map((backoff) => <TableRow key={`backoff-${job.name}-${backoff.group}`}><TableCell><StatusDot status="backoff" /></TableCell><TableCell><Mono>{job.name}</Mono></TableCell><TableCell>{backoff.message || backoff.reason || 'Repeated allocation failures'}</TableCell><TableCell><Time value={backoff.last_failure_at} /></TableCell><TableCell className="text-right"><Button asChild size="sm"><Link href="/status">Review restart</Link></Button></TableCell></TableRow>))}
-          </>}
-        </TableBody></Table>
-      </Panel> : null}
+      <NeedsAttention rows={attentionRows} />
 
       <DashboardStatsBar
         allocations={currentAllocations}
@@ -263,10 +240,10 @@ export default async function DashboardPage() {
                 title="Cluster"
                 hint={orgCtx.org.trellisApiUrl?.replace(/^https?:\/\//, '').replace(/\/+$/, '')}
                 action={
-                  <Chip tone={nodes.some((node) => node.status === 'unhealthy') ? 'danger' : drainingNodes > 0 ? 'warn' : 'success'}>
+                  <div className="flex items-center gap-3"><Link href="/status" className="text-link text-sm font-medium">View status</Link><Chip tone={nodes.some((node) => node.status === 'unhealthy') ? 'danger' : drainingNodes > 0 ? 'warn' : 'success'}>
                     <Dot tone={nodes.some((node) => node.status === 'unhealthy') ? 'danger' : drainingNodes > 0 ? 'warn' : 'success'} />
-                    {nodes.some((node) => node.status === 'unhealthy') ? `${nodes.length - healthyNodes} unhealthy` : drainingNodes > 0 ? `${drainingNodes} draining` : 'All healthy'}
-                  </Chip>
+                    {nodes.some((node) => node.status === 'unhealthy') ? `${nodes.filter((node) => node.status === 'unhealthy').length} unhealthy` : drainingNodes > 0 ? `${drainingNodes} draining` : 'All healthy'}
+                  </Chip></div>
                 }
               />
               <ul className="divide-y divide-line border-t border-line">
@@ -276,19 +253,11 @@ export default async function DashboardPage() {
                       <NodeLink id={node.id} className="truncate text-sm" />
                     </span>
                     <span className="shrink-0">
-                      <StatusDot status={node.status === 'healthy' ? 'ready' : node.status} />
+                      <StatusDot status={isDrained(node) ? 'drained' : node.status === 'healthy' ? 'ready' : node.status} />
                     </span>
                   </li>
                 ))}
               </ul>
-              <div className="border-t border-line px-4 py-3">
-                <Link
-                  href="/status"
-                  className="text-link text-sm font-medium"
-                >
-                  View status
-                </Link>
-              </div>
             </Panel>
           )}
 

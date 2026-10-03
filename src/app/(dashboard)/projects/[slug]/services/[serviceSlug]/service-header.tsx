@@ -59,6 +59,8 @@ export async function ServiceHeader({
         </div>
         {hasConfig && canDeploy && <ServiceActions
           serviceId={serviceId}
+          serviceName={serviceName}
+          runningImage={image}
           environmentId={environmentId}
           hasDeployments={deployments.some((deployment) => deployment.environmentId === environmentId && Boolean(deployment.previousJobSpec))}
           changes={changes} rollbackTargets={rollbackTargets}

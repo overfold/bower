@@ -3,10 +3,12 @@ import test from 'node:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { DeploymentsTable, type DeploymentsTablePreset } from '../components/deployments-table'
-import { StatusDot } from '../components/status'
+import { allocationStatus, Meter, StatusDot } from '../components/status'
 import { Checkbox } from '../components/ui/checkbox'
+import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Textarea } from '../components/ui/textarea'
+import { PageHeading } from '../components/page-heading'
 import { statusDefinition } from './status'
 
 test('shared status vocabulary keeps product labels, tones, and progress semantics together', () => {
@@ -29,6 +31,19 @@ test('shared status vocabulary keeps product labels, tones, and progress semanti
   }
 })
 
+test('allocation status distinguishes failures from intentional stops', () => {
+  assert.equal(allocationStatus('failed'), 'failing')
+  assert.equal(allocationStatus('lost'), 'failing')
+  assert.equal(allocationStatus('stopped'), 'stopped')
+  assert.equal(allocationStatus('completed'), 'completed')
+})
+
+test('meters warn at 85%, become dangerous at 100%, and render zero fill', () => {
+  assert.match(renderToStaticMarkup(createElement(Meter, { value: 85 })), /bg-warn-500/)
+  assert.match(renderToStaticMarkup(createElement(Meter, { value: 100 })), /bg-danger-500/)
+  assert.match(renderToStaticMarkup(createElement(Meter, { value: 0 })), /width:0%/)
+})
+
 test('controls use the radius scale, strong borders, and invalid focus overrides', () => {
   const input = renderToStaticMarkup(createElement(Input, { 'aria-invalid': true }))
   const textarea = renderToStaticMarkup(createElement(Textarea, { 'aria-invalid': true }))
@@ -36,6 +51,7 @@ test('controls use the radius scale, strong borders, and invalid focus overrides
     assert.match(html, /rounded-lg/)
     assert.match(html, /border-line-strong/)
     assert.match(html, /focus-visible:ring-\[3px\]/)
+    assert.match(html, /focus-visible:border-brand-500/)
     assert.match(html, /aria-\[invalid=true\]:focus-visible:border-danger-500/)
     assert.match(html, /aria-\[invalid=true\]:focus-visible:ring-danger-200/)
   }
@@ -44,16 +60,35 @@ test('controls use the radius scale, strong borders, and invalid focus overrides
   assert.match(checkbox, /border-line-strong/)
 })
 
+test('shared controls and headings preserve disabled and type scale contracts', () => {
+  const button = renderToStaticMarkup(createElement(Button, { disabled: true }, 'Save'))
+  assert.match(button, /disabled:border-line/)
+  assert.match(button, /disabled:bg-sunken/)
+  assert.doesNotMatch(button, /disabled:opacity/)
+
+  const headings = (['h1', 'h2', 'h3'] as const).map((as) =>
+    renderToStaticMarkup(createElement(PageHeading, { as, title: as })),
+  )
+  assert.match(headings[0], /text-2xl.*font-bold/)
+  assert.match(headings[1], /text-lg.*font-semibold/)
+  assert.match(headings[2], /text-sm.*font-semibold/)
+})
+
 test('DeploymentsTable presets retain their intended column contracts', () => {
   const row = {
     deployment: { id: 'dep-1', status: 'succeeded', triggerType: 'manual', imageAfter: 'app:v2', imageBefore: 'app:v1', createdAt: new Date('2026-10-02T12:00:00Z'), startedAt: new Date('2026-10-02T12:00:00Z'), completedAt: new Date('2026-10-02T12:01:30Z') },
     serviceName: 'Storefront', serviceSlug: 'storefront', projectName: 'Commerce', projectSlug: 'commerce', revision: 2,
   }
   const headers = (preset: DeploymentsTablePreset) => [...renderToStaticMarkup(createElement(DeploymentsTable, { rows: [row], preset })).matchAll(/<th[^>]*>(.*?)<\/th>/g)].map((match) => match[1].replace(/<[^>]+>/g, ''))
-  for (const preset of ['organization', 'project', 'home'] as const) {
-    assert.deepEqual(headers(preset), ['Service', 'Image', 'Trigger', 'Status', 'Duration', 'Started', 'Open'])
+  for (const preset of ['organization', 'project'] as const) {
+    assert.deepEqual(headers(preset), ['Service', 'Image', 'Trigger', 'Status', 'Duration', 'Time', 'Open'])
   }
-  assert.deepEqual(headers('service-history'), ['Rev', 'Image', 'Status', 'Trigger', 'When', 'Roll back', 'Open'])
+  for (const preset of ['home', 'compact'] as const) assert.deepEqual(headers(preset), ['Service', 'Image', 'Status', 'Time', 'Open'])
+  assert.deepEqual(headers('service-compact'), ['Image', 'Status', 'Time', 'Open'])
+  assert.deepEqual(headers('service-history'), ['Rev', 'Image', 'Status', 'Trigger', 'Time', 'Actions', 'Open'])
+  const compactHtml = renderToStaticMarkup(createElement(DeploymentsTable, { rows: [row], preset: 'compact' }))
+  assert.match(compactHtml, /title="v2"/)
+  assert.doesNotMatch(compactHtml, /app:v1|Commerce|min-w-\[640px\]/)
   for (const preset of ['organization', 'project', 'home', 'service-history'] as const) {
     const html = renderToStaticMarkup(createElement(DeploymentsTable, { rows: [{ ...row, rollbackAction: createElement('button', null, 'Roll back') }], preset }))
     const cells = [...html.matchAll(/<td\b[^>]*>(.*?)<\/td>/g)].map((match) => match[1])

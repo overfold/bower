@@ -8,6 +8,7 @@ import { getBaseServiceConfig } from '@/lib/queries'
 import { recordAudit, requireService } from '@/lib/actions/shared'
 import { parseServiceConfigInput } from '@/lib/service-config-input'
 import { getTrellisJobLimits } from '@/lib/trellis-instance'
+import { assertWorkloadApiAccessAllowed } from '@/lib/workload-policy'
 
 function deepEqual(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b)
@@ -69,9 +70,17 @@ export async function updateServiceConfigOverridesAction(serviceId: string, envi
   if (!envConfig) throw new Error('Configuration not found.')
 
   const desired = parseServiceConfigInput(formData, await getTrellisJobLimits(access.org.id))
+  const runtime = formData.has('runtime') ? String(formData.get('runtime')) : envConfig.runtime
+  if (runtime !== 'runc' && runtime !== 'runsc') throw new Error('Runtime must be runc or runsc.')
+  const existingApiAccess = envConfig.apiAccessScope && envConfig.apiAccessLevel ? `${envConfig.apiAccessScope}:${envConfig.apiAccessLevel}` : 'none'
+  const apiAccessValue = formData.has('apiAccess') ? String(formData.get('apiAccess')) : existingApiAccess
+  if (apiAccessValue !== 'none' && apiAccessValue !== 'cluster:read' && apiAccessValue !== 'cluster:write') throw new Error('Invalid workload API access setting.')
+  const apiAccess = apiAccessValue === 'none' ? undefined : { scope: 'cluster' as const, access: apiAccessValue === 'cluster:read' ? 'read' as const : 'write' as const }
+  assertWorkloadApiAccessAllowed(apiAccess, access.user.isInstanceAdmin)
+  const advanced = { runtime, apiAccessScope: apiAccess?.scope ?? null, apiAccessLevel: apiAccess?.access ?? null }
   const base = await getBaseServiceConfig(serviceId)
 
-  const newOverrides: Record<string, unknown> = preserveAdvancedOverrides(envConfig.overrides)
+  const newOverrides: Record<string, unknown> = {}
   if (base) {
     for (const [key, val] of Object.entries(desired) as Array<[string, unknown]>) {
       if (key === 'updatedAt') continue
@@ -82,10 +91,13 @@ export async function updateServiceConfigOverridesAction(serviceId: string, envi
         newOverrides[key] = val
       }
     }
+    for (const [key, val] of Object.entries(advanced)) {
+      if (!deepEqual(val, (base as Record<string, unknown>)[key])) newOverrides[key] = val
+    }
   }
 
   await db.update(serviceConfigs)
-    .set({ ...desired, overrides: Object.keys(newOverrides).length > 0 ? newOverrides : null })
+    .set({ ...desired, ...advanced, overrides: Object.keys(newOverrides).length > 0 ? newOverrides : null })
     .where(eq(serviceConfigs.id, envConfig.id))
 
   await recordAudit({

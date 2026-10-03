@@ -99,8 +99,8 @@ export function ApiKeysSection({ keys }: { keys: ApiKey[] }) {
                 <TableHead>Name</TableHead>
                 <TableHead>Prefix</TableHead>
                 <TableHead className="text-right">Last used</TableHead>
-                <TableHead className="text-right">Created</TableHead>
-                <TableHead className="w-10" />
+                <TableHead className="text-right">Time</TableHead>
+                <TableHead className="w-10"><span className="sr-only">Actions</span></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
