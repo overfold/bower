@@ -77,6 +77,7 @@ export default async function MembersSettingsPage() {
           createdByName: row.createdByName,
         }))}
         role={orgCtx.role}
+        organizationName={orgCtx.org.name}
         showInstanceAdmin={showInstanceAdmin}
         teams={teamOptions}
       />

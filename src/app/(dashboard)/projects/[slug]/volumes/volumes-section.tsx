@@ -32,7 +32,7 @@ export default async function ProjectVolumesSection({ params }: {
       <div>
         <SectionTitle>Volumes</SectionTitle>
         <p className="mt-1 max-w-3xl text-sm leading-relaxed text-ink-muted">
-          Define persistent storage that can be attached by multiple services. Managed local storage remains pinned to its Trellis node.
+          Define persistent storage that can be attached by multiple services. Stored on the node that first used it.
         </p>
       </div>
       <VolumeManager
@@ -40,7 +40,7 @@ export default async function ProjectVolumesSection({ params }: {
         environmentId={environment.id}
         volumes={volumes}
         usages={usages}
-        projectSlug={slug}
+        projectSlug={project.slug}
         canManage={access.projectRole === 'admin'}
         allowAbsoluteHostPaths={instanceAdminMayBypassMultitenancy(user.isInstanceAdmin)}
       />

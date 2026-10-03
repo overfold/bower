@@ -6,7 +6,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { Button } from '@/components/ui/button'
 import { SearchInput } from '@/components/ui/search-input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Rocket, X } from 'lucide-react'
+import { Rocket } from 'lucide-react'
 import { DeploymentsTable } from '@/components/deployments-table'
 
 type StatusFilter = 'all' | 'failed' | 'active' | 'healthy' | 'rolled_back'
@@ -72,10 +72,7 @@ export function DeploymentFilters({ items, projects, environments, scope = 'orga
           title={`${filtered.length} deployment${filtered.length === 1 ? '' : 's'}`}
           action={
             <div className="flex w-full flex-col gap-1 sm:w-auto sm:flex-row">
-              <div className="relative min-w-[240px] flex-1">
-                <SearchInput value={query} onChange={(event) => { setQuery(event.target.value); setPage(1) }} placeholder="Search services, projects, images…" aria-label="Search deployments" className="h-10 pr-9 [&::-webkit-search-cancel-button]:appearance-none sm:h-8" />
-                {query ? <button type="button" aria-label="Clear search" className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 text-ink-muted hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" onClick={() => { setQuery(''); setPage(1) }}><X className="size-3.5" /></button> : null}
-              </div>
+              <SearchInput value={query} onChange={(event) => { setQuery(event.target.value); setPage(1) }} aria-label={scope === 'project' ? 'Search services and images' : 'Search services, projects and images'} />
               {scope === 'organization' ? <Select value={projectFilter} onValueChange={setProjectFilter}>
                 <SelectTrigger aria-label="Filter by project" className="h-10 w-full sm:h-8 sm:w-[150px] text-sm">
                   <SelectValue />
@@ -115,7 +112,7 @@ export function DeploymentFilters({ items, projects, environments, scope = 'orga
         )}
         {filtered.length > PAGE_SIZE ? <div className="flex items-center justify-between border-t border-line px-4 py-3 text-xs text-ink-muted">
           <span>{(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filtered.length)} of {filtered.length}</span>
-          <div className="flex gap-2"><Button size="sm" variant="ghost" disabled={currentPage === 1} onClick={() => setPage((value) => value - 1)}>‹ Previous</Button><Button size="sm" variant="ghost" disabled={currentPage === pageCount} onClick={() => setPage((value) => value + 1)}>Next ›</Button></div>
+          <div className="flex gap-2"><Button size="sm" variant="ghost" className="text-brand-700" disabled={currentPage === 1} onClick={() => setPage((value) => value - 1)}>‹ Previous</Button><Button size="sm" variant="ghost" className="text-brand-700" disabled={currentPage === pageCount} onClick={() => setPage((value) => value + 1)}>Next ›</Button></div>
         </div> : null}
       </Panel>
     </div>

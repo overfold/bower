@@ -9,15 +9,17 @@ import { Panel, PanelHeader, KeyValue } from '@/components/ui/panel'
 import { DeploymentStatus } from '@/components/status'
 import { InlineNotice } from '@/components/ui/feedback'
 import { DeploymentDiagnosticActions } from './deployment-diagnostic-actions'
-import { label } from '@/lib/labels'
+import { deploymentStatusLabels, label } from '@/lib/labels'
 import { EventDetails } from './event-details'
 import { Button } from '@/components/ui/button'
-import { formatDeploymentDuration, shortDeploymentImage } from '@/lib/format'
+import { deploymentImageTag, formatDeploymentDuration, shortDeploymentImage } from '@/lib/format'
 import { Timeline } from '@/components/timeline'
 import { Time } from '@/components/time'
 import { getTrellisClient } from '@/lib/trellis-instance'
 import { earlierSuccessfulReleases, runningRelease } from '@/lib/service-releases'
 import { trellisReadError } from '@/lib/trellis-runtime'
+import { diffJobSpecs } from '@/lib/service-config-diff'
+import { deploymentDetailState } from '@/lib/deployment-detail-state'
 
 export default async function DeploymentDetailPage({ params }: { params: Promise<{ slug: string; deploymentId: string }> }) {
   const { slug, deploymentId } = await params
@@ -42,6 +44,7 @@ export default async function DeploymentDetailPage({ params }: { params: Promise
   const runtime = configRow ? await client.getJob(jobName, configRow.environment.trellisNamespace).catch(() => null) : null
   const active = runningRelease(journal, runtime ? { name: jobName, version: runtime.version, revision: runtime.revision } : null)
   const rollbackTargets = earlierSuccessfulReleases(journal, active)
+  const { superseding, primaryRecovery } = deploymentDetailState(journal, deploymentId)
 
   const failedEvent = events.findLast((event) => /fail|error/i.test(`${event.type} ${event.message}`))
   const allocationDetails = events.flatMap((event) => {
@@ -69,7 +72,8 @@ export default async function DeploymentDetailPage({ params }: { params: Promise
   const serviceHref = `/projects/${slug}/services/${row.service.slug}`
 
   return <div className="space-y-5">
-    <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><Link href={serviceHref} className="text-sm font-medium text-link">{row.service.name}</Link><div className="mt-1 flex flex-wrap items-center gap-3"><h1 className="break-words text-2xl font-bold text-ink">{shortDeploymentImage(row.deployment.imageAfter)}</h1><DeploymentStatus status={row.deployment.status} /></div><div className="mt-2 text-sm text-ink-muted"><Time value={row.deployment.createdAt} mode="absolute" /> · {label(row.deployment.triggerType)} · {row.userName ?? 'System'}</div></div>{access.projectRole !== 'viewer' ? <DeploymentDiagnosticActions serviceId={row.service.id} serviceName={row.service.name} environmentId={row.deployment.environmentId} failed={row.deployment.status === 'failed'} runningImage={active?.imageAfter} rollbackTargets={rollbackTargets.map((target) => ({ id: target.id, image: target.imageAfter }))} configurationHref={`${serviceHref}/configuration`} /> : null}</div>
+    <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><Link href={serviceHref} className="text-sm font-medium text-link">{row.service.name}</Link><div className="mt-1 flex flex-wrap items-center gap-3"><h1 className="break-words text-2xl font-bold text-ink">{shortDeploymentImage(row.deployment.imageAfter)}</h1><DeploymentStatus status={row.deployment.status} /></div><div className="mt-2 text-sm text-ink-muted"><Time value={row.deployment.createdAt} mode="absolute" /> · {label(row.deployment.triggerType)} · {row.userName ?? 'System'}</div></div>{access.projectRole !== 'viewer' ? <DeploymentDiagnosticActions serviceId={row.service.id} serviceName={row.service.name} environmentId={row.deployment.environmentId} primaryRecovery={primaryRecovery} runningImage={active?.imageAfter} rollbackTargets={rollbackTargets.map((target) => ({ id: target.id, image: target.imageAfter, createdAt: target.createdAt, changes: diffJobSpecs(target.jobSpec, runtime?.spec ?? active?.jobSpec) }))} configurationHref={`${serviceHref}/configuration`} /> : null}</div>
+    {superseding ? <InlineNotice tone="neutral">Superseded by <span className="font-mono font-medium">{deploymentImageTag(superseding.imageAfter)}</span> · {deploymentStatusLabels[superseding.status].toLowerCase()} <Time value={superseding.completedAt ?? superseding.createdAt} /> · <Link className="font-medium underline" href={`/projects/${slug}/deployments/${superseding.id}`}>View</Link></InlineNotice> : null}
     {row.deployment.status === 'failed' && <InlineNotice tone="danger"><p className="font-medium">{failedEvent?.message ?? 'The deployment failed.'}</p>{failureLogs.length ? <pre className="mt-2 max-h-52 overflow-auto rounded bg-sunken p-3 text-xs text-ink">{failureLogs.join('\n')}</pre> : <p className="mt-1 text-sm text-ink-muted">{failureLogError ? `Allocation logs unavailable: ${failureLogError}` : 'No log output was captured.'}</p>}<div className="mt-2"><Button asChild size="sm"><Link href={failedAllocation ? `${serviceHref}/allocations/${encodeURIComponent(failedAllocation.id)}` : serviceHref}>Open allocation</Link></Button></div></InlineNotice>}
     <Panel><PanelHeader title="Summary" /><dl className="px-4">
       <KeyValue label="Image" mono>{row.deployment.imageBefore ? <><span className="text-ink-muted">{row.deployment.imageBefore}</span> → </> : null}{row.deployment.imageAfter}</KeyValue>

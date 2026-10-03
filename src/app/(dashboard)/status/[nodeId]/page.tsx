@@ -50,7 +50,6 @@ export default async function NodePage({ params }: { params: Promise<{ nodeId: s
   const capacity = nodeCapacity(node)
   const allocatable = nodeAllocatable(node)
   const heartbeat = observationFreshness(node.last_heartbeat)
-  const metrics = observationFreshness(node.metrics_at)
   const cpuUsed = node.cpu_usage == null ? null : node.cpu_usage * allocatable.cpu
   const cpuUsedPct = cpuUsed != null && allocatable.cpu > 0 ? Math.min(100, cpuUsed / allocatable.cpu * 100) : null
   const cpuAllocatedPct = allocatable.cpu > 0 ? allocated.cpu / allocatable.cpu * 100 : 0
@@ -63,17 +62,15 @@ export default async function NodePage({ params }: { params: Promise<{ nodeId: s
 
   return (
     <div className="space-y-6">
-      <PageHeading title={<span className="flex flex-wrap items-center gap-3">{node.id}<StatusDot status={nodeDrained ? 'drained' : node.status === 'healthy' ? 'ready' : node.status} /></span>} description={nodeDrained ? 'No allocations left. Ready for maintenance.' : undefined} actions={ctx.role === 'owner' ? <DrainToggle nodeId={node.id} drain={node.status === 'draining'} allocationCount={activeAllocations.length} /> : undefined} />
+      <PageHeading title={node.id} status={<StatusDot status={nodeDrained ? 'drained' : node.status === 'healthy' ? 'ready' : node.status} />} description={nodeDrained ? 'No allocations left. Ready for maintenance.' : undefined} actions={ctx.role === 'owner' ? <DrainToggle nodeId={node.id} drain={node.status === 'draining'} allocationCount={activeAllocations.length} /> : undefined} />
       <Panel>
         <PanelHeader title="Node details" />
         <dl className="grid gap-x-8 p-4 sm:grid-cols-2 lg:grid-cols-4">
-          <KeyValue label="IP" mono>{node.host}</KeyValue>
-          <KeyValue label="Port" mono>{node.port}</KeyValue>
-          <KeyValue label="Version">{node.version || '—'}</KeyValue>
+          <KeyValue label="Endpoint" mono>{node.host}:{node.port}</KeyValue>
+          <KeyValue label="Version" mono>{node.version || '—'}</KeyValue>
           <KeyValue label="OS">{node.os || '—'} / {node.arch || '—'}</KeyValue>
           <KeyValue label={<PlainNodeLabel label="Cluster role" trellis="Control-plane membership" />}>{node.control_plane ? label(node.control_plane) : 'Not reported'}</KeyValue>
-          <KeyValue label="Last heartbeat"><Time value={node.last_heartbeat} mode="absolute" /></KeyValue>
-          <KeyValue label="Heartbeat freshness"><Chip tone={heartbeat === 'fresh' ? 'success' : heartbeat === 'stale' ? 'danger' : 'neutral'}>{label(heartbeat)}</Chip></KeyValue>
+          <KeyValue label="Last heartbeat"><span className="inline-flex items-center gap-2"><Time value={node.last_heartbeat} mode="live" />{heartbeat === 'stale' ? <Chip tone="danger">Stale</Chip> : null}</span></KeyValue>
           <KeyValue label="Capabilities">{node.capabilities?.join(', ') || 'None reported'}</KeyValue>
         </dl>
       </Panel>
@@ -81,32 +78,29 @@ export default async function NodePage({ params }: { params: Promise<{ nodeId: s
         <PanelHeader title="Capacity" />
         {metricsError ? <TrellisReadError title="Allocated resources unavailable" message={metricsError} /> : null}
         <div className="grid gap-5 p-4 sm:grid-cols-2">
-          <ResourceBar label="CPU" used={cpuUsed == null ? null : formatCpu(cpuUsed)} allocated={metricsError ? null : formatCpu(allocated.cpu)} total={formatCpu(allocatable.cpu)} usedPct={cpuUsedPct} allocatedPct={metricsError ? null : cpuAllocatedPct} />
-          <ResourceBar label="Memory" used={memoryUsed == null ? null : formatMemory(memoryUsed)} allocated={metricsError ? null : formatMemory(allocated.memory)} total={formatMemory(allocatable.memory)} usedPct={memoryUsedPct} allocatedPct={metricsError ? null : memoryAllocatedPct} />
+          <ResourceBar label="CPU" used={cpuUsed == null ? null : formatCpu(cpuUsed)} allocated={metricsError ? null : formatCpu(allocated.cpu)} allocatable={formatCpu(allocatable.cpu)} capacity={formatCpu(capacity.cpu)} usedPct={cpuUsedPct} allocatedPct={metricsError ? null : cpuAllocatedPct} />
+          <ResourceBar label="Memory" used={memoryUsed == null ? null : formatMemory(memoryUsed)} allocated={metricsError ? null : formatMemory(allocated.memory)} allocatable={formatMemory(allocatable.memory)} capacity={formatMemory(capacity.memory)} usedPct={memoryUsedPct} allocatedPct={metricsError ? null : memoryAllocatedPct} />
         </div>
-        <dl className="grid gap-x-8 border-t border-line px-4 py-2 sm:grid-cols-2">
-          <KeyValue label="Physical CPU">{formatCpu(capacity.cpu)}</KeyValue>
-          <KeyValue label="Physical memory">{formatMemory(capacity.memory)}</KeyValue>
-          <KeyValue label="Observation">{metrics === 'unknown' ? 'No observation reported' : <>{label(metrics)} · <Time value={node.metrics_at} mode="absolute" /></>}</KeyValue>
-        </dl>
       </Panel>
       <Panel>
         <PanelHeader title="Allocations on this node" hint={`${allocations.length} allocation${allocations.length === 1 ? '' : 's'}`} />
         {allocationsError ? <TrellisReadError title="Allocations unavailable" message={allocationsError} /> : allocations.length ? <Table><TableHeader><TableRow><TableHead>Allocation</TableHead><TableHead>Service</TableHead><TableHead>Status</TableHead><TableHead>Time</TableHead><TableHead><span className="sr-only">Open</span></TableHead></TableRow></TableHeader><TableBody>{allocations.map((allocation) => {
           const target = targets.find((item) => item.namespace === allocation.namespace && (item.job === allocation.job || item.serviceSlug === allocation.labels?.['bower/service']))
-          const href = target ? `/projects/${target.projectSlug}/services/${target.serviceSlug}/allocations/${allocation.id}` : null
-          const cells = <><TableCell>{href ? <Link className="relative z-10 text-link hover:underline" href={href}><ResourceId value={allocation.id} /></Link> : <ResourceId value={allocation.id} />}</TableCell><TableCell>{target?.serviceName ?? allocation.job}</TableCell><TableCell><AllocationStatus phase={allocation.phase} health={allocation.health} /></TableCell><TableCell><Time value={allocation.created_at} mode="absolute" /></TableCell><TableCell>{href ? <ChevronRight className="ml-auto size-4 text-ink-faint" /> : null}</TableCell></>
-          return href ? <ClickableTableRow key={allocation.id} href={href} label={`View allocation ${allocation.id}`}>{cells}</ClickableTableRow> : <TableRow key={allocation.id}>{cells}</TableRow>
+          const href = target ? `/projects/${target.projectSlug}/services/${target.serviceSlug}/allocations/${allocation.id}` : `/status/allocations/${encodeURIComponent(allocation.id)}`
+          const cells = <><TableCell><Link className="relative z-10 text-link hover:underline" href={href}><ResourceId value={allocation.id} /></Link></TableCell><TableCell>{target?.serviceName ?? allocation.job}</TableCell><TableCell><AllocationStatus phase={allocation.phase} health={allocation.health} /></TableCell><TableCell><Time value={allocation.created_at} mode="auto" /></TableCell><TableCell><ChevronRight className="ml-auto size-4 text-ink-faint" /></TableCell></>
+          return <ClickableTableRow key={allocation.id} href={href} label={`View allocation ${allocation.id}`}>{cells}</ClickableTableRow>
         })}</TableBody></Table> : <p className="border-t border-line px-4 py-3 text-sm text-ink-muted">No allocations are currently placed on this node.</p>}
       </Panel>
     </div>
   )
 }
 
-function ResourceBar({ label, used, allocated, total, usedPct, allocatedPct }: { label: string; used: string | null; allocated: string | null; total: string; usedPct: number | null; allocatedPct: number | null }) {
-  const title = `${label}: ${used ?? 'usage unavailable'} used, ${allocated ?? 'allocation unavailable'} allocated, ${total} total`
+function ResourceBar({ label, used, allocated, allocatable, capacity, usedPct, allocatedPct }: { label: string; used: string | null; allocated: string | null; allocatable: string; capacity: string; usedPct: number | null; allocatedPct: number | null }) {
+  const title = `${label}: ${used ?? 'usage unavailable'} used, ${allocated ?? 'allocation unavailable'} allocated, ${allocatable} allocatable of ${capacity}`
   const overallocated = allocatedPct != null && allocatedPct > 100
-  return <div><p className="text-sm text-ink-soft">{label} · {total}</p><div className="relative mt-2 h-3 overflow-hidden rounded-md bg-line" title={title} role="img" aria-label={title}>{allocatedPct != null ? <span className={`absolute inset-y-0 left-0 rounded-md ${overallocated ? 'bg-warn-500' : 'bg-brand-200'}`} style={{ width: `${Math.min(100, allocatedPct)}%` }} /> : null}{usedPct != null ? <span className="absolute inset-y-0 left-0 rounded-md bg-brand-500" style={{ width: `${Math.min(100, usedPct)}%` }} /> : null}</div><div className="mt-2 flex flex-wrap gap-4 text-xs text-ink-muted"><span><i className="mr-1 inline-block h-2 w-2 bg-brand-500" />Used {used ?? 'Unavailable'}</span><span><i className={`mr-1 inline-block h-2 w-2 ${overallocated ? 'bg-warn-500' : 'bg-brand-200'}`} />Allocated {allocated ?? 'Unavailable'}{overallocated ? ' · Overallocated' : ''}</span></div></div>
+  const unit = capacity.split(' ').at(-1)!
+  const available = allocatable.endsWith(` ${unit}`) ? allocatable.slice(0, -unit.length - 1) : allocatable
+  return <div><p className="text-sm text-ink-soft">{label} · allocatable {available} of {capacity}</p><div className="relative mt-2 h-3 overflow-hidden rounded-md bg-line" title={title} role="img" aria-label={title}>{allocatedPct != null ? <span className={`absolute inset-y-0 left-0 rounded-md ${overallocated ? 'bg-warn-500' : 'bg-brand-200'}`} style={{ width: `${Math.min(100, allocatedPct)}%` }} /> : null}{usedPct != null ? <span className="absolute inset-y-0 left-0 rounded-md bg-brand-500" style={{ width: `${Math.min(100, usedPct)}%` }} /> : null}</div><div className="mt-2 flex flex-wrap gap-4 text-xs text-ink-muted"><span><i className="mr-1 inline-block h-2 w-2 bg-brand-500" />Used {used ?? 'Unavailable'}</span><span><i className={`mr-1 inline-block h-2 w-2 ${overallocated ? 'bg-warn-500' : 'bg-brand-200'}`} />Allocated {allocated ?? 'Unavailable'}{overallocated ? ' · Overallocated' : ''}</span></div></div>
 }
 
 function PlainNodeLabel({ label: text, trellis }: { label: string; trellis: string }) {

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { diffServiceConfig } from './service-config-diff'
+import { diffJobSpecs, diffServiceConfig } from './service-config-diff'
 
 test('reports saved values which differ from the running JobSpec', () => {
   const saved = { image: 'app:v2', replicas: 2, cpu: 500, memory: 256, deploymentStrategy: 'rolling', healthCheckType: null, healthCheckPath: null, healthCheckPort: null, healthCheckCommand: [], envVars: { A: '2' } } as never
@@ -44,4 +44,15 @@ test('structured health commands retain argument order', () => {
   assert.ok(health?.kind === 'config')
   assert.deepEqual((health.after as { command: string[] }).command, ['check', 'database'])
   assert.deepEqual((health.before as { command: string[] }).command, ['database', 'check'])
+})
+
+test('rollback previews stored resources, mounts and masked environment differences', () => {
+  const running = { task_groups: [{ count: 3, runtime: 'runsc', tasks: [{ image: 'web:v3', resources: { cpu: 500, memory: 512 }, env: { TOKEN: 'new-private', ADDED: 'private' }, volumes: [{ name: 'uploads', container_path: '/uploads' }] }] }] }
+  const selected = { task_groups: [{ count: 1, runtime: 'runc', tasks: [{ image: 'web:v1', resources: { cpu: 100, memory: 128 }, env: { TOKEN: 'old-private' } }] }] }
+  const changes = diffJobSpecs(selected, running)
+  assert.deepEqual(changes.map((change) => change.key), ['image', 'replicas', 'cpu', 'memory', 'volumes', 'runtime', 'env.ADDED', 'env.TOKEN'])
+  assert.deepEqual(changes.find((change) => change.key === 'replicas'), { kind: 'config', key: 'replicas', label: 'Replicas', before: 3, after: 1 })
+  assert.deepEqual(changes.find((change) => change.key === 'env.ADDED'), { kind: 'environment', key: 'env.ADDED', label: 'Environment', variable: 'ADDED', change: 'Removed', before: { present: true, masked: true }, after: { present: false, masked: true } })
+  assert.doesNotMatch(JSON.stringify(changes), /private/)
+  assert.deepEqual(diffJobSpecs(selected, selected), [])
 })

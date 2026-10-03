@@ -21,7 +21,6 @@ export function CreateServiceDialog({ projectSlug, limits }: { projectSlug: stri
   const [loading, setLoading] = useState(false)
   const [image, setImage] = useState('')
   const [strategy, setStrategy] = useState('rolling')
-  const [healthType, setHealthType] = useState('none')
   const imageRef = useRef<HTMLInputElement>(null)
   const imageValid = /^[\w.-]+(?::\d+)?(?:\/[\w.-]+)*(?:[:@][\w][\w.:-]*)?$/.test(image)
 
@@ -101,12 +100,6 @@ export function CreateServiceDialog({ projectSlug, limits }: { projectSlug: stri
                 </Select>
                 <p className="text-xs text-ink-muted">{{ rolling: 'Replaces replicas one at a time. No downtime.', recreate: 'Stops existing replicas before starting replacements.', blue_green: 'Starts a complete replacement before switching traffic.', canary: 'Moves traffic to the new release in gradual steps.' }[strategy]}</p>
               </div>
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-              <div className="space-y-2"><Label htmlFor="healthType">Type</Label><Select name="healthType" value={healthType} onValueChange={setHealthType}><SelectTrigger id="healthType"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">None</SelectItem><SelectItem value="http">HTTP</SelectItem><SelectItem value="tcp">TCP</SelectItem><SelectItem value="script">Script</SelectItem></SelectContent></Select></div>
-              {healthType === 'http' ? <div className="space-y-2 sm:col-span-2"><Label htmlFor="healthPath">Path</Label><Input id="healthPath" name="healthPath" defaultValue="/" mono /></div> : null}
-              {healthType === 'script' ? <div className="space-y-2 sm:col-span-3"><Label htmlFor="healthCommand">Command</Label><Input id="healthCommand" name="healthCommand" required mono aria-invalid={Boolean(fieldErrors.healthCommand)} aria-describedby="service-command-error" /><p id="service-command-error" className="text-xs text-danger-500">{fieldErrors.healthCommand}</p></div> : null}
-              {healthType === 'http' || healthType === 'tcp' ? <div className={`space-y-2 ${healthType === 'tcp' ? 'sm:col-span-3' : ''}`}><Label htmlFor="healthPort">Port</Label><Input id="healthPort" name="healthPort" type="number" min={1} max={65535} placeholder="8080" required aria-invalid={Boolean(fieldErrors.healthPort)} aria-describedby="service-port-error" /><p id="service-port-error" className="text-xs text-danger-500">{fieldErrors.healthPort}</p></div> : null}
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">

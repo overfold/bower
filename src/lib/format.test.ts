@@ -4,12 +4,16 @@ import { deploymentImageTag, formatRatio, formatPercent, formatCpu, formatDate, 
 
 const NOW = Date.parse('2026-01-02T00:00:00.000Z')
 
-test('relative time uses compact boundaries and clamps future values', () => {
+test('relative time uses compact past boundaries and readable future values', () => {
   assert.equal(formatRelativeTime('2026-01-01T23:59:01Z', NOW), 'just now')
   assert.equal(formatRelativeTime('2026-01-01T23:59:00Z', NOW), '1m ago')
   assert.equal(formatRelativeTime('2026-01-01T23:00:00Z', NOW), '1h ago')
   assert.equal(formatRelativeTime('2026-01-01T00:00:00Z', NOW), '1d ago')
-  assert.equal(formatRelativeTime('2026-01-03T00:00:00Z', NOW), 'just now')
+  assert.equal(formatRelativeTime('2026-01-03T00:00:00Z', NOW), 'in 1 day')
+  assert.equal(formatRelativeTime('2026-01-09T00:00:00Z', NOW), 'in 7 days')
+  assert.equal(formatRelativeTime('2026-01-02T00:00:59Z', NOW), 'in 59 seconds')
+  assert.equal(formatRelativeTime('2026-01-02T00:01:00Z', NOW), 'in 1 minute')
+  assert.equal(formatRelativeTime('2026-01-02T01:00:00Z', NOW), 'in 1 hour')
 })
 
 test('date formatters handle unavailable and invalid values', () => {

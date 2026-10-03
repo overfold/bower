@@ -49,7 +49,8 @@ export default async function ProjectLayout({
 
   const header = <>
       <PageHeading
-        title={<span className="flex flex-wrap items-center gap-3">{project.name}{services.length > 0 ? <Chip tone={failing ? 'danger' : 'success'}>{failing ? `${failing} of ${services.length} failing` : 'Healthy'}</Chip> : null}</span>}
+        title={project.name}
+        status={services.length > 0 ? <Chip tone={failing ? 'danger' : 'success'}>{failing ? `${failing} of ${services.length} failing` : 'Healthy'}</Chip> : undefined}
         description={project.description ?? undefined}
       />
       <div className="mt-6 border-b border-line">

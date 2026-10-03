@@ -137,7 +137,7 @@ export function GrantAccessDialog({ projectId, teams, members, existingTeamIds, 
                         className={cn(
                           "flex w-full items-center gap-3 border-b border-line px-3 py-2.5 text-left text-sm transition-colors last:border-b-0",
                           item.granted
-                            ? 'cursor-default opacity-50'
+                            ? 'cursor-not-allowed text-ink-muted'
                             : isSelected
                               ? 'bg-brand-50 text-ink'
                               : 'hover:bg-sunken text-ink',
@@ -171,16 +171,14 @@ export function GrantAccessDialog({ projectId, teams, members, existingTeamIds, 
           <div className="space-y-2">
               <Label htmlFor="access-role">Role</Label>
               <Select value={role} onValueChange={setRole}>
-                <SelectTrigger id="access-role" aria-describedby="access-role-help"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="access-role" aria-describedby={selected ? 'access-role-help' : undefined}><SelectValue>{role.charAt(0).toUpperCase() + role.slice(1)}</SelectValue></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="viewer">Viewer</SelectItem>
-                  <SelectItem value="deployer">Deployer</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="viewer"><span className="block">Viewer</span><span className="block text-xs text-ink-muted">View project configuration and deployments.</span></SelectItem>
+                  <SelectItem value="deployer"><span className="block">Deployer</span><span className="block text-xs text-ink-muted">View, deploy, and roll back services.</span></SelectItem>
+                  <SelectItem value="admin"><span className="block">Admin</span><span className="block text-xs text-ink-muted">Manage settings, services, and project access.</span></SelectItem>
                 </SelectContent>
               </Select>
-              <p id="access-role-help" className="text-xs text-ink-muted">
-                {selected ? `${selected.kind === 'team' ? `All members of ${selected.name}` : selected.name} will receive ${role} access to this project.` : 'Choose the role that will be granted.'}
-              </p>
+              {selected ? <p id="access-role-help" className="text-xs text-ink-muted">{`${selected.kind === 'team' ? `All members of ${selected.name}` : selected.name} will receive ${role} access to this project.`}</p> : null}
             </div>
         </DialogBody>
         <DialogFooter>

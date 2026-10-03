@@ -62,7 +62,7 @@ export default async function DashboardPage() {
     getProjectsForUser(orgCtx.org.id, user.id, orgCtx.role),
     getServicesForOrg(orgCtx.org.id),
     getDeploymentsForOrg(orgCtx.org.id, null),
-    getAuditLog(orgCtx.org.id, 8),
+    getAuditLog(orgCtx.org.id, 5),
     getOperationalTargetsForOrg(orgCtx.org.id),
   ])
   const accessibleProjectIds = new Set(projectList.map((project) => project.id))
@@ -118,6 +118,7 @@ export default async function DashboardPage() {
   const visibleTargets = targets.filter((target) => accessibleProjectSlugs.has(target.projectSlug))
   const isDrained = (node: TrellisNode) => !allocationsError && node.status === 'draining' && !allocations.some((allocation) => allocation.node_id === node.id && !['stopped', 'failed', 'lost', 'completed', 'dead'].includes(allocation.phase))
   const drainingNodes = nodes.filter((node) => node.status === 'draining' && !isDrained(node)).length
+  const drainedNodes = nodes.filter(isDrained).length
   const attentionRows = needsAttentionRows({ deployments: visibleDeployments, allocations: currentAllocations, jobs, targets: visibleTargets, nodes, now: requestTime })
   if (clusterError || allocationsError || jobsError) attentionRows.unshift({ id: 'cluster-error', status: 'unknown', serviceName: 'Cluster health', cause: 'Couldn’t check the cluster', href: '/status', action: 'Open status' })
   const resourceNames = new Map<string, string>(projectList.map((project) => [project.id, project.name]))
@@ -238,11 +239,11 @@ export default async function DashboardPage() {
             <Panel>
               <PanelHeader
                 title="Cluster"
-                hint={orgCtx.org.trellisApiUrl?.replace(/^https?:\/\//, '').replace(/\/+$/, '')}
+                hint={orgCtx.org.trellisApiUrl ? <Mono>{orgCtx.org.trellisApiUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '')}</Mono> : undefined}
                 action={
-                  <div className="flex items-center gap-3"><Link href="/status" className="text-link text-sm font-medium">View status</Link><Chip tone={nodes.some((node) => node.status === 'unhealthy') ? 'danger' : drainingNodes > 0 ? 'warn' : 'success'}>
-                    <Dot tone={nodes.some((node) => node.status === 'unhealthy') ? 'danger' : drainingNodes > 0 ? 'warn' : 'success'} />
-                    {nodes.some((node) => node.status === 'unhealthy') ? `${nodes.filter((node) => node.status === 'unhealthy').length} unhealthy` : drainingNodes > 0 ? `${drainingNodes} draining` : 'All healthy'}
+                  <div className="flex items-center gap-3"><Link href="/status" className="text-link text-sm font-medium">View status</Link><Chip tone={nodes.some((node) => node.status === 'unhealthy') ? 'danger' : drainingNodes > 0 ? 'warn' : drainedNodes > 0 ? 'neutral' : 'success'}>
+                    <Dot tone={nodes.some((node) => node.status === 'unhealthy') ? 'danger' : drainingNodes > 0 ? 'warn' : drainedNodes > 0 ? 'neutral' : 'success'} />
+                    {nodes.some((node) => node.status === 'unhealthy') ? `${nodes.filter((node) => node.status === 'unhealthy').length} unhealthy` : drainingNodes > 0 ? `${drainingNodes} draining` : drainedNodes > 0 ? `${drainedNodes} drained` : 'All healthy'}
                   </Chip></div>
                 }
               />

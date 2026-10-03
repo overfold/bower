@@ -92,12 +92,12 @@ export function AllocationMetrics({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-medium text-ink-muted">CPU usage</p>
-            {cpuMillicores === null && taskCount ? <div className="mt-3 h-7 w-40 animate-pulse rounded bg-surface-raised" aria-label="Sampling CPU usage" /> : <p className="nums mt-1.5 text-2xl font-semibold tracking-tight text-ink">{cpuMillicores === null ? (error ? 'Unavailable' : 'No samples') : <>{formatCpu(Math.max(0, cpuMillicores))}{cpuLimit ? ` / ${formatCpu(cpuLimit)}` : ''}</>}</p>}
+            {cpuMillicores === null && taskCount ? <p className="mt-2 inline-block animate-pulse rounded bg-sunken px-2 py-1 text-sm text-ink-muted" aria-label="Sampling CPU usage">Measuring…</p> : <p className="nums mt-1.5 text-2xl font-semibold tracking-tight text-ink">{cpuMillicores === null ? (error ? 'Unavailable' : 'No samples') : <>{formatCpu(Math.max(0, cpuMillicores))}{cpuLimit ? ` / ${formatCpu(cpuLimit)}` : ''}</>}</p>}
           </div>
         </div>
-        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-raised" aria-label="CPU usage"><div className={`h-full rounded-full ${usageColor(cpuPercent)}`} style={{ width: `${Math.min(100, cpuPercent)}%` }} /></div>
+        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-line" aria-label="CPU usage"><div className={`h-full rounded-full ${usageColor(cpuPercent)}`} style={{ width: `${Math.min(100, cpuPercent)}%` }} /></div>
         <p className="mt-3 text-2xs text-ink-muted">
-          {error ? (taskCount ? 'Latest sample unavailable; showing last known data.' : initialError || 'Metrics unavailable; retrying automatically.') : taskCount ? <>Across {taskCount} {taskCount === 1 ? 'task' : 'tasks'} · sampled <Time value={sampledAt} mode="absolute" /></> : 'No metrics samples returned; retrying automatically.'}
+          {error ? (taskCount ? 'Latest sample unavailable; showing last known data.' : initialError || 'Metrics unavailable; retrying automatically.') : taskCount ? <>Across {taskCount} {taskCount === 1 ? 'task' : 'tasks'} · Updated <Time value={sampledAt} mode="live" /></> : 'No metrics samples returned; retrying automatically.'}
         </p>
       </Panel>
 
@@ -108,9 +108,9 @@ export function AllocationMetrics({
             <p className="nums mt-1.5 text-2xl font-semibold tracking-tight text-ink">{taskCount ? <>{formatMemory(memoryBytes)}{memoryLimit ? ` / ${formatMemory(memoryLimit)}` : ''}</> : error ? 'Unavailable' : 'No samples'}</p>
           </div>
         </div>
-        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-raised" aria-label="Memory usage"><div className={`h-full rounded-full ${usageColor(memoryPercent)}`} style={{ width: `${Math.min(100, memoryPercent)}%` }} /></div>
+        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-line" aria-label="Memory usage"><div className={`h-full rounded-full ${usageColor(memoryPercent)}`} style={{ width: `${Math.min(100, memoryPercent)}%` }} /></div>
         <p className="mt-3 text-2xs text-ink-muted">
-          {error ? (taskCount ? 'Latest sample unavailable; showing last known data.' : initialError || 'Metrics unavailable; retrying automatically.') : taskCount ? <>Current resident usage · sampled <Time value={sampledAt} mode="absolute" /></> : 'No metrics samples returned; retrying automatically.'}
+          {error ? (taskCount ? 'Latest sample unavailable; showing last known data.' : initialError || 'Metrics unavailable; retrying automatically.') : taskCount ? <>Current resident usage · Updated <Time value={sampledAt} mode="live" /></> : 'No metrics samples returned; retrying automatically.'}
         </p>
       </Panel>
     </div>

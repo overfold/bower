@@ -21,9 +21,10 @@ import { DrainToggle } from './drain-toggle'
 import { ResetBackoffButton } from './reset-backoff-button'
 import { formatCpu, formatMemory } from '@/lib/format'
 import type { TrellisAllocation, TrellisJob, TrellisNode } from '@/types/trellis'
-import { formatRelativeTime, formatTimestamp } from '@/lib/format'
+import { formatRelativeTime } from '@/lib/format'
 import { ResourceId } from '@/components/resource-id'
 import { ClickableTableRow } from '@/components/clickable-table-row'
+import { Time } from '@/components/time'
 
 function untilTime(value: string): string {
   const seconds = Math.max(0, Math.ceil((new Date(value).getTime() - Date.now()) / 1000))
@@ -127,12 +128,12 @@ export default async function StatusPage() {
           <Table><TableHeader><TableRow><TableHead>Allocation</TableHead><TableHead>Workload</TableHead><TableHead>Reason</TableHead><TableHead>Waiting</TableHead></TableRow></TableHeader><TableBody>
             {pending.map((allocation) => {
               const target = targetFor(allocation)
-              const href = target ? `/projects/${target.projectSlug}/services/${target.serviceSlug}/allocations/${allocation.id}` : null
+              const href = target ? `/projects/${target.projectSlug}/services/${target.serviceSlug}/allocations/${allocation.id}` : `/status/allocations/${encodeURIComponent(allocation.id)}`
               return <TableRow key={`${allocation.namespace}/${allocation.id}`}>
                 <TableCell>{href ? <Link href={href} className="text-link"><ResourceId value={allocation.id} /></Link> : <ResourceId value={allocation.id} />}</TableCell>
                 <TableCell><div className="text-ink">{target?.serviceName ?? allocation.job}</div><div className="text-xs text-ink-muted">{target ? `${target.projectName} · ${target.environmentName}` : allocation.namespace}</div></TableCell>
                 <TableCell><Chip tone="warn">{(allocation.reason || 'awaiting_placement').replaceAll('_', ' ')}</Chip>{allocation.message ? <p className="mt-1 max-w-md text-xs text-ink-muted">{allocation.message}</p> : null}</TableCell>
-                <TableCell className="text-ink-muted">{formatRelativeTime(allocation.created_at)}</TableCell>
+                <TableCell className="text-ink-muted"><Time value={allocation.created_at} mode="auto" /></TableCell>
               </TableRow>
             })}
           </TableBody></Table>
@@ -147,8 +148,8 @@ export default async function StatusPage() {
             return <TableRow key={`${namespace}/${job}/${backoff.group}`}>
               <TableCell>{target ? <Link href={`/projects/${target.projectSlug}/services/${target.serviceSlug}`} className="font-medium text-link">{target.serviceName}</Link> : <Mono>{job}</Mono>}</TableCell>
               <TableCell className="nums">{backoff.failures}</TableCell>
-              <TableCell><span className="whitespace-nowrap">{formatRelativeTime(backoff.last_failure_at)}</span><p className="mt-1 max-w-sm text-xs text-ink-muted">{backoff.message || backoff.reason || 'Allocation failed'}</p></TableCell>
-              <TableCell><span className="whitespace-nowrap">{formatTimestamp(backoff.next_replacement_at)}</span><p className="mt-1 text-xs text-ink-muted">in {untilTime(backoff.next_replacement_at)}</p></TableCell>
+              <TableCell><span className="whitespace-nowrap"><Time value={backoff.last_failure_at} mode="auto" /></span><p className="mt-1 max-w-sm text-xs text-ink-muted">{backoff.message || backoff.reason || 'Allocation failed'}</p></TableCell>
+              <TableCell><span className="whitespace-nowrap"><Time value={backoff.next_replacement_at} mode="auto" /></span><p className="mt-1 text-xs text-ink-muted">in {untilTime(backoff.next_replacement_at)}</p></TableCell>
               <TableCell className="text-right">{canResetBackoff ? <ResetBackoffButton namespace={namespace} job={job} group={backoff.group} /> : <span className="text-xs text-ink-muted">Owner/admin required</span>}</TableCell>
             </TableRow>
           })}

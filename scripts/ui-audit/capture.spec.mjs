@@ -51,6 +51,7 @@ const pages = [
   ["cluster", "/status", "Status"],
   ["node-detail", "/status/node-eu-west-01", "Healthy"],
   ["node-draining", "/status/node-eu-west-03", "Node details"],
+  ["system-allocation", "/status/allocations/bower-proxy-alloc-1", "System allocation · read-only"],
   ["project-overview", project, "Commerce Platform"],
   ["empty-project", "/projects/internal-tools", "Internal Tools"],
   ...[
@@ -249,6 +250,38 @@ state("new-service-strategies", `${project}/services`, async (page) => {
   await page.getByRole("combobox", { name: "Deployment strategy", exact: true }).click();
   await expect(page.getByRole("option", { name: "Canary", exact: true })).toBeVisible();
 });
+for (const [name, route] of [['project', `${project}/environment`], ['service', `${service}/configuration`]]) {
+  state(`variable-value-toggle-${name}`, route, async (page) => {
+    const row = page.getByRole('row').filter({ has: page.getByRole('cell', { name: 'LOG_FORMAT', exact: true }) });
+    const column = name === 'project' ? (await page.getByRole('columnheader').allTextContents()).indexOf('Storefront') : 1;
+    const reveal = row.getByRole('cell').nth(column).getByRole('button', { name: 'Reveal value', exact: true });
+    await expect(reveal).toHaveAttribute('aria-pressed', 'false');
+    await expect(row).not.toContainText('json');
+    await reveal.click();
+    await expect(row).toContainText('json');
+    await expect(row.getByRole('button', { name: 'Hide value', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(row.getByRole('button', { name: 'Copy value', exact: true })).toBeVisible();
+    expect(await row.getByRole('cell').nth(column).getByRole('button').evaluateAll((buttons) => buttons.map((button) => button.getAttribute('aria-label')))).toEqual(['Copy value', 'Hide value']);
+    await row.getByRole('button', { name: 'Hide value', exact: true }).click();
+    await expect(row).not.toContainText('json');
+    await expect(row.getByRole('button', { name: 'Copy value', exact: true })).toHaveCount(0);
+    await reveal.focus();
+    await reveal.press('Enter');
+    await expect(row).toContainText('json');
+    await page.getByRole('button', { name: 'New variable', exact: true }).focus();
+    await expect(row).not.toContainText('json');
+    const inherited = page.getByRole('row').filter({ has: page.getByRole('cell', { name: 'NODE_ENV', exact: true }) });
+    await expect(inherited.getByRole('button', { name: 'Reveal value', exact: true })).toHaveCount(0);
+    await reveal.click();
+  });
+}
+state('grant-access-role-options', `${project}/access`, async (page) => {
+  await click(page, 'Grant access');
+  await page.getByRole('combobox', { name: 'Role', exact: true }).click();
+  for (const description of ['View project configuration and deployments.', 'View, deploy, and roll back services.', 'Manage settings, services, and project access.']) {
+    await expect(page.getByRole('option').filter({ hasText: description })).toBeVisible();
+  }
+});
 for (const mode of ["Password", "Bower account"])
   state(
     `add-route-${mode === "Password" ? "password" : "bower-auth"}`,
@@ -271,11 +304,13 @@ for (const target of ["Environment", "File"])
       await click(page, "New variable");
       const dialog = page.getByRole("dialog");
       await dialog.getByRole("combobox").nth(0).click();
-      await page.getByRole("option", { name: "Storefront configuration", exact: true }).click();
+      await page.getByRole("option", { name: "Storefront", exact: true }).click();
       await dialog.getByRole("combobox").nth(1).click();
       await page.getByRole("option", { name: "Secret binding", exact: true }).click();
       await dialog.getByRole("combobox").nth(3).click();
       await page.getByRole("option", { name: target, exact: true }).click();
+      await expect(dialog.getByRole('heading', { name: 'Bind secret', exact: true })).toBeVisible();
+      await expect(dialog.getByLabel(target === 'Environment' ? 'Environment variable' : 'File path', { exact: true })).toHaveValue(target === 'Environment' ? 'DATABASE_URL' : '/run/trellis-secrets/database-url');
     },
   );
 for (const type of ["Script", "TCP", "None"])
@@ -318,8 +353,44 @@ for (const query of ["", "store", "unmatched-audit-search"])
       const input = page.getByPlaceholder("Search projects, services, pages…");
       await expect(input).toBeVisible();
       await input.fill(query);
+      if (query === 'store') {
+        await expect(page.getByRole('option').first()).toHaveText('Storefront · Commerce Platform');
+        await expect(page.getByRole('option').first()).toHaveAttribute('aria-selected', 'true');
+        await expect(page.getByRole('dialog').getByText('Services', { exact: true })).toBeVisible();
+        await expect(page.getByRole('dialog').getByText('Actions', { exact: true })).toBeVisible();
+      }
     },
   );
+state('command-palette-recent', '/dashboard', async (page) => {
+  await click(page, 'Search');
+  await page.getByRole('combobox', { name: 'Search projects, services, pages' }).fill('store');
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(new RegExp(`${service}$`));
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  await click(page, 'Search');
+  await expect(page.getByRole('dialog').getByText('Recent', { exact: true })).toBeVisible();
+  await expect(page.getByRole('option').first()).toHaveText('Storefront · Commerce Platform');
+});
+state('search-clear-and-overflow-table', '/deployments', async (page) => {
+  const search = page.getByRole('searchbox', { name: 'Search services, projects and images' });
+  await expect(search).toHaveAttribute('placeholder', 'Search');
+  await search.fill('unmatched-audit-search');
+  await expect(page.getByText('No deployments match these filters', { exact: true })).toBeVisible();
+  await click(page, 'Clear search');
+  await expect(search).toHaveValue('');
+  await expect(page.getByRole('heading', { name: '27 deployments' })).toBeVisible();
+  const previous = page.getByRole('button', { name: '‹ Previous', exact: true });
+  await expect(previous).toBeDisabled();
+  expect(await previous.evaluate((button) => getComputedStyle(button).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+  await page.setViewportSize({ width: 390, height: 844 });
+  const region = page.getByRole('region', { name: '27 deployments' });
+  await expect(region).toHaveAttribute('tabindex', '0');
+  await region.focus();
+  await expect(region).toBeFocused();
+  expect(await region.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await expect(page.locator('table').locator('..')).not.toHaveAttribute('tabindex', '0');
+});
 state("add-team-member", "/settings/teams", async (page) => {
   await page.getByRole("link", { name: "Platform Engineering", exact: true }).click();
   await click(page, "Add member");
@@ -358,7 +429,16 @@ for (const [name, route] of [
   ],
   ["protected-route-invalid", "/route-auth/password"],
 ])
-  state(name, route, undefined, { public: true });
+  state(name, route, name.startsWith('protected-route') ? async (page) => {
+    await expect(page.getByText('Protected by Bower', { exact: true })).toBeVisible();
+    await expect(page.getByText(/Manage deployments on Trellis/)).toHaveCount(0);
+    if (name === 'protected-route-error') {
+      const input = page.getByLabel('Password', { exact: true });
+      await expect(input).toHaveAttribute('aria-invalid', 'true');
+      await expect(input).toHaveAttribute('aria-describedby', 'route-password-error');
+      await expect(page.locator('#route-password-error')).toHaveText('Incorrect password. Try again.');
+    }
+  } : undefined, { public: true });
 state(
   "login-error",
   "/login",
@@ -439,8 +519,9 @@ state("rollback-to-deployment", `${project}/deployments/${fixture.rollbackDeploy
   await expect(page.getByRole("alertdialog")).toBeVisible();
 });
 state("failed-deployment-rollback", `${project}/deployments/${fixture.failedDeploymentId}`, async (page) => {
-  const rollback = page.getByRole("button", { name: "Roll back to storefront:v2.3.0", exact: true });
-  await expect(rollback).toHaveClass(/bg-brand-500/);
+  await expect(page.getByText(/Superseded by/)).toBeVisible();
+  const rollback = page.getByRole("button", { name: "Roll back…", exact: true });
+  await expect(rollback).not.toHaveClass(/bg-brand-500/);
   await expect(page.getByRole("button", { name: "Redeploy", exact: true })).not.toHaveClass(/bg-brand-500/);
   await expect(page.getByRole("link", { name: "Edit configuration", exact: true })).toHaveAttribute("href", `${service}/configuration`);
   await expect(page.getByRole("link", { name: "Open allocation", exact: true })).toBeVisible();
@@ -451,7 +532,7 @@ for (const [name, route] of [["organization", "/deployments"], ["project", `${pr
     await expect(page.locator("body")).toContainText("21–27 of 27");
   });
 state("deployments-search-empty", "/deployments", async (page) => {
-  await page.getByRole("searchbox", { name: "Search deployments" }).fill("unmatched-audit-search");
+  await page.getByRole("searchbox", { name: "Search services, projects and images" }).fill("unmatched-audit-search");
   await expect(page.locator("body")).toContainText("No deployments match these filters");
 });
 state("audit-system-diff", "/audit", async (page) => {
@@ -468,17 +549,33 @@ state("domain-dns-expanded", "/settings/domains", async (page) => {
 });
 state("configuration-dirty", `${service}/configuration`, async (page) => {
   await page.getByLabel("Container image", { exact: true }).fill("ghcr.io/acme/storefront:v2.5.0");
-  await expect(page.getByText(/^Unsaved changes/)).toBeVisible();
+  await expect(page.getByText('1 unsaved field', { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Save changes", exact: true }).scrollIntoViewIfNeeded();
 });
 state("advanced-dirty", `${service}/advanced`, async (page) => {
   await choose(page, "Isolation", "Sandboxed");
-  await expect(page.getByText(/^Unsaved changes/)).toBeVisible();
+  await expect(page.getByText('1 unsaved field', { exact: true })).toBeVisible();
+});
+state('configuration-advanced-toggle', `${service}/configuration`, async (page) => {
+  const toggle = page.getByRole('button', { name: 'Toggle advanced configuration' });
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await choose(page, 'Isolation', 'Sandboxed');
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  expect(await page.locator('form').evaluate((form) => new FormData(form).get('runtime'))).toBe('runsc');
+  await toggle.click();
+  await expect(page.getByRole('combobox', { name: 'Isolation' })).toContainText('Sandboxed');
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
 });
 for (const empty of [false, true])
   state(`allocation-logs-search-${empty ? "empty" : "results"}`, allocation, async (page) => {
     await page.getByRole("searchbox", { name: "Search logs" }).fill(empty ? "unmatched-audit-search" : "products");
     await expect(page.locator("#logs pre")).toContainText(empty ? "No matching log lines." : "GET /products");
+    await expect(page.locator('#logs [role="status"]')).toHaveText(empty ? '0 matches' : '1 match');
+    await expect(page.locator('#logs mark')).toHaveCount(empty ? 0 : 1);
+    expect(await page.locator('#logs pre').evaluate((element) => element.clientHeight)).toBeGreaterThan(384);
     await page.getByRole("searchbox", { name: "Search logs" }).scrollIntoViewIfNeeded();
   });
 state("allocation-logs-follow-wrap", allocation, async (page) => {
@@ -548,10 +645,10 @@ state("configuration-discard", `${service}/configuration`, async (page) => {
   const image = page.getByLabel("Container image", { exact: true });
   const original = await image.inputValue();
   await image.fill("ghcr.io/acme/storefront:discard-me");
-  await expect(page.getByText(/^Unsaved changes/)).toBeVisible();
+  await expect(page.getByText('1 unsaved field', { exact: true })).toBeVisible();
   await click(page, "Discard");
   await expect(image).toHaveValue(original);
-  await expect(page.getByText(/^Unsaved changes/)).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Discard', exact: true })).toHaveCount(0);
 });
 state("configuration-variable-draft", `${service}/configuration`, async (page) => {
   const writes = [];
@@ -566,7 +663,7 @@ state("configuration-variable-draft", `${service}/configuration`, async (page) =
     await page.getByRole('dialog').getByLabel('Value', { exact: true }).fill('audit-only');
     await click(page, 'Create variable');
     await expect(page.getByRole('dialog')).toHaveCount(0);
-    await expect(page.getByText('Unsaved changes · 2 fields, 1 variable', { exact: true })).toBeVisible();
+    await expect(page.getByText('2 fields, 1 variable', { exact: true })).toBeVisible();
     expect(writes).toHaveLength(0);
     const [unsaved] = await sql`SELECT env_vars FROM service_configs WHERE id=${original.id}`;
     expect(unsaved.env_vars).not.toHaveProperty('CHECKLIST_DRAFT');
@@ -579,10 +676,10 @@ state("configuration-variable-draft", `${service}/configuration`, async (page) =
     await click(page, 'Edit PORT');
     await click(page, 'Remove override');
     await page.getByLabel('Replicas', { exact: true }).fill('3');
-    await expect(page.getByText('Unsaved changes · 1 field, 2 variables', { exact: true })).toBeVisible();
+    await expect(page.getByText('1 field, 2 variables', { exact: true })).toBeVisible();
     expect(writes).toHaveLength(0);
     await click(page, 'Save changes');
-    await expect(page.getByText(/^Unsaved changes/)).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Discard', exact: true })).toHaveCount(0);
     expect(writes).toHaveLength(1);
     const [saved] = await sql`SELECT replicas, env_vars FROM service_configs WHERE id=${original.id}`;
     expect(saved.replicas).toBe(3);
@@ -653,6 +750,7 @@ for (const kind of ["api-key", "invitation", "webhook"])
           await expect(
             page.getByRole("textbox", { name: "Invitation link" }),
           ).toBeVisible();
+          await expect(page.getByText('Anyone with this link can join Acme Cloud as a member. It works once and expires in 7 days.', { exact: true })).toBeVisible();
         } else {
           await click(page, "New webhook");
           await choose(page, "Service", "Storefront");
@@ -714,33 +812,34 @@ test("every UI page route is represented", async () => {
     [],
   );
 });
-test('create service persists each health-check type without deploying', async ({ browser }) => {
-  const context = await browser.newContext({ baseURL });
+test('create service omits health checks and renders the real create audit payload', async ({ browser }) => {
+  const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 2 });
   await context.addCookies([...authCookies, { name: 'bower_org', value: fixture.orgId, url: baseURL }]);
   const sql = postgres(process.env.DATABASE_URL);
   try {
     const page = await context.newPage();
-    for (const type of ['None', 'HTTP', 'TCP', 'Script']) {
-      await page.goto(`${project}/services`);
-      await click(page, 'New service');
-      await page.getByLabel('Name', { exact: true }).fill(`Audit health ${type}`);
-      await page.getByLabel('Image', { exact: true }).fill('nginx:alpine');
-      await choose(page, 'Type', type);
-      if (type === 'HTTP') await page.getByLabel('Path', { exact: true }).fill('/healthz');
-      if (type === 'HTTP' || type === 'TCP') await page.getByLabel('Port', { exact: true }).fill('3001');
-      if (type === 'Script') await page.getByLabel('Command', { exact: true }).fill('check --ready');
-      await click(page, 'Create service');
-      await page.waitForURL(`**/services/audit-health-${type.toLowerCase()}`);
-      for (const table of ['base_service_configs', 'service_configs']) {
-        const [saved] = await sql`SELECT c.* FROM ${sql(table)} c JOIN services s ON s.id=c.service_id WHERE s.slug=${`audit-health-${type.toLowerCase()}`}`;
-        expect(saved.health_check_type).toBe(type === 'None' ? null : type.toLowerCase());
-        expect(saved.health_check_port).toBe(type === 'HTTP' || type === 'TCP' ? 3001 : null);
-        expect(saved.health_check_path).toBe(type === 'HTTP' ? '/healthz' : null);
-        expect(saved.health_check_command).toEqual(type === 'Script' ? ['check', '--ready'] : []);
-      }
+    await page.goto(`${project}/services`);
+    await click(page, 'New service');
+    await expect(page.getByRole('dialog').getByLabel('Type', { exact: true })).toHaveCount(0);
+    await page.getByLabel('Name', { exact: true }).fill('Audit checklist service');
+    await page.getByLabel('Image', { exact: true }).fill('nginx:alpine');
+    await click(page, 'Create service');
+    await page.waitForURL('**/services/audit-checklist-service');
+    for (const table of ['base_service_configs', 'service_configs']) {
+      const [saved] = await sql`SELECT c.* FROM ${sql(table)} c JOIN services s ON s.id=c.service_id WHERE s.slug='audit-checklist-service'`;
+      expect(saved.health_check_type).toBeNull();
+      expect(saved.health_check_port).toBeNull();
+      expect(saved.health_check_command).toEqual([]);
     }
+    await page.goto('/audit');
+    await expect(page.locator('dl').first()).toContainText('Audit checklist service');
+    await expect(page.locator('dl').first()).toContainText('nginx:alpine');
+    await expect(page.locator('dl').first()).not.toContainText('[object Object]');
+    await mkdir(`${output}/desktop/screenshots`, { recursive: true });
+    await page.screenshot({ path: `${output}/desktop/screenshots/real-created-audit.png` });
   } finally {
-    await sql`DELETE FROM services WHERE slug IN ('audit-health-none', 'audit-health-http', 'audit-health-tcp', 'audit-health-script')`;
+    await sql`DELETE FROM audit_log WHERE resource_id IN (SELECT id::text FROM services WHERE slug='audit-checklist-service')`;
+    await sql`DELETE FROM services WHERE slug='audit-checklist-service'`;
     await sql.end();
     await context.close();
   }

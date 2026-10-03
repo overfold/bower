@@ -42,6 +42,16 @@ export function timestampTitle(value: DateValue, timeZone?: string): string {
 export function formatRelativeTime(value: DateValue, now = Date.now()): string {
   const date = validDate(value)
   if (!date || !Number.isFinite(now)) return '—'
+  const futureSeconds = Math.ceil((date.getTime() - now) / 1000)
+  if (futureSeconds > 0) {
+    if (futureSeconds < 60) return `in ${futureSeconds} ${futureSeconds === 1 ? 'second' : 'seconds'}`
+    const minutes = Math.ceil(futureSeconds / 60)
+    if (futureSeconds < 3600) return `in ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`
+    const hours = Math.ceil(futureSeconds / 3600)
+    if (futureSeconds < 86400) return `in ${hours} ${hours === 1 ? 'hour' : 'hours'}`
+    const days = Math.ceil(futureSeconds / 86400)
+    return `in ${days} ${days === 1 ? 'day' : 'days'}`
+  }
   const seconds = Math.max(0, Math.floor((now - date.getTime()) / 1000))
   if (seconds < 60) return 'just now'
   const minutes = Math.floor(seconds / 60)

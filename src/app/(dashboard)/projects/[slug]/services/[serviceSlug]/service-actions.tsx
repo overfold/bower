@@ -15,6 +15,12 @@ import type { ServiceConfigDiff } from '@/lib/service-config-diff'
 import { Time } from '@/components/time'
 import { deploymentImageTag, formatCpu, formatMemory } from '@/lib/format'
 import { Chip } from '@/components/status'
+import { DialogBody } from '@/components/ui/dialog'
+
+export function ConfigDiffPreview({ changes, afterLabel }: { changes: ServiceConfigDiff[]; afterLabel: string }) {
+  if (!changes.length) return <p className="text-sm text-ink-muted">No configuration differences.</p>
+  return <div className="overflow-hidden rounded-md border border-line"><div className="grid grid-cols-[minmax(6rem,0.7fr)_1fr_1fr] gap-3 bg-sunken px-3 py-2 text-xs font-semibold text-ink-muted"><span>Field</span><span>Running</span><span>{afterLabel}</span></div>{changes.map((change) => <div key={change.key} className="grid grid-cols-[minmax(6rem,0.7fr)_1fr_1fr] gap-3 border-t border-line px-3 py-2 text-sm">{change.kind === 'environment' ? <><span><Chip tone="neutral">{change.change}</Chip><span className="mt-1 block break-all font-mono text-xs">{change.variable}</span></span><span className="font-mono text-xs text-ink-muted">{change.before.present ? '••••••••' : '—'}</span><span className="font-mono text-xs">{change.after.present ? '••••••••' : '—'}</span></> : <><span className="font-medium text-ink">{change.label}</span><span className={`min-w-0 break-words text-xs text-ink-muted ${change.key === 'image' ? 'font-mono' : ''}`}>{formatDiffValue(change, change.before)}</span><span className={`min-w-0 break-words text-xs text-ink ${change.key === 'image' ? 'font-mono' : ''}`}>{formatDiffValue(change, change.after)}</span></>}</div>)}</div>
+}
 
 function formatDiffValue(change: Extract<ServiceConfigDiff, { kind: 'config' }>, value: typeof change.before) {
   if (value == null || value === '') return 'None'
@@ -44,7 +50,7 @@ interface ServiceActionsProps {
   environmentId: string
   hasDeployments?: boolean
   changes: ServiceConfigDiff[]
-  rollbackTargets: { id: string; image: string; createdAt: string }[]
+  rollbackTargets: { id: string; image: string; createdAt: string; changes: ServiceConfigDiff[] }[]
 }
 
 export function ServiceActions({ serviceId, serviceName, runningImage, environmentId, hasDeployments, changes, rollbackTargets }: ServiceActionsProps) {
@@ -56,6 +62,7 @@ export function ServiceActions({ serviceId, serviceName, runningImage, environme
   const pathname = usePathname()
   const [confirmDeploy, setConfirmDeploy] = useState(false)
   const [rollbackTarget, setRollbackTarget] = useState(rollbackTargets[0]?.id ?? '')
+  const selectedRollback = rollbackTargets.find((target) => target.id === rollbackTarget)
   useEffect(() => {
     if (params.get('action') !== 'deploy') return
     const frame = requestAnimationFrame(() => setConfirmDeploy(true))
@@ -93,7 +100,7 @@ export function ServiceActions({ serviceId, serviceName, runningImage, environme
                 {runningImage ? <span className="mt-1 block">Running <span className="font-mono text-ink">{deploymentImageTag(runningImage)}</span></span> : null}
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <div className="px-5 py-4"><Select value={rollbackTarget} onValueChange={setRollbackTarget}><SelectTrigger aria-label="Rollback release" className="font-mono"><SelectValue /></SelectTrigger><SelectContent>{rollbackTargets.map((target) => <SelectItem key={target.id} value={target.id}><span className="font-mono">{deploymentImageTag(target.image)}</span><span className="ml-2 font-sans text-xs text-ink-muted"><Time value={target.createdAt} /></span></SelectItem>)}</SelectContent></Select></div>
+            <DialogBody className="space-y-4"><div className="space-y-2"><label className="text-sm font-medium text-ink" htmlFor="service-rollback-release">Release</label><Select value={rollbackTarget} onValueChange={setRollbackTarget}><SelectTrigger id="service-rollback-release" aria-label="Rollback release" className="font-mono"><SelectValue /></SelectTrigger><SelectContent>{rollbackTargets.map((target) => <SelectItem key={target.id} value={target.id}><span className="font-mono">{deploymentImageTag(target.image)}</span><span className="ml-2 font-sans text-xs text-ink-muted"><Time value={target.createdAt} /></span></SelectItem>)}</SelectContent></Select></div><ConfigDiffPreview changes={selectedRollback?.changes ?? []} afterLabel="Selected release" /></DialogBody>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <Button variant="primary" loading={rollingBack} disabled={!rollbackTarget} onClick={() => startRollback(run(() => rollbackServiceAction(serviceId, environmentId, rollbackTarget), 'Rollback started.'))}>
@@ -126,7 +133,7 @@ export function ServiceActions({ serviceId, serviceName, runningImage, environme
       <AlertDialog open={confirmDeploy} onOpenChange={setConfirmDeploy}>
         <AlertDialogContent size="lg">
           <AlertDialogHeader><AlertDialogTitle>Deploy this service?</AlertDialogTitle><AlertDialogDescription>{changes.length ? 'Review the saved changes that will be deployed.' : 'The saved configuration matches the currently running release.'}</AlertDialogDescription></AlertDialogHeader>
-          {changes.length ? <div className="mx-5 my-4 overflow-hidden rounded-md border border-line"><div className="grid grid-cols-[minmax(6rem,0.7fr)_1fr_1fr] gap-3 bg-sunken px-3 py-2 text-xs font-semibold text-ink-muted"><span>Field</span><span>Running</span><span>After deploy</span></div>{changes.map((change) => <div key={change.key} className="grid grid-cols-[minmax(6rem,0.7fr)_1fr_1fr] gap-3 border-t border-line px-3 py-2 text-sm">{change.kind === 'environment' ? <><span><Chip tone="neutral">{change.change}</Chip><span className="mt-1 block break-all font-mono text-xs">{change.variable}</span></span><span className="font-mono text-xs text-ink-muted">{change.before.present ? '••••••••' : '—'}</span><span className="font-mono text-xs">{change.after.present ? '••••••••' : '—'}</span></> : <><span className="font-medium text-ink">{change.label}</span><span className={`min-w-0 break-words text-xs text-ink-muted ${change.key === 'image' ? 'font-mono' : ''}`}>{formatDiffValue(change, change.before)}</span><span className={`min-w-0 break-words text-xs text-ink ${change.key === 'image' ? 'font-mono' : ''}`}>{formatDiffValue(change, change.after)}</span></>}</div>)}</div> : null}
+          {changes.length ? <DialogBody><ConfigDiffPreview changes={changes} afterLabel="After deploy" /></DialogBody> : null}
           <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><Button variant="primary" loading={deploying} onClick={() => startDeploy(async () => { await run(() => deployServiceAction(serviceId, environmentId), 'Deployment started.')(); setConfirmDeploy(false) })}>Deploy</Button></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

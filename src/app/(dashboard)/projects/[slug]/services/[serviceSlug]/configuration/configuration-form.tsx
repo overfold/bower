@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { updateServiceConfigOverridesAction } from '@/lib/actions/base-service-config'
 import { Panel, PanelHeader } from '@/components/ui/panel'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { InlineNotice, useFeedback } from '@/components/ui/feedback'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -15,7 +16,7 @@ import type { TrellisJobLimits } from '@/types/trellis'
 import { formatMemory } from '@/lib/format'
 import { VariablesSection } from '@/components/variables-section'
 import type { VariableService } from '@/lib/variable-matrix'
-import { ShieldAlert } from 'lucide-react'
+import { ChevronDown, ShieldAlert } from 'lucide-react'
 
 interface ConfigurationFormProps {
   serviceId: string
@@ -45,12 +46,21 @@ function changedVariableCount(current: VariableService, baseline: VariableServic
   return [...new Set([...currentValues.keys(), ...baselineValues.keys()])].filter((key) => currentValues.get(key) !== baselineValues.get(key)).length
 }
 
+function unsavedSummary(fieldCount: number, variableCount: number) {
+  const fields = `${fieldCount} ${fieldCount === 1 ? 'field' : 'fields'}`
+  const variables = `${variableCount} ${variableCount === 1 ? 'variable' : 'variables'}`
+  if (fieldCount && variableCount) return `${fields}, ${variables}`
+  if (fieldCount) return `${fieldCount} unsaved ${fieldCount === 1 ? 'field' : 'fields'}`
+  return `${variableCount} unsaved ${variableCount === 1 ? 'variable' : 'variables'}`
+}
+
 export function ConfigurationForm({ serviceId, environmentId, config, limits, projectId, serviceName, sharedNames, secretLabels, canManage, mayBypassMultitenancy, environmentUpdatedAt }: ConfigurationFormProps) {
   const router = useRouter()
   const { toast } = useFeedback()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [healthType, setHealthType] = useState(config?.healthCheckType ?? '')
+  const [advancedOpen, setAdvancedOpen] = useState(false)
   const [strategy, setStrategy] = useState(config?.deploymentStrategy ?? 'rolling')
   const [dirtyFields, setDirtyFields] = useState<Set<string>>(new Set())
   const setFieldDirty = (field: string, dirty: boolean) => setDirtyFields((current) => { const next = new Set(current); if (dirty) next.add(field); else next.delete(field); return next })
@@ -62,8 +72,9 @@ export function ConfigurationForm({ serviceId, environmentId, config, limits, pr
   const [runtime, setRuntime] = useState(initialRuntime)
   const [apiAccess, setApiAccess] = useState(initialAccess)
   const formRef = useRef<HTMLFormElement>(null)
-  const advancedRef = useRef<HTMLDetailsElement>(null)
-  useEffect(() => { if (window.location.hash === '#advanced' && advancedRef.current) advancedRef.current.open = true }, [])
+  useEffect(() => {
+    if (window.location.hash === '#advanced') queueMicrotask(() => setAdvancedOpen(true))
+  }, [])
 
   const d = {
     image: config?.image ?? '',
@@ -209,16 +220,16 @@ export function ConfigurationForm({ serviceId, environmentId, config, limits, pr
 
       <VariablesSection projectId={projectId} environmentId={environmentId} sharedNames={sharedNames} services={[variableService]} secretLabels={secretLabels} canManage={canManage} serviceId={serviceId} updatedAt={environmentUpdatedAt} onServiceChange={setVariableService} />
 
-      <details ref={advancedRef} id="advanced" className="group rounded-xl border border-line bg-surface">
-        <summary className="cursor-pointer list-none px-4 py-4 font-medium text-ink">Advanced <span className="ml-2 text-sm font-normal text-ink-muted">Runtime and workload API access</span></summary>
-        <div className="grid gap-5 border-t border-line p-4 md:grid-cols-2">
-          <div className="space-y-2"><Label htmlFor="runtime">Isolation</Label><Select name="runtime" value={runtime} onValueChange={(value) => { setRuntime(value as 'runc' | 'runsc'); setFieldDirty('runtime', value !== initialRuntime) }}><SelectTrigger id="runtime"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="runc">None</SelectItem><SelectItem value="runsc">Sandboxed</SelectItem></SelectContent></Select><p className="text-2xs text-ink-muted">Sandboxed workloads use stronger process isolation for the whole service.</p></div>
-          <div className="space-y-2"><Label htmlFor="apiAccess">Workload API access</Label><Select name="apiAccess" value={apiAccess} onValueChange={(value) => { setApiAccess(value); setFieldDirty('apiAccess', value !== initialAccess) }}><SelectTrigger id="apiAccess"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">None</SelectItem>{mayBypassMultitenancy ? <><SelectItem value="cluster:read">Cluster · read</SelectItem><SelectItem value="cluster:write">Cluster · write</SelectItem></> : null}</SelectContent></Select><p className="text-2xs text-ink-muted">Cluster-wide API access can only be enabled by an instance admin.</p></div>
+      <section id="advanced" className="rounded-xl border border-line bg-surface">
+        <PanelHeader title="Advanced" hint="Runtime and workload API access" className={!advancedOpen ? 'border-b-0' : undefined} action={<Button type="button" variant="ghost" size="icon" aria-label="Toggle advanced configuration" aria-expanded={advancedOpen} aria-controls="advanced-content" onClick={() => setAdvancedOpen((open) => !open)}><ChevronDown className={`transition-transform ${advancedOpen ? 'rotate-180' : ''}`} aria-hidden="true" /></Button>} />
+        <div id="advanced-content" hidden={!advancedOpen} className={advancedOpen ? 'grid gap-5 p-4 md:grid-cols-2' : 'hidden'}>
+          <div className="space-y-2"><Label htmlFor="runtime">Isolation</Label><Select name="runtime" value={runtime} onValueChange={(value) => { setRuntime(value as 'runc' | 'runsc'); setFieldDirty('runtime', value !== initialRuntime) }}><SelectTrigger id="runtime"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="runc">None</SelectItem><SelectItem value="runsc">Sandboxed</SelectItem></SelectContent></Select><p className="text-xs text-ink-muted">Sandboxed workloads use stronger process isolation for the whole service.</p></div>
+          <div className="space-y-2"><Label htmlFor="apiAccess">Workload API access</Label><Select name="apiAccess" value={apiAccess} onValueChange={(value) => { setApiAccess(value); setFieldDirty('apiAccess', value !== initialAccess) }}><SelectTrigger id="apiAccess"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">None</SelectItem>{mayBypassMultitenancy ? <><SelectItem value="cluster:read">Cluster · read</SelectItem><SelectItem value="cluster:write">Cluster · write</SelectItem></> : null}</SelectContent></Select><p className="text-xs text-ink-muted">Cluster-wide API access can only be enabled by an instance admin.</p></div>
           {apiAccess !== 'none' ? <div className="md:col-span-2"><InlineNotice tone="warning" icon={<ShieldAlert className="mt-0.5 h-4 w-4" />}>This service has cluster-wide workload API access.</InlineNotice></div> : null}
         </div>
-      </details>
+      </section>
 
-      <UnsavedChangesBar dirty={dirtyFields.size > 0 || changedVariableCount(variableService, variableBaseline) > 0} summary={`Unsaved changes · ${dirtyFields.size} ${dirtyFields.size === 1 ? 'field' : 'fields'}, ${changedVariableCount(variableService, variableBaseline)} ${changedVariableCount(variableService, variableBaseline) === 1 ? 'variable' : 'variables'}`} pending={saving} onSave={() => formRef.current?.requestSubmit()} onDiscard={() => { formRef.current?.reset(); setDirtyFields(new Set()); setError(null); setHealthType(config?.healthCheckType ?? ''); setStrategy(config?.deploymentStrategy ?? 'rolling'); setVariableService(variableBaseline); setRuntime(initialRuntime); setApiAccess(initialAccess) }} />
+      <UnsavedChangesBar dirty={dirtyFields.size > 0 || changedVariableCount(variableService, variableBaseline) > 0} summary={unsavedSummary(dirtyFields.size, changedVariableCount(variableService, variableBaseline))} pending={saving} onSave={() => formRef.current?.requestSubmit()} onDiscard={() => { formRef.current?.reset(); setDirtyFields(new Set()); setError(null); setHealthType(config?.healthCheckType ?? ''); setStrategy(config?.deploymentStrategy ?? 'rolling'); setVariableService(variableBaseline); setRuntime(initialRuntime); setApiAccess(initialAccess) }} />
     </form>
   )
 }

@@ -1,6 +1,17 @@
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
+import { readFileSync } from "node:fs";
+
+const theme = readFileSync(new URL("./src/app/globals.css", import.meta.url), "utf8").match(/@theme[^\{]*\{([^}]+)\}/)[1];
+const colors = new Set([...theme.matchAll(/--color-([\w-]+):/g)].map((match) => match[1]));
+const nonColors = new Set([
+  "white", "black", "transparent", "current", "inherit", "none", "auto",
+  "left", "right", "center", "justify", "start", "end", "wrap", "nowrap", "balance", "pretty",
+  "ellipsis", "clip", "solid", "dashed", "dotted", "double", "hidden", "collapse", "separate",
+  "inset", "offset", "t", "r", "b", "l", "x", "y", "s", "e", "px",
+  ...[...theme.matchAll(/--(?:text|shadow)-([\w-]+):/g)].map((match) => match[1]),
+]);
 
 const typeScale = new Map([
   ["11", "2xs"], ["11.5", "2xs"], ["12", "xs"], ["12.5", "sm"],
@@ -11,9 +22,19 @@ const typeScale = new Map([
 const bowerRules = {
   rules: {
     "named-type-scale": {
-      meta: { type: "suggestion", fixable: "code", schema: [], messages: { named: "Use the named Bower type scale instead of arbitrary pixel text sizes." } },
+      meta: { type: "suggestion", fixable: "code", schema: [], messages: { named: "Use the named Bower type scale instead of arbitrary pixel text sizes.", color: "Unknown color utility '{{utility}}'; use a color declared in @theme." } },
       create(context) {
+        const checkColors = (node, value) => {
+          for (const match of value.matchAll(/(?:^|[\s:'"`])((?:bg|text|border|ring|outline|fill|stroke|divide|from|via|to|shadow|decoration|placeholder|caret|accent)-(?:offset-)?([a-z][\w-]*))/g)) {
+            const [, utility, rawToken] = match;
+            const token = rawToken.replace(/^(?:[trblxyse]|offset)-/, "");
+            if (!colors.has(token) && !nonColors.has(token) && !/^\d+(?:\.\d+)?$/.test(token) && !/^(?:gradient-|linear-|radial|conic)/.test(token)) {
+              context.report({ node, messageId: "color", data: { utility } });
+            }
+          }
+        };
         const check = (node, value) => {
+          checkColors(node, value);
           const replaced = value.replace(/text-\[([\d.]+)px\]/g, (match, pixels) => `text-${typeScale.get(pixels) ?? "sm"}`);
           if (replaced !== value) context.report({ node, messageId: "named", fix: (fixer) => fixer.replaceText(node, JSON.stringify(replaced)) });
         };
@@ -21,6 +42,7 @@ const bowerRules = {
           Literal(node) { if (typeof node.value === "string") check(node, node.value); },
           TemplateElement(node) {
             const value = context.sourceCode.getText(node);
+            checkColors(node, value);
             const replaced = value.replace(/text-\[([\d.]+)px\]/g, (match, pixels) => `text-${typeScale.get(pixels) ?? "sm"}`);
             if (replaced !== value) context.report({ node, messageId: "named", fix: (fixer) => fixer.replaceText(node, replaced) });
           },

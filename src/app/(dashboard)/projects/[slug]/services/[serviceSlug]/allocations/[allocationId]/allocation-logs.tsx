@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { getAllocationLogsAction } from '@/lib/actions/allocation-actions'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { SearchInput } from '@/components/ui/search-input'
 import { InlineNotice, useFeedback } from '@/components/ui/feedback'
 import { Panel, PanelHeader } from '@/components/ui/panel'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -38,16 +38,32 @@ export function AllocationLogs({ serviceId, allocationId, tasks }: { serviceId: 
   useEffect(() => { if (follow && container.current) container.current.scrollTop = container.current.scrollHeight }, [output, follow])
 
   const lines = output.split('\n').filter((line) => !query || line.toLowerCase().includes(query.toLowerCase()))
-  return <Panel>
+  const needle = query.toLowerCase()
+  const matches = needle ? lines.reduce((count, line) => count + line.toLowerCase().split(needle).length - 1, 0) : 0
+  function highlight(text: string) {
+    if (!needle) return text
+    const fragments: React.ReactNode[] = []
+    let start = 0
+    let index = text.toLowerCase().indexOf(needle)
+    while (index !== -1) {
+      fragments.push(text.slice(start, index), <mark key={index} className="rounded-sm bg-brand-100 text-ink">{text.slice(index, index + query.length)}</mark>)
+      start = index + query.length
+      index = text.toLowerCase().indexOf(needle, start)
+    }
+    fragments.push(text.slice(start))
+    return fragments
+  }
+  return <Panel className="overflow-visible">
     <PanelHeader title="Task logs" />
-    <div className="flex flex-wrap items-center gap-2 border-b border-line p-3">
+    <div className="sticky top-14 z-10 flex flex-wrap items-center gap-2 border-b border-line bg-surface p-3">
       <label className="flex items-center gap-2 text-sm">Task <Select value={task} onValueChange={(value) => {
         const next = tasks.find((entry) => entry.name === value)
         setTask(value); setOutput(next?.output ?? ''); setError(next?.error ?? null)
       }}><SelectTrigger aria-label="Log task" className="w-40"><SelectValue /></SelectTrigger><SelectContent>{tasks.map((entry) => <SelectItem key={entry.name} value={entry.name}>{entry.name}</SelectItem>)}</SelectContent></Select></label>
       <label className="flex items-center gap-2 text-sm"><Switch checked={follow} onCheckedChange={setFollow} />Follow</label>
       <label className="flex items-center gap-2 text-sm"><Switch checked={wrap} onCheckedChange={setWrap} />Wrap</label>
-      <Input type="search" aria-label="Search logs" placeholder="Search logs…" className="w-48" value={query} onChange={(event) => setQuery(event.target.value)} />
+      <SearchInput aria-label="Search logs" value={query} onChange={(event) => setQuery(event.target.value)} />
+      {query ? <span role="status" className="text-xs text-ink-muted">{matches} {matches === 1 ? 'match' : 'matches'}</span> : null}
       <Button size="sm" onClick={async () => {
         try { await navigator.clipboard.writeText(output); toast({ tone: 'success', title: 'Logs copied' }) }
         catch { toast({ tone: 'danger', title: 'Could not copy logs' }) }
@@ -58,10 +74,10 @@ export function AllocationLogs({ serviceId, allocationId, tasks }: { serviceId: 
       }}>Download</Button>
     </div>
     {error ? <InlineNotice tone="danger" className="m-3">{error}</InlineNotice> : null}
-    <pre ref={container} className={`max-h-96 overflow-auto p-4 font-mono text-xs leading-relaxed text-ink-soft ${wrap ? 'whitespace-pre-wrap break-all' : ''}`}>{output ? lines.length ? lines.map((line, index) => {
+    <pre ref={container} className={`h-[calc(100dvh-12rem)] min-h-64 overflow-auto p-4 font-mono text-xs leading-relaxed text-ink-soft ${wrap ? 'whitespace-pre-wrap break-all' : ''}`}>{output ? lines.length ? lines.map((line, index) => {
       const timestamp = line.match(/^(\d{4}-\d{2}-\d{2}T\S+)\s+(.*)$/)
       const level = /\bERROR\b/i.test(line) ? 'text-danger-500' : /\bWARN(?:ING)?\b/i.test(line) ? 'text-warn-500' : ''
-      return <span key={index} className={`block ${level}`}>{timestamp ? <><span className="text-ink-muted">{timestamp[1]} </span>{timestamp[2]}</> : line || '\u00a0'}</span>
+      return <span key={index} className={`block ${level}`}>{timestamp ? <><span className="text-ink-muted">{highlight(timestamp[1])} </span>{highlight(timestamp[2])}</> : highlight(line || '\u00a0')}</span>
     }) : 'No matching log lines.' : 'No output'}</pre>
   </Panel>
 }

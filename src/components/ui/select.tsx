@@ -14,7 +14,7 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      "flex h-9 w-full items-center justify-between whitespace-nowrap rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink transition-[border-color,box-shadow] duration-150 ease-enter placeholder:text-ink-muted focus-visible:border-brand-500 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-100 disabled:border-line disabled:bg-sunken disabled:text-ink-muted aria-[invalid=true]:border-danger-500 aria-[invalid=true]:ring-danger-200 aria-[invalid=true]:focus-visible:border-danger-500 aria-[invalid=true]:focus-visible:ring-danger-200 [&>span]:line-clamp-1",
+      "flex h-9 w-full items-center justify-between whitespace-nowrap rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink transition-[border-color,box-shadow] duration-150 ease-enter placeholder:text-ink-muted focus-visible:border-brand-500 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-100 disabled:cursor-not-allowed disabled:border-line disabled:bg-sunken disabled:text-ink-muted aria-[invalid=true]:border-danger-500 aria-[invalid=true]:ring-danger-200 aria-[invalid=true]:focus-visible:border-danger-500 aria-[invalid=true]:focus-visible:ring-danger-200 [&>span]:line-clamp-1",
       className,
     )}
     {...props}
@@ -89,7 +89,7 @@ const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex w-full cursor-default select-none items-center rounded-lg py-1.5 pl-2 pr-8 text-sm text-ink-soft outline-none transition-colors duration-150 ease-enter focus:bg-brand-50 focus:text-ink data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "relative flex w-full cursor-default select-none items-center rounded-lg py-1.5 pl-2 pr-8 text-sm text-ink-soft outline-none transition-colors duration-150 ease-enter focus:bg-brand-50 focus:text-ink data-[disabled]:cursor-not-allowed data-[disabled]:text-ink-muted",
       className,
     )}
     {...props}

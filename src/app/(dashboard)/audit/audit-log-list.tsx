@@ -28,12 +28,12 @@ const actorIcons = {
   system: Bot,
 } as const
 
-function DiffColumns({ details }: { details: Record<string, unknown> }) {
+export function DiffColumns({ details }: { details: Record<string, unknown> }) {
   const before = details.before && typeof details.before === 'object' ? details.before as Record<string, unknown> : null
   const after = details.after && typeof details.after === 'object' ? details.after as Record<string, unknown> : null
-  const scalarDiff = 'before' in details && 'after' in details && !(before && after)
-  const diffKeys = before && after ? [...new Set([...Object.keys(before), ...Object.keys(after)])].filter((key) => JSON.stringify(before[key]) !== JSON.stringify(after[key])) : []
-  const entries = Object.entries(details).filter(([key]) => !((scalarDiff || (before && after)) && (key === 'before' || key === 'after')))
+  const scalarDiff = 'before' in details && 'after' in details && !before && !after
+  const diffKeys = [...new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})])].filter((key) => JSON.stringify(before?.[key]) !== JSON.stringify(after?.[key]))
+  const entries = Object.entries(details).filter(([key]) => !((scalarDiff || before || after) && (key === 'before' || key === 'after')))
   if (entries.length === 0 && diffKeys.length === 0 && !scalarDiff) return <p className="text-xs text-ink-muted">No additional details.</p>
 
   return (
@@ -44,9 +44,9 @@ function DiffColumns({ details }: { details: Record<string, unknown> }) {
         {diffKeys.map((key) => <div key={`diff-${key}`} className="contents">
           <dt className="text-xs text-ink-muted">{label(key)}</dt>
           <dd className="min-w-0 break-words font-mono text-code">
-            <span className="text-ink-muted">{typeof before![key] === 'object' ? JSON.stringify(before![key]) : String(before![key] ?? '—')}</span>
+            <span className="text-ink-muted">{before?.[key] == null ? '—' : typeof before[key] === 'object' ? JSON.stringify(before[key]) : String(before[key])}</span>
             <span className="mx-2 text-ink-muted" aria-label="changed to">→</span>
-            <span className="text-ink">{typeof after![key] === 'object' ? JSON.stringify(after![key]) : String(after![key] ?? '—')}</span>
+            <span className="text-ink">{after?.[key] == null ? '—' : typeof after[key] === 'object' ? JSON.stringify(after[key]) : String(after[key])}</span>
           </dd>
         </div>)}
         {entries.map(([k, v]) => (
@@ -134,7 +134,7 @@ export function AuditLogList({ entries, now }: { entries: AuditEntry[]; now: num
       })}
       </ul>
       {filtered.length === 0 ? <p className="px-4 py-10 text-center text-sm text-ink-muted">No events match these filters.</p> : null}
-      {filtered.length > PAGE_SIZE ? <div className="flex items-center justify-between border-t border-line px-4 py-3 text-xs text-ink-muted"><span>Page {currentPage} of {pageCount}</span><div className="flex gap-2"><Button size="sm" variant="ghost" disabled={currentPage === 1} onClick={() => setPage((value) => value - 1)}>Previous</Button><Button size="sm" variant="ghost" disabled={currentPage === pageCount} onClick={() => setPage((value) => value + 1)}>Next</Button></div></div> : null}
+      {filtered.length > PAGE_SIZE ? <div className="flex items-center justify-between border-t border-line px-4 py-3 text-xs text-ink-muted"><span>Page {currentPage} of {pageCount}</span><div className="flex gap-2"><Button size="sm" variant="ghost" className="text-brand-700" disabled={currentPage === 1} onClick={() => setPage((value) => value - 1)}>Previous</Button><Button size="sm" variant="ghost" className="text-brand-700" disabled={currentPage === pageCount} onClick={() => setPage((value) => value + 1)}>Next</Button></div></div> : null}
     </Panel>
   )
 }

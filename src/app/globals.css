@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 @import "@xterm/xterm/css/xterm.css";
 
 @theme inline {
@@ -19,6 +20,7 @@
   --color-brand-500: var(--brand-500);
   --color-brand-600: var(--brand-600);
   --color-brand-700: var(--brand-700);
+  --color-link: var(--brand-700);
   --color-brand-900: var(--brand-900);
   --color-warn-50: var(--warn-50);
   --color-warn-200: var(--warn-200);
@@ -141,6 +143,10 @@
 ::selection {
   background-color: var(--brand-100);
   color: var(--brand-700);
+}
+
+input[type="search"]::-webkit-search-cancel-button {
+  -webkit-appearance: none;
 }
 
 .nums {

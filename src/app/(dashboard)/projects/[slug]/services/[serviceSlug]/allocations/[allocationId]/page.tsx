@@ -84,7 +84,8 @@ export default async function AllocationDetailPage({
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <PageHeading
-            title={<span className="flex flex-wrap items-center gap-3">{allocationId} <AllocationStatus phase={allocation.phase} health={allocation.health} /></span>}
+            title={allocationId}
+            status={<AllocationStatus phase={allocation.phase} health={allocation.health} />}
             meta={
               <>
                 <MetaItem label="Service" value={<a className="text-link" href={`/projects/${slug}/services/${serviceSlug}`}>{service.name}</a>} />

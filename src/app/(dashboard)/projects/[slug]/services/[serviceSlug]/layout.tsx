@@ -4,7 +4,7 @@ import { getDeploymentsByService, getMergedServiceConfig, getProjectBySlug, getP
 import { getProjectRole } from '@/lib/actions/shared'
 import { ServiceHeader } from './service-header'
 import { getProjectLiveServices } from '@/lib/service-health-query'
-import { diffServiceConfig } from '@/lib/service-config-diff'
+import { diffJobSpecs, diffServiceConfig } from '@/lib/service-config-diff'
 import { getTrellisClient } from '@/lib/trellis-instance'
 import type { TrellisReplacementBackoff } from '@/types/trellis'
 import { ServiceShell } from './service-shell'
@@ -60,7 +60,7 @@ export default async function ServiceLayout({ children, params }: {
       route={route?.route.domain ?? null}
       health={row?.health ?? 'never'} ready={row?.ready ?? null} replicas={config?.replicas ?? 0}
       canDeploy={role !== 'viewer'} failedDeploymentId={row?.latestDeployment?.status === 'failed' ? row.latestDeployment.id : undefined}
-      changes={changes} rollbackTargets={rollbackTargets.map((deployment) => ({ id: deployment.id, image: deployment.imageAfter, createdAt: deployment.createdAt.toISOString() }))}
+      changes={changes} rollbackTargets={rollbackTargets.map((deployment) => ({ id: deployment.id, image: deployment.imageAfter, createdAt: deployment.createdAt.toISOString(), changes: diffJobSpecs(deployment.jobSpec, runtimeJob?.spec ?? current?.jobSpec) }))}
       replacementBackoff={replacementBackoff}
       logsHref={failingAllocation ? `/projects/${slug}/services/${serviceSlug}/allocations/${failingAllocation.id}` : undefined}
     />}>

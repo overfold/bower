@@ -4,12 +4,13 @@ interface PageHeadingProps {
   title: React.ReactNode
   description?: string
   actions?: React.ReactNode
+  status?: React.ReactNode
   meta?: React.ReactNode
   className?: string
   as?: 'h1' | 'h2' | 'h3'
 }
 
-export function PageHeading({ title, description, actions, meta, className, as: Heading = 'h1' }: PageHeadingProps) {
+export function PageHeading({ title, description, actions, status, meta, className, as: Heading = 'h1' }: PageHeadingProps) {
   const headingStyle = {
     h1: 'text-2xl font-bold tracking-tightest',
     h2: 'text-lg font-semibold tracking-tight',
@@ -18,7 +19,10 @@ export function PageHeading({ title, description, actions, meta, className, as: 
   return (
     <header className={cn('flex flex-col items-stretch gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-x-8', className)}>
       <div className="min-w-0 max-w-2xl">
-        <Heading className={cn('break-words leading-tight text-ink', headingStyle)}>{title}</Heading>
+        <div className="flex flex-wrap items-center gap-3">
+          <Heading className={cn('break-words leading-tight text-ink', headingStyle)}>{title}</Heading>
+          {status}
+        </div>
         {description ? (
           <p className="mt-2 text-sm leading-relaxed text-ink-soft">{description}</p>
         ) : null}

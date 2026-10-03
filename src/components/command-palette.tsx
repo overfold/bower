@@ -88,11 +88,11 @@ export function CommandPalette({ open, onOpenChange, projects, services, orgName
     }))
     const pageEntries = pages.filter((page) => page.id !== 'pg-settings-instance' || instanceAdmin)
     const actions: SearchEntry[] = [
-      ...services.slice(0, 3).map((service) => ({ id: `deploy-${service.id}`, label: `Deploy ${service.name}…`, hint: `Action · ${service.projectName}`, href: `/projects/${service.projectSlug}/services/${service.slug}?action=deploy`, kind: 'action' as const })),
+      ...services.map((service) => ({ id: `deploy-${service.id}`, label: `Deploy ${service.name}…`, hint: `Action · ${service.projectName}`, href: `/projects/${service.projectSlug}/services/${service.slug}?action=deploy`, kind: 'action' as const })),
       { id: 'action-new-project', label: 'New project', hint: 'Action', href: '/projects?action=new', kind: 'action' },
       { id: 'action-invite', label: 'Invite people', hint: 'Action', href: '/settings/members?action=invite', kind: 'action' },
     ]
-    return [...actions, ...projectEntries, ...serviceEntries, ...pageEntries]
+    return [...projectEntries, ...serviceEntries, ...pageEntries, ...actions]
   }, [projects, services, instanceAdmin])
 
   const results = useMemo(() => {
@@ -104,7 +104,8 @@ export function CommandPalette({ open, onOpenChange, projects, services, orgName
         .slice(0, 5)
         .map((entry) => ({ ...entry, recent: true }))
       const goTo = pages.slice(0, 6).filter((page) => !recent.some((entry) => entry.href === page.href))
-      return [...recent, ...goTo, ...entries.filter((entry) => entry.kind === 'action')]
+      const actions = entries.filter((entry) => entry.kind === 'action').filter((entry, index) => index < 3 || !entry.id.startsWith('deploy-'))
+      return [...recent, ...goTo, ...actions]
     }
     const matches = entries
       .filter((e) => `${e.label} ${e.hint}`.toLowerCase().includes(q))
@@ -118,11 +119,13 @@ export function CommandPalette({ open, onOpenChange, projects, services, orgName
   }, [])
 
   const go = useCallback(
-    (href: string) => {
-      const nextRecent = [href, ...recentHrefs.filter((recent) => recent !== href)].slice(0, 5)
-      setRecentHrefs(nextRecent)
-      try { localStorage.setItem('bower-recent-navigation', JSON.stringify(nextRecent)) } catch { /* Storage can be unavailable. */ }
-      router.push(href)
+    (entry: SearchEntry) => {
+      if (entry.kind !== 'action') {
+        const nextRecent = [entry.href, ...recentHrefs.filter((recent) => recent !== entry.href)].slice(0, 5)
+        setRecentHrefs(nextRecent)
+        try { localStorage.setItem('bower-recent-navigation', JSON.stringify(nextRecent)) } catch { /* Storage can be unavailable. */ }
+      }
+      router.push(entry.href)
       onOpenChange(false)
     },
     [router, onOpenChange, recentHrefs],
@@ -146,7 +149,7 @@ export function CommandPalette({ open, onOpenChange, projects, services, orgName
         })
       } else if (e.key === 'Enter' && results[cursor]) {
         e.preventDefault()
-        go(results[cursor].href)
+        go(results[cursor])
       }
     },
     [results, cursor, go, scrollActiveIntoView],
@@ -214,7 +217,7 @@ export function CommandPalette({ open, onOpenChange, projects, services, orgName
           <ul
             ref={listRef}
             id={resultsId}
-            className="max-h-72 overflow-y-auto p-1.5 scroll-thin"
+            className="max-h-[min(60vh,480px)] overflow-y-auto p-1.5 scroll-thin"
             role="listbox"
             aria-label="Results"
           >
@@ -223,7 +226,7 @@ export function CommandPalette({ open, onOpenChange, projects, services, orgName
               const active = i === cursor
               return (
                 <li key={entry.id}>
-                  {!query.trim() && (i === 0 || (entry.recent ? 'recent' : entry.kind) !== (results[i - 1].recent ? 'recent' : results[i - 1].kind)) ? <p className="overline px-2.5 pb-1 pt-2">{entry.recent ? 'Recent' : entry.kind === 'action' ? 'Actions' : 'Go to'}</p> : null}
+                  {(i === 0 || (entry.recent ? 'recent' : entry.kind) !== (results[i - 1].recent ? 'recent' : results[i - 1].kind)) ? <p className="overline px-2.5 pb-1 pt-2">{entry.recent ? 'Recent' : { project: 'Projects', service: 'Services', page: 'Pages', action: 'Actions' }[entry.kind]}</p> : null}
                   <button
                     type="button"
                     role="option"
@@ -231,7 +234,7 @@ export function CommandPalette({ open, onOpenChange, projects, services, orgName
                     tabIndex={-1}
                     aria-selected={active}
                     onMouseEnter={() => setCursor(i)}
-                    onClick={() => go(entry.href)}
+                    onClick={() => go(entry)}
                     className={cn(
                       'flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors duration-150',
                       active ? 'bg-brand-50' : 'hover:bg-sunken',
@@ -240,7 +243,7 @@ export function CommandPalette({ open, onOpenChange, projects, services, orgName
                     <Icon className="h-4 w-4 shrink-0 text-ink-muted" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium text-ink">
-                        {entry.label}
+                        {entry.label}{entry.kind === 'service' ? <span className="font-normal text-ink-muted"> · {entry.hint.replace(/^Service · /, '')}</span> : null}
                       </span>
                     </span>
                     {active && (

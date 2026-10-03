@@ -58,16 +58,44 @@ export function diffServiceConfig(saved: MergedServiceConfig | null, running: un
     ['health', 'Health check', beforeHealth, afterHealth],
     ['secrets', 'Secret bindings', bindings(task.secrets), bindings(saved.secretBindings)],
   ]
+  return diffFields(rows, task.env, task.secrets, saved.envVars, saved.secretBindings)
+}
+
+/** Compare the exact stored release to the running workload, without exposing environment values. */
+export function diffJobSpecs(selected: unknown, running: unknown): ServiceConfigDiff[] {
+  const before = (running as TrellisJobSpec | null)?.task_groups?.[0]
+  const after = (selected as TrellisJobSpec | null)?.task_groups?.[0]
+  const oldTask = before?.tasks?.[0]
+  const newTask = after?.tasks?.[0]
+  if (!before || !after || !oldTask || !newTask) return []
+  return diffFields([
+    ['image', 'Image', oldTask.image, newTask.image],
+    ['replicas', 'Replicas', before.count, after.count],
+    ['cpu', 'CPU', oldTask.resources?.cpu, newTask.resources?.cpu],
+    ['memory', 'Memory', oldTask.resources?.memory, newTask.resources?.memory],
+    ['strategy', 'Strategy', before.update, after.update],
+    ['health', 'Health check', healthConfig(oldTask.health_check?.type, oldTask.health_check ?? {}), healthConfig(newTask.health_check?.type, newTask.health_check ?? {})],
+    ['secrets', 'Secret bindings', bindings(oldTask.secrets), bindings(newTask.secrets)],
+    ['volumes', 'Mounts', oldTask.volumes, newTask.volumes],
+    ['networking', 'Networking', oldTask.networking, newTask.networking],
+    ['runtime', 'Isolation', before.runtime || 'runc', after.runtime || 'runc'],
+    ['api', 'Workload API access', before.api_access, after.api_access],
+    ['restart', 'Restart policy', before.restart, after.restart],
+    ['constraints', 'Placement', before.constraints, after.constraints],
+  ], oldTask.env, oldTask.secrets, newTask.env, newTask.secrets)
+}
+
+function diffFields(rows: Array<[string, string, unknown, unknown]>, runningEnv: unknown, runningSecrets: unknown, savedEnv: unknown, savedSecrets: unknown): ServiceConfigDiff[] {
   const result: ServiceConfigDiff[] = rows.filter(([, , before, after]) => !equal(before, after)).map(([key, label, before, after]) => ({ kind: 'config', key, label, before: sorted(before ?? null) as ServiceConfigValue, after: sorted(after ?? null) as ServiceConfigValue }))
-  const runningKeys = environmentKeys(task.env, task.secrets)
-  const savedKeys = environmentKeys(saved.envVars, saved.secretBindings)
+  const runningKeys = environmentKeys(runningEnv, runningSecrets)
+  const savedKeys = environmentKeys(savedEnv, savedSecrets)
   for (const key of [...new Set([...runningKeys, ...savedKeys])].sort()) {
     const beforePresent = runningKeys.includes(key)
     const afterPresent = savedKeys.includes(key)
-    const runningValue = (task.env as Record<string, unknown> | undefined)?.[key]
-    const savedValue = (saved.envVars as Record<string, unknown> | undefined)?.[key]
-    const hasRunningSecret = bindings(task.secrets).some((binding) => binding.target === 'env' && binding.env === key)
-    const hasSavedSecret = bindings(saved.secretBindings).some((binding) => binding.target === 'env' && binding.env === key)
+    const runningValue = (runningEnv as Record<string, unknown> | undefined)?.[key]
+    const savedValue = (savedEnv as Record<string, unknown> | undefined)?.[key]
+    const hasRunningSecret = bindings(runningSecrets).some((binding) => binding.target === 'env' && binding.env === key)
+    const hasSavedSecret = bindings(savedSecrets).some((binding) => binding.target === 'env' && binding.env === key)
     if (beforePresent !== afterPresent || !equal(runningValue, savedValue) || hasRunningSecret !== hasSavedSecret) result.push({
       kind: 'environment', key: `env.${key}`, label: 'Environment', variable: key,
       change: !beforePresent ? 'Added' : !afterPresent ? 'Removed' : 'Changed',

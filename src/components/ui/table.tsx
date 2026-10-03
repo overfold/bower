@@ -1,12 +1,33 @@
+'use client'
+
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 
 const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement> & { minWidth?: 'md' }>(
-  ({ className, minWidth, ...props }, ref) => (
-    <div className="w-full overflow-x-auto scroll-thin scroll-horizontal [--scroll-surface:var(--surface)]" tabIndex={0} role="region" aria-label="Scrollable table">
+  ({ className, minWidth, ...props }, ref) => {
+    const wrapper = React.useRef<HTMLDivElement>(null)
+    const titleId = React.useId()
+    const explicitLabel = props['aria-labelledby']
+    const [overflowing, setOverflowing] = React.useState(false)
+    const [labelledBy, setLabelledBy] = React.useState<string | undefined>(explicitLabel)
+    React.useEffect(() => {
+      const element = wrapper.current!
+      const table = element.querySelector('table')!
+      const title = element.closest('[data-slot="card"]')?.querySelector('h1, h2, h3') ?? table.querySelector('caption')
+      const update = () => {
+        setOverflowing(element.scrollWidth > element.clientWidth)
+        if (title && !title.id) title.id = titleId
+        setLabelledBy(explicitLabel ?? title?.id)
+      }
+      const observer = new ResizeObserver(update)
+      observer.observe(element)
+      observer.observe(table)
+      return () => observer.disconnect()
+    }, [titleId, explicitLabel])
+    return <div ref={wrapper} className="w-full overflow-x-auto scroll-thin scroll-horizontal [--scroll-surface:var(--surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500" tabIndex={overflowing ? 0 : undefined} role={overflowing ? 'region' : undefined} aria-labelledby={overflowing ? labelledBy : undefined}>
       <table ref={ref} className={cn('w-full border-collapse text-left', minWidth === 'md' && 'min-w-[640px]', className)} {...props} />
     </div>
-  ),
+  },
 )
 Table.displayName = 'Table'
 

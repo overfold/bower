@@ -50,6 +50,7 @@ type Invitation = {
 interface InviteTokensSectionProps {
   invitations: Invitation[]
   role: string
+  organizationName: string
   showInstanceAdmin: boolean
   teams: Array<{ id: string; name: string }>
 }
@@ -57,6 +58,7 @@ interface InviteTokensSectionProps {
 export function InviteTokensSection({
   invitations,
   role,
+  organizationName,
   showInstanceAdmin,
   teams,
 }: InviteTokensSectionProps) {
@@ -73,6 +75,13 @@ export function InviteTokensSection({
   const [customExpiry, setCustomExpiry] = useState('')
   const [teamIds, setTeamIds] = useState<string[]>([])
   const [link, setLink] = useState<string | null>(null)
+  const [createdInvitation, setCreatedInvitation] = useState<{
+    role: 'owner' | 'admin' | 'member'
+    grantInstanceAdmin: boolean
+    maxUses: number | null
+    expiresAt: string
+    expiryChoice: string
+  } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const canInvite = role !== 'member' || showInstanceAdmin
@@ -89,7 +98,7 @@ export function InviteTokensSection({
     setPending(true)
     setError(null)
     try {
-      const result = await createInvitationAction({
+      const submitted = {
         role: roleValue,
         grantInstanceAdmin: admin,
         maxUses: uses === 'unlimited' ? null : uses === 'limited' ? Number(maxUses) : 1,
@@ -98,9 +107,19 @@ export function InviteTokensSection({
         expiresAt: expiry === 'never' ? '' : expiry === 'custom'
           ? customExpiry
           : new Date(Date.now() + Number(expiry.slice(0, -1)) * 24 * 60 * 60 * 1000).toISOString(),
-      })
+      }
+      const result = await createInvitationAction(submitted)
       if (result.error) setError(result.error)
-      else setLink(result.inviteUrl ?? null)
+      else {
+        setCreatedInvitation({
+          role: submitted.role,
+          grantInstanceAdmin: submitted.grantInstanceAdmin,
+          maxUses: submitted.maxUses,
+          expiresAt: submitted.expiresAt,
+          expiryChoice: expiry,
+        })
+        setLink(result.inviteUrl ?? null)
+      }
     } catch (cause) {
       setError(actionErrorMessage(cause, 'Could not create invitation.'))
     } finally {
@@ -151,7 +170,15 @@ export function InviteTokensSection({
               {link ? (
                 <>
                   <DialogBody className="space-y-3">
-                    <OneTimeSecret label="Invitation link" value={invitationUrl} />
+                    <OneTimeSecret
+                      label="Invitation link"
+                      value={invitationUrl}
+                      description={createdInvitation ? (
+                        <p>
+                          Anyone with this link can join {organizationName} as {createdInvitation.role === 'owner' ? 'an owner' : createdInvitation.role === 'admin' ? 'an admin' : 'a member'}{createdInvitation.grantInstanceAdmin ? ' and become an instance admin' : ''}. It {createdInvitation.maxUses === 1 ? 'works once' : createdInvitation.maxUses === null ? 'can be used an unlimited number of times' : `works up to ${createdInvitation.maxUses} times`} and {createdInvitation.expiryChoice === '1d' ? 'expires in 1 day' : createdInvitation.expiryChoice === '7d' ? 'expires in 7 days' : createdInvitation.expiryChoice === '30d' ? 'expires in 30 days' : createdInvitation.expiresAt ? `expires on ${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(new Date(createdInvitation.expiresAt))}` : 'never expires'}.
+                        </p>
+                      ) : null}
+                    />
                   </DialogBody>
                   <DialogFooter>
                     <Button variant="primary" onClick={() => { setOpen(false); setLink(null) }}>Done</Button>
@@ -305,13 +332,18 @@ export function InviteTokensSection({
                 <TableRow key={invitation.id}>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Chip className="capitalize">{invitation.organizationRole ?? 'Instance admin'}</Chip>
-                      {invitation.grantInstanceAdmin ? <span className="text-xs text-ink-muted">Instance admin</span> : null}
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Chip className="capitalize">{invitation.organizationRole ?? 'Instance admin'}</Chip>
+                          {invitation.organizationRole && invitation.grantInstanceAdmin ? <span className="text-xs text-ink-muted">Instance admin</span> : null}
+                        </div>
+                        {invitation.note ? <p className="mt-1 text-xs text-ink-muted">{invitation.note}</p> : null}
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell>{invitation.maxUses === null ? `${invitation.useCount} uses · unlimited` : formatRatio(invitation.useCount, invitation.maxUses, 'uses')}</TableCell>
                   <TableCell><Chip tone={invitationStatus === 'Active' ? 'success' : 'neutral'}>{invitationStatus}</Chip></TableCell>
-                  <TableCell className="whitespace-nowrap">{invitation.expiresAt ? <Time value={invitation.expiresAt} mode="absolute" /> : 'Never'}</TableCell>
+                  <TableCell className="whitespace-nowrap">{invitation.expiresAt ? <Time value={invitation.expiresAt} mode="auto" /> : 'Never'}</TableCell>
                   <TableCell>{invitation.createdByName ?? '—'}</TableCell>
                   {canInvite ? (
                     <TableCell>

@@ -38,7 +38,7 @@ export async function ServiceHeader({
   canDeploy: boolean
   failedDeploymentId?: string
   changes: ServiceConfigDiff[]
-  rollbackTargets: { id: string; image: string; createdAt: string }[]
+  rollbackTargets: { id: string; image: string; createdAt: string; changes: ServiceConfigDiff[] }[]
   replacementBackoff: TrellisReplacementBackoff | null
   logsHref?: string
 }) {
