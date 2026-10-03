@@ -6,10 +6,9 @@ import { Panel } from '@/components/ui/panel'
 import { EmptyState } from '@/components/ui/empty-state'
 import { SearchInput } from '@/components/ui/search-input'
 import { CreateProjectDialog } from '@/components/create-project-dialog'
-import { BoxesIcon } from 'lucide-react'
-import { StatusDot } from '@/components/status'
+import { ChevronRight, Folder } from 'lucide-react'
+import { Chip } from '@/components/ui/badge'
 import { Time } from '@/components/time'
-import { LastDeployFailed } from '@/components/last-deploy-failed'
 
 interface ProjectRow {
   id: string
@@ -46,59 +45,43 @@ export function ProjectSearch({
 
   return (
     <>
-      <div className="max-w-xs">
+      {projects.length > 8 ? <div className="max-w-xs">
         <SearchInput
           placeholder="Filter projects"
           aria-label="Filter projects"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
-      </div>
+      </div> : null}
 
       {filtered.length === 0 ? (
         <Panel>
           <EmptyState
-            icon={<BoxesIcon className="h-4 w-4" />}
+            icon={<Folder className="h-4 w-4" />}
             title="No projects match that filter"
             body="Try a different name, or create a project to group your services and environments."
             action={clusterConfigured ? <CreateProjectDialog /> : undefined}
           />
         </Panel>
       ) : (
-        <ul className="grid gap-3 xl:grid-cols-2">
+        <Panel><table className="w-full border-collapse text-left"><thead><tr className="border-b border-line bg-sunken"><th className="overline px-4 py-2">Project</th><th className="overline px-4 py-2">Health</th><th className="overline px-4 py-2">Services</th><th className="overline px-4 py-2">Routes</th><th className="overline px-4 py-2">Last deploy</th><th className="w-12"><span className="sr-only">Open</span></th></tr></thead><tbody>
           {filtered.map((project) => (
-            <li key={project.id}>
-              <Panel className="transition-[border-color,box-shadow] duration-150 hover:border-line-strong hover:shadow-raised">
-                <div className="flex flex-wrap items-start gap-x-8 gap-y-4 p-4">
-                  <div className="min-w-0 max-w-xl">
-                    <div className="flex items-center gap-2.5">
+            <tr key={project.id} className="group relative border-b border-line last:border-0 hover:bg-sunken">
+              <td className="px-4 py-3">
                       <Link
                         href={`/projects/${project.slug}`}
-                        className="rounded text-md font-semibold tracking-tight text-ink underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                        className="rounded text-sm font-medium text-link focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
                       >
                         {project.name}
                       </Link>
-                      {project.healthStatus ? <StatusDot status={project.healthStatus} /> : <span className="text-xs text-ink-muted">Not deployed</span>}
-                      {project.failedDeployments.map((deployment) => <LastDeployFailed key={deployment.id} href={`/projects/${project.slug}/deployments/${deployment.id}`} />)}
-                    </div>
-                    {project.description && (
-                      <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">
-                        {project.description}
-                      </p>
-                    )}
-                    <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-ink-muted">
-                      {project.serviceCount === 0 ? <Link className="text-link" href={`/projects/${project.slug}/services`}>Add a service</Link> : <span>{project.serviceCount} {project.serviceCount === 1 ? 'service' : 'services'}</span>}
-                      <span>{project.routeCount} {project.routeCount === 1 ? 'route' : 'routes'}</span>
-                      {project.latestDeployment && <span className="flex items-center gap-2">Last deploy <Time value={project.latestDeployment.createdAt} /></span>}
-                      <span>updated <Time value={project.updatedAt} /></span>
-                    </div>
-                  </div>
-
-                </div>
-              </Panel>
-            </li>
+              </td>
+              <td className="px-4 py-3">{project.serviceCount === 0 ? <span className="text-sm text-ink-muted">Not deployed</span> : <Chip tone={project.healthStatus === 'healthy' ? 'success' : 'danger'}>{project.healthStatus === 'healthy' ? 'Healthy' : `${Math.max(1, project.failedDeployments.length)} of ${project.serviceCount} failing`}</Chip>}</td>
+              <td className="px-4 py-3 text-sm text-ink-muted">{project.serviceCount}</td><td className="px-4 py-3 text-sm text-ink-muted">{project.routeCount}</td>
+              <td className="px-4 py-3 text-sm text-ink-muted">{project.latestDeployment ? <Time value={project.latestDeployment.createdAt} /> : 'Never'}</td>
+              <td className="px-4 py-3"><Link href={`/projects/${project.slug}`} aria-label={`Open ${project.name}`} className="absolute inset-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"><span className="sr-only">Open {project.name}</span></Link><ChevronRight className="ml-auto size-4 text-ink-faint" aria-hidden="true" /></td>
+            </tr>
           ))}
-        </ul>
+        </tbody></table></Panel>
       )}
     </>
   )

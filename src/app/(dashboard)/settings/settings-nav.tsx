@@ -5,11 +5,10 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 
 const groups = [
-  { label: 'Account', links: [{ label: 'Account', href: '/settings/account' }] },
+  { label: 'Personal', links: [{ label: 'Account', href: '/settings/account' }] },
   { label: 'Organization', links: [
-    { label: 'General', href: '/settings/organization' }, { label: 'Members', href: '/settings/members' },
+    { label: 'Organization', href: '/settings/organization' }, { label: 'Members', href: '/settings/members' },
     { label: 'Teams', href: '/settings/teams' }, { label: 'Domains', href: '/settings/domains' },
-    { label: 'Cluster', href: '/settings/cluster' },
   ] },
 ]
 
@@ -21,7 +20,7 @@ export function SettingsNav({ showInstance }: { showInstance: boolean }) {
   return (
     <nav className="space-y-5" aria-label="Settings">
       {navGroups.map((group) => <div key={group.label}>
-        <p className="mb-1 px-2 text-xs font-semibold text-ink-muted">{group.label}</p>
+        <p className="overline mb-1 px-2">{group.label}</p>
         <div className="space-y-0.5">{group.links.map((link) => {
           const active = pathname === link.href || pathname.startsWith(link.href + '/')
           return <Link key={link.href} href={link.href} aria-current={active ? 'page' : undefined} className={cn('block rounded-md px-2 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500', active ? 'bg-brand-50 font-medium text-brand-700' : 'text-ink-muted hover:bg-sunken hover:text-ink')}>{link.label}</Link>

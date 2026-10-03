@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { actionErrorMessage } from '@/lib/action-error'
-import { Copy, Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, X } from 'lucide-react'
 import { Chip } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -29,6 +29,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { createInvitationAction, revokeInvitationAction } from '@/lib/actions/settings'
 import { formatDate } from '@/lib/format'
+import { OneTimeSecret } from '@/components/one-time-secret'
 
 type Invitation = {
   id: string
@@ -73,8 +74,6 @@ export function InviteTokensSection({
   const [link, setLink] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const { toast } = useFeedback()
   const canInvite = role !== 'member' || showInstanceAdmin
 
   useEffect(() => {
@@ -108,14 +107,6 @@ export function InviteTokensSection({
     }
   }
 
-  async function copy() {
-    if (!link) return
-    await navigator.clipboard.writeText(new URL(link, window.location.origin).toString())
-    setCopied(true)
-    window.setTimeout(() => setCopied(false), 2000)
-    toast({ title: 'Invitation link copied', tone: 'success' })
-  }
-
   function status(invitation: Invitation) {
     if (invitation.revokedAt) return 'Revoked'
     if (invitation.expiresAt && new Date(invitation.expiresAt) <= new Date()) return 'Expired'
@@ -140,7 +131,7 @@ export function InviteTokensSection({
             if (pending) return
             setOpen(next)
             if (next) setError(null)
-            else { setLink(null); setCopied(false) }
+            else setLink(null)
           }}>
             <DialogTrigger asChild>
               <Button variant="primary" size="sm">
@@ -159,38 +150,15 @@ export function InviteTokensSection({
               {link ? (
                 <>
                   <DialogBody className="space-y-3">
-                    <p className="text-sm text-ink-muted">
-                      Share this invitation link. The secret is kept inside the link.
-                    </p>
-                    <div className="flex gap-2">
-                      <Input aria-label="Invitation link" readOnly value={invitationUrl} />
-                      <Button onClick={copy} aria-label="Copy invitation link">
-                        <Copy /> {copied ? 'Copied' : 'Copy'}
-                      </Button>
-                    </div>
+                    <OneTimeSecret label="Invitation link" value={invitationUrl} />
                   </DialogBody>
                   <DialogFooter>
-                    <Button variant="primary" disabled={!copied} onClick={() => { setOpen(false); setLink(null) }}>I’ve saved this</Button>
+                    <Button variant="primary" onClick={() => { setOpen(false); setLink(null) }}>Done</Button>
                   </DialogFooter>
                 </>
               ) : (
                 <>
                   <DialogBody className="space-y-5">
-                    {showInstanceAdmin ? (
-                      <div className="space-y-2">
-                        <Label htmlFor="invitation-instance-role">Instance role</Label>
-                        <Select value={admin ? 'admin' : 'member'} onValueChange={(value) => {
-                          setAdmin(value === 'admin')
-                          if (value === 'admin') setUses('single')
-                        }}>
-                          <SelectTrigger id="invitation-instance-role"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="member">User</SelectItem>
-                            <SelectItem value="admin">Instance admin</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    ) : null}
                     <div className="space-y-2">
                       <Label htmlFor="invitation-role">Organization role</Label>
                       <Select
@@ -208,10 +176,37 @@ export function InviteTokensSection({
                         </SelectContent>
                       </Select>
                     </div>
+                    {showInstanceAdmin ? (
+                      <div className="space-y-2">
+                        <Label htmlFor="invitation-instance-role">Instance role</Label>
+                        <Select value={admin ? 'admin' : 'member'} onValueChange={(value) => {
+                          setAdmin(value === 'admin')
+                          if (value === 'admin') setUses('single')
+                        }}>
+                          <SelectTrigger id="invitation-instance-role"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="member">User</SelectItem>
+                            <SelectItem value="admin">Instance admin</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ) : null}
 
                     {teams.length ? (
                       <fieldset className="space-y-2.5">
                         <legend><Label optional>Teams</Label></legend>
+                        {teamIds.length ? (
+                          <div className="flex flex-wrap gap-1.5" aria-label="Selected teams">
+                            {teams.filter((team) => teamIds.includes(team.id)).map((team) => (
+                              <Chip key={team.id} className="gap-1 pr-1">
+                                {team.name}
+                                <button type="button" className="rounded p-0.5 hover:bg-black/10" aria-label={`Remove ${team.name}`} onClick={() => setTeamIds(teamIds.filter((id) => id !== team.id))}>
+                                  <X className="size-3" />
+                                </button>
+                              </Chip>
+                            ))}
+                          </div>
+                        ) : null}
                         <div className="grid gap-2 sm:grid-cols-2">
                           {teams.map((team) => {
                             const id = `invitation-team-${team.id}`
@@ -261,8 +256,8 @@ export function InviteTokensSection({
 
                     <div className="space-y-2">
                       <Label htmlFor="invitation-expires">Expires</Label>
-                      <Select value={expiry} onValueChange={setExpiry}><SelectTrigger id="invitation-expires"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="1d">24 hours</SelectItem><SelectItem value="7d">7 days</SelectItem><SelectItem value="30d">30 days</SelectItem><SelectItem value="never">Never</SelectItem><SelectItem value="custom">Custom</SelectItem></SelectContent></Select>
-                      {expiry === 'custom' ? <Input aria-label="Custom expiry" type="datetime-local" value={customExpiry} onChange={(event) => setCustomExpiry(event.target.value)} required /> : null}
+                      <Select value={expiry} onValueChange={setExpiry}><SelectTrigger id="invitation-expires"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="1d">1 day</SelectItem><SelectItem value="7d">7 days</SelectItem><SelectItem value="30d">30 days</SelectItem><SelectItem value="custom">Choose a date</SelectItem></SelectContent></Select>
+                      {expiry === 'custom' ? <Input aria-label="Expiry date" type="date" value={customExpiry} onChange={(event) => setCustomExpiry(event.target.value)} required /> : null}
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="invitation-note" optional>Note</Label>

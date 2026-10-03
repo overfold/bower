@@ -61,10 +61,10 @@ export function KeyValueEditor({
       const duplicate = duplicateKeys.has(row.key)
       return <div key={row.id} className="grid gap-2 sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)_auto] sm:items-start">
         <div>
-          <Input aria-label={`Variable ${index + 1} name`} value={row.key} onChange={(event) => patch(index, { key: event.target.value.toUpperCase() })} placeholder="VARIABLE_NAME" mono required pattern="[A-Z_][A-Z0-9_]*" ref={(input) => input?.setCustomValidity(duplicate ? 'Variable names must be unique.' : '')} aria-invalid={invalid || duplicate} />
+          <Input aria-label={`Variable ${index + 1} name`} value={row.key} onChange={(event) => patch(index, { key: event.target.value.toUpperCase() })} mono required pattern="[A-Z_][A-Z0-9_]*" ref={(input) => input?.setCustomValidity(duplicate ? 'Variable names must be unique.' : '')} aria-invalid={invalid || duplicate} />
           {invalid ? <p className="mt-1 text-2xs text-danger-500">Use uppercase letters, numbers, and underscores; do not start with a number.</p> : duplicate ? <p className="mt-1 text-2xs text-danger-500">Variable names must be unique.</p> : null}
         </div>
-        <Input aria-label={`Variable ${index + 1} value`} value={row.value} onChange={(event) => patch(index, { value: event.target.value })} placeholder={preserveBlankValues ? 'Leave blank to keep current value' : 'Value'} mono required={!preserveBlankValues || !initialRows.some((item) => item.key === row.key)} />
+        <Input aria-label={`Variable ${index + 1} value`} value={row.value} onChange={(event) => patch(index, { value: event.target.value })} mono required={!preserveBlankValues || !initialRows.some((item) => item.key === row.key)} />
         <Button type="button" variant="ghost" size="sm" onClick={() => { setRows((current) => current.filter((_, at) => at !== index)); onChange?.() }} aria-label={`Delete ${row.key || `variable ${index + 1}`}`}><Trash2 className="h-4 w-4" /></Button>
       </div>
     })}

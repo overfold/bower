@@ -35,7 +35,7 @@ export function ProjectTabs({ slug, tabs }: { slug: string; tabs: TabItem[] }) {
             )}
           >
             <span>{tab.label}</span>
-            {typeof tab.count === 'number' && (
+            {typeof tab.count === 'number' && tab.count > 0 && (
               <span
                 className={cn(
                   'nums rounded-md px-1.5 py-px text-2xs font-semibold',

@@ -2,11 +2,11 @@
 
 import { useRef, useState } from 'react'
 import { changePasswordAction } from '@/lib/actions/settings'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { FieldError, InlineNotice, useFeedback } from '@/components/ui/feedback'
-import { UnsavedChangesBar } from '@/components/ui/unsaved-changes-bar'
 
 export function ChangePasswordForm() {
   const [error, setError] = useState<string | null>(null)
@@ -14,7 +14,6 @@ export function ChangePasswordForm() {
   const [dirty, setDirty] = useState(false)
   const [confirmationError, setConfirmationError] = useState<string | null>(null)
   const confirmationRef = useRef<HTMLInputElement>(null)
-  const formRef = useRef<HTMLFormElement>(null)
   const { toast } = useFeedback()
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -48,9 +47,8 @@ export function ChangePasswordForm() {
   }
 
   return (
-    <>
     <Card>
-      <form ref={formRef} onSubmit={handleSubmit} onChange={() => setDirty(true)}>
+      <form onSubmit={handleSubmit} onChange={() => setDirty(true)}>
         <CardHeader>
           <CardTitle>Change password</CardTitle>
         </CardHeader>
@@ -70,14 +68,8 @@ export function ChangePasswordForm() {
             <div id="confirm-password-error"><FieldError>{confirmationError}</FieldError></div>
           </div>
         </CardContent>
+        <CardFooter><Button variant="primary" type="submit" disabled={!dirty || loading} loading={loading}>Update password</Button></CardFooter>
       </form>
     </Card>
-    <UnsavedChangesBar dirty={dirty} pending={loading} saveLabel="Update password" onDiscard={() => {
-      formRef.current?.reset()
-      setDirty(false)
-      setError(null)
-      setConfirmationError(null)
-    }} onSave={() => formRef.current?.requestSubmit()} />
-    </>
   )
 }

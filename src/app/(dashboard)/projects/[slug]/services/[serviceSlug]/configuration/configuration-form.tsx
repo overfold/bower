@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import type { MergedServiceConfig } from '@/lib/queries'
 import { UnsavedChangesBar } from '@/components/ui/unsaved-changes-bar'
 import type { TrellisJobLimits } from '@/types/trellis'
+import { formatMemory } from '@/lib/format'
 
 interface ConfigurationFormProps {
   serviceId: string
@@ -96,7 +97,7 @@ export function ConfigurationForm({ serviceId, environmentId, config, limits }: 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="replicas">Replicas</Label>
-              <Input id="replicas" name="replicas" type="number" className="w-36" defaultValue={d.replicas} required min={1} max={limits?.max_replicas_per_task_group} />
+              <Input id="replicas" name="replicas" type="number" defaultValue={d.replicas} required min={1} max={limits?.max_replicas_per_task_group} />
               {limits ? <p className="text-xs text-ink-muted">Up to {limits.max_replicas_per_task_group} replicas</p> : null}
             </div>
             <div className="space-y-2">
@@ -110,6 +111,7 @@ export function ConfigurationForm({ serviceId, environmentId, config, limits }: 
                   <SelectItem value="canary">Canary</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-xs text-ink-muted">{{ rolling: 'Replaces replicas one at a time. No downtime.', recreate: 'Stops existing replicas before starting replacements.', blue_green: 'Starts a complete replacement before switching traffic.', canary: 'Moves traffic to the new release in gradual steps.' }[strategy]}</p>
             </div>
           </div>
         </div>
@@ -120,13 +122,13 @@ export function ConfigurationForm({ serviceId, environmentId, config, limits }: 
         <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="cpu">CPU</Label>
-            <div className="relative max-w-48"><Input id="cpu" name="cpu" type="number" defaultValue={d.cpu} min={0.001} max={limits ? limits.max_task_cpu / 1000 : undefined} step={0.001} className="pr-14" required /><span className="pointer-events-none absolute right-3 top-2.5 text-xs text-ink-muted">cores</span></div>
+            <div className="relative"><Input id="cpu" name="cpu" type="number" defaultValue={d.cpu} min={0.001} max={limits ? limits.max_task_cpu / 1000 : undefined} step={0.001} className="pr-14" required /><span className="pointer-events-none absolute right-3 top-2.5 text-xs text-ink-muted">cores</span></div>
             {limits ? <p className="text-xs text-ink-muted">Up to {limits.max_task_cpu / 1000} cores per replica</p> : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="memory">Memory</Label>
-            <div className="relative max-w-48"><Input id="memory" name="memory" type="number" defaultValue={d.memory} min={1} max={limits ? Math.floor(limits.max_task_memory / 1048576) : undefined} step={1} className="pr-10" required /><span className="pointer-events-none absolute right-3 top-2.5 text-xs text-ink-muted">MB</span></div>
-            {limits ? <p className="text-xs text-ink-muted">Up to {Math.floor(limits.max_task_memory / 1048576)} MB per replica</p> : null}
+            <div className="relative"><Input id="memory" name="memory" type="number" defaultValue={d.memory} min={1} max={limits ? Math.floor(limits.max_task_memory / 1048576) : undefined} step={1} className="pr-10" required /><span className="pointer-events-none absolute right-3 top-2.5 text-xs text-ink-muted">MB</span></div>
+            {limits ? <p className="text-xs text-ink-muted">Up to {formatMemory(limits.max_task_memory)} per replica</p> : null}
           </div>
         </div>
       </Panel>

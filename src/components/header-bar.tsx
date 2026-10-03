@@ -8,60 +8,7 @@ import { CommandPalette } from '@/components/command-palette'
 import { MobileDrawer } from '@/components/mobile-drawer'
 import { OrgTeamPicker } from '@/components/org-team-picker'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-
-const segmentLabels: Record<string, string> = {
-  dashboard: 'Home',
-  projects: 'Projects',
-  deployments: 'Deployments',
-  status: 'Status',
-  settings: 'Settings',
-  audit: 'Audit log',
-  organization: 'Organization',
-  members: 'Members',
-  teams: 'Teams',
-  cluster: 'Cluster',
-  instance: 'Instance',
-  account: 'Account',
-  services: 'Services',
-  environment: 'Environment',
-  secrets: 'Secrets',
-  routes: 'Routes',
-  integrations: 'Integrations',
-  revisions: 'History',
-  allocations: 'Allocations',
-  volumes: 'Volumes',
-  advanced: 'Advanced',
-  configuration: 'Configuration',
-  access: 'Access',
-  domains: 'Domains',
-}
-
-function prettifySlug(slug: string): string {
-  return slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-}
-
-interface Crumb {
-  label: string
-  href?: string
-}
-
-function deriveBreadcrumbs(pathname: string, data: HeaderBarProps['searchData']): Crumb[] {
-  const rawSegments = pathname.split('/').filter(Boolean)
-  const serviceTabs = new Set(['environment', 'secrets', 'routes', 'integrations', 'revisions', 'allocations', 'volumes', 'advanced', 'configuration', 'access', 'mounts'])
-  const segments = rawSegments[0] === 'projects' && rawSegments[2] === 'services' && serviceTabs.has(rawSegments.at(-1) ?? '')
-    ? rawSegments.slice(0, -1)
-    : rawSegments
-  if (segments.length === 0) return [{ label: 'Home', href: '/dashboard' }]
-  return segments.map((seg, i) => ({
-    label: segments[0] === 'projects' && i === 1 ? data.projects.find((project) => project.slug === seg)?.name ?? seg
-      : segments[0] === 'projects' && segments[2] === 'services' && i === 3 ? data.services.find((service) => service.projectSlug === segments[1] && service.slug === seg)?.name ?? seg
-      : segments[i - 1] === 'deployments' ? data.deploymentLabels[seg] ?? `Deployment ${seg.slice(0, 8)}`
-      : segments[0] === 'settings' && segments[1] === 'members' && i === 2 ? data.memberLabels[seg] ?? 'Member'
-      : (segments[i - 1] === 'allocations' || (segments[0] === 'status' && i === 1)) ? seg
-      : segmentLabels[seg] ?? prettifySlug(seg),
-    href: seg === 'allocations' ? undefined : '/' + segments.slice(0, i + 1).join('/'),
-  }))
-}
+import { deriveBreadcrumbs } from '@/lib/breadcrumbs'
 
 interface OrgEntry {
   id: string
@@ -86,6 +33,7 @@ interface HeaderBarProps {
     instanceAdmin: boolean
     deploymentLabels: Record<string, string>
     memberLabels: Record<string, string>
+    teamLabels: Record<string, string>
   }
   user: {
     name: string
@@ -117,7 +65,7 @@ export function HeaderBar({ orgs, currentOrg, teams, searchData, user, projects 
       <header className="sticky top-0 z-20 flex h-14 w-full shrink-0 items-center gap-2 border-b border-line bg-canvas/85 px-3 backdrop-blur-md sm:gap-3 sm:px-6">
         <MobileDrawer user={user} projects={projects} currentOrg={currentOrg} />
         <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
-          <OrgTeamPicker orgs={orgs} currentOrg={currentOrg} teams={teams} />
+          <OrgTeamPicker orgs={orgs} currentOrg={currentOrg} teams={teams} instanceAdmin={searchData.instanceAdmin} />
           <nav aria-label="Breadcrumb" className="flex min-w-0 flex-1 items-center gap-1">
           {(crumbs.length > 4 ? [crumbs[0], ...crumbs.slice(-2)] : crumbs).map((crumb, i, visibleCrumbs) => (
             <Fragment key={`${crumb.label}-${i}`}>

@@ -65,15 +65,7 @@ export default async function RoutesPage({ params }: { params: Promise<{ slug: s
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <SectionTitle>Routes</SectionTitle>
-          <p className="mt-1 text-sm text-ink-muted">
-            Route verified hostnames to this project’s services.
-          </p>
-        </div>
-        {addRouteAction}
-      </div>
+      <SectionTitle>Routes</SectionTitle>
 
       {managedDomains.length === 0 ? (
         <InlineNotice
@@ -93,13 +85,13 @@ export default async function RoutesPage({ params }: { params: Promise<{ slug: s
       <Panel>
         <PanelHeader
           title={`${visibleRoutes.length} route${visibleRoutes.length === 1 ? '' : 's'}`}
+          action={addRouteAction}
         />
         {visibleRoutes.length === 0 ? (
           <EmptyState
             icon={<Globe className="h-4 w-4" />}
             title="No routes configured"
             body={emptyBody}
-            action={addRouteAction}
           />
         ) : (
           <Table>
@@ -127,7 +119,7 @@ export default async function RoutesPage({ params }: { params: Promise<{ slug: s
                   </TableCell>
                   <TableCell>
                     {canManage ? (
-                      <RouteActions projectId={project.id} routeId={row.route.id} hostname={row.route.domain} currentMode={row.route.protectionMode} />
+                      <RouteActions projectId={project.id} route={row.route} services={targetServices.map(({ id, name }) => ({ id, name }))} />
                     ) : null}
                   </TableCell>
                 </TableRow>

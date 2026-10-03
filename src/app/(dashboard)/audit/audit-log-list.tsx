@@ -37,11 +37,15 @@ function DiffColumns({ details }: { details: Record<string, unknown> }) {
 
   return (
     <div className="rounded-lg border border-line bg-sunken p-3">
-      <p className="text-2xs font-semibold uppercase tracking-wide text-ink-muted">Details</p>
+      <p className="overline">Details</p>
       <dl className="mt-2 grid max-w-3xl grid-cols-[minmax(8rem,0.4fr)_minmax(0,1fr)] gap-x-4 gap-y-2">
         {diffKeys.map((key) => <div key={`diff-${key}`} className="contents">
           <dt className="text-xs text-ink-muted">{key}</dt>
-          <dd className="min-w-0 whitespace-pre-wrap break-words font-mono text-xs"><del className="text-danger-500">{JSON.stringify(before![key]) ?? '—'}</del> → <ins className="text-ok-500 no-underline">{JSON.stringify(after![key]) ?? '—'}</ins></dd>
+          <dd className="min-w-0 break-words font-mono text-code">
+            <span className="text-ink-muted">{typeof before![key] === 'object' ? JSON.stringify(before![key]) : String(before![key] ?? '—')}</span>
+            <span className="mx-2 text-ink-muted" aria-label="changed to">→</span>
+            <span className="text-ink">{typeof after![key] === 'object' ? JSON.stringify(after![key]) : String(after![key] ?? '—')}</span>
+          </dd>
         </div>)}
         {entries.map(([k, v]) => (
           <div key={k} className="contents">
@@ -105,14 +109,9 @@ export function AuditLogList({ entries, now }: { entries: AuditEntry[]; now: num
                 <Icon className="h-3.5 w-3.5" aria-hidden="true" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-medium text-ink">{entry.userName ?? 'System'} {auditActionSentence(entry.action, auditResourceName(entry), entry.details)}</span>
-                </span>
+                <span className="block truncate text-sm font-medium text-ink">{entry.userName ?? 'System'} {auditActionSentence(entry.action, auditResourceName(entry), entry.details)}</span>
                 <span className="mt-1 block truncate text-xs text-ink-muted">
-                  {entry.action} · <Time value={entry.createdAt} mode="auto" />
-                </span>
-                <span className="mt-1 block text-xs text-ink-muted">
-                  {entry.resourceType}
+                  <span className="font-mono">{entry.action}</span> · <Time value={entry.createdAt} mode="auto" />
                 </span>
               </span>
               <ChevronDown

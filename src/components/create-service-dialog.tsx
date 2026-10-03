@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { actionErrorMessage } from '@/lib/action-error'
 import { unstable_rethrow } from 'next/navigation'
 import { createServiceAction } from '@/lib/actions/services'
@@ -19,11 +19,18 @@ export function CreateServiceDialog({ projectSlug, limits }: { projectSlug: stri
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [image, setImage] = useState('')
+  const [strategy, setStrategy] = useState('rolling')
+  const imageRef = useRef<HTMLInputElement>(null)
   const imageValid = /^[\w.-]+(?::\d+)?(?:\/[\w.-]+)*(?:[:@][\w][\w.:-]*)?$/.test(image)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
+    if (!imageValid) {
+      setError('Enter a valid container image reference.')
+      imageRef.current?.focus()
+      return
+    }
     setLoading(true)
     try {
       const formData = new FormData(e.currentTarget)
@@ -55,7 +62,7 @@ export function CreateServiceDialog({ projectSlug, limits }: { projectSlug: stri
           New service
         </Button>
       </DialogTrigger>
-      <DialogContent size="lg" onOpenAutoFocus={(event) => { event.preventDefault(); document.getElementById('name')?.focus() }}>
+      <DialogContent size="md" onOpenAutoFocus={(event) => { event.preventDefault(); document.getElementById('name')?.focus() }}>
         <DialogHeader>
           <DialogTitle>Create service</DialogTitle>
         </DialogHeader>
@@ -64,41 +71,42 @@ export function CreateServiceDialog({ projectSlug, limits }: { projectSlug: stri
             {error && <InlineNotice tone="error">{error}</InlineNotice>}
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
-              <Input id="name" name="name" placeholder="Checkout API" required />
+              <Input id="name" name="name" required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="image">Image</Label>
-              <Input id="image" name="image" value={image} onChange={(event) => setImage(event.target.value)} placeholder="docker.io/library/nginx:latest" required mono aria-invalid={image.length > 0 && !imageValid} />
+              <Input ref={imageRef} id="image" name="image" value={image} onChange={(event) => setImage(event.target.value)} required mono aria-invalid={image.length > 0 && !imageValid} />
               <p className={`text-xs ${image.length > 0 && !imageValid ? 'text-danger-500' : 'text-ink-muted'}`}>Use a registry/repository image reference with a tag or digest.</p>
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="replicas">Replicas</Label>
-                <Input id="replicas" name="replicas" type="number" className="w-36" defaultValue={1} min={1} max={limits?.max_replicas_per_task_group} required />
+                <Input id="replicas" name="replicas" type="number" defaultValue={1} min={1} max={limits?.max_replicas_per_task_group} required />
                 {limits ? <p className="text-xs text-ink-muted">Up to {limits.max_replicas_per_task_group} replicas</p> : null}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="strategy">Deployment strategy</Label>
-                <Select name="strategy" defaultValue="recreate" required>
+                <Select name="strategy" value={strategy} onValueChange={setStrategy} required>
                   <SelectTrigger id="strategy"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="recreate">Recreate</SelectItem>
                     <SelectItem value="rolling">Rolling</SelectItem>
+                    <SelectItem value="recreate">Recreate</SelectItem>
                     <SelectItem value="blue_green">Blue/green</SelectItem>
                     <SelectItem value="canary">Canary</SelectItem>
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-ink-muted">{{ rolling: 'Replaces replicas one at a time. No downtime.', recreate: 'Stops existing replicas before starting replacements.', blue_green: 'Starts a complete replacement before switching traffic.', canary: 'Moves traffic to the new release in gradual steps.' }[strategy]}</p>
               </div>
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="cpu">CPU</Label>
-                <div className="relative max-w-48"><Input id="cpu" name="cpu" type="number" defaultValue={0.1} min={0.001} step={0.001} className="pr-14" required /><span className="pointer-events-none absolute right-3 top-2.5 text-xs text-ink-muted">cores</span></div>
+                <div className="relative"><Input id="cpu" name="cpu" type="number" defaultValue={0.1} min={0.001} step={0.001} className="pr-14" required /><span className="pointer-events-none absolute right-3 top-2.5 text-xs text-ink-muted">cores</span></div>
                 {limits ? <p className="text-xs text-ink-muted">Up to {formatCpu(limits.max_task_cpu)} per replica</p> : null}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="memory">Memory</Label>
-                <div className="relative max-w-48"><Input id="memory" name="memory" type="number" defaultValue={128} min={1} step={1} className="pr-10" required /><span className="pointer-events-none absolute right-3 top-2.5 text-xs text-ink-muted">MB</span></div>
+                <div className="relative"><Input id="memory" name="memory" type="number" defaultValue={128} min={1} step={1} className="pr-10" required /><span className="pointer-events-none absolute right-3 top-2.5 text-xs text-ink-muted">MB</span></div>
                 {limits ? <p className="text-xs text-ink-muted">Up to {formatMemory(limits.max_task_memory)} per replica</p> : null}
               </div>
             </div>
@@ -106,7 +114,7 @@ export function CreateServiceDialog({ projectSlug, limits }: { projectSlug: stri
           </DialogBody>
           <DialogFooter>
             <Button type="button" size="sm" onClick={() => setOpen(false)} disabled={loading}>Cancel</Button>
-            <Button variant="primary" type="submit" size="sm" disabled={loading || !imageValid} loading={loading}>
+            <Button variant="primary" type="submit" size="sm" disabled={loading} loading={loading}>
               {loading ? 'Creating…' : 'Create service'}
             </Button>
           </DialogFooter>

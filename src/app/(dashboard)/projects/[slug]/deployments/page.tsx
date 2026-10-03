@@ -19,7 +19,7 @@ export default async function DeploymentsPage({ params }: { params: Promise<{ sl
 
   return (
     <div className="space-y-5">
-      <div><SectionTitle>Deployment history</SectionTitle><p className="mt-1 text-sm text-ink-muted">Review deployments for every service in this project.</p></div>
+      <SectionTitle>Deployment history</SectionTitle>
       <DeploymentPoller active={rows.some((row) => ['pending', 'planning', 'deploying', 'rolling_back'].includes(row.deployment.status))} />
       <DeploymentFilters scope="project" items={items} projects={[project.name]} environments={environment ? [environment.name] : []} />
     </div>

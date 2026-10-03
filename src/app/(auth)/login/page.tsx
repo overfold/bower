@@ -48,7 +48,6 @@ export default function LoginPage() {
             id="email"
             name="email"
             type="email"
-            placeholder="you@example.com"
             autoComplete="email"
             required
           />
@@ -59,7 +58,6 @@ export default function LoginPage() {
             id="password"
             name="password"
             type="password"
-            placeholder="&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;"
             autoComplete="current-password"
             required
           />

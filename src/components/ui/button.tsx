@@ -9,8 +9,8 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary: 'bg-brand-500 text-white shadow-card hover:bg-brand-600 active:bg-brand-700',
-        default: 'bg-surface text-ink border border-line shadow-card hover:border-line-strong hover:bg-sunken',
+        primary: 'bg-brand-500 text-white hover:bg-brand-600 active:bg-brand-700',
+        default: 'bg-surface text-ink border border-line hover:border-line-strong hover:bg-sunken',
         ghost: 'text-ink-soft hover:bg-sunken hover:text-ink',
         danger: 'bg-surface text-danger-500 border border-danger-200 hover:bg-danger-50',
         destructive: 'bg-danger-500 text-white hover:bg-danger-600',

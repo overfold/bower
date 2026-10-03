@@ -142,14 +142,36 @@ export async function rollbackServiceAction(serviceId: string, environmentId: st
   const access = await requireService(serviceId); if (access.projectRole === 'viewer') throw new Error('Insufficient permissions.')
   const [last] = await db.select().from(deployments).where(and(eq(deployments.serviceId, serviceId), eq(deployments.environmentId, environmentId))).orderBy(desc(deployments.createdAt)).limit(1)
   let storedSpec = last?.previousJobSpec
+  let target = null
   if (targetDeploymentId) {
-    const [target] = await db.select().from(deployments).where(and(eq(deployments.id, targetDeploymentId), eq(deployments.serviceId, serviceId), eq(deployments.environmentId, environmentId), eq(deployments.status, 'healthy'))).limit(1)
+    ;[target] = await db.select().from(deployments).where(and(eq(deployments.id, targetDeploymentId), eq(deployments.serviceId, serviceId), eq(deployments.environmentId, environmentId), eq(deployments.status, 'healthy'))).limit(1)
     if (!target?.jobSpec) throw new Error('This deployment has no successful stored JobSpec available for rollback.')
+  }
+  const [selectedConfigRow] = await db.select({ config: serviceConfigs, environment: environments }).from(serviceConfigs).innerJoin(environments, eq(environments.id, serviceConfigs.environmentId)).where(and(eq(serviceConfigs.serviceId, serviceId), eq(serviceConfigs.environmentId, environmentId))).limit(1)
+  if (!selectedConfigRow) throw new Error('Configuration not found.')
+  const configRow = 'config' in selectedConfigRow ? selectedConfigRow : { config: selectedConfigRow, environment: null }
+  if (target) {
+    const jobName = configRow.config.activeJobName || access.service.slug
+    const client = await getTrellisClient(access.org.id)
+    // TrellisClient always supplies these methods; guards keep isolated action adapters fail-closed at the UI boundary.
+    if (configRow.environment && typeof client.getJob === 'function' && typeof client.getJobVersions === 'function') {
+    const [runtime, retained] = await Promise.all([
+      client.getJob(jobName, configRow.environment.trellisNamespace),
+      client.getJobVersions(jobName, configRow.environment.trellisNamespace),
+    ])
+    if (target.trellisJobName === jobName && target.trellisVersion === runtime.version && target.trellisRevision === runtime.revision) {
+      throw new Error('The selected release is currently running and cannot be a rollback target.')
+    }
+    if (!retained.some((version) => version.version === target.trellisVersion && version.revision === target.trellisRevision)) {
+      throw new Error('The selected release is no longer retained by Trellis.')
+    }
+    const [active] = await db.select().from(deployments).where(and(eq(deployments.serviceId, serviceId), eq(deployments.environmentId, environmentId), eq(deployments.trellisJobName, jobName), eq(deployments.trellisVersion, runtime.version), eq(deployments.trellisRevision, runtime.revision))).limit(1)
+    if (!active || target.createdAt >= active.createdAt) throw new Error('Only successful releases earlier than the currently running release can be restored.')
+    }
     storedSpec = target.jobSpec
   }
   if (!storedSpec) throw new Error('No stored previous JobSpec is available.')
-  const spec = storedSpec as TrellisJobSpec; const [config] = await db.select().from(serviceConfigs).where(and(eq(serviceConfigs.serviceId, serviceId), eq(serviceConfigs.environmentId, environmentId))).limit(1)
-  if (!config) throw new Error('Configuration not found.')
+  const spec = storedSpec as TrellisJobSpec; const config = configRow.config
   const image = spec.task_groups[0]?.tasks[0]?.image
   const [deployment] = await db.insert(deployments).values({ serviceId, environmentId, imageBefore: config.image, imageAfter: image || config.image, strategy: config.deploymentStrategy, status: 'planning', triggeredByUserId: access.user.id, triggerType: 'rollback', jobSpec: spec, previousJobSpec: last?.jobSpec ?? null, trellisJobName: spec.name }).returning()
   await recordDeploymentEvent(deployment.id, 'planning', 'Planning the exact stored JobSpec for manual rollback.')

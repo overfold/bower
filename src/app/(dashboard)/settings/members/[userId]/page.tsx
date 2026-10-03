@@ -5,6 +5,9 @@ import { PageHeading } from '@/components/page-heading'
 import { Panel, PanelHeader, KeyValue } from '@/components/ui/panel'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { formatTimestamp } from '@/lib/format'
+import { MemberRoleSelect } from '../member-role-select'
+import { MemberActionsMenu } from '../../instance/instance-admin-actions'
+import { organizationRoleLabels } from '@/lib/labels'
 
 export default async function MemberPage({ params }: { params: Promise<{ userId: string }> }) {
   const user = await getCurrentUser()
@@ -20,6 +23,8 @@ export default async function MemberPage({ params }: { params: Promise<{ userId:
     isInstanceAdmin(user.id),
   ])
   const teams = memberships.filter((row) => row.userId === userId)
+  const canManageRoles = showInstanceRole || ctx.role === 'owner'
+  const canRemove = ctx.role === 'owner' && user.id !== userId
 
   return (
     <div className="space-y-6">
@@ -37,10 +42,17 @@ export default async function MemberPage({ params }: { params: Promise<{ userId:
         <dl className="grid gap-x-8 p-4 sm:grid-cols-2 lg:grid-cols-4">
           <KeyValue label="Email">{member.userEmail}</KeyValue>
           {showInstanceRole ? <KeyValue label="Instance role">{member.isInstanceAdmin ? 'Instance admin' : 'User'}</KeyValue> : null}
-          <KeyValue label="Organization role">{({ owner: 'Owner', admin: 'Admin', member: 'Member' } as const)[member.membership.role]}</KeyValue>
+          <KeyValue label="Organization role">{organizationRoleLabels[member.membership.role]}</KeyValue>
           <KeyValue label="Joined organization">{formatTimestamp(member.membership.createdAt)}</KeyValue>
         </dl>
       </Panel>
+      {(canManageRoles || canRemove) ? <Panel>
+        <PanelHeader title="Access" />
+        <div className="flex flex-wrap items-end justify-between gap-4 p-4">
+          <div className="space-y-2"><p className="text-xs font-medium text-ink-muted">Organization role</p>{member.membership.role === 'owner' ? <p className="text-sm text-ink">Owner</p> : <MemberRoleSelect membershipId={member.membership.id} role={member.membership.role} canManage={canManageRoles} />}</div>
+          <MemberActionsMenu membershipId={member.membership.id} memberName={member.userName} email={member.userEmail} canRemoveInstanceAdmin={showInstanceRole && member.isInstanceAdmin && user.id !== userId} canRemoveFromOrganization={canRemove} />
+        </div>
+      </Panel> : null}
       <Panel>
         <PanelHeader title="Teams" hint={`${teams.length} ${teams.length === 1 ? 'team' : 'teams'}`} />
         {teams.length ? (

@@ -60,7 +60,9 @@ try {
       await sql`INSERT INTO team_memberships (team_id,user_id) VALUES (${team.id},${user.id})`;
     const [project] =
       await sql`INSERT INTO projects (org_id,name,slug,description,owning_team_id) VALUES (${org.id},'Commerce Platform','commerce','Storefront, checkout API, and asynchronous order processing.',${team.id}) RETURNING *`;
-    await sql`INSERT INTO projects (org_id,name,slug) VALUES (${org.id},'Internal Tools','internal-tools')`;
+    const [emptyProject] =
+      await sql`INSERT INTO projects (org_id,name,slug) VALUES (${org.id},'Internal Tools','internal-tools') RETURNING *`;
+    await sql`INSERT INTO environments (project_id,name,slug,trellis_namespace) VALUES (${emptyProject.id},'Production','production','internal-tools-production')`;
     await sql`INSERT INTO team_project_access (team_id,project_id,role) VALUES (${team.id},${project.id},'admin')`;
     await sql`INSERT INTO project_user_access (project_id,user_id,role) VALUES (${project.id},${viewer.id},'viewer')`;
     const [environment] =

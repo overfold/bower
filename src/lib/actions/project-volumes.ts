@@ -27,7 +27,7 @@ export async function upsertProjectVolumeAction(projectId: string, environmentId
     set: { hostPath, updatedAt: new Date() },
   })
   await recordAudit({ orgId: access.org.id, userId: access.user.id, action: 'project.volume.saved', resourceType: 'project', resourceId: projectId, details: { environmentId, name, hostPath } })
-  revalidatePath(`/projects/${access.project.slug}/volumes`)
+  revalidatePath(`/projects/${access.project.slug}/settings`)
 }
 
 export async function deleteProjectVolumeAction(projectId: string, environmentId: string, volumeId: string) {
@@ -45,5 +45,5 @@ export async function deleteProjectVolumeAction(projectId: string, environmentId
   }
   await db.delete(projectVolumes).where(eq(projectVolumes.id, volumeId))
   await recordAudit({ orgId: access.org.id, userId: access.user.id, action: 'project.volume.deleted', resourceType: 'project', resourceId: projectId, details: { environmentId, name: volume.name } })
-  revalidatePath(`/projects/${access.project.slug}/volumes`)
+  revalidatePath(`/projects/${access.project.slug}/settings`)
 }

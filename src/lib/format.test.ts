@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { formatCpu, formatDate, formatDisplayToken, formatMemory, formatRelativeTime, formatTimestamp } from './format'
+import { formatCpu, formatDate, formatDisplayToken, formatMemory, formatReadyReplicas, formatRelativeTime, formatTimestamp, timestampTitle } from './format'
 
 const NOW = Date.parse('2026-01-02T00:00:00.000Z')
 
@@ -23,7 +23,7 @@ test('date formatters handle unavailable and invalid values', () => {
 test('absolute formats are English UTC across a timezone midnight', () => {
   const value = '2026-01-01T23:30:00-05:00'
   assert.equal(formatDate(value), 'Jan 2, 2026 UTC')
-  assert.equal(formatTimestamp(value), 'Jan 2, 2026, 04:30 UTC')
+  assert.equal(formatTimestamp(value, 'UTC'), 'Jan 2, 2026, 04:30 UTC')
 })
 
 test('display tokens are consistently humanized', () => {
@@ -31,10 +31,23 @@ test('display tokens are consistently humanized', () => {
   assert.equal(formatDisplayToken(null), '—')
 })
 
-test('resource formatters preserve CPU precision and switch memory units at one GiB', () => {
-  assert.equal(formatCpu(1), '0.001 cores')
-  assert.equal(formatCpu(999), '0.999 cores')
+test('resource formatters cap CPU precision and switch memory units at one GiB', () => {
+  assert.equal(formatCpu(1), '<0.01 cores')
+  assert.equal(formatCpu(999), '1 core')
+  assert.equal(formatCpu(1234), '1.23 cores')
   assert.equal(formatCpu(1000), '1 core')
   assert.equal(formatMemory(1024 * 1024 * 1024 - 1), '1024 MB')
   assert.equal(formatMemory(1024 * 1024 * 1024), '1 GB')
+})
+
+test('ready replica formatting makes unavailable observations explicit', () => {
+  assert.equal(formatReadyReplicas(2, 3), '2/3 ready')
+  assert.equal(formatReadyReplicas(null, 3), 'Unavailable / 3 ready')
+})
+
+test('timestamps follow viewer timezone across midnight and include UTC in the tooltip', () => {
+  const value = '2026-10-02T23:30:00Z'
+  assert.match(formatTimestamp(value, 'Europe/Madrid'), /Oct 3, 2026, 01:30/)
+  assert.match(timestampTitle(value, 'Europe/Madrid'), /Oct 2, 2026, 23:30 UTC/)
+  assert.match(formatTimestamp('2026-01-02T23:30:00Z', 'Europe/Madrid'), /Jan 3, 2026, 00:30/)
 })

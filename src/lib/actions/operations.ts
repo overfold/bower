@@ -83,18 +83,32 @@ function parseRedirects(value: string) {
 export async function updateRouteAction(projectId: string, routeId: string, formData: FormData) {
   const ctx = await requireProject(projectId); if (ctx.projectRole !== 'admin') throw new Error('Insufficient permissions.')
   const [before] = await db.select().from(routes).where(and(eq(routes.id, routeId), eq(routes.projectId, projectId))).limit(1); if (!before) throw new Error('Route not found.')
+  const serviceId = text(formData, 'serviceId') || before.serviceId
+  const [service] = await db.select({ id: services.id }).from(services)
+    .where(and(eq(services.id, serviceId), eq(services.projectId, projectId))).limit(1)
+  const [targetConfig] = await db.select({ id: serviceConfigs.id }).from(serviceConfigs)
+    .where(and(eq(serviceConfigs.serviceId, serviceId), eq(serviceConfigs.environmentId, before.environmentId))).limit(1)
+  if (!service || !targetConfig) throw new Error('The target service must be configured in this project environment.')
   const domain = text(formData, 'domain').toLowerCase()
   const port = integer(formData, 'port', 8080)
+  const tlsMode = text(formData, 'tlsMode')
+  const protectionMode = text(formData, 'protectionMode') as 'none' | 'password' | 'bower_auth'
+  const password = text(formData, 'routePassword')
   if (!/^(?:\*\.)?[a-z0-9.-]+$/i.test(domain)) throw new Error('Enter a valid domain name.')
   if (port < 1 || port > 65_535) throw new Error('Route port must be between 1 and 65535.')
+  if (!['auto', 'custom', 'none'].includes(tlsMode)) throw new Error('Invalid TLS mode.')
+  if (!['none', 'password', 'bower_auth'].includes(protectionMode)) throw new Error('Invalid route protection mode.')
+  if (protectionMode === 'password' && !before.passwordHash && password.length < 8) throw new Error('Route passwords must be at least 8 characters.')
+  if (password && password.length < 8) throw new Error('Route passwords must be at least 8 characters.')
+  if (protectionMode !== 'none' && (!process.env.BOWER_PUBLIC_URL || (process.env.BOWER_ROUTE_AUTH_SECRET?.length ?? 0) < 32)) throw new Error('BOWER_PUBLIC_URL and a BOWER_ROUTE_AUTH_SECRET of at least 32 characters are required for protected routes.')
   if (text(formData, 'tlsMode') === 'custom' && (!text(formData, 'tlsCertSecret') || !text(formData, 'tlsKeySecret'))) throw new Error('Custom TLS requires certificate and key secret names.')
   if (text(formData, 'tlsMode') === 'custom') {
     const secretRows = await db.select({ name: secretsMetadata.trellisSecretName }).from(secretsMetadata).where(eq(secretsMetadata.environmentId, before.environmentId)); const available = new Set(secretRows.map((item) => item.name))
     if (!available.has(text(formData, 'tlsCertSecret')) || !available.has(text(formData, 'tlsKeySecret'))) throw new Error('Custom TLS secrets must exist in this environment.')
   }
-  const after = { domain, pathPrefix: text(formData, 'pathPrefix') || '/', port, tlsMode: text(formData, 'tlsMode') as 'auto' | 'custom' | 'none', headers: parseLines(text(formData, 'requestHeaders')), responseHeaders: parseLines(text(formData, 'responseHeaders')), rateLimit: integer(formData, 'rateLimit', 0) || null, redirects: parseRedirects(text(formData, 'redirects')), tlsCertSecret: text(formData, 'tlsCertSecret') || null, tlsKeySecret: text(formData, 'tlsKeySecret') || null, updatedAt: new Date() }
-  await db.update(routes).set(after).where(eq(routes.id, routeId)); await syncManagedProxy(projectId, before.environmentId, ctx.org.id)
-  await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'route.updated', resourceType: 'route', resourceId: routeId, details: { before, after } }); revalidatePath(`/projects/${ctx.project.slug}/routes`)
+  const after = { domain, pathPrefix: text(formData, 'pathPrefix') || '/', port, tlsMode: tlsMode as 'auto' | 'custom' | 'none', headers: parseLines(text(formData, 'requestHeaders')), responseHeaders: parseLines(text(formData, 'responseHeaders')), rateLimit: integer(formData, 'rateLimit', 0) || null, redirects: parseRedirects(text(formData, 'redirects')), tlsCertSecret: text(formData, 'tlsCertSecret') || null, tlsKeySecret: text(formData, 'tlsKeySecret') || null, protectionMode, passwordHash: protectionMode === 'password' ? (password ? await hashPassword(password) : before.passwordHash) : null, updatedAt: new Date() }
+  await db.update(routes).set({ ...after, serviceId }).where(eq(routes.id, routeId)); await syncManagedProxy(projectId, before.environmentId, ctx.org.id)
+  await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'route.updated', resourceType: 'route', resourceId: routeId, details: { before, after: { ...after, serviceId } } }); revalidatePath(`/projects/${ctx.project.slug}/routes`)
 }
 
 export async function deleteRouteAction(projectId: string, routeId: string) {
@@ -285,7 +299,7 @@ export async function grantProjectAccessAction(projectId: string, formData: Form
     })
     await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'project.access.user.granted', resourceType: 'project', resourceId: projectId, details: { userId: member.id, email, role } })
   }
-  revalidatePath(`/projects/${ctx.project.slug}/access`)
+  revalidatePath(`/projects/${ctx.project.slug}/settings`)
 }
 
 export async function revokeProjectTeamAccessAction(projectId: string, accessId: string) {
@@ -293,7 +307,7 @@ export async function revokeProjectTeamAccessAction(projectId: string, accessId:
   if (ctx.projectRole !== 'admin') throw new Error('Insufficient permissions.')
   await db.delete(teamProjectAccess).where(and(eq(teamProjectAccess.id, accessId), eq(teamProjectAccess.projectId, projectId)))
   await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'project.access.team.revoked', resourceType: 'project', resourceId: projectId, details: { accessId } })
-  revalidatePath(`/projects/${ctx.project.slug}/access`)
+  revalidatePath(`/projects/${ctx.project.slug}/settings`)
 }
 
 export async function revokeProjectUserAccessAction(projectId: string, accessId: string) {
@@ -301,5 +315,5 @@ export async function revokeProjectUserAccessAction(projectId: string, accessId:
   if (ctx.projectRole !== 'admin') throw new Error('Insufficient permissions.')
   await db.delete(projectUserAccess).where(and(eq(projectUserAccess.id, accessId), eq(projectUserAccess.projectId, projectId)))
   await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'project.access.user.revoked', resourceType: 'project', resourceId: projectId, details: { accessId } })
-  revalidatePath(`/projects/${ctx.project.slug}/access`)
+  revalidatePath(`/projects/${ctx.project.slug}/settings`)
 }

@@ -44,7 +44,7 @@ export default function RegisterPage() {
         {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
         <div className="space-y-2">
           <Label htmlFor="name">Name</Label>
-          <Input id="name" name="name" placeholder="Your name" autoComplete="name" required />
+          <Input id="name" name="name" autoComplete="name" required />
         </div>
         <div className="space-y-2">
           <Label htmlFor="email">Email address</Label>
@@ -52,7 +52,6 @@ export default function RegisterPage() {
             id="email"
             name="email"
             type="email"
-            placeholder="you@example.com"
             autoComplete="email"
             required
           />
@@ -63,7 +62,6 @@ export default function RegisterPage() {
             id="password"
             name="password"
             type="password"
-            placeholder="Minimum 8 characters"
             autoComplete="new-password"
             required
             minLength={8}

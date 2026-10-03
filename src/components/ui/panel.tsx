@@ -13,7 +13,7 @@ export function SectionTitle({ children, className }: { children: React.ReactNod
   )
 }
 
-export function KeyValue({ label, children, mono }: { label: string; children: React.ReactNode; mono?: boolean }) {
+export function KeyValue({ label, children, mono }: { label: React.ReactNode; children: React.ReactNode; mono?: boolean }) {
   return (
     <div className="min-w-0 py-2.5">
       <dt className="text-xs text-ink-muted">{label}</dt>

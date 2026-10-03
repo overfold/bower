@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { FitAddon } from '@xterm/addon-fit'
 import { Terminal as XTerm } from '@xterm/xterm'
-import { Terminal } from 'lucide-react'
+import { Maximize2, Minimize2, Terminal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -32,11 +32,27 @@ export function ExecDialog({
   const [status, setStatus] = useState<TerminalStatus>('idle')
   const [error, setError] = useState<string | null>(null)
   const [terminalElement, setTerminalElement] = useState<HTMLDivElement | null>(null)
+  const [fullScreen, setFullScreen] = useState(false)
+  const [resolvedFont, setResolvedFont] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    let active = true
+    const family = getComputedStyle(document.documentElement).getPropertyValue('--font-jetbrains').trim() || 'ui-monospace, monospace'
+    // next/font also supplies a local fallback face. Loading the whole list
+    // rejects when that local font is absent even if JetBrains loaded correctly.
+    void document.fonts.load(`13px ${family.split(',')[0]}`).then(() => {
+      if (active) setResolvedFont(family)
+    }).catch(() => {
+      if (active) { setStatus('error'); setError('The terminal font could not be loaded. Reopen the terminal to retry.') }
+    })
+    return () => { active = false }
+  }, [open])
 
   useEffect(() => {
     // The animated portal mounts after open changes. Start on actual mount,
     // not the render that merely requests an open dialog.
-    if (!open || !terminalElement) return
+    if (!open || !terminalElement || !resolvedFont) return
 
     let active = true
     let resizeTimer: ReturnType<typeof setTimeout> | null = null
@@ -46,7 +62,7 @@ export function ExecDialog({
     const terminal = new XTerm({
       cursorBlink: true,
       cursorStyle: 'block',
-      fontFamily: 'var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      fontFamily: resolvedFont,
       fontSize: 13,
       lineHeight: 1.25,
       scrollback: 5000,
@@ -178,7 +194,7 @@ export function ExecDialog({
       socket.close()
       terminal.dispose()
     }
-  }, [allocationId, open, selectedTask, serviceConfigId, terminalElement])
+  }, [allocationId, open, selectedTask, serviceConfigId, terminalElement, resolvedFont])
 
   function handleOpenChange(nextOpen: boolean) {
     setOpen(nextOpen)
@@ -194,11 +210,11 @@ export function ExecDialog({
           Terminal
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl overflow-hidden">
+      <DialogContent className={fullScreen ? 'h-screen max-h-screen w-screen max-w-none grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-none' : 'max-w-6xl overflow-hidden'}>
         <DialogHeader>
           <DialogTitle>Interactive terminal</DialogTitle>
         </DialogHeader>
-        <DialogBody className="space-y-3">
+        <DialogBody className={fullScreen ? 'flex max-h-none min-h-0 flex-col gap-3' : 'space-y-3'}>
           {tasks.length > 1 && (
             <div className="flex items-center justify-between gap-3">
               <span className="text-xs font-medium text-ink-soft">Task</span>
@@ -220,13 +236,14 @@ export function ExecDialog({
               </Select>
             </div>
           )}
+          <div className="flex justify-end"><Button size="sm" type="button" onClick={() => setFullScreen((value) => !value)}>{fullScreen ? <Minimize2 /> : <Maximize2 />}{fullScreen ? 'Exit full screen' : 'Full screen'}</Button></div>
           <div
-            className="overflow-hidden rounded-md border border-line-strong bg-[#0b1113] p-2"
+            className={`${fullScreen ? 'min-h-0 flex-1 ' : ''}overflow-hidden rounded-md border border-line-strong bg-[#0b1113] p-2`}
             onMouseDown={() => terminalElement?.querySelector('textarea')?.focus()}
           >
             <div
               ref={setTerminalElement}
-              className="h-[420px] min-h-[280px] w-full"
+              className={fullScreen ? 'h-full w-full' : 'h-[60vh] min-h-[420px] w-full'}
               aria-label="Interactive allocation terminal"
             />
           </div>

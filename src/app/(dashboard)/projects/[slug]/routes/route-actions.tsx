@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
 import { actionErrorMessage } from '@/lib/action-error'
 import { Plus, Info } from 'lucide-react'
-import { createManagedRouteAction, deleteManagedRouteAction, updateRouteProtectionAction } from '@/lib/actions/routes'
+import { createManagedRouteAction, deleteManagedRouteAction, updateManagedRouteAction } from '@/lib/actions/routes'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,6 +30,7 @@ import {
 import { InlineNotice } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { RowActions, RowActionItem, RowActionSeparator } from '@/components/ui/row-actions'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -101,11 +102,11 @@ export function AddRouteDialog({
         disabled={!services.length}
       >
         <Plus />
-        Add route
+        New route
       </Button>
-      <DialogContent>
+      <DialogContent size="lg">
         <DialogHeader>
-          <DialogTitle>Add route</DialogTitle>
+          <DialogTitle>Create route</DialogTitle>
           <DialogDescription>
             Bind a hostname from an organization-verified domain to a service in this project.
           </DialogDescription>
@@ -115,8 +116,8 @@ export function AddRouteDialog({
             <div className="space-y-4">
               {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
 
-              <div className={`rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm ${prefix.trim() ? 'font-mono text-ink' : 'text-ink-muted'}`}>
-                {prefix.trim() ? preview : `api.${selectedDomain?.domain ?? 'example.com'}`} → {services.find((service) => service.id === serviceId)?.name ?? 'service'} on port {port}
+              <div className="rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 font-mono text-sm text-ink">
+                <span className={prefix.trim() ? undefined : 'text-ink-muted'}>{prefix.trim() ? preview : `<prefix>.${selectedDomain?.domain ?? 'example.com'}`}</span> → {services.find((service) => service.id === serviceId)?.name ?? 'service'} on port {port}
               </div>
 
               <fieldset className="space-y-4"><legend className="mb-3 text-sm font-semibold text-ink">Destination</legend>
@@ -140,7 +141,6 @@ export function AddRouteDialog({
                     name="hostnamePrefix"
                     value={prefix}
                     onChange={(event) => setPrefix(event.target.value)}
-                    placeholder="api"
                     className="min-w-0 rounded-none border-0 font-mono text-sm focus-visible:ring-0"
                     autoComplete="off"
                   /><span className="flex shrink-0 items-center border-l border-line bg-sunken px-3 font-mono text-xs text-ink-muted">.{selectedDomain?.domain}</span></div>
@@ -162,7 +162,7 @@ export function AddRouteDialog({
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center gap-2"><Label htmlFor="port">Port</Label><TooltipProvider><Tooltip><TooltipTrigger asChild><button type="button" aria-label="Default port source" className="rounded-md text-ink-muted focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"><Info className="size-3.5" /></button></TooltipTrigger><TooltipContent>{services.find((service) => service.id === serviceId)?.portSource}</TooltipContent></Tooltip></TooltipProvider></div>
-                  <Input id="port" name="port" type="number" min={1} max={65535} value={port} onChange={(event) => setPort(Number(event.target.value))} className="max-w-48" required />
+                  <Input id="port" name="port" type="number" min={1} max={65535} value={port} onChange={(event) => setPort(Number(event.target.value))} required />
                 </div>
               </div>
 
@@ -188,7 +188,7 @@ export function AddRouteDialog({
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="rateLimit" optional>Rate limit</Label>
-                  <div className="relative max-w-48"><Input id="rateLimit" name="rateLimit" type="number" min={1} placeholder="Unlimited" className="pr-14" /><span className="pointer-events-none absolute right-3 top-2.5 text-xs text-ink-muted">req/s</span></div>
+                  <div className="relative"><Input id="rateLimit" name="rateLimit" type="number" min={1} className="pr-14" /><span className="pointer-events-none absolute right-3 top-2.5 text-xs text-ink-muted">req/s</span></div>
                 </div>
               </div>
 
@@ -237,44 +237,56 @@ export function AddRouteDialog({
   )
 }
 
+type EditableRoute = {
+  id: string; serviceId: string; domain: string; pathPrefix: string; port: number; tlsMode: 'auto' | 'custom' | 'none'
+  protectionMode: 'none' | 'password' | 'bower_auth'; rateLimit: number | null
+  headers: unknown; responseHeaders: unknown; redirects: unknown
+  tlsCertSecret: string | null; tlsKeySecret: string | null
+}
+
+function keyValueLines(value: unknown) {
+  return Object.entries((value ?? {}) as Record<string, string>).map(([key, item]) => `${key}=${item}`).join('\n')
+}
+
+function redirectLines(value: unknown) {
+  return (Array.isArray(value) ? value : []).map((item: { from?: string; to?: string; code?: number }) => `${item.from ?? ''} ${item.to ?? ''} ${item.code ?? 308}`).join('\n')
+}
+
 export function RouteActions(props: {
   projectId: string
-  routeId: string
-  hostname: string
-  currentMode: 'none' | 'password' | 'bower_auth'
+  route: EditableRoute
+  services: { id: string; name: string }[]
 }) {
-  const [action, setAction] = useState<'protection' | 'delete' | null>(null)
+  const [action, setAction] = useState<'edit' | 'delete' | null>(null)
 
   return (
     <>
-      <RowActions name={props.hostname}>
-        <RowActionItem onSelect={() => setAction('protection')}>Edit protection</RowActionItem>
+      <RowActions name={props.route.domain}>
+        <RowActionItem onSelect={() => setAction('edit')}>Edit route</RowActionItem>
         <RowActionSeparator />
         <RowActionItem className="text-danger-600 focus:text-danger-600" onSelect={() => setAction('delete')}>Delete</RowActionItem>
       </RowActions>
-      <RouteProtectionButton {...props} open={action === 'protection'} onOpenChange={(open) => setAction(open ? 'protection' : null)} />
-      <DeleteRouteButton {...props} open={action === 'delete'} onOpenChange={(open) => setAction(open ? 'delete' : null)} />
+      <EditRouteDialog {...props} open={action === 'edit'} onOpenChange={(open) => setAction(open ? 'edit' : null)} />
+      <DeleteRouteButton projectId={props.projectId} routeId={props.route.id} hostname={props.route.domain} open={action === 'delete'} onOpenChange={(open) => setAction(open ? 'delete' : null)} />
     </>
   )
 }
 
-function RouteProtectionButton({
+function EditRouteDialog({
   projectId,
-  routeId,
-  hostname,
-  currentMode,
+  route,
+  services,
   open,
   onOpenChange,
 }: {
   projectId: string
-  routeId: string
-  hostname: string
-  currentMode: 'none' | 'password' | 'bower_auth'
+  route: EditableRoute
+  services: { id: string; name: string }[]
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
   const router = useRouter()
-  const [mode, setMode] = useState(currentMode)
+  const [mode, setMode] = useState(route.protectionMode)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -283,31 +295,39 @@ function RouteProtectionButton({
     setBusy(true)
     setError(null)
     try {
-      await updateRouteProtectionAction(projectId, routeId, new FormData(event.currentTarget))
+      await updateManagedRouteAction(projectId, route.id, new FormData(event.currentTarget))
       onOpenChange(false)
       router.refresh()
     } catch (err) {
-      setError(actionErrorMessage(err, 'Could not update route protection.'))
+      setError(actionErrorMessage(err, 'Could not update route.'))
     } finally {
       setBusy(false)
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={(next) => { onOpenChange(next); if (next) { setMode(currentMode); setError(null) } }}>
-      <DialogContent>
+    <Dialog open={open} onOpenChange={(next) => { onOpenChange(next); if (next) { setMode(route.protectionMode); setError(null) } }}>
+      <DialogContent size="lg">
         <DialogHeader>
-          <DialogTitle>Route protection</DialogTitle>
-          <DialogDescription>Control access to <span className="font-mono text-xs">{hostname}</span> at the proxy.</DialogDescription>
+          <DialogTitle>Edit route</DialogTitle>
+          <DialogDescription>Update the hostname, traffic rules, and access protection.</DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit}>
           <DialogBody>
             <div className="space-y-4">
               {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2 sm:col-span-2"><Label htmlFor={`service-${route.id}`}>Service</Label><Select name="serviceId" defaultValue={route.serviceId}><SelectTrigger id={`service-${route.id}`}><SelectValue /></SelectTrigger><SelectContent>{services.map((service) => <SelectItem key={service.id} value={service.id}>{service.name}</SelectItem>)}</SelectContent></Select></div>
+                <div className="space-y-2"><Label htmlFor={`domain-${route.id}`}>Hostname</Label><Input id={`domain-${route.id}`} name="domain" defaultValue={route.domain} required mono /></div>
+                <div className="space-y-2"><Label htmlFor={`path-${route.id}`}>Path prefix</Label><Input id={`path-${route.id}`} name="pathPrefix" defaultValue={route.pathPrefix} required mono /></div>
+                <div className="space-y-2"><Label htmlFor={`port-${route.id}`}>Port</Label><Input id={`port-${route.id}`} name="port" type="number" min={1} max={65535} defaultValue={route.port} required /></div>
+                <div className="space-y-2"><Label htmlFor={`tls-${route.id}`}>TLS</Label><Select name="tlsMode" defaultValue={route.tlsMode}><SelectTrigger id={`tls-${route.id}`}><SelectValue /></SelectTrigger><SelectContent><SelectItem value="auto">Automatic HTTPS</SelectItem><SelectItem value="none">HTTP only</SelectItem>{route.tlsMode === 'custom' ? <SelectItem value="custom">Custom certificate</SelectItem> : null}</SelectContent></Select><input type="hidden" name="tlsCertSecret" value={route.tlsCertSecret ?? ''} /><input type="hidden" name="tlsKeySecret" value={route.tlsKeySecret ?? ''} /></div>
+                <div className="space-y-2"><Label htmlFor={`limit-${route.id}`} optional>Rate limit</Label><Input id={`limit-${route.id}`} name="rateLimit" type="number" min={1} defaultValue={route.rateLimit ?? ''} /></div>
+              </div>
               <div className="space-y-2">
-                <Label htmlFor={`protection-${routeId}`}>Access protection</Label>
+                <Label htmlFor={`protection-${route.id}`}>Access protection</Label>
                 <Select name="protectionMode" value={mode} onValueChange={(value) => setMode(value as typeof mode)}>
-                  <SelectTrigger id={`protection-${routeId}`}><SelectValue /></SelectTrigger>
+                  <SelectTrigger id={`protection-${route.id}`}><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Public</SelectItem>
                     <SelectItem value="password">Password</SelectItem>
@@ -317,11 +337,13 @@ function RouteProtectionButton({
               </div>
               {mode === 'password' ? (
                 <div className="space-y-2">
-                  <Label htmlFor={`password-${routeId}`}>{currentMode === 'password' ? 'New password (optional)' : 'Password'}</Label>
-                  <Input id={`password-${routeId}`} name="routePassword" type="password" minLength={8} required={currentMode !== 'password'} autoComplete="new-password" />
-                  <p className="text-xs text-ink-muted">{currentMode === 'password' ? 'Leave blank to keep the current password. ' : ''}Visitors enter this password on a Bower page.</p>
+                  <Label htmlFor={`password-${route.id}`}>{route.protectionMode === 'password' ? 'New password (optional)' : 'Password'}</Label>
+                  <Input id={`password-${route.id}`} name="routePassword" type="password" minLength={8} required={route.protectionMode !== 'password'} autoComplete="new-password" />
+                  <p className="text-xs text-ink-muted">{route.protectionMode === 'password' ? 'Leave blank to keep the current password. ' : ''}Visitors enter this password on a Bower page.</p>
                 </div>
               ) : null}
+              <div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label htmlFor={`request-${route.id}`} optional>Request headers</Label><Textarea id={`request-${route.id}`} name="requestHeaders" defaultValue={keyValueLines(route.headers)} mono /><p className="text-xs text-ink-muted">One header per line, for example <span className="font-mono">X-Header=value</span>.</p></div><div className="space-y-2"><Label htmlFor={`response-${route.id}`} optional>Response headers</Label><Textarea id={`response-${route.id}`} name="responseHeaders" defaultValue={keyValueLines(route.responseHeaders)} mono /><p className="text-xs text-ink-muted">One header per line, for example <span className="font-mono">X-Header=value</span>.</p></div></div>
+              <div className="space-y-2"><Label htmlFor={`redirects-${route.id}`} optional>Redirects</Label><Textarea id={`redirects-${route.id}`} name="redirects" defaultValue={redirectLines(route.redirects)} mono /><p className="text-xs text-ink-muted">One redirect per line: source, destination, and status code. For example, <span className="font-mono">/old /new 308</span>.</p></div>
               {mode === 'bower_auth' ? (
                 <p className="text-xs leading-5 text-ink-muted">Users sign in to Bower and must have Viewer, Deployer, or Admin access to this project.</p>
               ) : null}
@@ -329,7 +351,7 @@ function RouteProtectionButton({
           </DialogBody>
           <DialogFooter>
             <DialogClose asChild><Button type="button" disabled={busy}>Cancel</Button></DialogClose>
-            <Button variant="primary" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save protection'}</Button>
+            <Button variant="primary" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save route'}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

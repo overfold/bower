@@ -7,15 +7,15 @@ const dateFormatter = new Intl.DateTimeFormat('en-US', {
   timeZone: 'UTC',
 })
 
-const timestampFormatter = new Intl.DateTimeFormat('en-US', {
+const timestampOptions: Intl.DateTimeFormatOptions = {
   month: 'short',
   day: 'numeric',
   year: 'numeric',
   hour: '2-digit',
   minute: '2-digit',
   hour12: false,
-  timeZone: 'UTC',
-})
+  timeZoneName: 'short',
+}
 
 function validDate(value: DateValue): Date | null {
   if (value === null || value === undefined || value === '') return null
@@ -28,9 +28,15 @@ export function formatDate(value: DateValue): string {
   return date ? `${dateFormatter.format(date)} UTC` : '—'
 }
 
-export function formatTimestamp(value: DateValue): string {
+export function formatTimestamp(value: DateValue, timeZone?: string): string {
   const date = validDate(value)
-  return date ? `${timestampFormatter.format(date)} UTC` : '—'
+  return date ? new Intl.DateTimeFormat('en-US', { ...timestampOptions, timeZone }).format(date) : '—'
+}
+
+export function timestampTitle(value: DateValue, timeZone?: string): string {
+  const local = formatTimestamp(value, timeZone)
+  const utc = formatTimestamp(value, 'UTC')
+  return local === utc ? utc : `${local} · ${utc}`
 }
 
 export function formatRelativeTime(value: DateValue, now = Date.now()): string {
@@ -58,10 +64,27 @@ export function formatDisplayToken(value: string | null | undefined): string {
 
 export function formatCpu(millicores: number): string {
   const cores = millicores / 1000
-  return `${Number(cores.toFixed(3))} ${cores === 1 ? 'core' : 'cores'}`
+  if (cores > 0 && cores < 0.01) return '<0.01 cores'
+  const rounded = Number(cores.toFixed(2))
+  return `${rounded} ${rounded === 1 ? 'core' : 'cores'}`
 }
 
 export function formatMemory(bytes: number): string {
   const mb = bytes / (1024 * 1024)
   return mb >= 1024 ? `${Number((mb / 1024).toFixed(1))} GB` : `${Number(mb.toFixed(1))} MB`
+}
+
+export function formatReadyReplicas(ready: number | null | undefined, desired: number): string {
+  return ready == null ? `Unavailable / ${desired} ready` : `${ready}/${desired} ready`
+}
+
+export function shortDeploymentImage(image?: string | null) {
+  return image ? image.split('/').at(-1) ?? image : '—'
+}
+
+export function formatDeploymentDuration(startedAt?: Date, completedAt?: Date | null) {
+  if (!startedAt || !completedAt) return '—'
+  const seconds = Math.max(0, Math.floor((completedAt.getTime() - startedAt.getTime()) / 1000))
+  if (seconds < 60) return `${seconds}s`
+  return `${Math.floor(seconds / 60)}m ${seconds % 60}s`
 }

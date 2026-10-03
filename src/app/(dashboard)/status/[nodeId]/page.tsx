@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
-import { getUserOrganization } from '@/lib/queries'
+import { getOperationalTargetsForOrg, getUserOrganization } from '@/lib/queries'
 import { getTrellisClient } from '@/lib/trellis-instance'
 import { nodeAllocatable, nodeCapacity, observationFreshness, trellisReadError } from '@/lib/trellis-runtime'
 import { parseNodeAllocatedResources } from '@/lib/trellis-resource-metrics'
@@ -10,10 +10,15 @@ import { Panel, PanelHeader, KeyValue } from '@/components/ui/panel'
 import { Chip, StatusDot } from '@/components/status'
 import { DrainToggle } from '../drain-toggle'
 import { formatCpu, formatMemory } from '@/lib/format'
-import type { TrellisNode } from '@/types/trellis'
-import { formatTimestamp } from '@/lib/format'
+import type { TrellisAllocation, TrellisNode } from '@/types/trellis'
 import { ResourceId } from '@/components/resource-id'
 import { label } from '@/lib/labels'
+import Link from 'next/link'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { ChevronRight, Info } from 'lucide-react'
+import { ClickableTableRow } from '@/components/clickable-table-row'
+import { Time } from '@/components/time'
 
 export default async function NodePage({ params }: { params: Promise<{ nodeId: string }> }) {
   const user = await getCurrentUser()
@@ -22,16 +27,20 @@ export default async function NodePage({ params }: { params: Promise<{ nodeId: s
   if (!ctx) redirect('/login')
   const { nodeId } = await params
   let node: TrellisNode | undefined
+  let allocations: TrellisAllocation[] = []
   let nodeError: string | null = null
   let metricsError: string | null = null
+  let allocationsError: string | null = null
   let allocated = { cpu: 0, memory: 0 }
   try {
     const client = await getTrellisClient(ctx.org.id)
-    const [nodes, metrics] = await Promise.allSettled([client.listNodes(), client.getMetrics()])
+    const [nodes, metrics, listedAllocations] = await Promise.allSettled([client.listNodes(), client.getMetrics(), client.listAllocations()])
     if (nodes.status === 'fulfilled') node = nodes.value.find((item) => item.id === nodeId)
     else nodeError = trellisReadError(nodes.reason)
     if (metrics.status === 'fulfilled') allocated = parseNodeAllocatedResources(metrics.value).get(nodeId) ?? allocated
     else metricsError = trellisReadError(metrics.reason)
+    if (listedAllocations.status === 'fulfilled') allocations = listedAllocations.value.filter((allocation) => allocation.node_id === nodeId)
+    else allocationsError = trellisReadError(listedAllocations.reason)
   } catch (error) {
     nodeError = trellisReadError(error)
   }
@@ -42,16 +51,17 @@ export default async function NodePage({ params }: { params: Promise<{ nodeId: s
   const allocatable = nodeAllocatable(node)
   const heartbeat = observationFreshness(node.last_heartbeat)
   const metrics = observationFreshness(node.metrics_at)
-  const cpuUsed = node.cpu_usage == null ? 0 : node.cpu_usage * allocatable.cpu
-  const cpuUsedPct = allocatable.cpu > 0 ? Math.min(100, cpuUsed / allocatable.cpu * 100) : 0
+  const cpuUsed = node.cpu_usage == null ? null : node.cpu_usage * allocatable.cpu
+  const cpuUsedPct = cpuUsed != null && allocatable.cpu > 0 ? Math.min(100, cpuUsed / allocatable.cpu * 100) : null
   const cpuAllocatedPct = allocatable.cpu > 0 ? Math.min(100, allocated.cpu / allocatable.cpu * 100) : 0
-  const memoryUsed = node.memory_used ?? 0
-  const memoryUsedPct = allocatable.memory > 0 ? Math.min(100, memoryUsed / allocatable.memory * 100) : 0
+  const memoryUsed = node.memory_used ?? null
+  const memoryUsedPct = memoryUsed != null && allocatable.memory > 0 ? Math.min(100, memoryUsed / allocatable.memory * 100) : null
   const memoryAllocatedPct = allocatable.memory > 0 ? Math.min(100, allocated.memory / allocatable.memory * 100) : 0
+  const targets = await getOperationalTargetsForOrg(ctx.org.id)
 
   return (
     <div className="space-y-6">
-      <PageHeading title={`Node ${node.id}`} meta={<><ResourceId value={node.id} copy /><MetaItem label="Status" value={<StatusDot status={node.status === 'healthy' ? 'ready' : node.status} />} /></>} actions={ctx.role === 'owner' ? <DrainToggle nodeId={node.id} drain={node.status === 'draining'} /> : undefined} />
+      <PageHeading title={node.id} meta={<MetaItem label="Status" value={<StatusDot status={node.status === 'healthy' ? 'ready' : node.status} />} />} actions={ctx.role === 'owner' ? <DrainToggle nodeId={node.id} drain={node.status === 'draining'} /> : undefined} />
       <Panel>
         <PanelHeader title="Node details" />
         <dl className="grid gap-x-8 p-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -59,41 +69,43 @@ export default async function NodePage({ params }: { params: Promise<{ nodeId: s
           <KeyValue label="Port" mono>{node.port}</KeyValue>
           <KeyValue label="Version">{node.version || '—'}</KeyValue>
           <KeyValue label="OS">{node.os || '—'} / {node.arch || '—'}</KeyValue>
-          <KeyValue label="Control-plane membership">{node.control_plane ? label(node.control_plane) : 'Not reported'}</KeyValue>
-          <KeyValue label="Last heartbeat">{formatTimestamp(node.last_heartbeat)}</KeyValue>
+          <KeyValue label={<PlainNodeLabel label="Cluster role" trellis="Control-plane membership" />}>{node.control_plane ? label(node.control_plane) : 'Not reported'}</KeyValue>
+          <KeyValue label="Last heartbeat"><Time value={node.last_heartbeat} mode="absolute" /></KeyValue>
           <KeyValue label="Heartbeat freshness"><Chip tone={heartbeat === 'fresh' ? 'success' : heartbeat === 'stale' ? 'danger' : 'neutral'}>{label(heartbeat)}</Chip></KeyValue>
+          <KeyValue label="Capabilities">{node.capabilities?.join(', ') || 'None reported'}</KeyValue>
         </dl>
       </Panel>
       <Panel>
         <PanelHeader title="Capacity" />
-        {metricsError ? <TrellisReadError title="Allocated resources unavailable" message={metricsError} /> : (
-          <div className="grid gap-5 p-4 sm:grid-cols-2">
-            <ResourceBar label="CPU" used={formatCpu(cpuUsed)} allocated={formatCpu(allocated.cpu)} total={formatCpu(allocatable.cpu)} usedPct={cpuUsedPct} allocatedPct={cpuAllocatedPct} />
-            <ResourceBar label="Memory" used={formatMemory(memoryUsed)} allocated={formatMemory(allocated.memory)} total={formatMemory(allocatable.memory)} usedPct={memoryUsedPct} allocatedPct={memoryAllocatedPct} />
-          </div>
-        )}
+        {metricsError ? <TrellisReadError title="Allocated resources unavailable" message={metricsError} /> : null}
+        <div className="grid gap-5 p-4 sm:grid-cols-2">
+          <ResourceBar label="CPU" used={cpuUsed == null ? null : formatCpu(cpuUsed)} allocated={metricsError ? null : formatCpu(allocated.cpu)} total={formatCpu(allocatable.cpu)} usedPct={cpuUsedPct} allocatedPct={metricsError ? null : cpuAllocatedPct} />
+          <ResourceBar label="Memory" used={memoryUsed == null ? null : formatMemory(memoryUsed)} allocated={metricsError ? null : formatMemory(allocated.memory)} total={formatMemory(allocatable.memory)} usedPct={memoryUsedPct} allocatedPct={metricsError ? null : memoryAllocatedPct} />
+        </div>
         <dl className="grid gap-x-8 border-t border-line px-4 py-2 sm:grid-cols-2">
           <KeyValue label="Physical CPU">{formatCpu(capacity.cpu)}</KeyValue>
           <KeyValue label="Physical memory">{formatMemory(capacity.memory)}</KeyValue>
+          <KeyValue label="Observation">{metrics === 'unknown' ? 'No observation reported' : <>{label(metrics)} · <Time value={node.metrics_at} mode="absolute" /></>}</KeyValue>
         </dl>
       </Panel>
       <Panel>
-        <PanelHeader title="Live observation" hint={metrics === 'unknown' ? 'No observation reported' : `${metrics === 'fresh' ? 'Fresh' : 'Stale'} · ${formatTimestamp(node.metrics_at)}`} />
-        <dl className="grid gap-x-8 p-4 sm:grid-cols-3">
-          <KeyValue label="CPU usage">{node.cpu_usage == null ? 'Unknown' : `${Math.round(node.cpu_usage * 100)}%`}</KeyValue>
-          <KeyValue label="Memory used">{node.memory_used == null ? 'Unknown' : formatMemory(node.memory_used)}</KeyValue>
-          <KeyValue label="Memory available">{node.memory_available == null ? 'Unknown' : formatMemory(node.memory_available)}</KeyValue>
-        </dl>
-      </Panel>
-      <Panel>
-        <PanelHeader title="Capabilities" />
-        <div className="p-4 text-sm text-ink-muted">{node.capabilities?.join(', ') || 'None reported'}</div>
+        <PanelHeader title="Allocations on this node" hint={`${allocations.length} allocation${allocations.length === 1 ? '' : 's'}`} />
+        {allocationsError ? <TrellisReadError title="Allocations unavailable" message={allocationsError} /> : allocations.length ? <Table><TableHeader><TableRow><TableHead>Allocation</TableHead><TableHead>Service</TableHead><TableHead>Status</TableHead><TableHead>Started</TableHead><TableHead><span className="sr-only">Open</span></TableHead></TableRow></TableHeader><TableBody>{allocations.map((allocation) => {
+          const target = targets.find((item) => item.namespace === allocation.namespace && (item.job === allocation.job || item.serviceSlug === allocation.labels?.['bower/service']))
+          const href = target ? `/projects/${target.projectSlug}/services/${target.serviceSlug}/allocations/${allocation.id}` : null
+          const cells = <><TableCell>{href ? <Link className="relative z-10 text-link hover:underline" href={href}><ResourceId value={allocation.id} /></Link> : <ResourceId value={allocation.id} />}</TableCell><TableCell>{target?.serviceName ?? allocation.job}</TableCell><TableCell><StatusDot status={allocation.phase === 'running' ? allocation.health : allocation.phase} /></TableCell><TableCell><Time value={allocation.created_at} mode="absolute" /></TableCell><TableCell>{href ? <ChevronRight className="ml-auto size-4 text-ink-faint" /> : null}</TableCell></>
+          return href ? <ClickableTableRow key={allocation.id} href={href} label={`View allocation ${allocation.id}`}>{cells}</ClickableTableRow> : <TableRow key={allocation.id}>{cells}</TableRow>
+        })}</TableBody></Table> : <p className="border-t border-line px-4 py-3 text-sm text-ink-muted">No allocations are currently placed on this node.</p>}
       </Panel>
     </div>
   )
 }
 
-function ResourceBar({ label, used, allocated, total, usedPct, allocatedPct }: { label: string; used: string; allocated: string; total: string; usedPct: number; allocatedPct: number }) {
-  const title = `${label}: ${used} used (${Math.round(usedPct)}%), ${allocated} allocated (${Math.round(allocatedPct)}%), ${total} total`
-  return <div><p className="text-sm text-ink-soft">{label} · {total}</p><div className="relative mt-2 h-3 overflow-hidden rounded-md bg-line" title={title} role="img" aria-label={title}><span className="absolute bottom-0 left-0 h-1/2 bg-info-500" style={{ width: `${allocatedPct}%` }} /><span className="absolute left-0 top-0 h-1/2 bg-brand-500" style={{ width: `${usedPct}%` }} /></div><div className="mt-2 flex gap-4 text-xs text-ink-muted"><span><i className="mr-1 inline-block h-2 w-2 bg-brand-500" />Used {used}</span><span><i className="mr-1 inline-block h-2 w-2 bg-info-500" />Allocated {allocated}</span></div></div>
+function ResourceBar({ label, used, allocated, total, usedPct, allocatedPct }: { label: string; used: string | null; allocated: string | null; total: string; usedPct: number | null; allocatedPct: number | null }) {
+  const title = `${label}: ${used ?? 'usage unavailable'} used, ${allocated ?? 'allocation unavailable'} allocated, ${total} total`
+  return <div><p className="text-sm text-ink-soft">{label} · {total}</p><div className="relative mt-2 h-3 rounded-md bg-line" title={title} role="img" aria-label={title}>{allocatedPct != null ? <span className="absolute inset-y-0 left-0 rounded-md bg-info-500" style={{ width: `${allocatedPct}%` }} /> : null}{usedPct != null ? <span className="absolute -top-1 h-5 w-0.5 bg-ink" style={{ left: `calc(${usedPct}% - 1px)` }} /> : null}</div><div className="mt-2 flex gap-4 text-xs text-ink-muted"><span><i className="mr-1 inline-block h-2 w-0.5 bg-ink" />Used {used ?? 'Unavailable'}</span><span><i className="mr-1 inline-block h-2 w-2 bg-info-500" />Allocated {allocated ?? 'Unavailable'}</span></div></div>
+}
+
+function PlainNodeLabel({ label: text, trellis }: { label: string; trellis: string }) {
+  return <span className="inline-flex items-center gap-1">{text}<TooltipProvider><Tooltip><TooltipTrigger aria-label={`${text} terminology`}><Info className="size-3 text-ink-faint" /></TooltipTrigger><TooltipContent>Trellis: {trellis}</TooltipContent></Tooltip></TooltipProvider></span>
 }

@@ -7,9 +7,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { SearchInput } from '@/components/ui/search-input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { MemberRoleSelect } from './member-role-select'
-import { MemberActionsMenu } from '../instance/instance-admin-actions'
 import { instanceRoleLabels, organizationRoleLabels } from '@/lib/labels'
+import { ChevronRight } from 'lucide-react'
+import { ClickableTableRow } from '@/components/clickable-table-row'
 
 interface TeamRef {
   id: string
@@ -35,19 +35,13 @@ interface TeamOption {
 interface MembersTableProps {
   members: MemberRow[]
   teams: TeamOption[]
-  canManageRoles: boolean
-  canRemoveMembers: boolean
   showInstanceAdmin: boolean
-  currentUserId: string
 }
 
 export function MembersTable({
   members,
   teams,
-  canManageRoles,
-  canRemoveMembers,
   showInstanceAdmin,
-  currentUserId,
 }: MembersTableProps) {
   const [search, setSearch] = useState('')
   const [instanceRoleFilter, setInstanceRoleFilter] = useState('all')
@@ -100,10 +94,7 @@ export function MembersTable({
     <Card>
       <CardHeader className="min-h-0 flex-col items-stretch gap-3 py-3 xl:flex-row xl:items-center">
         <div className="shrink-0">
-          <CardTitle>Members</CardTitle>
-          <p className="mt-0.5 text-xs text-ink-muted">
-            {uniqueMemberCount} {uniqueMemberCount === 1 ? 'member' : 'members'}
-          </p>
+          <CardTitle>{uniqueMemberCount} {uniqueMemberCount === 1 ? 'member' : 'members'}</CardTitle>
         </div>
 
         <div className="flex flex-1 flex-wrap items-center gap-2 xl:justify-end">
@@ -170,7 +161,7 @@ export function MembersTable({
               {showInstanceAdmin ? <TableHead>Instance Role</TableHead> : null}
               <TableHead>{showInstanceAdmin ? 'Organization Role' : 'Role'}</TableHead>
               <TableHead>Teams</TableHead>
-              <TableHead className="w-[52px]"><span className="sr-only">Actions</span></TableHead>
+              <TableHead className="w-[52px]"><span className="sr-only">View</span></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -182,16 +173,16 @@ export function MembersTable({
               </TableRow>
             ) : (
               filtered.map((member) => (
-                <TableRow key={member.membershipId ?? `user-${member.userId}`}>
+                <ClickableTableRow key={member.membershipId ?? `user-${member.userId}`} href={`/settings/members/${member.userId}`} label={`View member ${member.name}`}>
                   <TableCell>
-                    <Link href={`/settings/members/${member.userId}`} className="group flex items-center gap-2.5">
+                    <Link href={`/settings/members/${member.userId}`} className="flex items-center gap-2.5">
                       <Avatar className="h-7 w-7 rounded-md">
                         {member.avatar ? <AvatarImage src={member.avatar} /> : null}
                         <AvatarFallback className="bg-brand-50 text-brand-700">
                           {member.name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="text-sm font-medium text-ink transition-colors group-hover:text-brand-700">{member.name}</span>
+                      <span className="text-sm font-medium text-link">{member.name}</span>
                     </Link>
                   </TableCell>
                   <TableCell className="text-ink-muted">{member.email}</TableCell>
@@ -203,7 +194,7 @@ export function MembersTable({
                   ) : null}
 
                   <TableCell>
-                    {canManageRoles ? <MemberRoleSelect membershipId={member.membershipId} role={member.role} canManage disabledReason={member.role === 'owner' ? 'The organization owner role cannot be changed here.' : undefined} /> : organizationRoleLabels[member.role]}
+                    {organizationRoleLabels[member.role]}
                   </TableCell>
 
                   <TableCell>
@@ -215,16 +206,10 @@ export function MembersTable({
                   </TableCell>
 
                   <TableCell>
-                    <MemberActionsMenu
-                      membershipId={member.membershipId}
-                      memberName={member.name}
-                      email={member.email}
-                      canRemoveInstanceAdmin={showInstanceAdmin && member.isInstanceAdmin && member.userId !== currentUserId}
-                      canRemoveFromOrganization={canRemoveMembers && member.userId !== currentUserId}
-                    />
+                    <ChevronRight className="ml-auto h-4 w-4 text-ink-muted" aria-hidden="true" />
                   </TableCell>
 
-                </TableRow>
+                </ClickableTableRow>
               ))
             )}
           </TableBody>

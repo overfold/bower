@@ -5,11 +5,12 @@ import { getCurrentUser } from '@/lib/auth'
 import { ORG_COOKIE_NAME } from '@/lib/constants'
 import { getUserOrganization, getTeamsByOrg, getTeamMembers, getTeamProjectAccessList } from '@/lib/queries'
 import { PageHeading } from '@/components/page-heading'
-import { Card } from '@/components/ui/card'
+import { Card, CardHeader } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { EmptyState } from '@/components/ui/empty-state'
 import { TeamActions, TeamRowActions } from './team-actions'
-import { Users } from 'lucide-react'
+import { ChevronRight, Users } from 'lucide-react'
+import { ClickableTableRow } from '@/components/clickable-table-row'
 
 export default async function TeamsPage() {
   const user = await getCurrentUser()
@@ -33,8 +34,6 @@ export default async function TeamsPage() {
       <PageHeading
         as="h2"
         title="Teams"
-        description="Manage teams and their members."
-        actions={<TeamActions mode="create" />}
       />
 
       {teamsWithDetails.length === 0 ? (
@@ -48,16 +47,18 @@ export default async function TeamsPage() {
         </Card>
       ) : (
         <Card>
+          <CardHeader title={`${teamsWithDetails.length} ${teamsWithDetails.length === 1 ? 'team' : 'teams'}`} action={<TeamActions mode="create" />} />
           <Table>
-            <TableHeader><TableRow><TableHead>Team</TableHead><TableHead>Members</TableHead><TableHead>Projects</TableHead><TableHead className="w-[120px] text-right"><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>Team</TableHead><TableHead>Members</TableHead><TableHead>Projects</TableHead><TableHead className="w-[120px] text-right"><span className="sr-only">Actions</span></TableHead><TableHead className="w-12"><span className="sr-only">View</span></TableHead></TableRow></TableHeader>
             <TableBody>
               {teamsWithDetails.map(({ team, members, projectAccess }) => (
-                <TableRow key={team.id} interactive>
-                  <TableCell className="font-medium"><Link className="block text-ink hover:text-brand-700" href={`/settings/teams/${team.id}`}>{team.name}</Link></TableCell>
-                  <TableCell className="nums text-ink-muted"><Link className="block" href={`/settings/teams/${team.id}`} aria-label={`${members.length} members in ${team.name}`}>{members.length}</Link></TableCell>
-                  <TableCell className="nums text-ink-muted"><Link className="block" href={`/settings/teams/${team.id}`} aria-label={`${projectAccess.length} projects for ${team.name}`}>{projectAccess.length}</Link></TableCell>
+                <ClickableTableRow key={team.id} href={`/settings/teams/${team.id}`} label={`View team ${team.name}`}>
+                  <TableCell className="font-medium"><Link className="text-link" href={`/settings/teams/${team.id}`}>{team.name}</Link></TableCell>
+                  <TableCell className="nums text-ink-muted">{members.length}</TableCell>
+                  <TableCell className="nums text-ink-muted">{projectAccess.length}</TableCell>
                   <TableCell><TeamRowActions teamId={team.id} teamName={team.name} /></TableCell>
-                </TableRow>
+                  <TableCell><ChevronRight className="ml-auto h-4 w-4 text-ink-muted" aria-hidden="true" /></TableCell>
+                </ClickableTableRow>
               ))}
             </TableBody>
           </Table>

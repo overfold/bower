@@ -5,13 +5,13 @@ import {
   getProjectBySlug,
   getProjectEnvironment,
   getServicesByProject,
-  getDeploymentsByProject,
 } from '@/lib/queries'
 import { requireProject } from '@/lib/actions/shared'
-import { PageHeading, MetaItem } from '@/components/page-heading'
+import { PageHeading } from '@/components/page-heading'
 import { ProjectTabs } from '@/components/project-tabs'
 import { ProjectShell } from './project-shell'
-import { Time } from '@/components/time'
+import { getProjectLiveServices } from '@/lib/service-health-query'
+import { Chip } from '@/components/ui/badge'
 
 export default async function ProjectLayout({
   children,
@@ -35,32 +35,22 @@ export default async function ProjectLayout({
     getServicesByProject(project.id),
     getProjectEnvironment(project.id),
   ])
-  const deployments = environment ? await getDeploymentsByProject(project.id, 1, environment.id) : []
-
-  const lastDeploy = deployments[0] ? <Time value={deployments[0].deployment.createdAt} /> : 'Never'
+  const live = await getProjectLiveServices(ctx.org.id, project.id, environment)
+  const failing = live.services.filter(({ health }) => health !== 'healthy').length
 
   const tabs = [
     { label: 'Overview', href: '' },
     { label: 'Services', href: '/services', count: services.length },
-    { label: 'Deployments', href: '/deployments', count: undefined },
-    { label: 'Environment', href: '/environment' },
-    { label: 'Volumes', href: '/volumes' },
+    { label: 'Deployments', href: '/deployments' },
     { label: 'Routes', href: '/routes' },
-    { label: 'Integrations', href: '/integrations' },
-    { label: 'Access', href: '/access' },
+    { label: 'Environment', href: '/environment' },
     { label: 'Settings', href: '/settings' },
   ]
 
   const header = <>
       <PageHeading
-        title={project.name}
+        title={<span className="flex flex-wrap items-center gap-3">{project.name}{services.length > 0 ? <Chip tone={failing ? 'danger' : 'success'}>{failing ? `${failing} of ${services.length} failing` : 'Healthy'}</Chip> : null}</span>}
         description={project.description ?? undefined}
-        meta={
-          <>
-            <MetaItem label="Services" value={services.length} />
-            <MetaItem label="Last deploy" value={lastDeploy} />
-          </>
-        }
       />
       <div className="mt-6 border-b border-line">
         <ProjectTabs slug={slug} tabs={tabs} />

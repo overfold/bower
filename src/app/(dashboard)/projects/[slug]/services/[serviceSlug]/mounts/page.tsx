@@ -49,7 +49,7 @@ export default async function ServiceMountsPage({ params }: {
             body={available.length ? 'Attach a project volume to persist or share data.' : 'Define a project volume before attaching it to this service.'}
             action={available.length
               ? <VolumeMountEditor serviceId={service.id} environmentId={environment.id} mounts={attached} volumes={available.map((volume) => volume.name)} />
-              : <Button asChild variant="primary" size="sm"><Link href={`/projects/${slug}/volumes`}><Plus />Add volume</Link></Button>}
+              : <Button asChild variant="primary" size="sm"><Link href={`/projects/${slug}/settings#volumes`}><Plus />Add volume</Link></Button>}
           />
         ) : (
           <Table><TableHeader><TableRow><TableHead>Volume</TableHead><TableHead>Mount path</TableHead><TableHead>Access</TableHead><TableHead className="w-14"><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader><TableBody>{attached.map((mount) => <TableRow key={mount.name}><TableCell className="font-mono font-medium">{mount.name}</TableCell><TableCell className="font-mono text-xs text-ink-muted">{mount.container_path}</TableCell><TableCell className="text-ink-muted">{mount.read_only ? 'Read-only' : 'Read/write'}</TableCell><TableCell><VolumeMountActions serviceId={service.id} environmentId={environment.id} mount={mount} mounts={attached} /></TableCell></TableRow>)}</TableBody></Table>

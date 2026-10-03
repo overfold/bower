@@ -5,6 +5,7 @@ import * as AlertDialogPrimitive from '@radix-ui/react-alert-dialog'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { cn } from '@/lib/utils'
 import { buttonVariants } from '@/components/ui/button'
+import { X } from 'lucide-react'
 
 const AlertDialogOpenContext = React.createContext(false)
 
@@ -44,8 +45,8 @@ AlertDialogOverlay.displayName = AlertDialogPrimitive.Overlay.displayName
 
 const AlertDialogContent = React.forwardRef<
   React.ComponentRef<typeof AlertDialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content>
->(({ className, ...props }, ref) => {
+  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content> & { size?: 'sm' | 'md' | 'lg' }
+>(({ className, size = 'sm', ...props }, ref) => {
   const open = React.useContext(AlertDialogOpenContext)
   const reduced = useReducedMotion()
 
@@ -70,7 +71,8 @@ const AlertDialogContent = React.forwardRef<
           >
             <motion.div
               className={cn(
-                'fixed left-1/2 top-1/2 z-50 grid max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-line bg-surface shadow-pop',
+                'fixed left-1/2 top-1/2 z-50 grid gap-4 max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-line bg-surface shadow-pop',
+                { sm: 'max-w-md', md: 'max-w-xl', lg: 'max-w-2xl' }[size],
                 className,
               )}
               initial={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: 8 }}
@@ -88,8 +90,13 @@ const AlertDialogContent = React.forwardRef<
 })
 AlertDialogContent.displayName = AlertDialogPrimitive.Content.displayName
 
-const AlertDialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn('border-b border-line px-4 py-4 sm:px-5', className)} {...props} />
+const AlertDialogHeader = ({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+  <div className={cn('relative border-b border-line px-4 py-4 pr-12 sm:px-5 sm:pr-12', className)} {...props}>
+    {children}
+    <AlertDialogPrimitive.Cancel className="absolute right-3 top-3 rounded-lg p-1.5 text-ink-muted hover:bg-sunken focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" aria-label="Close">
+      <X className="size-4" />
+    </AlertDialogPrimitive.Cancel>
+  </div>
 )
 
 const AlertDialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (

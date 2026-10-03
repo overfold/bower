@@ -4,12 +4,11 @@ import { getUserOrganization, getProjectBySlug, getProjectEnvironment, getServic
 import { getProjectRole } from '@/lib/actions/shared'
 import { Panel, SectionTitle } from '@/components/ui/panel'
 import { EmptyState } from '@/components/ui/empty-state'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { History } from 'lucide-react'
-import { DeploymentStatus } from '@/components/status'
-import { Time } from '@/components/time'
 import { getTrellisClient } from '@/lib/trellis-instance'
 import { RestoreRevisionButton } from './restore-revision-button'
+import { DeploymentsTable } from '@/components/deployments-table'
+import { earlierSuccessfulReleases, runningRelease } from '@/lib/service-releases'
 
 export default async function RevisionsPage({ params }: { params: Promise<{ slug: string; serviceSlug: string }> }) {
   const { slug, serviceSlug } = await params
@@ -32,7 +31,14 @@ export default async function RevisionsPage({ params }: { params: Promise<{ slug
   if (!environment) notFound()
   const journal = deployments.filter((deployment) => deployment.environmentId === environment.id)
   const config = configs.find((entry) => entry.environment.id === environment.id)
-  const retained = config ? await getTrellisClient(orgCtx.org.id).then((client) => client.getJobVersions(config.config.activeJobName || service.slug, environment.trellisNamespace)).catch(() => []) : []
+  const jobName = config?.config.activeJobName || service.slug
+  const client = await getTrellisClient(orgCtx.org.id)
+  const [runtime, retained] = config ? await Promise.all([
+    typeof client.getJob === 'function' ? client.getJob(jobName, environment.trellisNamespace).catch(() => null) : Promise.resolve(null),
+    client.getJobVersions(jobName, environment.trellisNamespace).catch(() => []),
+  ]) : [null, []]
+  const current = runningRelease(journal, runtime ? { name: jobName, version: runtime.version, revision: runtime.revision } : null)
+  const rollbackIds = new Set(earlierSuccessfulReleases(journal, current).map((deployment) => deployment.id))
   const retainedKeys = new Set(retained.map((version) => `${version.version}:${version.revision}`))
 
   return (
@@ -53,32 +59,7 @@ export default async function RevisionsPage({ params }: { params: Promise<{ slug
       ) : (
         <Panel>
           <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Version</TableHead>
-                  <TableHead>Revision</TableHead>
-                  <TableHead>Job</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Created</TableHead>
-                  <TableHead><span className="sr-only">Actions</span></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {journal.map((deployment) => (
-                  <TableRow key={deployment.id}>
-                    <TableCell>{deployment.trellisVersion ?? '—'}</TableCell>
-                    <TableCell>{deployment.trellisRevision ?? '—'}</TableCell>
-                    <TableCell className="font-mono text-xs text-ink-muted">{deployment.trellisJobName ?? service.slug}</TableCell>
-                    <TableCell><DeploymentStatus status={deployment.status} /></TableCell>
-                    <TableCell className="text-right text-ink-muted">
-                      <Time value={deployment.createdAt} />
-                    </TableCell>
-                    <TableCell className="text-right">{role !== 'viewer' && deployment.status === 'healthy' && deployment.jobSpec && retainedKeys.has(`${deployment.trellisVersion}:${deployment.trellisRevision}`) ? <RestoreRevisionButton serviceId={service.id} environmentId={environment.id} deploymentId={deployment.id} /> : null}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <DeploymentsTable preset="service-history" rows={journal.map((deployment) => ({ deployment, serviceName: service.name, serviceSlug: service.slug, projectName: project.name, projectSlug: project.slug, revision: deployment.trellisRevision, rollbackAction: role !== 'viewer' && rollbackIds.has(deployment.id) && retainedKeys.has(`${deployment.trellisVersion}:${deployment.trellisRevision}`) ? <RestoreRevisionButton serviceId={service.id} environmentId={environment.id} deploymentId={deployment.id} image={deployment.imageAfter} /> : null }))} />
           </div>
         </Panel>
       )}

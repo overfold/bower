@@ -77,11 +77,11 @@ export function MemberActionsMenu({
       </DropdownMenu>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{action === 'instance' ? `Remove ${email} as instance administrator?` : `Remove ${memberName} from the organization?`}</AlertDialogTitle>
+          <AlertDialogTitle>{action === 'instance' ? `Remove ${memberName} as instance administrator?` : `Remove ${memberName} from the organization?`}</AlertDialogTitle>
           <AlertDialogDescription>
             {action === 'instance'
-              ? `This revokes instance-wide administrative access for ${email}. Their organization membership is unchanged.`
-              : `This removes ${email} from this organization and revokes access granted by its teams. This does not delete their account.`}
+              ? <><span className="block">{email}</span>This revokes instance-wide administrative access. Their organization membership is unchanged.</>
+              : <><span className="block">{email}</span>This removes them from this organization and revokes access granted by its teams. This does not delete their account.</>}
           </AlertDialogDescription>
         </AlertDialogHeader>
         {error ? <InlineNotice tone="error" className="mx-5">{error}</InlineNotice> : null}

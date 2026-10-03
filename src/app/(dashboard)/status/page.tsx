@@ -17,13 +17,14 @@ import { Panel, PanelHeader, KeyValue } from '@/components/ui/panel'
 import { Chip, Dot, Meter, Mono, StatusDot } from '@/components/status'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Server } from 'lucide-react'
+import { ChevronRight, Server } from 'lucide-react'
 import { DrainToggle } from './drain-toggle'
 import { ResetBackoffButton } from './reset-backoff-button'
 import { formatCpu, formatMemory } from '@/lib/format'
 import type { TrellisAllocation, TrellisJob, TrellisNode } from '@/types/trellis'
 import { formatRelativeTime, formatTimestamp } from '@/lib/format'
 import { ResourceId } from '@/components/resource-id'
+import { ClickableTableRow } from '@/components/clickable-table-row'
 
 function untilTime(value: string): string {
   const seconds = Math.max(0, Math.ceil((new Date(value).getTime() - Date.now()) / 1000))
@@ -101,7 +102,7 @@ export default async function StatusPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeading title="Cluster" description="Monitor cluster capacity, placement, restart cooldowns, and managed ingress." />
+      <PageHeading title="Status" description="Monitor cluster capacity, placement, restart cooldowns, and managed ingress." />
 
       <div className="grid gap-5 lg:grid-cols-2">
         <Panel>
@@ -135,11 +136,11 @@ export default async function StatusPage() {
               </TableRow>
             })}
           </TableBody></Table>
-        </> : null}
+        </> : !operationsError ? <p className="border-t border-line px-4 py-3 text-sm text-ink-muted">No placement backlog.</p> : null}
       </Panel>
 
       {backoffs.length > 0 ? <Panel>
-        <PanelHeader title="Restart cooldown" hint="After repeated crashes, Bower waits before starting the service again. Fix the cause, then restart." />
+        <PanelHeader title="Restart pending" hint="After repeated crashes, Bower waits before starting the service again. Fix the cause, then restart." />
         <Table><TableHeader><TableRow><TableHead>Job / group</TableHead><TableHead>Failures</TableHead><TableHead>Last failure</TableHead><TableHead>Next replacement</TableHead><TableHead /></TableRow></TableHeader><TableBody>
           {backoffs.map(({ namespace, job, backoff }) => {
             const target = targetForJob(namespace, job)
@@ -157,13 +158,13 @@ export default async function StatusPage() {
       <Panel>
         <PanelHeader title="Nodes" />
         {clusterError ? <TrellisReadError title="Nodes unavailable" message={clusterError} /> : nodes.length === 0 ? <EmptyState icon={<Server className="h-4 w-4" />} title="No nodes" body="No nodes are registered with this cluster." /> : <Table>
-          <TableHeader><TableRow><TableHead>Node</TableHead><TableHead>Status</TableHead><TableHead>IP</TableHead><TableHead>Version</TableHead><TableHead>OS</TableHead><TableHead>Allocated</TableHead><TableHead>Capabilities</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>Node</TableHead><TableHead>Status</TableHead><TableHead>IP</TableHead><TableHead>Version</TableHead><TableHead>OS</TableHead><TableHead>Allocated</TableHead><TableHead>Capabilities</TableHead><TableHead className="text-right">Actions</TableHead><TableHead><span className="sr-only">Open</span></TableHead></TableRow></TableHeader>
           <TableBody>{nodes.map((node) => {
             const allocated = allocatedByNode.get(node.id)
             const allocatable = nodeAllocatable(node)
             const allocatedCpuPct = allocatable.cpu > 0 ? Math.round((allocated?.cpu ?? 0) / allocatable.cpu * 100) : 0
             const allocatedMemoryPct = allocatable.memory > 0 ? Math.round((allocated?.memory ?? 0) / allocatable.memory * 100) : 0
-            return <TableRow key={node.id}>
+            return <ClickableTableRow key={node.id} href={`/status/${encodeURIComponent(node.id)}`} label={`View node ${node.id}`}>
               <TableCell><NodeLink id={node.id} name={node.id} /></TableCell>
               <TableCell><StatusDot status={node.status === 'healthy' ? 'ready' : node.status} /></TableCell>
               <TableCell><Mono>{node.host}</Mono></TableCell>
@@ -172,7 +173,8 @@ export default async function StatusPage() {
               <TableCell>{metricsError ? <span className="text-ink-muted">Unavailable</span> : <div className="grid min-w-48 grid-cols-2 gap-3"><div><Meter value={allocatedCpuPct} label={`${node.id} CPU allocated`} /><span className="text-xs text-ink-muted">{formatCpu(allocated?.cpu ?? 0)} / {formatCpu(allocatable.cpu)}</span></div><div><Meter value={allocatedMemoryPct} label={`${node.id} memory allocated`} /><span className="text-xs text-ink-muted">{formatMemory(allocated?.memory ?? 0)} / {formatMemory(allocatable.memory)}</span></div></div>}</TableCell>
               <TableCell><span className="text-xs text-ink-muted">{node.capabilities?.join(', ') || 'None reported'}</span></TableCell>
               <TableCell className="text-right"><DrainToggle nodeId={node.id} drain={node.status === 'draining'} allocationCount={allocations.filter((allocation) => allocation.node_id === node.id && !['stopped', 'failed', 'lost'].includes(allocation.phase)).length} /></TableCell>
-            </TableRow>
+              <TableCell><ChevronRight className="ml-auto size-4 text-ink-faint" /></TableCell>
+            </ClickableTableRow>
           })}</TableBody>
         </Table>}
       </Panel>
@@ -184,7 +186,7 @@ export default async function StatusPage() {
             <TableCell><Mono className="text-ink">{row.proxy.trellisJobName}</Mono><p className="mt-1 text-xs text-ink-muted">{row.projectName} · {row.environmentName} · port {row.proxy.port}</p></TableCell>
             <TableCell className="nums">{routeCountMap.get(row.proxy.environmentId) ?? 0}</TableCell>
             <TableCell><Chip tone={row.proxy.status === 'error' ? 'danger' : 'neutral'}>{row.proxy.status === 'error' ? 'Apply failed' : 'Accepted'}</Chip><p className="mt-1 font-mono text-2xs text-ink-muted">target {row.proxy.configHash?.slice(0, 10) || 'unknown'}</p></TableCell>
-            <TableCell><span className="flex items-center gap-1.5 capitalize"><Dot tone={row.observation.status === 'running' ? 'success' : row.observation.status === 'pending' ? 'info' : 'danger'} pulse={row.observation.status === 'pending'} />{row.observation.convergence === 'converged' ? 'Converged' : row.observation.status}</span>{row.observation.failureKind ? <p className="mt-1 text-xs font-medium text-danger-500">{row.observation.failureKind === 'route-sync' ? 'Route discovery / sync failed' : row.observation.failureKind === 'listener' ? 'Listener check failed' : 'Managed listener or route-sync health check failed'}</p> : null}{row.observation.diagnostic ? <p className="mt-1 max-w-md text-xs text-ink-muted">{row.observation.diagnostic}</p> : null}</TableCell>
+            <TableCell><Chip tone={row.observation.status === 'running' ? 'success' : row.observation.status === 'pending' ? 'info' : 'danger'}><Dot tone={row.observation.status === 'running' ? 'success' : row.observation.status === 'pending' ? 'info' : 'danger'} pulse={row.observation.status === 'pending'} />{row.observation.convergence === 'converged' ? 'Converged' : row.observation.status}</Chip>{row.observation.failureKind ? <p className="mt-1 text-xs font-medium text-danger-500">{row.observation.failureKind === 'route-sync' ? 'Route discovery / sync failed' : row.observation.failureKind === 'listener' ? 'Listener check failed' : 'Managed listener or route-sync health check failed'}</p> : null}{row.observation.diagnostic ? <p className="mt-1 max-w-md text-xs text-ink-muted">{row.observation.diagnostic}</p> : null}</TableCell>
             <TableCell className="whitespace-nowrap text-right text-ink-muted">{formatRelativeTime(row.proxy.updatedAt)}</TableCell>
           </TableRow>)}
         </TableBody></Table>

@@ -3,17 +3,19 @@ import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { getUserOrganization, getProjectBySlug, getProjectEnvironment } from '@/lib/queries'
 import { requireProject } from '@/lib/actions/shared'
-import { Panel, SectionTitle } from '@/components/ui/panel'
+import { Panel, PanelHeader, SectionTitle } from '@/components/ui/panel'
 import { EmptyState } from '@/components/ui/empty-state'
 import { CreateServiceDialog } from '@/components/create-service-dialog'
-import { Server } from 'lucide-react'
+import { ChevronRight, Server } from 'lucide-react'
 import { StatusDot } from '@/components/status'
 import { Time } from '@/components/time'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { TrellisReadError } from '@/components/trellis-read-error'
 import { getProjectLiveServices } from '@/lib/service-health-query'
+import { formatReadyReplicas } from '@/lib/format'
 import { LastDeployFailed } from '@/components/last-deploy-failed'
 import { getTrellisClient } from '@/lib/trellis-instance'
+import { ClickableTableRow } from '@/components/clickable-table-row'
 
 export default async function ServicesPage({
   params,
@@ -38,8 +40,7 @@ export default async function ServicesPage({
   return (
     <div className="space-y-5">
       <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div><SectionTitle>Services</SectionTitle><p className="mt-1 text-sm text-ink-muted">Manage the workloads deployed by this project.</p></div>
-        {access.projectRole === 'admin' ? <CreateServiceDialog projectSlug={slug} limits={limits} /> : null}
+        <SectionTitle>Services</SectionTitle>
       </div>
 
       {summaries.length === 0 ? (
@@ -53,17 +54,20 @@ export default async function ServicesPage({
         </Panel>
       ) : (
         <Panel>
+          <PanelHeader title={`${summaries.length} ${summaries.length === 1 ? 'service' : 'services'}`} action={access.projectRole === 'admin' ? <CreateServiceDialog projectSlug={slug} limits={limits} /> : undefined} />
           {allocationError ? <TrellisReadError title="Replica readiness unavailable" message={allocationError} /> : null}
-          <Table><TableHeader><TableRow><TableHead>Status</TableHead><TableHead>Service</TableHead><TableHead>Image</TableHead><TableHead>Ready / desired</TableHead><TableHead>Last deploy</TableHead><TableHead>Routes</TableHead></TableRow></TableHeader>
+          <Table><TableHeader><TableRow><TableHead>Status</TableHead><TableHead>Service</TableHead><TableHead>Image</TableHead><TableHead>Ready / desired</TableHead><TableHead>Last deploy</TableHead><TableHead>Routes</TableHead><TableHead className="w-12"><span className="sr-only">View</span></TableHead></TableRow></TableHeader>
             <TableBody>{summaries.map(({ service, config, latestDeployment, routeCount, ready, health }) => {
-              return <TableRow key={service.id} className="relative">
+              const href = `/projects/${slug}/services/${service.slug}`
+              return <ClickableTableRow key={service.id} href={href} label={`View service ${service.name}`}>
                 <TableCell><div className="flex flex-wrap items-center gap-2"><StatusDot status={health} />{latestDeployment?.status === 'failed' ? <LastDeployFailed href={`/projects/${slug}/deployments/${latestDeployment.id}`} /> : null}</div></TableCell>
-                <TableCell><Link href={`/projects/${slug}/services/${service.slug}`} className="text-link font-medium">{service.name}</Link></TableCell>
+                <TableCell><Link href={href} className="text-link font-medium">{service.name}</Link></TableCell>
                 <TableCell className="font-mono text-xs">{config?.image ?? 'No image configured'}</TableCell>
-                <TableCell>{ready ?? 'Unknown'} / {config?.replicas ?? 0}</TableCell>
+                <TableCell>{formatReadyReplicas(ready, config?.replicas ?? 0)}</TableCell>
                 <TableCell className="text-right">{latestDeployment ? <Time value={latestDeployment.createdAt} /> : '—'}</TableCell>
                 <TableCell>{routeCount}</TableCell>
-              </TableRow>
+                <TableCell><ChevronRight className="ml-auto h-4 w-4 text-ink-muted" aria-hidden="true" /></TableCell>
+              </ClickableTableRow>
             })}</TableBody>
           </Table>
         </Panel>

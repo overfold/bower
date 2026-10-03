@@ -61,7 +61,6 @@ export function CreateOrganizationDialog() {
               <Input
                 id="instance-org-name"
                 name="name"
-                placeholder="Acme"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 required
@@ -69,7 +68,7 @@ export function CreateOrganizationDialog() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="instance-trellis-url" optional>Trellis API URL</Label>
-              <Input id="instance-trellis-url" name="trellisApiUrl" type="url" placeholder="https://trellis.example.com" className="font-mono text-sm" />
+              <Input id="instance-trellis-url" name="trellisApiUrl" type="url" className="font-mono text-sm" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="instance-trellis-token" optional>Trellis API token</Label>

@@ -19,8 +19,6 @@ export default async function MembersSettingsPage() {
   if (!orgCtx) redirect('/login')
 
   const showInstanceAdmin = await isInstanceAdmin(user.id)
-  const canManageRoles = showInstanceAdmin || orgCtx.role === 'owner'
-
   const invitations = await getInvitations(orgCtx.org.id)
 
   const [members, teamMemberships, teams] = await Promise.all([
@@ -54,16 +52,13 @@ export default async function MembersSettingsPage() {
       <PageHeading
         as="h2"
         title="Members"
-        description={`Manage members, teams, and invitations for ${orgCtx.org.name}.`}
+        description="Manage members and invitations."
       />
 
       <MembersTable
         members={serializedMembers}
         teams={teamOptions}
-        canManageRoles={canManageRoles}
-        canRemoveMembers={orgCtx.role === 'owner'}
         showInstanceAdmin={showInstanceAdmin}
-        currentUserId={user.id}
       />
 
       <InviteTokensSection

@@ -46,7 +46,7 @@ export function OrgSettingsForm({ org }: OrgSettingsFormProps) {
   }
 
   return (
-    <Card className="max-w-3xl">
+    <Card>
       <form ref={formRef} onSubmit={handleSubmit} onInput={() => setDirty(true)}>
         <CardHeader>
           <CardTitle>Organization details</CardTitle>
@@ -57,6 +57,7 @@ export function OrgSettingsForm({ org }: OrgSettingsFormProps) {
             <Label htmlFor="name">Organization name</Label>
             <Input id="name" name="name" defaultValue={org.name} required />
           </div>
+          <div className="space-y-2"><Label>Slug</Label><Input value={org.slug} readOnly mono /></div>
         </CardContent>
       </form>
       <UnsavedChangesBar dirty={dirty} pending={loading} onDiscard={() => { formRef.current?.reset(); setDirty(false); setError(null) }} onSave={() => formRef.current?.requestSubmit()} />

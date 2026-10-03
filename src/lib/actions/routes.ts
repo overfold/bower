@@ -9,7 +9,7 @@ import { hashPassword } from '@/lib/auth'
 import { getOrganizationRouteBindings } from '@/lib/domain-queries'
 import { hostnamesOverlap, routeHostnameForDomain } from '@/lib/domains'
 import { syncManagedProxy } from '@/lib/managed-proxy'
-import { createRouteAction, deleteRouteAction } from './operations'
+import { createRouteAction, deleteRouteAction, updateRouteAction } from './operations'
 import { recordAudit, requireProject, text } from './shared'
 
 export async function createManagedRouteAction(projectId: string, formData: FormData) {
@@ -46,6 +46,27 @@ export async function createManagedRouteAction(projectId: string, formData: Form
 
 export async function deleteManagedRouteAction(projectId: string, routeId: string) {
   return deleteRouteAction(projectId, routeId)
+}
+
+export async function updateManagedRouteAction(projectId: string, routeId: string, formData: FormData) {
+  const ctx = await requireProject(projectId)
+  if (ctx.projectRole !== 'admin') throw new Error('Insufficient permissions.')
+  const [route] = await db.select().from(routes)
+    .where(and(eq(routes.id, routeId), eq(routes.projectId, projectId))).limit(1)
+  if (!route) throw new Error('Route not found.')
+
+  const hostname = text(formData, 'domain').toLowerCase()
+  const verifiedDomains = await db.select().from(organizationDomains)
+    .where(eq(organizationDomains.orgId, ctx.org.id))
+  if (!verifiedDomains.some((domain) => domain.verifiedAt && (hostname === domain.domain || hostname.endsWith(`.${domain.domain}`)))) {
+    throw new Error('The hostname must use a verified organization domain.')
+  }
+  const conflict = (await getOrganizationRouteBindings(ctx.org.id)).find((binding) =>
+    binding.route.id !== routeId && hostnamesOverlap(binding.route.domain, hostname) &&
+    (binding.route.projectId !== projectId || binding.route.environmentId !== route.environmentId),
+  )
+  if (conflict) throw new Error(`${hostname} overlaps a hostname already claimed by ${conflict.projectName} / ${conflict.environmentName}.`)
+  return updateRouteAction(projectId, routeId, formData)
 }
 
 export async function updateRouteProtectionAction(projectId: string, routeId: string, formData: FormData) {

@@ -19,7 +19,6 @@ import { Label } from '@/components/ui/label'
 import { Eye, EyeOff, Plus, Upload } from 'lucide-react'
 import { InlineNotice } from '@/components/ui/feedback'
 import { Textarea } from '@/components/ui/textarea'
-import Link from 'next/link'
 
 export function CreateSecretDialog({
   projectId,
@@ -55,14 +54,14 @@ export function CreateSecretDialog({
       <DialogTrigger asChild>
         <Button variant="primary" size="sm">
           <Plus className="h-4 w-4" />
-          Add secret
+          New secret
         </Button>
       </DialogTrigger>
       <DialogContent size="md">
         <DialogHeader>
-          <DialogTitle>Add secret</DialogTitle>
+          <DialogTitle>Create secret</DialogTitle>
         </DialogHeader>
-        {saved ? <><DialogBody><InlineNotice tone="success">Secret saved. Bind it to a service to make it available to a workload.</InlineNotice></DialogBody><DialogFooter><Button type="button" onClick={() => setOpen(false)}>Done</Button><Button asChild variant="primary"><Link href="#service-bindings" onClick={() => setOpen(false)}>Bind to a service</Link></Button></DialogFooter></> :
+        {saved ? <><DialogBody><InlineNotice tone="success">Secret saved. It is now available for service bindings.</InlineNotice></DialogBody><DialogFooter><Button variant="primary" type="button" onClick={() => setOpen(false)}>Done</Button></DialogFooter></> :
         <form action={handleSubmit}>
           <DialogBody className="space-y-4">
             {error && <InlineNotice tone="error">{error}</InlineNotice>}
@@ -72,17 +71,16 @@ export function CreateSecretDialog({
               <Input
                 id="name"
                 name="name"
-                placeholder="MY_SECRET_KEY"
                 required
                 className="font-mono"
               />
+              <p className="text-xs text-ink-muted">Use uppercase letters, numbers, and underscores, such as MY_SECRET_KEY.</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="value">Value</Label>
               <Textarea
                 id="value"
                 name="value"
-                placeholder="Secret value"
                 required
                 mono
                 rows={6}
@@ -98,7 +96,7 @@ export function CreateSecretDialog({
           </DialogBody>
           <DialogFooter>
             <Button type="button" onClick={() => setOpen(false)} disabled={saving}>Cancel</Button>
-            <Button variant="primary" type="submit" disabled={saving} aria-busy={saving}>{saving ? 'Saving…' : 'Save secret'}</Button>
+            <Button variant="primary" type="submit" aria-busy={saving}>{saving ? 'Saving…' : 'Create secret'}</Button>
           </DialogFooter>
         </form>}
       </DialogContent>

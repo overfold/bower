@@ -1,10 +1,11 @@
 'use client'
 
-import { useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { updateOrganizationMemberRoleAction } from '@/lib/actions/settings'
 import { organizationRoleLabels } from '@/lib/labels'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Button } from '@/components/ui/button'
 
 export function MemberRoleSelect({ membershipId, role, canManage, disabledReason }: {
   membershipId: string
@@ -13,16 +14,15 @@ export function MemberRoleSelect({ membershipId, role, canManage, disabledReason
   disabledReason?: string
 }) {
   const [pending, startTransition] = useTransition()
+  const [value, setValue] = useState(role)
   if (!canManage) return null
 
   return (
-    <div className="space-y-1"><TooltipProvider><Tooltip><TooltipTrigger asChild><span className="inline-block" tabIndex={disabledReason ? 0 : undefined}>
+    <div className="flex items-center gap-2"><TooltipProvider><Tooltip><TooltipTrigger asChild><span className="inline-block" tabIndex={disabledReason ? 0 : undefined}>
     <Select
-      value={role}
+      value={value}
       disabled={pending || Boolean(disabledReason)}
-      onValueChange={(value) => startTransition(async () => {
-        await updateOrganizationMemberRoleAction(membershipId, value as 'owner' | 'admin' | 'member')
-      })}
+      onValueChange={(next) => setValue(next as typeof value)}
     >
       <SelectTrigger aria-label="Organization role" className="w-[112px]"><SelectValue /></SelectTrigger>
       <SelectContent>
@@ -32,6 +32,6 @@ export function MemberRoleSelect({ membershipId, role, canManage, disabledReason
       </SelectContent>
     </Select>
     </span></TooltipTrigger>{disabledReason ? <TooltipContent>{disabledReason}</TooltipContent> : null}</Tooltip></TooltipProvider>
-    {disabledReason ? <p className="max-w-48 text-2xs text-ink-muted">{disabledReason}</p> : null}</div>
+    {!disabledReason ? <Button size="sm" variant="primary" disabled={pending || value === role} loading={pending} onClick={() => startTransition(async () => { await updateOrganizationMemberRoleAction(membershipId, value) })}>Save</Button> : null}</div>
   )
 }

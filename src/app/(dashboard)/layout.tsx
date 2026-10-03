@@ -2,7 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { ORG_COOKIE_NAME } from '@/lib/constants'
-import { getUserOrganizations, getUserOrganization, getUserTeams, getProjectsForUser, getServicesForOrg, isInstanceAdmin, getDeploymentsForOrg, getOrgMembers } from '@/lib/queries'
+import { getUserOrganizations, getUserOrganization, getUserTeams, getTeamsByOrg, getProjectsForUser, getServicesForOrg, isInstanceAdmin, getDeploymentsForOrg, getOrgMembers } from '@/lib/queries'
 import { Sidebar } from '@/components/sidebar'
 import { HeaderBar } from '@/components/header-bar'
 import { PageTransition } from '@/components/page-transition'
@@ -10,7 +10,7 @@ import { FeedbackProvider } from '@/components/ui/feedback'
 import { TrellisReadErrorProvider } from '@/components/trellis-read-error'
 import { getTrellisClient } from '@/lib/trellis-instance'
 import { trellisReadError } from '@/lib/trellis-runtime'
-import { formatTimestamp } from '@/lib/format'
+import { shortDeploymentImage } from '@/lib/format'
 
 export default async function DashboardLayout({
   children,
@@ -29,13 +29,14 @@ export default async function DashboardLayout({
   const orgCtx = await getUserOrganization(user.id, preferredOrgId)
   if (!orgCtx) redirect('/login')
 
-  const [teams, userProjects, orgServices, instanceAdmin, deployments, members] = await Promise.all([
+  const [teams, userProjects, orgServices, instanceAdmin, deployments, members, orgTeams] = await Promise.all([
     getUserTeams(user.id, orgCtx.org.id),
     getProjectsForUser(orgCtx.org.id, user.id, orgCtx.role as 'owner' | 'admin' | 'member'),
     getServicesForOrg(orgCtx.org.id),
     isInstanceAdmin(user.id),
     getDeploymentsForOrg(orgCtx.org.id, 250),
     getOrgMembers(orgCtx.org.id),
+    getTeamsByOrg(orgCtx.org.id),
   ])
   const accessibleProjectIds = new Set(userProjects.map((project) => project.id))
   const accessibleProjectSlugs = new Set(userProjects.map((project) => project.slug))
@@ -103,8 +104,9 @@ export default async function DashboardLayout({
             })),
             orgName: orgCtx.org.name,
             instanceAdmin,
-            deploymentLabels: Object.fromEntries(visibleDeployments.map((row) => [row.deployment.id, `${row.deployment.imageAfter} · ${formatTimestamp(row.deployment.createdAt)}`])),
+            deploymentLabels: Object.fromEntries(visibleDeployments.map((row) => [row.deployment.id, shortDeploymentImage(row.deployment.imageAfter)])),
             memberLabels: Object.fromEntries(members.map((member) => [member.membership.userId, member.userName])),
+            teamLabels: Object.fromEntries(orgTeams.map((team) => [team.id, team.name])),
           }}
         />
         <TrellisReadErrorProvider message={trellisError}>

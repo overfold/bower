@@ -10,8 +10,9 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogBody, DialogTi
 import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Plus, Trash2, Copy, Check, KeyRound } from 'lucide-react'
+import { Plus, Trash2, KeyRound } from 'lucide-react'
 import { InlineNotice, useFeedback } from '@/components/ui/feedback'
+import { OneTimeSecret } from '@/components/one-time-secret'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -27,12 +28,10 @@ interface ApiKey {
 }
 
 export function ApiKeysSection({ keys }: { keys: ApiKey[] }) {
-  const { toast } = useFeedback()
   const [open, setOpen] = useState(false)
   const [newKey, setNewKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [copied, setCopied] = useState(false)
 
   async function handleCreate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -51,53 +50,32 @@ export function ApiKeysSection({ keys }: { keys: ApiKey[] }) {
     }
   }
 
-  async function handleCopy() {
-    if (newKey) {
-      try {
-        await navigator.clipboard.writeText(newKey)
-        setCopied(true)
-        setTimeout(() => setCopied(false), 2000)
-        toast({ tone: 'success', title: 'API key copied.' })
-      } catch {
-        toast({ tone: 'error', title: 'Could not copy API key.' })
-      }
-    }
-  }
-
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
         <CardTitle>API keys</CardTitle>
-        <Dialog open={open} onOpenChange={(v) => { if (loading) return; setOpen(v); setError(null); if (!v) { setNewKey(null); setCopied(false) } }}>
+        <Dialog open={open} onOpenChange={(v) => { if (loading) return; setOpen(v); setError(null); if (!v) setNewKey(null) }}>
           <DialogTrigger asChild>
             <Button variant="primary" size="sm">
               <Plus />
               New key
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent size="sm">
             <DialogHeader>
               <DialogTitle>{newKey ? 'API key created' : 'Create API key'}</DialogTitle>
             </DialogHeader>
               {newKey ? (<>
               <DialogBody>
-                <div className="space-y-3">
-                  <p className="text-sm text-ink-muted">Copy this key now. It will not be shown again.</p>
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 rounded-md bg-sunken px-3 py-2 font-mono text-xs break-all">{newKey}</code>
-                    <Button variant="default" onClick={handleCopy} aria-label="Copy API key">
-                      {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                      {copied ? 'Copied' : 'Copy'}
-                    </Button>
-                  </div>
-                </div>
-              </DialogBody><DialogFooter><Button variant="primary" disabled={!copied} onClick={() => { setOpen(false); setNewKey(null) }}>I’ve saved this</Button></DialogFooter></>) : (
+                <OneTimeSecret label="API key" value={newKey} />
+              </DialogBody><DialogFooter><Button variant="primary" onClick={() => { setOpen(false); setNewKey(null) }}>Done</Button></DialogFooter></>) : (
                 <form onSubmit={handleCreate}>
                   <DialogBody className="space-y-4">
                   {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
                   <div className="space-y-2">
                     <Label htmlFor="keyName">Name</Label>
-                    <Input id="keyName" name="name" placeholder="CI deploy key" required />
+                    <Input id="keyName" name="name" required />
+                    <p className="text-xs text-ink-muted">Use a name that identifies its purpose, for example “CI deploy key”.</p>
                   </div>
                   </DialogBody>
                   <DialogFooter>

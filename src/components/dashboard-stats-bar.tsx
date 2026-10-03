@@ -93,10 +93,10 @@ function StatCell({
   return (
     <section className="min-w-0 bg-surface px-4 py-4 sm:px-5">
       <p className="text-xs font-medium text-ink-muted">{label}</p>
-      <div className="mt-2 flex items-end justify-between gap-3">
+      <div className="mt-2">
         <p className="nums text-2xl font-semibold tracking-tight text-ink">{value}</p>
         {meter !== undefined ? (
-          <div className="mb-1 h-1.5 w-14 overflow-hidden rounded-full bg-line" aria-hidden="true">
+          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-line" aria-hidden="true">
             <div
               className="h-full rounded-full bg-brand-500"
               style={{ width: `${Math.min(100, Math.max(0, meter))}%` }}
@@ -178,34 +178,34 @@ export function DashboardStatsBar({
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-3 pt-0.5 text-2xs text-ink-muted" aria-hidden="true">
-              <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-ok-500" />healthy</span>
+              <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-ok-500" />succeeded</span>
               <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-danger-500" />failed</span>
               <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-info-500" />rolled back</span>
-              {hasActiveDeployments ? <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-info-500" />in flight</span> : null}
+              {hasActiveDeployments ? <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-ink-faint" />in progress</span> : null}
             </div>
           </div>
 
           <div
-            className="mt-3 flex h-12 items-end gap-1"
+            className="mt-3 flex h-12 items-end gap-1 border-b border-line"
             role="img"
             aria-label={`Deployment activity over the last 14 days: ${deploymentCount} deployments${successRate === null ? '' : `, ${successRate}% successful over 14 days`}.`}
           >
             {series.map((day) => {
-              const height = day.total === 0 ? 4 : Math.max(10, (day.total / maxDailyDeployments) * 100)
+              const height = day.total === 0 ? 0 : Math.max(10, (day.total / maxDailyDeployments) * 100)
               return (
                 <div
                   key={day.key}
-                  className="flex h-full min-w-0 flex-1 items-end"
+                  className="flex h-full min-w-0 flex-1 items-end justify-center"
                   title={`${day.label}: ${day.total} total, ${day.healthy} healthy, ${day.failed} failed, ${day.rolledBack} rolled back${day.active ? `, ${day.active} in flight` : ''}`}
                 >
                   <div
-                    className="flex w-full flex-col-reverse overflow-hidden rounded-sm bg-line"
+                    className="flex w-full flex-col-reverse overflow-hidden bg-line"
                     style={{ height: `${height}%` }}
                   >
                     {day.healthy > 0 ? <span className="min-h-px bg-ok-500" style={{ flexGrow: day.healthy }} /> : null}
                     {day.failed > 0 ? <span className="min-h-px bg-danger-500" style={{ flexGrow: day.failed }} /> : null}
                     {day.rolledBack > 0 ? <span className="min-h-px bg-info-500" style={{ flexGrow: day.rolledBack }} /> : null}
-                    {day.active > 0 ? <span className="min-h-px bg-info-500" style={{ flexGrow: day.active }} /> : null}
+                    {day.active > 0 ? <span className="min-h-px bg-ink-faint" style={{ flexGrow: day.active }} /> : null}
                   </div>
                 </div>
               )

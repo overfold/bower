@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { formatRelativeTime, formatTimestamp, type DateValue } from '@/lib/format'
+import { formatRelativeTime, formatTimestamp, timestampTitle, type DateValue } from '@/lib/format'
 
 export function Time({ value, mode = 'relative' }: { value: DateValue; mode?: 'auto' | 'absolute' | 'relative' }) {
   const [now, setNow] = useState<number | null>(null)
@@ -12,9 +12,9 @@ export function Time({ value, mode = 'relative' }: { value: DateValue; mode?: 'a
     return () => { cancelAnimationFrame(first); clearInterval(timer) }
   }, [])
   const date = value ? new Date(value) : null
-  if (!date || !Number.isFinite(date.getTime())) return <span className="text-xs text-ink-muted">—</span>
-  const absolute = formatTimestamp(date)
-  return <time className="text-xs text-ink-muted" dateTime={date.toISOString()} title={absolute} suppressHydrationWarning>
+  if (!date || !Number.isFinite(date.getTime())) return <span>—</span>
+  const absolute = formatTimestamp(date, now === null ? 'UTC' : undefined)
+  return <time dateTime={date.toISOString()} title={timestampTitle(date, now === null ? 'UTC' : undefined)} suppressHydrationWarning>
     {mode !== 'absolute' && now !== null ? formatRelativeTime(date, now) : absolute}
   </time>
 }

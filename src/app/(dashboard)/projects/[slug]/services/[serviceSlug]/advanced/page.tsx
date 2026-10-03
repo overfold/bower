@@ -28,9 +28,9 @@ export default async function AdvancedPage({
   return (
     <div className="space-y-6">
 
-      <div className="space-y-2">
+      <div>
         <SectionTitle>Advanced execution</SectionTitle>
-        <p className="max-w-3xl text-sm leading-relaxed text-ink-muted">
+        <p className="mt-1 max-w-3xl text-sm text-ink-muted">
           Runtime isolation and workload API access for this service.
         </p>
       </div>

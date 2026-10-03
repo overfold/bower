@@ -1,6 +1,5 @@
-import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
-import { Box, KeyRound } from 'lucide-react'
+import { KeyRound } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth'
 import { requireProject } from '@/lib/actions/shared'
 import {
@@ -11,16 +10,14 @@ import {
   getServicesByProject,
   getUserOrganization,
 } from '@/lib/queries'
-import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Panel, PanelHeader, SectionTitle } from '@/components/ui/panel'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { CreateSecretDialog } from './create-secret-dialog'
 import { SecretActions } from './secret-actions'
-import { EnvironmentVariableControls } from './environment-variable-controls'
-import { ServiceEnvironmentDialog } from './service-environment-dialog'
 import type { BowerSecretBinding } from '@/lib/job-builder'
 import { Time } from '@/components/time'
+import { VariablesSection } from '@/components/variables-section'
 
 function recordEntries(value: unknown) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return [] as Array<[string, string]>
@@ -54,36 +51,27 @@ export default async function EnvironmentPage({ params }: { params: Promise<{ sl
     return config ? { service, config } : null
   }))).filter((row): row is NonNullable<typeof row> => row !== null)
   const secrets = allSecrets.filter((row) => row.secret.environmentId === environment.id)
-  const secretNames = secrets.map((row) => row.secret.trellisSecretName)
   const environmentVariables = recordEntries(environment.envVars)
+  const variableServices = serviceRows.map(({ service, config }) => ({
+    id: service.id,
+    name: service.name,
+    envVars: Object.fromEntries(recordEntries(config.envVars)),
+    secretBindings: bindings(config.secretBindings),
+  }))
+  const secretLabels = Object.fromEntries(secrets.map((row) => [row.secret.trellisSecretName, row.secret.name]))
 
   return (
     <div className="space-y-6">
-      <div><SectionTitle>Environment</SectionTitle><p className="mt-1 max-w-3xl text-sm text-ink-muted">Manage variables and secrets shared by this project’s services.</p></div>
+      <SectionTitle>Environment</SectionTitle>
       <div className="grid gap-5">
-        <Panel>
-          <PanelHeader
-            title="Environment variables"
-            hint={`${environmentVariables.length} ${environmentVariables.length === 1 ? 'variable' : 'variables'} injected into every service`}
-          />
-          {canManage ? <EnvironmentVariableControls projectId={project.id} environmentId={environment.id} names={environmentVariables.map(([name]) => name)} /> : environmentVariables.length === 0 ? (
-            <div className="p-4 text-sm text-ink-muted">No environment variables.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Value</TableHead></TableRow></TableHeader>
-                <TableBody>
-                  {environmentVariables.map(([name]) => (
-                    <TableRow key={name}>
-                      <TableCell className="font-mono text-xs font-medium">{name}</TableCell>
-                      <TableCell className="font-mono text-xs text-ink-muted">••••••••</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </Panel>
+        <VariablesSection
+          projectId={project.id}
+          environmentId={environment.id}
+          sharedNames={environmentVariables.map(([name]) => name)}
+          services={variableServices}
+          secretLabels={secretLabels}
+          canManage={canManage}
+        />
 
         <Panel>
           <PanelHeader
@@ -112,55 +100,6 @@ export default async function EnvironmentPage({ params }: { params: Promise<{ sl
         </Panel>
       </div>
 
-      <div id="service-bindings" className="scroll-mt-24 space-y-4">
-        <div className="space-y-1">
-          <SectionTitle>Service variables and secrets</SectionTitle>
-          <p className="text-sm text-ink-muted">Configure variables and secret bindings that apply only to an individual service.</p>
-        </div>
-        {serviceRows.length === 0 ? (
-          <Panel><EmptyState icon={<Box className="h-4 w-4" />} title="No services" body="Create a service to configure its variables and secrets." /></Panel>
-        ) : (
-          serviceRows.map(({ service, config }) => {
-            const variables = recordEntries(config.envVars)
-            const secretBindings = bindings(config.secretBindings)
-            return (
-              <Panel key={config.id}>
-                <PanelHeader
-                  title={service.name}
-                  hint={`${variables.length} ${variables.length === 1 ? 'variable' : 'variables'} · ${secretBindings.length} ${secretBindings.length === 1 ? 'secret' : 'secrets'}`}
-                  action={
-                    <div className="flex items-center gap-2">
-                      <Button asChild variant="ghost" size="sm"><Link href={`/projects/${slug}/services/${service.slug}`}>Open service</Link></Button>
-                      {canManage ? <ServiceEnvironmentDialog
-                        serviceId={service.id}
-                        environmentId={environment.id}
-                        serviceName={service.name}
-                        envVars={config.envVars}
-                        secretBindings={config.secretBindings}
-                        secretNames={secretNames}
-                      /> : null}
-                    </div>
-                  }
-                />
-                <div className="grid gap-0 divide-y divide-line lg:grid-cols-2 lg:divide-x lg:divide-y-0">
-                  <div className="p-4">
-                    <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Variables</p>
-                    {variables.length === 0 ? <p className="text-sm text-ink-muted">No service-specific variables.</p> : (
-                      <div className="space-y-2.5">{variables.map(([name, value]) => <div key={name} className="grid grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] gap-4 text-sm"><span className="truncate font-mono font-medium text-ink">{name}</span><span className="truncate font-mono text-ink-muted">{value}</span></div>)}</div>
-                    )}
-                  </div>
-                  <div className="p-4">
-                    <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Secret bindings</p>
-                    {secretBindings.length === 0 ? <p className="text-sm text-ink-muted">No secrets are bound.</p> : (
-                      <div className="space-y-2.5">{secretBindings.map((binding, index) => <div key={`${binding.name}-${index}`} className="flex items-center justify-between gap-4 text-sm"><span className="truncate font-mono font-medium text-ink">{binding.name}</span><span className="truncate font-mono text-ink-muted">{binding.target === 'env' ? binding.env : binding.path}</span></div>)}</div>
-                    )}
-                  </div>
-                </div>
-              </Panel>
-            )
-          })
-        )}
-      </div>
     </div>
   )
 }

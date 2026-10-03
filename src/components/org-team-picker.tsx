@@ -5,11 +5,13 @@ import { useState, useTransition } from 'react'
 import { Building2, ChevronsUpDown, Check } from 'lucide-react'
 import { switchOrgAction } from '@/lib/auth-actions'
 import { cn } from '@/lib/utils'
+import Link from 'next/link'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
@@ -29,9 +31,10 @@ interface OrgTeamPickerProps {
   orgs: OrgEntry[]
   currentOrg: OrgEntry
   teams: TeamEntry[]
+  instanceAdmin?: boolean
 }
 
-export function OrgTeamPicker({ orgs, currentOrg }: OrgTeamPickerProps) {
+export function OrgTeamPicker({ orgs, currentOrg, instanceAdmin }: OrgTeamPickerProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [open, setOpen] = useState(false)
@@ -75,6 +78,7 @@ export function OrgTeamPicker({ orgs, currentOrg }: OrgTeamPickerProps) {
             )}
           </DropdownMenuItem>
         ))}
+        {instanceAdmin ? <><DropdownMenuSeparator /><DropdownMenuItem asChild><Link href="/settings/instance">Manage organizations</Link></DropdownMenuItem></> : null}
       </DropdownMenuContent>
     </DropdownMenu>
   )

@@ -9,7 +9,8 @@ import {
   getRoutesByProject,
 } from '@/lib/queries'
 import { Panel, PanelHeader, SectionTitle } from '@/components/ui/panel'
-import { StatusDot, DeploymentStatus } from '@/components/status'
+import { StatusDot } from '@/components/status'
+import { Chip } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Rocket, Globe, Server } from 'lucide-react'
 import { Time } from '@/components/time'
@@ -19,7 +20,8 @@ import { LastDeployFailed } from '@/components/last-deploy-failed'
 import { CreateServiceDialog } from '@/components/create-service-dialog'
 import { requireProject } from '@/lib/actions/shared'
 import { Button } from '@/components/ui/button'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { DeploymentsTable } from '@/components/deployments-table'
+import { formatReadyReplicas } from '@/lib/format'
 
 function imageTag(image: string | null): string {
   if (!image) return '-'
@@ -55,28 +57,37 @@ export default async function ProjectOverviewPage({
   const routeRows = environment
     ? allRoutes.filter((row) => row.route.environmentId === environment.id)
     : []
+  const attention = services.filter(({ health, latestDeployment }) => ['down', 'degraded', 'unhealthy'].includes(health) || latestDeployment?.status === 'failed')
+  const setupService = services.find(({ latestDeployment }) => latestDeployment?.status === 'healthy') ?? services[0]
+  const deployed = services.some(({ latestDeployment }) => latestDeployment?.status === 'healthy')
+  const settingUp = services.length === 0 || routeRows.length === 0
 
   return (
     <div className="space-y-5">
-      <div><SectionTitle>Overview</SectionTitle><p className="mt-1 text-sm text-ink-muted">See this project’s services, recent deployments, and routes.</p></div>
+      <SectionTitle>Overview</SectionTitle>
+      {settingUp ? <Panel>
+        <PanelHeader title="Set up this project" />
+        <ol className="divide-y divide-line text-sm">
+          <li className="flex items-center justify-between gap-4 p-4"><div><p className="font-medium text-ink">1. Create a service</p><p className="text-sm text-ink-muted">{setupService ? `${setupService.service.name} created.` : 'Define the workload you want to deploy.'}</p></div>{setupService ? <Chip tone="success">Done</Chip> : access.projectRole === 'admin' ? <CreateServiceDialog projectSlug={slug} /> : null}</li>
+          <li className="flex items-center justify-between gap-4 p-4 text-ink-muted"><div><p className="font-medium">2. Deploy it</p><p className="text-sm">{deployed ? 'First deployment succeeded.' : setupService ? 'Deploy your service’s saved configuration.' : 'Available after you create a service.'}</p></div>{deployed ? <Chip tone="success">Done</Chip> : setupService && access.projectRole !== 'viewer' ? <Button asChild variant="primary"><Link href={`/projects/${slug}/services/${setupService.service.slug}?action=deploy`}>Deploy</Link></Button> : <Button disabled>Deploy</Button>}</li>
+          <li className="flex items-center justify-between gap-4 p-4 text-ink-muted"><div><p className="font-medium">3. Add a route</p><p className="text-sm">{deployed ? 'Expose your service to traffic.' : 'Available after the first deployment.'}</p></div>{deployed && access.projectRole === 'admin' ? <Button asChild variant="primary"><Link href={`/projects/${slug}/routes`}>Add route</Link></Button> : <Button disabled>Add route</Button>}</li>
+        </ol>
+      </Panel> : null}
+      {attention.length ? <Panel><PanelHeader title="Needs attention" />
+        <ul className="divide-y divide-line">{attention.map(({ service, latestDeployment, health }) => <li key={service.id} className="flex items-center gap-4 px-4 py-3"><Chip tone="danger">{latestDeployment?.status === 'failed' ? 'Failed' : 'Unhealthy'}</Chip><div className="min-w-0 flex-1"><Link className="font-medium text-link" href={`/projects/${slug}/services/${service.slug}`}>{service.name}</Link><p className="text-xs text-ink-muted">{latestDeployment?.status === 'failed' ? 'The latest deployment failed.' : 'One or more health checks are failing.'}</p></div>{latestDeployment?.status === 'failed' ? <LastDeployFailed href={`/projects/${slug}/deployments/${latestDeployment.id}`} /> : <StatusDot status={health} />}</li>)}</ul>
+      </Panel> : null}
+      {services.length > 0 && !settingUp ? <>
       <Panel>
-        <PanelHeader title="Services" />
+        <PanelHeader title="Service health" action={services.length ? <Link href={`/projects/${slug}/services`} className="text-link text-sm font-medium">View all</Link> : undefined} />
         {services.length === 0 ? <EmptyState icon={<Server className="size-4" />} title="No services yet" body="Create a service to start deploying." action={access.projectRole === 'admin' ? <CreateServiceDialog projectSlug={slug} /> : undefined} /> :
-          <Table><TableHeader><TableRow><TableHead>Service</TableHead><TableHead>Status</TableHead><TableHead>Ready</TableHead><TableHead>Image tag</TableHead><TableHead className="text-right">Last deploy</TableHead></TableRow></TableHeader><TableBody>
-            {services.map(({ service, config, latestDeployment, health, ready }) => <TableRow key={service.id}>
-              <TableCell><Link className="text-link font-medium" href={`/projects/${slug}/services/${service.slug}`}>{service.name}</Link></TableCell>
-              <TableCell><div className="flex items-center gap-2"><StatusDot status={health} />{latestDeployment?.status === 'failed' ? <LastDeployFailed href={`/projects/${slug}/deployments/${latestDeployment.id}`} /> : null}</div></TableCell>
-              <TableCell>{ready ?? 'Unknown'}/{config?.replicas ?? 0}</TableCell><TableCell className="font-mono text-xs">{imageTag(config?.image ?? null)}</TableCell>
-              <TableCell className="text-right">{latestDeployment ? <Time value={latestDeployment.createdAt} /> : '—'}</TableCell>
-            </TableRow>)}
-          </TableBody></Table>}
+          <div className="grid divide-y divide-line sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-3">{services.map(({ service, config, latestDeployment, health, ready }) => <Link key={service.id} href={`/projects/${slug}/services/${service.slug}`} className="p-4 hover:bg-sunken"><div className="flex items-center justify-between gap-2"><span className="font-medium text-ink">{service.name}</span><StatusDot status={health} /></div><p className="mt-2 text-xs text-ink-muted">{formatReadyReplicas(ready, config?.replicas ?? 0)} · <span className="font-mono">{imageTag(config?.image ?? null)}</span></p><p className="mt-1 text-xs text-ink-muted">{latestDeployment ? <>Last deploy <Time value={latestDeployment.createdAt} /></> : 'Not deployed'}</p></Link>)}</div>}
       </Panel>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
         {/* Deployment history */}
         <Panel>
           <PanelHeader
-            title="Deployment history"
+            title="Recent deployments"
             action={deployments.length > 0 ?
               <Link
                 href={`/projects/${slug}/deployments`}
@@ -96,33 +107,13 @@ export default async function ProjectOverviewPage({
               />
             </div>
           ) : (
-            <ul className="divide-y divide-line">
-              {deployments.map((row) => (
-                <li
-                  key={row.deployment.id}
-                  className="flex items-center justify-between gap-4 px-4 py-3"
-                >
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm text-ink">
-                        {row.serviceName}
-                      </p>
-                      <p className="mt-0.5 truncate font-mono text-2xs text-ink-muted">
-                        {imageTag(row.deployment.imageAfter)}
-                      </p>
-                    </div>
-                    <DeploymentStatus status={row.deployment.status} />
-                  </div>
-                  <Time value={row.deployment.createdAt} mode="auto" />
-                </li>
-              ))}
-            </ul>
+            <DeploymentsTable preset="project" rows={deployments.map((row) => ({ ...row, projectName: project.name, projectSlug: project.slug }))} />
           )}
         </Panel>
 
         {/* Routes */}
         <Panel>
-          <PanelHeader title="Routes" />
+          <PanelHeader title="Routes" action={routeRows.length ? <Link href={`/projects/${slug}/routes`} className="text-link text-sm font-medium">View all</Link> : undefined} />
           {routeRows.length === 0 ? (
             <div className="px-4 py-6">
               <EmptyState
@@ -149,18 +140,11 @@ export default async function ProjectOverviewPage({
                   </li>
                 ))}
               </ul>
-              <div className="border-t border-line px-4 py-3">
-                <Link
-                  href={`/projects/${slug}/routes`}
-                  className="text-link text-sm font-medium"
-                >
-                  Manage routes
-                </Link>
-              </div>
             </>
           )}
         </Panel>
       </div>
+      </> : null}
     </div>
   )
 }

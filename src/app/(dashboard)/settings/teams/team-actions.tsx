@@ -25,10 +25,10 @@ export function TeamActions(props: Props) {
   return <TeamRowActions teamId={props.teamId} teamName={props.teamName} />
 }
 
-export function TeamRowActions({ teamId, teamName, buttons = false }: { teamId: string; teamName: string; buttons?: boolean }) {
+export function TeamRowActions({ teamId, teamName, renameButton = false, deleteButton = false }: { teamId: string; teamName: string; renameButton?: boolean; deleteButton?: boolean }) {
   const [action, setAction] = useState<'edit' | 'delete' | null>(null)
   return <>
-    {buttons ? <div className="flex gap-2"><Button size="sm" onClick={() => setAction('edit')}>Rename</Button><Button size="sm" variant="danger" onClick={() => setAction('delete')}>Delete</Button></div> :
+    {renameButton ? <Button size="sm" onClick={() => setAction('edit')}>Rename</Button> : deleteButton ? <Button size="sm" variant="danger" onClick={() => setAction('delete')}>Delete team</Button> :
       <RowActions name={teamName}><RowActionItem onSelect={() => setAction('edit')}>Rename</RowActionItem><RowActionSeparator /><RowActionItem className="text-danger-600 focus:text-danger-600" onSelect={() => setAction('delete')}>Delete</RowActionItem></RowActions>}
     <EditTeamDialog teamId={teamId} teamName={teamName} open={action === 'edit'} onOpenChange={(open) => setAction(open ? 'edit' : null)} />
     <DeleteTeamButton teamId={teamId} teamName={teamName} open={action === 'delete'} onOpenChange={(open) => setAction(open ? 'delete' : null)} />
@@ -62,7 +62,7 @@ function CreateTeamDialog() {
           New team
         </Button>
       </DialogTrigger>
-      <DialogContent size="md">
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle>Create team</DialogTitle>
         </DialogHeader>
@@ -71,7 +71,7 @@ function CreateTeamDialog() {
             {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
             <div className="space-y-2">
               <Label htmlFor="team-name">Team name</Label>
-              <Input id="team-name" name="name" placeholder="Engineering" required />
+              <Input id="team-name" name="name" required />
             </div>
           </DialogBody>
           <DialogFooter>
@@ -108,7 +108,7 @@ function EditTeamDialog({ teamId, teamName, open, onOpenChange }: { teamId: stri
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!pending) { onOpenChange(next); if (next) setError(null) } }}>
-      <DialogContent size="md">
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle>Edit team</DialogTitle>
         </DialogHeader>

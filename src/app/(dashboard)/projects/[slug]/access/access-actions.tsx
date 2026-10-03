@@ -48,17 +48,21 @@ export function GrantAccessDialog({ projectId, teams, members, existingTeamIds, 
         granted: existingUserIds.includes(m.userId),
       })),
     ]
-    if (!search) return all
+    if (!search.trim()) return []
     const q = search.toLowerCase()
-    return all.filter(item => {
+    return all.filter(item => !item.granted && (() => {
       if (item.name.toLowerCase().includes(q)) return true
       if (item.kind === 'user' && item.email.toLowerCase().includes(q)) return true
       return false
-    })
+    })())
   }, [teams, members, existingTeamIds, existingUserIds, search])
 
   function handleSubmit() {
-    if (!selected || selected.granted) return
+    if (!selected || selected.granted) {
+      setError('Choose a team or member from the search results.')
+      document.getElementById('access-search')?.focus()
+      return
+    }
     setError(null)
     const formData = new FormData()
     formData.set('kind', selected.kind)
@@ -104,16 +108,16 @@ export function GrantAccessDialog({ projectId, teams, members, existingTeamIds, 
           {error && <InlineNotice tone="error">{error}</InlineNotice>}
           <div className="space-y-2">
             <Label htmlFor="access-search">Search teams and members</Label>
-            <div className="overflow-hidden rounded-lg border border-line bg-surface shadow-card transition-[border-color,box-shadow] duration-150 ease-enter focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500">
+            <div className="overflow-hidden rounded-lg border border-line-strong bg-surface">
               <Input
                 id="access-search"
                 placeholder="Search by name or email..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="rounded-none border-0 shadow-none focus:border-transparent focus:ring-0"
+                className="rounded-none border-0"
                 autoFocus
               />
-              <div className="max-h-[240px] overflow-y-auto border-t border-line scroll-thin">
+              {search.trim() ? <div className="relative max-h-[240px] overflow-y-auto border-t border-line scroll-thin after:pointer-events-none after:sticky after:bottom-0 after:block after:h-4 after:bg-gradient-to-t after:from-surface">
                 {items.length === 0 ? (
                   <div className="px-4 py-6 text-center text-sm text-ink-muted">No results found.</div>
                 ) : (
@@ -155,7 +159,7 @@ export function GrantAccessDialog({ projectId, teams, members, existingTeamIds, 
                     )
                   })
                 )}
-              </div>
+              </div> : null}
             </div>
           </div>
           {selected && !selected.granted && (
@@ -177,7 +181,7 @@ export function GrantAccessDialog({ projectId, teams, members, existingTeamIds, 
         </DialogBody>
         <DialogFooter>
           <Button variant="default" size="sm" onClick={handleClose} disabled={pending}>Cancel</Button>
-          <Button variant="primary" size="sm" onClick={handleSubmit} disabled={pending || !selected || selected.granted} aria-busy={pending}>
+          <Button variant="primary" size="sm" onClick={handleSubmit} disabled={pending} aria-busy={pending}>
             {pending ? 'Granting…' : 'Grant access'}
           </Button>
         </DialogFooter>
@@ -186,8 +190,8 @@ export function GrantAccessDialog({ projectId, teams, members, existingTeamIds, 
   )
 }
 
-export function RevokeAccessButton({ projectId, accessId, kind, name }: {
-  projectId: string; accessId: string; kind: 'team' | 'user'; name: string
+export function RevokeAccessButton({ projectId, accessId, kind, name, email }: {
+  projectId: string; accessId: string; kind: 'team' | 'user'; name: string; email?: string
 }) {
   const [pending, startTransition] = useTransition()
   const [open, setOpen] = useState(false)
@@ -218,7 +222,7 @@ export function RevokeAccessButton({ projectId, accessId, kind, name }: {
           <AlertDialogDescription>
             {kind === 'team'
               ? `Members of ${name} will lose their team-granted access to this project.`
-              : `${name} will lose their individual access to this project.`}
+              : <>{email ? <span className="block">{email}</span> : null}{name} will lose their individual access to this project.</>}
           </AlertDialogDescription>
         </AlertDialogHeader>
         {error ? <InlineNotice tone="error" className="mx-5">{error}</InlineNotice> : null}

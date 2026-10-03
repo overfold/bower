@@ -324,7 +324,8 @@ test('version history keeps the deployment journal and omits the separate retain
   const html = renderToStaticMarkup(await page.default({ params: Promise.resolve({ slug: 'demo', serviceSlug: 'web', allocationId: '' }) }))
   assert.match(html, /Only the most recent configurations can be restored/)
   assert.doesNotMatch(html, /Retained Trellis versions/)
-  assert.match(html, />12<\/td><td[^>]*>7</)
+  assert.match(html, />7<\/span><\/td>/)
+  assert.match(html, /Succeeded/)
   assert.doesNotMatch(html, />5<\/td><td[^>]*>3</)
   assert.doesNotMatch(html, />6<\/td><td[^>]*>3</)
 })
@@ -405,6 +406,7 @@ test('live service summaries use inherited replicas and image while retaining th
 test('service header shows the serving release, not an undeployed edit or a failed candidate', async () => {
   const deployment = { status: 'healthy', imageBefore: 'app:v1', imageAfter: 'app:v2' }
   const captured: string[] = []
+  const logLinks: string[] = []
   const layout = load<{ default: (props: { children: ReactElement; params: Promise<{ slug: string; serviceSlug: string }> }) => Promise<ReactElement> }>(`${servicePath}/layout.tsx`, {
     'next/navigation': navigation,
     '@/lib/auth': { getCurrentUser: async () => ({ id: 'user' }) },
@@ -415,15 +417,21 @@ test('service header shows the serving release, not an undeployed edit or a fail
       getServiceBySlug: async () => ({ id: 'service', slug: 'web' }),
       getProjectEnvironment: async () => environment,
       getRoutesByProject: async () => [],
+      getDeploymentsByService: async () => [{ ...deployment, environmentId: 'env', jobSpec: { task_groups: [] }, id: 'deployment', createdAt: new Date(), imageAfter: 'app:v2' }],
+      getMergedServiceConfig: async () => ({ image: 'app:undeployed' }),
     },
-    '@/lib/service-health-query': { getProjectLiveServices: async () => ({ services: [{ service: { id: 'service' }, config: { image: 'app:undeployed', replicas: 1 }, latestDeployment: deployment, ready: 1, health: 'healthy' }] }) },
-    './service-header': { ServiceHeader: ({ image }: { image: string }) => { captured.push(image); return null } },
+    '@/lib/trellis-instance': { getTrellisClient: async () => ({ getJob: async () => ({ replacement_backoff: [] }) }) },
+    '@/lib/service-config-diff': { diffServiceConfig: () => [] },
+    '@/lib/service-health-query': { getProjectLiveServices: async () => ({ services: [{ service: { id: 'service' }, allocations: [{ id: 'ready', phase: 'running', health: 'healthy' }, { id: 'failing', phase: 'failed', health: 'unhealthy' }], config: { image: 'app:undeployed', replicas: 1 }, latestDeployment: deployment, ready: 1, health: 'healthy' }] }) },
+    './service-header': { ServiceHeader: ({ image, logsHref }: { image: string; logsHref: string }) => { captured.push(image); logLinks.push(logsHref); return null } },
+    './service-shell': { ServiceShell: ({ header, children }: { header: ReactElement; children: ReactElement }) => createElement('div', null, header, children) },
   })
   for (const status of ['healthy', 'failed']) {
     deployment.status = status
     renderToStaticMarkup(await layout.default({ children: createElement('div'), params: Promise.resolve({ slug: 'demo', serviceSlug: 'web' }) }))
   }
   assert.deepEqual(captured, ['app:v2', 'app:v1'])
+  assert.deepEqual(logLinks, Array(2).fill('/projects/demo/services/web/allocations/failing'))
 })
 
 test('failed-deploy marker renders with its tooltip provider and a diagnostic link', () => {
@@ -439,8 +447,9 @@ test('audit before/after-only details render changes, not an empty-state or unch
     now: Date.parse('2026-10-02T12:00:00Z'),
     entries: [{ id: 'event', action: 'service.update', resourceType: 'service', resourceId: 'web', userName: 'Alex', createdAt: '2026-10-01T12:00:00Z', details: { before: { replicas: 2, unchanged: 'same' }, after: { replicas: 5, unchanged: 'same' } } }],
   }))
-  assert.match(html, /<del[^>]*>2<\/del>/)
-  assert.match(html, /<ins[^>]*>5<\/ins>/)
+  assert.match(html, /<span class="text-ink-muted">2<\/span>/)
+  assert.match(html, /<span class="mx-2 text-ink-muted" aria-label="changed to">→<\/span>/)
+  assert.match(html, /<span class="text-ink">5<\/span>/)
   assert.doesNotMatch(html, /No additional details|unchanged/)
 })
 
@@ -478,4 +487,34 @@ test('targeted rollback scopes the target and replays its spec rather than the l
   role = 'viewer'
   await assert.rejects(actions.rollbackServiceAction('service', 'env', 'selected-deployment'), /permissions/)
   assert.equal(applied.length, 2)
+})
+
+test('route editing validates the target project/environment and persists the selected service', async () => {
+  let rows: unknown[][] = []
+  let written: Record<string, unknown> | undefined
+  const filters: unknown[][] = []
+  const actions = load<typeof import('./actions/operations')>('src/lib/actions/operations.ts', {
+    'next/cache': { revalidatePath() {} },
+    '@/lib/auth': {}, '@/lib/trellis-instance': {},
+    './shared': { requireProject: async () => access, recordAudit: async () => {}, text: (form: FormData, key: string) => String(form.get(key) ?? ''), integer: (form: FormData, key: string, fallback: number) => form.has(key) ? Number(form.get(key)) : fallback },
+    '@/lib/managed-proxy': { syncManagedProxy: async () => {} },
+    '@/db': { db: {
+      select: () => query(rows.shift()!, (sql) => filters.push(new PgDialect().sqlToQuery(sql).params)),
+      update: () => ({ set: (value: Record<string, unknown>) => { written = value; return { where: async () => {} } } }),
+    } },
+  })
+  const form = new FormData()
+  for (const [key, value] of Object.entries({ serviceId: 'new-service', domain: 'shop.acme.test', port: '8123', tlsMode: 'none', protectionMode: 'none' })) form.set(key, value)
+  const before = { id: 'route', environmentId: 'env', serviceId: 'old-service' }
+  for (const [service, config] of [[[], [{ id: 'config' }]], [[{ id: 'new-service' }], []]]) {
+    rows = [[before], service, config]
+    await assert.rejects(actions.updateRouteAction('project', 'route', form), /target service must be configured/)
+    assert.equal(written, undefined)
+  }
+  filters.length = 0
+  rows = [[before], [{ id: 'new-service' }], [{ id: 'config' }]]
+  await actions.updateRouteAction('project', 'route', form)
+  assert.deepEqual(filters.slice(1), [['new-service', 'project'], ['new-service', 'env']])
+  assert.equal(written?.serviceId, 'new-service')
+  assert.equal(written?.port, 8123)
 })

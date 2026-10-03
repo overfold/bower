@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { getUserOrganization } from '@/lib/queries'
 import { PageHeading } from '@/components/page-heading'
 import { OrgSettingsForm } from '@/components/org-settings-form'
+import { ClusterSettingsForm } from '@/components/cluster-settings-form'
 
 export default async function OrganizationSettingsPage() {
   const user = await getCurrentUser()
@@ -15,12 +16,12 @@ export default async function OrganizationSettingsPage() {
       <PageHeading
         as="h2"
         title="Organization"
-        description="Manage organization details for the currently selected organization."
       />
 
       <OrgSettingsForm
         org={{ id: orgCtx.org.id, name: orgCtx.org.name, slug: orgCtx.org.slug }}
       />
+      <ClusterSettingsForm org={{ trellisApiUrl: orgCtx.org.trellisApiUrl, trellisApiToken: orgCtx.org.trellisApiToken }} />
     </div>
   )
 }

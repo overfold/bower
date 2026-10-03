@@ -3,8 +3,7 @@
 import { useState, useTransition, useActionState } from 'react'
 import { actionErrorMessage } from '@/lib/action-error'
 import { useRouter } from 'next/navigation'
-import { Plus, Copy, Check } from 'lucide-react'
-import { RowActions, RowActionItem, RowActionSeparator } from '@/components/ui/row-actions'
+import { Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -21,7 +20,8 @@ import {
   createNotificationChannelAction, deleteNotificationChannelAction,
   type WebhookCreationState,
 } from '@/lib/actions/integrations'
-import { InlineNotice, useFeedback } from '@/components/ui/feedback'
+import { InlineNotice } from '@/components/ui/feedback'
+import { OneTimeSecret } from '@/components/one-time-secret'
 
 interface CreateWebhookDialogProps {
   projectId: string
@@ -31,11 +31,9 @@ interface CreateWebhookDialogProps {
 
 export function CreateWebhookDialog({ projectId, services, environmentId }: CreateWebhookDialogProps) {
   const [open, setOpen] = useState(false)
-  const { toast } = useFeedback()
   const boundAction = createWebhookAction.bind(null, projectId)
   const [state, formAction, isPending] = useActionState<WebhookCreationState, FormData>(boundAction, {})
   const [hideStaleError, setHideStaleError] = useState(false)
-  const [copied, setCopied] = useState<Set<string>>(new Set())
   const endpointPath = `/api/webhooks/${state.token ?? ''}`
   const endpoint = typeof window === 'undefined' ? endpointPath : `${window.location.origin}${endpointPath}`
 
@@ -43,46 +41,29 @@ export function CreateWebhookDialog({ projectId, services, environmentId }: Crea
     setOpen(false)
   }
 
-  async function copy(value: string, key: string) {
-    try {
-      await navigator.clipboard.writeText(value)
-      setCopied((current) => new Set(current).add(key))
-      window.setTimeout(() => setCopied((current) => { const next = new Set(current); next.delete(key); return next }), 2000)
-    } catch {
-      toast({ tone: 'error', title: 'Could not copy value.' })
-    }
-  }
-
   return (
     <Dialog open={open} onOpenChange={(v) => { if (isPending) return; if (!v) handleClose(); else { setHideStaleError(true); setOpen(true) } }}>
       <DialogTrigger asChild>
         <Button variant="primary" size="sm">
           <Plus className="h-4 w-4" />
-          Add webhook
+          <span>New webhook</span>
         </Button>
       </DialogTrigger>
       <DialogContent size="md">
         <DialogHeader>
-          <DialogTitle>{state.token ? 'Webhook created' : 'Create webhook endpoint'}</DialogTitle>
+          <DialogTitle>{state.token ? 'Webhook created' : 'Create webhook'}</DialogTitle>
         </DialogHeader>
         {state.token ? (
           <>
             <DialogBody>
               <div className="space-y-3">
-                <p className="text-sm font-medium text-ink">Copy this webhook token now. It will not be shown again.</p>
-                {[['Endpoint URL', endpoint, 'url'], ['Token', state.token, 'token']].map(([label, value, key]) => <div key={key} className="space-y-1"><p className="text-xs font-medium text-ink-muted">{label}</p><div className="flex items-center gap-2">
-                  <code className="flex-1 break-all rounded-lg border border-line bg-sunken px-3 py-2 font-mono text-sm text-ink">
-                    {value}
-                  </code>
-                  <Button variant="default" size="sm" onClick={() => copy(value, key)}>
-                    {copied.has(key) ? <><Check />Copied</> : <><Copy />Copy</>}
-                  </Button>
-                </div></div>)}
+                <OneTimeSecret label="Endpoint URL" value={endpoint} />
+                <OneTimeSecret label="Token" value={state.token} />
                 <div className="rounded-lg bg-sunken p-3 font-mono text-xs text-ink-soft">curl -X POST &apos;{endpoint}&apos; -H &apos;Authorization: Bearer {'<token>'}&apos;</div>
               </div>
             </DialogBody>
             <DialogFooter>
-              <Button variant="primary" size="sm" onClick={handleClose} disabled={!copied.has('token')}>Done</Button>
+              <Button variant="primary" size="sm" onClick={handleClose}>Done</Button>
             </DialogFooter>
           </>
         ) : (
@@ -123,8 +104,8 @@ export function CreateWebhookDialog({ projectId, services, environmentId }: Crea
               </div>
               <div className="space-y-2">
                 <Label htmlFor="wh-tag" optional>Tag filter</Label>
-                <Input id="wh-tag" name="tagFilter" placeholder="e.g. ^v\\d+\\.\\d+\\.\\d+$" mono />
-                <p className="text-xs text-ink-muted">Regular expression matched against image tags.</p>
+                <Input id="wh-tag" name="tagFilter" mono />
+                <p className="text-xs text-ink-muted">Regular expression matched against image tags, e.g. <span className="font-mono">^v\d+\.\d+\.\d+$</span>.</p>
               </div>
             </DialogBody>
             <DialogFooter>
@@ -162,7 +143,7 @@ export function DeleteWebhookButton({ projectId, hookId, serviceName }: {
 
   return (
     <>
-      <RowActions name={`webhook for ${serviceName}`}><RowActionSeparator /><RowActionItem className="text-danger-600 focus:text-danger-600" disabled={isPending} onSelect={() => setOpen(true)}>Delete</RowActionItem></RowActions>
+      <Button variant="ghost" size="icon" className="hover:text-danger-600" disabled={isPending} onClick={() => setOpen(true)} aria-label={`Delete webhook for ${serviceName}`}><Trash2 /></Button>
       <AlertDialog open={open} onOpenChange={(next) => { if (!isPending) { setOpen(next); if (next) setError(null) } }}>
       <AlertDialogContent>
         <AlertDialogHeader>
@@ -218,19 +199,20 @@ export function CreateNotificationDialog({ projectId }: { projectId: string }) {
       <DialogTrigger asChild>
         <Button variant="primary" size="sm">
           <Plus className="h-4 w-4" />
-          Add channel
+          <span>New notification channel</span>
         </Button>
       </DialogTrigger>
       <DialogContent size="md">
         <DialogHeader>
-          <DialogTitle>Add notification channel</DialogTitle>
+          <DialogTitle>Create notification channel</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <DialogBody className="space-y-4">
             {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
             <div className="space-y-2">
               <Label htmlFor="nc-name">Name</Label>
-              <Input id="nc-name" name="name" placeholder="e.g. Slack deploys" required />
+              <Input id="nc-name" name="name" required />
+              <p className="text-xs text-ink-muted">Use a recognizable name, e.g. Slack deploys.</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="nc-type">Type</Label>
@@ -245,13 +227,13 @@ export function CreateNotificationDialog({ projectId }: { projectId: string }) {
             </div>
             <div className="space-y-2">
               <Label htmlFor="nc-url">Endpoint URL</Label>
-              <Input id="nc-url" name="url" type="url" placeholder="https://hooks.slack.com/..." required mono />
+              <Input id="nc-url" name="url" type="url" required mono />
             </div>
           </DialogBody>
           <DialogFooter>
             <Button variant="default" type="button" size="sm" onClick={handleClose} disabled={isPending}>Cancel</Button>
             <Button variant="primary" type="submit" size="sm" disabled={isPending} aria-busy={isPending}>
-              {isPending ? 'Creating…' : 'Add channel'}
+              {isPending ? 'Creating…' : 'Create notification channel'}
             </Button>
           </DialogFooter>
         </form>
@@ -282,7 +264,7 @@ export function DeleteNotificationButton({ projectId, channelId, channelName }: 
 
   return (
     <>
-      <RowActions name={channelName}><RowActionSeparator /><RowActionItem className="text-danger-600 focus:text-danger-600" disabled={isPending} onSelect={() => setOpen(true)}>Delete</RowActionItem></RowActions>
+      <Button variant="ghost" size="icon" className="hover:text-danger-600" disabled={isPending} onClick={() => setOpen(true)} aria-label={`Delete ${channelName}`}><Trash2 /></Button>
       <AlertDialog open={open} onOpenChange={(next) => { if (!isPending) { setOpen(next); if (next) setError(null) } }}>
       <AlertDialogContent>
         <AlertDialogHeader>

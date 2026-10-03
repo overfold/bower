@@ -83,11 +83,11 @@ export function CreateProjectDialog() {
             {error && <InlineNotice tone="error">{error}</InlineNotice>}
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
-              <Input key={requestedName} id="name" name="name" placeholder="my-project" defaultValue={requestedName} required />
+              <Input key={requestedName} id="name" name="name" defaultValue={requestedName} required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="description" optional>Description</Label>
-              <Textarea id="description" name="description" placeholder="Describe the project" rows={3} />
+              <Textarea id="description" name="description" rows={3} />
             </div>
           </DialogBody>
           <DialogFooter>

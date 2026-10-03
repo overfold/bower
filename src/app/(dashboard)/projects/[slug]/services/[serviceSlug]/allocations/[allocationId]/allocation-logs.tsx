@@ -60,7 +60,8 @@ export function AllocationLogs({ serviceId, allocationId, tasks }: { serviceId: 
     {error ? <InlineNotice tone="danger" className="m-3">{error}</InlineNotice> : null}
     <pre ref={container} className={`max-h-96 overflow-auto p-4 font-mono text-xs leading-relaxed text-ink-soft ${wrap ? 'whitespace-pre-wrap break-all' : ''}`}>{output ? lines.length ? lines.map((line, index) => {
       const timestamp = line.match(/^(\d{4}-\d{2}-\d{2}T\S+)\s+(.*)$/)
-      return <span key={index} className="block">{timestamp ? <><span className="text-ink-muted">{timestamp[1]} </span>{timestamp[2]}</> : line || '\u00a0'}</span>
+      const level = /\bERROR\b/i.test(line) ? 'text-danger-500' : /\bWARN(?:ING)?\b/i.test(line) ? 'text-warn-500' : ''
+      return <span key={index} className={`block ${level}`}>{timestamp ? <><span className="text-ink-muted">{timestamp[1]} </span>{timestamp[2]}</> : line || '\u00a0'}</span>
     }) : 'No matching log lines.' : 'No output'}</pre>
   </Panel>
 }

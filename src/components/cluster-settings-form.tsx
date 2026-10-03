@@ -45,7 +45,7 @@ export function ClusterSettingsForm({ org }: ClusterSettingsFormProps) {
   }
 
   return (
-    <Card className="max-w-3xl">
+    <Card>
       <form ref={formRef} onSubmit={handleSubmit} onInput={() => setDirty(true)}>
         <CardHeader>
           <CardTitle>Trellis connection</CardTitle>
@@ -54,7 +54,8 @@ export function ClusterSettingsForm({ org }: ClusterSettingsFormProps) {
           {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
           <div className="space-y-2">
             <Label htmlFor="trellisApiUrl" optional>Trellis API URL</Label>
-            <Input id="trellisApiUrl" name="trellisApiUrl" defaultValue={org.trellisApiUrl} placeholder="https://trellis.example.com" className="font-mono" />
+            <Input id="trellisApiUrl" name="trellisApiUrl" defaultValue={org.trellisApiUrl} className="font-mono" />
+            <p className="text-xs text-ink-muted">The full URL of the Trellis API, for example <span className="font-mono">https://trellis.example.com</span>.</p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="trellisApiToken" optional>Trellis API token</Label>

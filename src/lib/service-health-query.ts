@@ -16,6 +16,6 @@ export async function getProjectLiveServices(orgId: string, projectId: string, e
   }
   return { error, services: summaries.map((row) => {
     const owned = allocations.filter((allocation) => allocationBelongsToService(allocation, environment!.trellisNamespace, row.service.slug, [row.service.slug, row.config?.activeJobName ?? null]))
-    return { ...row, ready: error ? null : getReadyCount(owned), health: error && row.latestDeployment ? 'unknown' : getServiceHealth({ allocations: owned, desiredReplicas: row.config?.replicas ?? 0, deploymentStatus: row.latestDeployment?.status, deployed: Boolean(row.latestDeployment) }) }
+    return { ...row, allocations: owned, ready: error ? null : getReadyCount(owned), health: error && row.latestDeployment ? 'unknown' : getServiceHealth({ allocations: owned, desiredReplicas: row.config?.replicas ?? 0, deploymentStatus: row.latestDeployment?.status, deployed: Boolean(row.latestDeployment) }) }
   }) }
 }

@@ -102,15 +102,12 @@ export function CommandPalette({ open, onOpenChange, projects, services, orgName
         .map((href) => entries.find((entry) => entry.href === href && entry.kind !== 'action'))
         .filter((entry): entry is SearchEntry => Boolean(entry))
         .map((entry) => ({ ...entry, recent: true }))
-      return [...entries.filter((entry) => entry.kind === 'action'), ...recent].slice(0, 10)
+      const goTo = pages.slice(0, 6).filter((page) => !recent.some((entry) => entry.href === page.href))
+      return [...recent, ...goTo, ...entries.filter((entry) => entry.kind === 'action')]
     }
     const matches = entries
       .filter((e) => `${e.label} ${e.hint}`.toLowerCase().includes(q))
       .slice(0, 10)
-    if (matches.length === 0) {
-      const createEntry: SearchEntry = { id: 'action-new-project-named', label: `Create project “${query.trim()}”`, hint: 'Action', href: `/projects?action=new&name=${encodeURIComponent(query.trim())}`, kind: 'action' }
-      return [createEntry]
-    }
     return matches
   }, [entries, query, recentHrefs])
 
@@ -220,12 +217,12 @@ export function CommandPalette({ open, onOpenChange, projects, services, orgName
             role="listbox"
             aria-label="Results"
           >
-            {!query.trim() ? <li role="presentation" className="px-2.5 pb-1 pt-1 text-2xs font-semibold uppercase tracking-wider text-ink-muted">Actions and recently visited</li> : null}
             {results.map((entry, i) => {
               const Icon = kindIcon[entry.kind]
               const active = i === cursor
               return (
                 <li key={entry.id}>
+                  {!query.trim() && (i === 0 || (entry.recent ? 'recent' : entry.kind) !== (results[i - 1].recent ? 'recent' : results[i - 1].kind)) ? <p className="overline px-2.5 pb-1 pt-2">{entry.recent ? 'Recent pages' : entry.kind === 'action' ? 'Actions' : 'Go to'}</p> : null}
                   <button
                     type="button"
                     role="option"
@@ -257,7 +254,7 @@ export function CommandPalette({ open, onOpenChange, projects, services, orgName
             })}
             {results.length === 0 && (
               <li role="presentation" className="px-3 py-6 text-center text-sm text-ink-muted">
-                Nothing matches &ldquo;{query}&rdquo;.
+                No results for &ldquo;{query}&rdquo;.
               </li>
             )}
           </ul>

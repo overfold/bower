@@ -10,13 +10,15 @@ import { getProjectRole } from '@/lib/actions/shared'
 import { Panel, SectionTitle } from '@/components/ui/panel'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { EmptyState } from '@/components/ui/empty-state'
-import { AllocationStatus, DeploymentStatus } from '@/components/status'
+import { AllocationStatus } from '@/components/status'
 import { DeploymentPoller } from '@/components/deployment-poller'
-import { Boxes, Rocket } from 'lucide-react'
+import { Boxes, ChevronRight, Rocket } from 'lucide-react'
 import type { TrellisAllocation } from '@/types/trellis'
 import { Time } from '@/components/time'
 import { ResourceId } from '@/components/resource-id'
-import { deploymentStrategyLabels, deploymentTriggerLabels } from '@/lib/labels'
+import { formatCpu, formatMemory } from '@/lib/format'
+import { DeploymentsTable } from '@/components/deployments-table'
+import { ClickableTableRow } from '@/components/clickable-table-row'
 
 export default async function ServiceDetailPage({
   params,
@@ -57,6 +59,12 @@ export default async function ServiceDetailPage({
     allocationError = trellisReadError(error)
   }
   allocationRows.sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
+  const metrics = allocationError ? [] : await Promise.allSettled(allocationRows.map((allocation) => getTrellisClient(orgCtx.org.id).then((client) => client.getAllocationMetrics(allocation.id, allocation.namespace))))
+  const memoryUsed = metrics.reduce((total, result) => total + (result.status === 'fulfilled' ? result.value.reduce((sum, sample) => sum + Math.max(0, sample.memory_usage_bytes), 0) : 0), 0)
+  const cpuLimit = (selectedConfig?.config.cpu ?? 0) * (selectedConfig?.config.replicas ?? 0)
+  const memoryLimit = (selectedConfig?.config.memory ?? 0) * (selectedConfig?.config.replicas ?? 0)
+  const ready = allocationRows.filter((allocation) => allocation.phase === 'running' && allocation.health === 'healthy').length
+  const cpuAllocated = (selectedConfig?.config.cpu ?? 0) * ready
 
   const hasActiveDeployment = selectedDeployments.some((d) =>
     ['pending', 'planning', 'deploying'].includes(d.status)
@@ -65,6 +73,11 @@ export default async function ServiceDetailPage({
   return (
     <div className="space-y-6">
       <DeploymentPoller active={hasActiveDeployment} />
+
+      <div className="grid gap-4 sm:grid-cols-2" aria-label="Service resource usage">
+        <Panel className="p-4"><p className="text-xs font-medium text-ink-muted">CPU allocation</p><p className="nums mt-1.5 text-2xl font-semibold text-ink">{formatCpu(cpuAllocated)} / {formatCpu(cpuLimit)}</p><div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-raised"><div className="h-full rounded-full bg-brand-500" style={{ width: `${cpuLimit ? Math.min(100, cpuAllocated / cpuLimit * 100) : 0}%` }} /></div></Panel>
+        <Panel className="p-4"><p className="text-xs font-medium text-ink-muted">Memory usage</p><p className="nums mt-1.5 text-2xl font-semibold text-ink">{formatMemory(memoryUsed)} / {formatMemory(memoryLimit)}</p><div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-raised"><div className="h-full rounded-full bg-brand-500" style={{ width: `${memoryLimit ? Math.min(100, memoryUsed / memoryLimit * 100) : 0}%` }} /></div></Panel>
+      </div>
 
       <div className="space-y-5">
         <SectionTitle>Current allocations</SectionTitle>
@@ -86,13 +99,15 @@ export default async function ServiceDetailPage({
                     <TableHead>Status</TableHead>
                     <TableHead>Node</TableHead>
                     <TableHead className="text-right">Created</TableHead>
+                    <TableHead className="w-12"><span className="sr-only">View</span></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {allocationRows.map((allocation) => (
-                    <TableRow key={allocation.id}>
+                  {allocationRows.map((allocation) => {
+                    const href = `/projects/${slug}/services/${serviceSlug}/allocations/${allocation.id}`
+                    return <ClickableTableRow key={allocation.id} href={href} label={`View allocation ${allocation.id}`}>
                       <TableCell>
-                        <Link href={`/projects/${slug}/services/${serviceSlug}/allocations/${allocation.id}`} className="font-mono text-xs font-medium text-ink transition-colors hover:text-brand-500">
+                        <Link href={href} className="font-mono text-xs font-medium text-link">
                           <ResourceId value={allocation.id} />
                         </Link>
                       </TableCell>
@@ -102,8 +117,9 @@ export default async function ServiceDetailPage({
                       </TableCell>
                       <TableCell><NodeLink id={allocation.node_id} /></TableCell>
                       <TableCell className="whitespace-nowrap text-right text-ink-muted"><Time value={allocation.created_at} /></TableCell>
-                    </TableRow>
-                  ))}
+                      <TableCell><ChevronRight className="ml-auto h-4 w-4 text-ink-muted" aria-hidden="true" /></TableCell>
+                    </ClickableTableRow>
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -124,30 +140,7 @@ export default async function ServiceDetailPage({
         ) : (
           <Panel>
             <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Image</TableHead>
-                    <TableHead>Strategy</TableHead>
-                    <TableHead>Trigger</TableHead>
-                    <TableHead className="text-right">Time</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {selectedDeployments.map((d) => (
-                    <TableRow key={d.id}>
-                      <TableCell><DeploymentStatus status={d.status} /></TableCell>
-                      <TableCell className="max-w-48 truncate font-mono text-xs">{d.imageAfter}</TableCell>
-                      <TableCell>{deploymentStrategyLabels[d.strategy]}</TableCell>
-                      <TableCell>{deploymentTriggerLabels[d.triggerType]}</TableCell>
-                      <TableCell className="text-right text-ink-muted">
-                        <Time value={d.createdAt} />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <DeploymentsTable preset="project" rows={selectedDeployments.map((deployment) => ({ deployment, serviceName: service.name, serviceSlug: service.slug, projectName: project.name, projectSlug: project.slug }))} />
             </div>
           </Panel>
         )}

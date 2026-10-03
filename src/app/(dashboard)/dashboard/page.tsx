@@ -10,14 +10,13 @@ import {
   getOperationalTargetsForOrg,
 } from '@/lib/queries'
 import { getTrellisClient } from '@/lib/trellis-instance'
-import { trellisReadError, allocationBelongsToService } from '@/lib/trellis-runtime'
+import { trellisReadError } from '@/lib/trellis-runtime'
 import { TrellisReadError } from '@/components/trellis-read-error'
 import { NodeLink } from '@/components/node-link'
 import { parseNodeAllocatedResources } from '@/lib/trellis-resource-metrics'
 import { PageHeading } from '@/components/page-heading'
 import { Panel, PanelHeader } from '@/components/ui/panel'
 import { StatusDot, DeploymentStatus, Chip, Dot, Mono } from '@/components/status'
-import { LastDeployFailed } from '@/components/last-deploy-failed'
 import { EmptyState } from '@/components/ui/empty-state'
 import {
   Table,
@@ -29,6 +28,8 @@ import {
 } from '@/components/ui/table'
 import { DeploymentPoller } from '@/components/deployment-poller'
 import { DashboardStatsBar } from '@/components/dashboard-stats-bar'
+import { DeploymentsTable } from '@/components/deployments-table'
+import { Button } from '@/components/ui/button'
 import {
   Rocket,
   UserIcon,
@@ -37,13 +38,12 @@ import {
   RotateCcw,
   ShieldAlert,
   BotIcon,
-  TriangleAlert,
 } from 'lucide-react'
 import type { TrellisAllocation, TrellisNode, TrellisJob } from '@/types/trellis'
 import { formatRelativeTime } from '@/lib/format'
-import { Time } from '@/components/time'
-import { currentJobAllocations, allocationHealthSummary, getServiceHealth } from '@/lib/service-health'
+import { currentJobAllocations, allocationHealthSummary } from '@/lib/service-health'
 import { auditActionSentence, auditResourceName } from '@/lib/labels'
+import { Time } from '@/components/time'
 
 const triggerMeta: Record<string, { icon: React.ComponentType<{ className?: string }>; label: string }> = {
   manual: { icon: UserIcon, label: 'Manual' },
@@ -79,7 +79,7 @@ export default async function DashboardPage() {
   const visibleDeployments = allDeployments.filter((deployment) => accessibleProjectSlugs.has(deployment.projectSlug))
 
   // Deployment stats
-  const recentDeployments = visibleDeployments.slice(0, 10)
+  const recentDeployments = visibleDeployments.slice(0, 8)
   const activeDeployments = visibleDeployments.filter(
     (d) => d.deployment.status === 'pending' || d.deployment.status === 'planning' || d.deployment.status === 'deploying'
   )
@@ -124,20 +124,13 @@ export default async function DashboardPage() {
   // eslint-disable-next-line react-hooks/purity
   const requestTime = Date.now()
   const failedLastDay = visibleDeployments.filter((row) => row.deployment.status === 'failed' && requestTime - row.deployment.createdAt.getTime() <= 86_400_000).length
+  const failedRows = visibleDeployments.filter((row) => row.deployment.status === 'failed' && requestTime - row.deployment.createdAt.getTime() <= 86_400_000)
   const currentAllocations = currentJobAllocations(allocations, jobs)
+  const failingAllocations = currentAllocations.filter((allocation) => allocation.health === 'unhealthy' || ['failed', 'lost'].includes(allocation.phase))
+  const visibleTargets = targets.filter((target) => accessibleProjectSlugs.has(target.projectSlug))
   const unhealthyAllocations = allocationHealthSummary(currentAllocations).failing
   const backoffEntries = jobs.reduce((count, job) => count + (job.replacement_backoff?.length ?? 0), 0)
   const drainingNodes = nodes.filter((node) => node.status === 'draining').length
-  const latestByService = new Map<string, typeof visibleDeployments[number]['deployment']>()
-  for (const row of visibleDeployments) {
-    const key = `${row.deployment.serviceId}/${row.deployment.environmentId}`
-    if (!latestByService.has(key)) latestByService.set(key, row.deployment)
-  }
-  const liveHealth = new Map(targets.map((target) => {
-    const latest = latestByService.get(`${target.serviceId}/${target.environmentId}`)
-    const owned = allocations.filter((allocation) => allocationBelongsToService(allocation, target.namespace, target.serviceSlug, [target.job, target.serviceSlug]))
-    return [`${target.serviceId}/${target.environmentId}`, { latest, health: allocationsError ? 'unknown' : getServiceHealth({ allocations: owned, desiredReplicas: target.replicas, deploymentStatus: latest?.status, deployed: Boolean(latest) }) }] as const
-  }))
   const resourceNames = new Map<string, string>(projectList.map((project) => [project.id, project.name]))
   for (const { service } of visibleServices) resourceNames.set(service.id, service.name)
   for (const row of visibleDeployments) resourceNames.set(row.deployment.id, row.serviceName)
@@ -148,17 +141,21 @@ export default async function DashboardPage() {
 
       <PageHeading
         title="Home"
-        description={clusterError || allocationsError || jobsError ? 'Cluster health is unavailable.' : failedLastDay + unhealthyAllocations + backoffEntries + drainingNodes === 0 ? 'Everything is running' : `${failedLastDay + unhealthyAllocations + backoffEntries + drainingNodes} issues need attention.`}
       />
 
-      {clusterError || allocationsError || jobsError || failedLastDay + unhealthyAllocations + backoffEntries + drainingNodes > 0 ? <div className={`flex flex-wrap items-center gap-2 rounded-lg border p-3 text-sm ${clusterError || allocationsError || jobsError ? 'border-line bg-sunken' : 'border-warn-200 bg-warn-50'}`}><TriangleAlert className="h-4 w-4 text-ink-muted" /><strong>Needs attention</strong>
-        {clusterError || allocationsError || jobsError ? <span className="text-ink-muted">Couldn’t check the cluster</span> : <>
-          {failedLastDay > 0 ? <Link href="/deployments" className="text-link"><Chip tone="danger"><TriangleAlert className="size-3" />{failedLastDay} failed deployment{failedLastDay === 1 ? '' : 's'} in 24h</Chip></Link> : null}
-          {unhealthyAllocations > 0 ? <Link href="/status" className="text-link"><Chip tone="danger"><TriangleAlert className="size-3" />{unhealthyAllocations} unhealthy allocation{unhealthyAllocations === 1 ? '' : 's'}</Chip></Link> : null}
-          {drainingNodes > 0 ? <Link href="/status" className="text-link"><Chip tone="warn"><TriangleAlert className="size-3" />{drainingNodes} draining node{drainingNodes === 1 ? '' : 's'}</Chip></Link> : null}
-          {backoffEntries > 0 ? <Link href="/status" className="text-link"><Chip tone="warn"><RotateCcw className="size-3" />{backoffEntries} restart cooldown{backoffEntries === 1 ? '' : 's'}</Chip></Link> : null}
-        </>}
-      </div> : null}
+      {clusterError || allocationsError || jobsError || failedLastDay + unhealthyAllocations + backoffEntries + drainingNodes > 0 ? <Panel className="overflow-hidden"><PanelHeader title="Needs attention" />
+        <Table><TableHeader><TableRow><TableHead>Status</TableHead><TableHead>What</TableHead><TableHead>Cause</TableHead><TableHead>Since</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader><TableBody>
+          {clusterError || allocationsError || jobsError ? <TableRow><TableCell><Chip tone="danger">Unavailable</Chip></TableCell><TableCell>Cluster health</TableCell><TableCell>Couldn’t check the cluster</TableCell><TableCell>Now</TableCell><TableCell className="text-right"><Button asChild size="sm"><Link href="/status">Open status</Link></Button></TableCell></TableRow> : <>
+            {failedRows.map((row) => <TableRow key={`deployment-${row.deployment.id}`}><TableCell><DeploymentStatus status="failed" /></TableCell><TableCell>{row.serviceName}</TableCell><TableCell>Deployment failed</TableCell><TableCell><Time value={row.deployment.createdAt} /></TableCell><TableCell className="text-right"><Button asChild size="sm"><Link href={`/projects/${row.projectSlug}/deployments/${row.deployment.id}`}>View diagnostics</Link></Button></TableCell></TableRow>)}
+            {failingAllocations.map((allocation) => {
+              const target = visibleTargets.find((target) => target.namespace === allocation.namespace && target.job === allocation.job)
+              return <TableRow key={`allocation-${allocation.id}`}><TableCell><StatusDot status="failing" /></TableCell><TableCell><Mono>{allocation.id}</Mono></TableCell><TableCell>{allocation.message || allocation.reason || 'Health checks are failing'}</TableCell><TableCell><Time value={allocation.last_transition_at} /></TableCell><TableCell className="text-right"><Button asChild size="sm"><Link href={target ? `/projects/${target.projectSlug}/services/${target.serviceSlug}/allocations/${encodeURIComponent(allocation.id)}` : '/status'}>View logs</Link></Button></TableCell></TableRow>
+            })}
+            {nodes.filter((node) => node.status === 'draining').map((node) => <TableRow key={`node-${node.id}`}><TableCell><StatusDot status="draining" /></TableCell><TableCell><Mono>{node.id}</Mono></TableCell><TableCell>Allocations are being moved</TableCell><TableCell title="The cluster does not report when draining began">—</TableCell><TableCell className="text-right"><Button asChild size="sm"><Link href={`/status/${encodeURIComponent(node.id)}`}>View progress</Link></Button></TableCell></TableRow>)}
+            {jobs.flatMap((job) => (job.replacement_backoff ?? []).map((backoff) => <TableRow key={`backoff-${job.name}-${backoff.group}`}><TableCell><StatusDot status="backoff" /></TableCell><TableCell><Mono>{job.name}</Mono></TableCell><TableCell>{backoff.message || backoff.reason || 'Repeated allocation failures'}</TableCell><TableCell><Time value={backoff.last_failure_at} /></TableCell><TableCell className="text-right"><Button asChild size="sm"><Link href="/status">Review restart</Link></Button></TableCell></TableRow>))}
+          </>}
+        </TableBody></Table>
+      </Panel> : null}
 
       <DashboardStatsBar
         allocations={currentAllocations}
@@ -252,49 +249,7 @@ export default async function DashboardPage() {
                 body="Deploy a service to see deployment history here."
               />
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Service</TableHead>
-                    <TableHead>Image</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Trigger</TableHead>
-                    <TableHead className="text-right">Time</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {recentDeployments.map((row) => {
-                    const meta = triggerMeta[row.deployment.triggerType] ?? triggerMeta.manual
-                    const TriggerIcon = meta.icon
-                    return (
-                      <TableRow key={row.deployment.id}>
-                        <TableCell>
-                          <Link
-                            href={`/projects/${row.projectSlug}/services/${row.serviceSlug}`}
-                            className="font-medium text-ink underline-offset-2 hover:underline"
-                          >
-                            {row.serviceName}
-                          </Link>
-                          <p className="mt-0.5 text-2xs text-ink-muted">{row.projectName}</p>
-                        </TableCell>
-                        <TableCell><Mono>{shortImage(row.deployment.imageAfter)}</Mono></TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2"><StatusDot status={liveHealth.get(`${row.deployment.serviceId}/${row.deployment.environmentId}`)?.health ?? 'never'} />{liveHealth.get(`${row.deployment.serviceId}/${row.deployment.environmentId}`)?.latest?.status === 'failed' ? <LastDeployFailed href={`/projects/${row.projectSlug}/deployments/${liveHealth.get(`${row.deployment.serviceId}/${row.deployment.environmentId}`)!.latest!.id}`} /> : null}</div>
-                        </TableCell>
-                        <TableCell>
-                          <span className="flex items-center gap-1.5">
-                            <TriggerIcon className="h-3.5 w-3.5 text-ink-faint" />
-                            <span className="text-sm text-ink-soft">{meta.label}</span>
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right whitespace-nowrap text-ink-muted">
-                          <Time value={row.deployment.createdAt} mode="auto" />
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
+              <DeploymentsTable rows={recentDeployments} preset="home" />
             )}
           </Panel>
         </div>
@@ -331,7 +286,7 @@ export default async function DashboardPage() {
                   href="/status"
                   className="text-link text-sm font-medium"
                 >
-                  Cluster &amp; managed ingress
+                  View status
                 </Link>
               </div>
             </Panel>

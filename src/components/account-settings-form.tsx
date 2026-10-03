@@ -46,7 +46,7 @@ export function AccountSettingsForm({ user }: AccountSettingsFormProps) {
   }
 
   return (
-    <Card className="max-w-3xl">
+    <Card>
       <form ref={formRef} onSubmit={handleSubmit} onInput={() => setDirty(true)}>
         <CardHeader>
           <CardTitle>Profile</CardTitle>
@@ -64,7 +64,8 @@ export function AccountSettingsForm({ user }: AccountSettingsFormProps) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="avatarUrl" optional>Avatar URL</Label>
-            <Input id="avatarUrl" name="avatarUrl" defaultValue={user.avatarUrl ?? ''} placeholder="https://example.com/avatar.png" mono />
+            <Input id="avatarUrl" name="avatarUrl" defaultValue={user.avatarUrl ?? ''} mono />
+            <p className="text-xs text-ink-muted">Enter a public image URL, for example <span className="font-mono">https://example.com/avatar.png</span>.</p>
           </div>
         </CardContent>
       </form>

@@ -78,7 +78,7 @@ export function ProjectSettingsForm({ project, counts }: Props) {
   }
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="space-y-6">
       <Card>
         <form ref={formRef} onSubmit={handleSubmit} onChange={() => setDirty(true)}>
           <CardHeader>
@@ -93,6 +93,11 @@ export function ProjectSettingsForm({ project, counts }: Props) {
             <div className="space-y-2">
               <Label htmlFor="description" optional>Description</Label>
               <Textarea id="description" name="description" defaultValue={project.description ?? ''} rows={3} />
+            </div>
+            <div className="space-y-2">
+              <Label>Slug</Label>
+              <Input value={project.slug} readOnly mono />
+              <p className="text-xs text-ink-muted">Used in this project’s URL and required to confirm deletion.</p>
             </div>
             <div className="text-xs text-ink-muted">
               Created {formatDate(project.createdAt)}
@@ -130,7 +135,7 @@ export function ProjectSettingsForm({ project, counts }: Props) {
                 <AlertDialogTitle>Delete {project.name}?</AlertDialogTitle>
                 <AlertDialogDescription>Deletes {counts.services} {counts.services === 1 ? 'service' : 'services'}, {counts.routes} {counts.routes === 1 ? 'route' : 'routes'}, {counts.volumes} {counts.volumes === 1 ? 'volume' : 'volumes'}, all secrets and deployment history. This can’t be undone.</AlertDialogDescription>
               </AlertDialogHeader>
-              <div className="space-y-3 px-5">
+              <div className="space-y-3 px-5 py-4">
                 <Label htmlFor="confirm-project-name">Type <span className="font-mono font-semibold text-ink">{project.slug}</span> to confirm</Label>
                 <Input id="confirm-project-name" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} autoComplete="off" />
               </div>
