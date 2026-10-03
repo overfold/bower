@@ -1,3 +1,8 @@
 #!/bin/sh
 set -eu
-exec caddy run --config /run/trellis-secrets/BOWER_CADDYFILE --adapter caddyfile
+config=/run/trellis-secrets/BOWER_CADDYFILE
+if [ -n "${BOWER_CADDYFILE:-}" ]; then
+  config="$(mktemp /tmp/bower-caddy.XXXXXX)"
+  printf '%s\n' "$BOWER_CADDYFILE" > "$config"
+fi
+exec caddy run --config "$config" --adapter caddyfile

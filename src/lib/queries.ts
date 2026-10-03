@@ -27,6 +27,7 @@ import {
   projectUserAccess,
 } from '@/db/schema'
 import { ORG_COOKIE_NAME } from '@/lib/constants'
+import { ingressNamespace } from '@/lib/ingress-cluster'
 
 export async function isInstanceAdmin(userId: string) {
   const [user] = await db
@@ -332,7 +333,7 @@ export async function getManagedProxies(projectId: string) {
 }
 
 export async function getManagedProxiesForOrg(orgId: string) {
-  return db.select({ proxy: managedProxies, environmentName: environments.name, namespace: environments.trellisNamespace, projectName: projects.name }).from(managedProxies)
+  return db.select({ proxy: managedProxies, environmentName: environments.name, namespace: sql<string>`${ingressNamespace()}`, projectName: projects.name }).from(managedProxies)
     .innerJoin(environments, eq(environments.id, managedProxies.environmentId))
     .innerJoin(projects, eq(projects.id, environments.projectId))
     .where(eq(projects.orgId, orgId)).orderBy(environments.createdAt)

@@ -55,7 +55,7 @@ On first startup Bower creates a default organization backed by the allocation's
 trellisctl --namespace platform jobs logs bower --tail 50
 ```
 
-Look for the `Bower — First Run Setup` banner containing the token. Open Bower at `http://<node-ip>:3000` and use the token to create the first account. The Trellis connection is already configured — no manual cluster setup required. Bower resolves the address, token, and cluster CA from each running allocation rather than storing them in Postgres. When Trellis replaces an allocation generation, the replacement therefore uses its newly injected token; multiple Bower replicas likewise use their own credentials.
+Look for the `Bower — First Run Setup` banner containing the token. Open Bower at `http://<node-ip>` and use the token to create the first account. Bower creates a shared `platform/bower-ingress` job on startup; it owns ports 80/443 and serves both the dashboard and application routes across namespaces. Allow a short delay for ingress to become healthy. Port 3000 remains available for troubleshooting. The Trellis connection is already configured — no manual cluster setup required. Bower resolves the address, token, and cluster CA from each running allocation rather than storing them in Postgres. When Trellis replaces an allocation generation, the replacement therefore uses its newly injected token; multiple Bower replicas likewise use their own credentials.
 
 For Bower-account-protected application routes, also configure `BOWER_PUBLIC_URL` and `BOWER_ROUTE_AUTH_SECRET`; see the [configuration reference](docs/configuration.md).
 

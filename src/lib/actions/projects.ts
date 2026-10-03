@@ -10,6 +10,8 @@ import { getUserOrganization } from '@/lib/queries'
 import { getTrellisClient } from '@/lib/trellis-instance'
 import { recordAudit, requireProject } from './shared'
 import { cleanupTrellisResources } from '@/lib/trellis-cleanup'
+import { syncManagedProxy } from '@/lib/managed-proxy'
+import { ingressNamespace, ingressSecretName } from '@/lib/ingress-cluster'
 
 function slugify(name: string): string {
   return name
@@ -123,13 +125,16 @@ export async function deleteProjectAction(
     .where(eq(secretsMetadata.projectId, projectId))
 
   const client = await getTrellisClient(ctx.org.id)
+  try {
+    // Remove only this project's routes, never the cluster ingress itself.
+    await syncManagedProxy(projectId, '', ctx.org.id, undefined, projectId)
+  } catch {
+    return { error: 'Trellis ingress cleanup failed. The project was not deleted. Check connectivity and permissions, then retry.' }
+  }
   const environmentsById = new Map(projectEnvironments.map((environment) => [environment.id, environment]))
   const cleanup: Promise<unknown>[] = []
 
   for (const environment of projectEnvironments) {
-    cleanup.push(client.deleteJob('bower-proxy', environment.trellisNamespace))
-    cleanup.push(client.deleteSecret(environment.trellisNamespace, 'BOWER_CADDYFILE'))
-
     if (environment.envVars && typeof environment.envVars === 'object' && !Array.isArray(environment.envVars)) {
       for (const secretName of Object.values(environment.envVars)) {
         if (typeof secretName === 'string' && secretName) {
@@ -162,6 +167,7 @@ export async function deleteProjectAction(
     const environment = environmentsById.get(secret.environmentId)
     if (environment) {
       cleanup.push(client.deleteSecret(environment.trellisNamespace, secret.trellisSecretName))
+      cleanup.push(client.deleteSecret(ingressNamespace(), ingressSecretName(environment.trellisNamespace, secret.trellisSecretName)))
     }
   }
 

@@ -24,10 +24,26 @@ Bower has two distinct Trellis credential modes:
 
 | Variable | Default | Description |
 |---|---|---|
-| `BOWER_CADDY_IMAGE` | `ghcr.io/overfold/bower-proxy:latest` | Caddy image used for the per-namespace proxy job. Override when pulling from a private registry. |
+| `BOWER_CADDY_IMAGE` | `ghcr.io/overfold/bower-proxy:latest` | Caddy image used for the shared ingress job. Override when pulling from a private registry. |
 | `BOWER_PROXY_SYNC_IMAGE` | `ghcr.io/overfold/bower-proxy-sync:latest` | Route-sync task image. Override when pulling from a private registry. |
 | `BOWER_PROXY_HTTP_PORT` | `80` | Host port for the managed ingress HTTP listener. |
 | `BOWER_PROXY_HTTPS_PORT` | `443` | Host port for the managed ingress HTTPS listener. |
+| `BOWER_PROXY_NAMESPACE` | `platform` | Trusted infrastructure namespace containing the shared `bower-ingress` job and its secrets. |
+| `BOWER_PROXY_DASHBOARD_UPSTREAM` | automatic discovery | Optional dashboard upstream URL for Bower running outside the native manifest. It must be reachable from the ingress node; do not point it at ingress itself. |
+
+Bower reconciles one host-networked `bower-ingress` job per connected cluster, including before any application route exists. Organizations using the same normalized Trellis API origin share ingress. Use the same API endpoint for every organization connected to a given cluster; different endpoint aliases are not automatically recognized as the same cluster. Only one Bower installation should manage ingress on a cluster.
+
+On Bower's home cluster (`TRELLIS_ADDR`, or `TRELLIS_API_URL` outside native deployment), ingress discovers healthy `bower` job allocations in `TRELLIS_NAMESPACE` (default `platform`) on port 3000. Set the upstream override for a differently named or non-Trellis Bower deployment. `BOWER_PUBLIC_URL` selects the dashboard hostname and HTTP/HTTPS scheme. Without it, the HTTP listener's unmatched hosts serve the dashboard, allowing first-run setup at `http://<node-ip>`. Application routes cannot claim the dashboard hostname or overlapping hostnames belonging to other environments on the same cluster. Deleting an environment's last route or a project does not delete shared ingress.
+
+The proxy discovers each routed namespace separately and uses namespace-qualified job/service identities. If any discovery request fails, it retains the last accepted configuration rather than loading a partial route set. Host-networked ingress reaches private task addresses on their listening ports across namespace networks; application namespaces remain isolated from one another.
+
+### Custom TLS and upgrading existing installations
+
+Trellis secret reads return metadata only. Bower therefore copies PEM certificates and private keys into the ingress namespace at upload time, using names derived from the source namespace and secret name. Ordinary non-PEM secrets are not copied, and ingress mounts only TLS secrets referenced by routes. Certificate rotations are reconciled into a replacement ingress allocation. Removing a secret or project also removes its ingress copies.
+
+For an existing installation, publish matching Bower, Caddy, and proxy-sync images before deploying this change. Re-upload each custom TLS certificate/key through updated Bower before switching traffic to shared ingress. Resolve hostname overlaps across organizations connected to the same cluster. Stop/delete the old per-environment `bower-proxy` jobs so they release ports 80/443; Bower does not automatically delete those existing jobs. Their old `BOWER_CADDYFILE` secrets are no longer needed once those jobs are removed: shared ingress carries bootstrap configuration in its fenced job revision. The dashboard's port-3000 endpoint can be used during the transition.
+
+Ingress uses `recreate` updates so one node can reuse ports 80/443. Route-definition and certificate changes can therefore cause a brief interruption; there is no zero-downtime ingress replacement on a single node. The quick-start manifest also moves Postgres onto the private `platform` namespace network, without publishing its database port.
 
 ## Reconciliation
 
@@ -47,4 +63,4 @@ This is a global operator decision, not a per-project convenience setting. Keep 
 
 The cluster-only token migration disables existing namespace-scoped application workload grants, including environment overrides, rather than escalating them to cluster-wide access. Existing cluster grants are preserved. An instance admin must explicitly re-enable any disabled grant with the bypass enabled. This changes future deployment specs; replace already-running workloads to stop using old credentials.
 
-Bower's managed ingress is trusted infrastructure and uses `cluster/read` independently of this application workload bypass. Its sync agent still queries only the environment's namespace, but the token itself can read across the cluster.
+Bower's shared managed ingress is trusted cross-namespace infrastructure and uses `cluster/read` independently of this application workload bypass. Its sync agent queries the namespaces participating in routing, including the dashboard namespace on the home cluster.

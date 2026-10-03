@@ -1,6 +1,8 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/overfold/trellis/main/schemas/trellis-job.schema.json
 #
 # Quick-start Bower deployment for a single-node Trellis cluster.
+# Bower reconciles a separate platform/bower-ingress job on ports 80/443.
+# Port 3000 remains published for ingress discovery and troubleshooting.
 # The bundled Postgres allocation is intentionally colocated only by virtue of
 # the single-node assumption. For multi-node/production deployments, use an
 # external Postgres instance and replace DATABASE_URL accordingly.
@@ -13,9 +15,7 @@ task_groups:
       - name: postgres
         image: docker.io/library/postgres:16-alpine
         networking:
-          mode: host
-          ports:
-            - port: 5432
+          mode: namespace
         resources:
           cpu: 250
           memory: 256MiB
@@ -43,7 +43,7 @@ task_groups:
       - name: bower
         image: ghcr.io/overfold/bower:latest
         networking:
-          mode: host
+          mode: namespace
           ports:
             - port: 3000
         resources:
@@ -51,7 +51,8 @@ task_groups:
           memory: 512MiB
         env:
           NODE_ENV: production
-          DATABASE_URL: postgres://bower:bower@localhost:5432/bower
+          DATABASE_URL: postgres://bower:bower@db.bower.platform.trellis:5432/bower
+          BOWER_PROXY_NAMESPACE: platform
           BOWER_RECONCILE_INTERVAL: "5"
           BOWER_CADDY_IMAGE: ghcr.io/overfold/bower-proxy:latest
           BOWER_PROXY_SYNC_IMAGE: ghcr.io/overfold/bower-proxy-sync:latest

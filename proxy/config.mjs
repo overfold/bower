@@ -1,8 +1,10 @@
 const q = (value) => JSON.stringify(String(value))
 
-const jobFor = (route, allocation) => route.strategy === 'canary'
+const namespaceFor = (route, allocation) => !route.namespace || route.namespace === allocation.namespace
+
+const jobFor = (route, allocation) => namespaceFor(route, allocation) && (route.strategy === 'canary'
   ? allocation.labels?.['bower/service'] === route.service
-  : allocation.job === route.activeJob
+  : allocation.job === route.activeJob)
 
 // Bower creates one routable task per service job and names it after the job.
 // Do not guess among endpoints from arbitrary multi-task workloads.
@@ -12,7 +14,9 @@ function allocationUpstream(allocation, containerPort) {
   if (endpoints.length > 0) {
     if (!endpoint) return null
     const mapping = endpoint.ports?.find((item) => item.container_port === containerPort)
-    return endpoint.address && mapping ? `${endpoint.address}:${mapping.host_port}` : null
+    // Namespace endpoints are private task addresses. Published host ports
+    // apply to node addresses, not to these directly reachable endpoints.
+    return endpoint.address && mapping ? `${endpoint.address}:${mapping.container_port}` : null
   }
 
   // Compatibility for allocations written before task endpoints were added.
@@ -35,10 +39,10 @@ function authLines(route) {
   return []
 }
 
-export function renderCaddyfile(routes, allocations, { adminPort = '2019', httpPort = '80', httpsPort = '443' } = {}) {
+export function renderCaddyfile(routes, allocations, { adminPort = '2019', httpPort = '80', httpsPort = '443', dashboard } = {}) {
   const rendered = routes.map((route) => {
     const candidates = route.strategy === 'canary'
-      ? allocations.filter((allocation) => allocation.labels?.['bower/service'] === route.service && allocation.labels?.['bower/canary'] === 'true')
+      ? allocations.filter((allocation) => namespaceFor(route, allocation) && allocation.labels?.['bower/service'] === route.service && allocation.labels?.['bower/canary'] === 'true')
       : []
     const canaryWeight = candidates.reduce((weight, allocation) => Math.max(weight, Number(allocation.labels?.['trellis/weight'] || 0)), 0)
     const upstreams = allocations.filter((allocation) => allocation.phase === 'running' && allocation.health === 'healthy' && jobFor(route, allocation)).flatMap((allocation) => {
@@ -90,6 +94,12 @@ export function renderCaddyfile(routes, allocations, { adminPort = '2019', httpP
     }
     lines.push('}'); return lines.join('\n')
   })
+  if (dashboard) {
+    const upstreams = dashboard.upstream ? [dashboard.upstream] : allocations
+      .filter((item) => item.namespace === dashboard.namespace && item.job === dashboard.job && item.phase === 'running' && item.health === 'healthy')
+      .map((item) => allocationUpstream(item, dashboard.port)).filter(Boolean)
+    blocks.push(`${dashboard.address || ':80'} {\n  ${upstreams.length ? `reverse_proxy ${upstreams.join(' ')}` : 'respond "Bower dashboard is starting" 503'}\n}`)
+  }
   return `{\n  admin 127.0.0.1:${adminPort}\n  http_port ${httpPort}\n  https_port ${httpsPort}\n}\n\n${blocks.length ? blocks.join('\n\n') : `:${httpPort} {\n  respond "Bower proxy ready" 200\n}`}`
 }
 

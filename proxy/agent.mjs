@@ -13,6 +13,7 @@ const caddy = process.env.CADDY_ADMIN_URL || 'http://127.0.0.1:2019/load'
 const adminPort = process.env.CADDY_ADMIN_PORT || '2019'
 const httpPort = process.env.CADDY_HTTP_PORT || '80'
 const httpsPort = process.env.CADDY_HTTPS_PORT || '443'
+const dashboard = process.env.BOWER_DASHBOARD ? JSON.parse(process.env.BOWER_DASHBOARD) : undefined
 const interval = Math.max(1, Number(process.env.BOWER_SYNC_INTERVAL || 5)) * 1000
 const healthFile = process.env.BOWER_SYNC_HEALTH_FILE || '/tmp/bower-route-sync-health'
 if (!trellis || !token || !namespace) throw new Error('Trellis api_access variables are required.')
@@ -22,8 +23,16 @@ console.log(`using Trellis API ${new URL(trellis).origin}`)
 let last = ''
 
 async function reconcile() {
-  const allocations = await fetchTrellisJson(trellis, `/v1/namespaces/${encodeURIComponent(namespace)}/allocations`, { token, caCert })
-  const config = renderCaddyfile(routes, allocations, { adminPort, httpPort, httpsPort })
+  const namespaces = [...new Set([
+    ...routes.map((route) => route.namespace || namespace),
+    ...(dashboard?.namespace ? [dashboard.namespace] : []),
+  ])]
+  if (!namespaces.length) namespaces.push(namespace)
+  const allocations = (await Promise.all(namespaces.map(async (requestedNamespace) => {
+    const discovered = await fetchTrellisJson(trellis, `/v1/namespaces/${encodeURIComponent(requestedNamespace)}/allocations`, { token, caCert })
+    return discovered.map((allocation) => ({ ...allocation, namespace: requestedNamespace }))
+  }))).flat()
+  const config = renderCaddyfile(routes, allocations, { adminPort, httpPort, httpsPort, dashboard })
   await loadCaddyConfig(caddy, config)
   if (config !== last) {
     last = config

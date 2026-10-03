@@ -88,8 +88,8 @@ test('uses the Bower task endpoint and matches its container port', () => {
       { task: 'web', address: '10.0.0.9', ports: [{ container_port: 8080, host_port: 32080 }] },
     ],
   }])
-  assert.match(config, /reverse_proxy 10\.0\.0\.9:32080/)
-  assert.doesNotMatch(config, /10\.0\.0\.8|39000/)
+  assert.match(config, /reverse_proxy 10\.0\.0\.9:8080/)
+  assert.doesNotMatch(config, /10\.0\.0\.8|39000|32080/)
 })
 
 test('does not invent a route for an unmatched port or ambiguous multi-task workload', () => {
@@ -103,4 +103,48 @@ test('does not invent a route for an unmatched port or ambiguous multi-task work
     endpoints: [{ task: 'api', address: '10.0.0.8', ports: [{ container_port: 8080, host_port: 8080 }] }],
   }])
   assert.match(ambiguous, /No healthy upstream allocations/)
+})
+
+test('matches rolling and canary allocations only within the route namespace', () => {
+  const duplicate = (namespace, address, labels) => ({
+    ...allocation,
+    namespace,
+    address,
+    labels,
+  })
+  const routes = [
+    { ...route, namespace: 'team-a', domain: 'rolling.example.com' },
+    { ...route, namespace: 'team-a', domain: 'canary.example.com', strategy: 'canary' },
+  ]
+  const config = renderCaddyfile(routes, [
+    duplicate('team-a', '10.0.1.1'),
+    duplicate('team-b', '10.0.2.1'),
+    duplicate('team-a', '10.0.1.2', { 'bower/service': 'web', 'bower/canary': 'true', 'trellis/weight': '10' }),
+    duplicate('team-b', '10.0.2.2', { 'bower/service': 'web', 'bower/canary': 'true', 'trellis/weight': '90' }),
+  ])
+  assert.match(config, /rolling\.example\.com \{[\s\S]*reverse_proxy 10\.0\.1\.1:32100/)
+  assert.match(config, /canary\.example\.com \{[\s\S]*reverse_proxy (?:10\.0\.1\.[12]:32100 ?)+/)
+  assert.doesNotMatch(config, /10\.0\.2\.[12]/)
+})
+
+test('renders the dashboard in normal, bootstrap, and empty-route configs', () => {
+  const dashboard = { address: 'https://bower.example.com', upstream: '127.0.0.1:3000' }
+  const expected = /https:\/\/bower\.example\.com \{\n  reverse_proxy 127\.0\.0\.1:3000\n\}/
+  assert.match(renderCaddyfile([route], [allocation], { dashboard }), expected)
+  assert.match(renderBootstrapCaddyfile([route], { dashboard }), expected)
+  assert.match(renderCaddyfile([], [], { dashboard }), expected)
+  assert.match(renderCaddyfile([], [], { dashboard: { upstream: '127.0.0.1:3000' } }), /:80 \{\n  reverse_proxy 127\.0\.0\.1:3000\n\}$/)
+})
+
+test('discovers dashboard allocations on any node without confusing another namespace', () => {
+  const dashboard = { address: ':80', namespace: 'platform', job: 'bower', port: 3000 }
+  const bower = { ...allocation, namespace: 'platform', job: 'bower', ports: [{ container_port: 3000, host_port: 3000 }] }
+  const config = renderCaddyfile([], [
+    bower,
+    { ...bower, namespace: 'tenant', address: '10.0.0.99' },
+    { ...bower, health: 'unhealthy', address: '10.0.0.98' },
+  ], { dashboard })
+  assert.match(config, /reverse_proxy 10\.0\.0\.2:3000/)
+  assert.doesNotMatch(config, /10\.0\.0\.99|10\.0\.0\.98/)
+  assert.match(renderBootstrapCaddyfile([], { dashboard }), /Bower dashboard is starting/)
 })

@@ -12,6 +12,9 @@ import { getTrellisClient } from '@/lib/trellis-instance'
 import { hashPassword } from '@/lib/auth'
 import { integer, recordAudit, requireContext, requireProject, text } from './shared'
 import { syncManagedProxy } from '@/lib/managed-proxy'
+import { assertIngressHostname, ingressNamespace, ingressSecretName } from '@/lib/ingress-cluster'
+import { normalizeRouteHostname } from '@/lib/domains'
+import { cleanupTrellisResources } from '@/lib/trellis-cleanup'
 
 function parseLines(value: string) {
   const record: Record<string, string> = {}
@@ -25,7 +28,7 @@ function parseLines(value: string) {
 export async function createRouteAction(projectId: string, formData: FormData) {
   const ctx = await requireProject(projectId)
   if (ctx.projectRole !== 'admin') throw new Error('Insufficient permissions.')
-  const domain = text(formData, 'domain').toLowerCase()
+  const domain = normalizeRouteHostname(text(formData, 'domain'))
   const serviceId = text(formData, 'serviceId')
   const environmentId = text(formData, 'environmentId')
   const port = integer(formData, 'port', 8080)
@@ -54,6 +57,7 @@ export async function createRouteAction(projectId: string, formData: FormData) {
     const secretRows = await db.select({ name: secretsMetadata.trellisSecretName }).from(secretsMetadata).where(eq(secretsMetadata.environmentId, environmentId)); const available = new Set(secretRows.map((item) => item.name))
     if (!available.has(text(formData, 'tlsCertSecret')) || !available.has(text(formData, 'tlsKeySecret'))) throw new Error('Custom TLS secrets must exist in the project environment.')
   }
+  await assertIngressHostname(ctx.org.id, projectId, environmentId, domain)
   const [route] = await db.insert(routes).values({
     projectId, serviceId, environmentId, domain,
     pathPrefix: text(formData, 'pathPrefix') || '/', port,
@@ -89,7 +93,7 @@ export async function updateRouteAction(projectId: string, routeId: string, form
   const [targetConfig] = await db.select({ id: serviceConfigs.id }).from(serviceConfigs)
     .where(and(eq(serviceConfigs.serviceId, serviceId), eq(serviceConfigs.environmentId, before.environmentId))).limit(1)
   if (!service || !targetConfig) throw new Error('The target service must be configured in this project environment.')
-  const domain = text(formData, 'domain').toLowerCase()
+  const domain = normalizeRouteHostname(text(formData, 'domain'))
   const port = integer(formData, 'port', 8080)
   const tlsMode = text(formData, 'tlsMode')
   const protectionMode = text(formData, 'protectionMode') as 'none' | 'password' | 'bower_auth'
@@ -106,6 +110,7 @@ export async function updateRouteAction(projectId: string, routeId: string, form
     const secretRows = await db.select({ name: secretsMetadata.trellisSecretName }).from(secretsMetadata).where(eq(secretsMetadata.environmentId, before.environmentId)); const available = new Set(secretRows.map((item) => item.name))
     if (!available.has(text(formData, 'tlsCertSecret')) || !available.has(text(formData, 'tlsKeySecret'))) throw new Error('Custom TLS secrets must exist in this environment.')
   }
+  await assertIngressHostname(ctx.org.id, projectId, before.environmentId, domain, routeId)
   const after = { domain, pathPrefix: text(formData, 'pathPrefix') || '/', port, tlsMode: tlsMode as 'auto' | 'custom' | 'none', headers: parseLines(text(formData, 'requestHeaders')), responseHeaders: parseLines(text(formData, 'responseHeaders')), rateLimit: integer(formData, 'rateLimit', 0) || null, redirects: parseRedirects(text(formData, 'redirects')), tlsCertSecret: text(formData, 'tlsCertSecret') || null, tlsKeySecret: text(formData, 'tlsKeySecret') || null, protectionMode, passwordHash: protectionMode === 'password' ? (password ? await hashPassword(password) : before.passwordHash) : null, updatedAt: new Date() }
   await db.update(routes).set({ ...after, serviceId }).where(eq(routes.id, routeId)); await syncManagedProxy(projectId, before.environmentId, ctx.org.id)
   await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'route.updated', resourceType: 'route', resourceId: routeId, details: { before, after: { ...after, serviceId } } }); revalidatePath(`/projects/${ctx.project.slug}/routes`)
@@ -134,6 +139,13 @@ export async function setSecretAction(projectId: string, formData: FormData) {
   try {
     const client = await getTrellisClient(ctx.org.id)
     await client.setSecret(environment.trellisNamespace, name, value)
+    // Trellis never returns secret plaintext. Copy PEM material while it is
+    // available at upload time; ingress tasks mount only route-referenced keys.
+    if (/^-----BEGIN (?:CERTIFICATE|[A-Z ]*PRIVATE KEY)-----/m.test(value)) {
+      await client.setSecret(ingressNamespace(), ingressSecretName(environment.trellisNamespace, name), value)
+    } else {
+      await cleanupTrellisResources([client.deleteSecret(ingressNamespace(), ingressSecretName(environment.trellisNamespace, name))])
+    }
     await db.insert(secretsMetadata).values({ projectId, environmentId, name,
       trellisSecretName: name, lastRotatedAt: new Date() }).onConflictDoUpdate({
         target: [secretsMetadata.environmentId, secretsMetadata.name],
@@ -159,6 +171,7 @@ export async function deleteSecretAction(projectId: string, secretId: string) {
   if (routeConsumers.length) throw new Error('Secret is referenced by a custom TLS route. Change the route first.')
   const client = await getTrellisClient(ctx.org.id)
   await client.deleteSecret(row.env.trellisNamespace, row.secret.trellisSecretName)
+  await cleanupTrellisResources([client.deleteSecret(ingressNamespace(), ingressSecretName(row.env.trellisNamespace, row.secret.trellisSecretName))])
   await db.delete(secretsMetadata).where(eq(secretsMetadata.id, secretId))
   await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'secret.deleted',
     resourceType: 'secret', resourceId: secretId, details: { name: row.secret.name } })

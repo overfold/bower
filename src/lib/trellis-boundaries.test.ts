@@ -32,7 +32,7 @@ function query(rows: unknown[], onWhere?: (sql: SQL) => void) {
   const promise = Promise.resolve(rows)
   return Object.assign(promise, {
     from() { return this }, innerJoin() { return this }, leftJoin() { return this },
-    where(sql: SQL) { onWhere?.(sql); return this }, limit() { return this },
+    where(sql: SQL) { onWhere?.(sql); return this }, limit() { return this }, orderBy() { return this },
   })
 }
 
@@ -176,11 +176,33 @@ test('project deletion retains records on required cleanup failure', async () =>
     'next/navigation': navigation,
     '@/lib/auth': { getCurrentUser: async () => ({ id: 'user' }) }, '@/lib/queries': { getUserOrganization: async () => context },
     './shared': { recordAudit: async () => {} },
+    '@/lib/managed-proxy': { syncManagedProxy: async () => { throw new Error('offline') } },
     '@/db': { db: { select: () => query(rows.shift()!), delete: () => { deleted = true; return query([]) } } },
     '@/lib/trellis-instance': { getTrellisClient: async () => ({ deleteJob: async () => { throw new Error('offline') }, deleteSecret: async () => {} }) },
   })
   assert.match((await actions.deleteProjectAction('project')).error!, /not deleted/)
   assert.equal(deleted, false)
+})
+
+test('project deletion excludes its routes without deleting shared ingress', async () => {
+  let deleted = false
+  const removedJobs: string[] = []
+  const excluded: unknown[][] = []
+  const rows = [[{ id: 'project' }], [{ id: 'env', trellisNamespace: 'production' }], [{ slug: 'web', environmentId: 'env' }], []]
+  const actions = load<typeof import('./actions/projects')>('src/lib/actions/projects.ts', {
+    'next/navigation': navigation,
+    '@/lib/auth': { getCurrentUser: async () => ({ id: 'user' }) }, '@/lib/queries': { getUserOrganization: async () => context },
+    './shared': { recordAudit: async () => {} },
+    '@/lib/managed-proxy': { syncManagedProxy: async (...args: unknown[]) => { excluded.push(args) } },
+    '@/db': { db: { select: () => query(rows.shift()!), delete: () => { deleted = true; return query([]) } } },
+    '@/lib/trellis-instance': { getTrellisClient: async () => ({ deleteJob: async (name: string) => { removedJobs.push(name) } }) },
+  })
+  await assert.rejects(actions.deleteProjectAction('project'), /redirect/)
+  assert.deepEqual(excluded, [['project', '', 'org', undefined, 'project']])
+  assert.ok(removedJobs.includes('web'))
+  assert.ok(!removedJobs.includes('bower-ingress'))
+  assert.ok(!removedJobs.includes('bower-proxy'))
+  assert.equal(deleted, true)
 })
 
 test('reconciler targets the persisted accepted job identity rather than inferring an allocation revision', async () => {
@@ -208,29 +230,143 @@ test('reconciler targets the persisted accepted job identity rather than inferri
   assert.equal(updates[0].status, 'healthy')
 })
 
-test('managed proxy acceptance stays pending with cluster/read; failed cleanup retains its record', async () => {
+test('shared ingress aggregates environments, skips unchanged applies, and survives the last route deletion', async () => {
   const statuses: string[] = []
-  let definitions: unknown[] = [{ route: { id: 'route', protectionMode: 'none', headers: {}, responseHeaders: {}, redirects: [] }, service: { slug: 'web' }, config: {} }]
+  let definitions = ['a', 'b'].map((id) => ({
+    route: { id, projectId: `project-${id}`, environmentId: `env-${id}`, domain: `${id}.example.com`, protectionMode: 'none', headers: {}, responseHeaders: {}, redirects: [], tlsMode: 'none' },
+    service: { slug: 'web' }, config: {}, environment: { trellisNamespace: `team-${id}` },
+  }))
+  let applied: import('@/types/trellis').TrellisJobSpec | undefined
+  let applies = 0
+  let secretWrites = 0
   let deleted = false
   let selectIndex = 0
   const sync = load<typeof import('./managed-proxy')>('src/lib/managed-proxy.ts', {
     '@/db': { db: {
-      select: () => query([[{ id: 'env', trellisNamespace: 'production' }], [{ id: 'project' }], definitions][selectIndex++ % 3]),
+      select: () => query(selectIndex++ % 2 === 0 ? definitions : [{ id: 'env-a' }, { id: 'env-b' }]),
       insert: () => ({ values: (values: { status: string }) => { statuses.push(values.status); return { onConflictDoUpdate: async () => {} } } }),
-      update: () => ({ set: (values: { status: string }) => { statuses.push(values.status); return query([]) } }),
       delete: () => { deleted = true; return query([]) },
     } },
+    '@/lib/ingress-cluster': { getIngressCluster: async () => ({ orgIds: ['org', 'org-b'], home: true }), ingressNamespace: () => 'platform' },
     '@/lib/trellis-instance': { getTrellisClient: async () => ({
-      setSecret: async () => {}, planJob: async () => ({ action: 'create' }),
-      applyJobPlan: async (spec: { task_groups: Array<{ api_access: unknown }> }) => assert.deepEqual(JSON.parse(JSON.stringify(spec.task_groups[0].api_access)), { scope: 'cluster', access: 'read' }),
-      deleteJob: async () => { throw new TrellisApiError(403, 'Forbidden', 'denied') }, deleteSecret: async () => {},
+      getJob: async () => { if (!applied) throw new TrellisApiError(404, 'Not Found', 'absent'); return { spec: applied } },
+      setSecret: async () => { secretWrites++ }, planJob: async () => ({ action: 'create' }),
+      applyJobPlan: async (spec: import('@/types/trellis').TrellisJobSpec) => { applied = spec; applies++ },
+      deleteJob: async () => { throw new Error('must not delete ingress') }, deleteSecret: async () => { throw new Error('must not delete bootstrap secret') },
     }) },
   })
   await sync.syncManagedProxy('project', 'env', 'org')
-  assert.deepEqual(statuses, ['pending'])
+  assert.deepEqual(statuses, ['pending', 'pending'])
+  assert.equal(applied!.name, 'bower-ingress')
+  assert.equal(applied!.namespace, 'platform')
+  const group = applied!.task_groups[0]
+  assert.deepEqual(JSON.parse(JSON.stringify(group.api_access)), { scope: 'cluster', access: 'read' })
+  assert.equal(group.update?.strategy, 'recreate')
+  assert.deepEqual(JSON.parse(group.tasks[1].env!.BOWER_ROUTES).map((route: { namespace: string }) => route.namespace), ['team-a', 'team-b'])
+  assert.equal(JSON.parse(group.tasks[1].env!.BOWER_DASHBOARD).job, 'bower')
+  assert.match(group.tasks[0].env!.BOWER_CADDYFILE, /Bower dashboard is starting/)
+  assert.equal(group.tasks[0].secrets!.length, 0)
+  await sync.syncManagedProxy('project', 'env', 'org')
+  assert.equal(applies, 1)
+  assert.equal(secretWrites, 0)
   definitions = []
-  await assert.rejects(sync.syncManagedProxy('project', 'env', 'org'), /403/)
-  assert.equal(deleted, false)
+  await sync.syncManagedProxy('project', 'env', 'org')
+  assert.equal(applies, 2)
+  assert.equal(deleted, true)
+  assert.deepEqual(JSON.parse(applied!.task_groups[0].tasks[1].env!.BOWER_ROUTES), [])
+  assert.equal(JSON.parse(applied!.task_groups[0].tasks[1].env!.BOWER_DASHBOARD).job, 'bower')
+})
+
+test('shared ingress uses namespace-qualified TLS mounts and reapplies on certificate rotation', async () => {
+  let version = 1
+  let applied: import('@/types/trellis').TrellisJobSpec | undefined
+  let applies = 0
+  const definitions = ['a', 'b'].map((id) => ({
+    route: { id, projectId: id, environmentId: id, domain: `${id}.example.com`, protectionMode: 'none', tlsMode: 'custom', tlsCertSecret: 'CERT', tlsKeySecret: 'KEY' },
+    service: { slug: 'web' }, config: {}, environment: { trellisNamespace: `team-${id}` },
+  }))
+  let selectIndex = 0
+  const helper = load<typeof import('./ingress-cluster')>('src/lib/ingress-cluster.ts', {})
+  const sync = load<typeof import('./managed-proxy')>('src/lib/managed-proxy.ts', {
+    '@/db': { db: { select: () => query(selectIndex++ % 2 === 0 ? definitions : []) } },
+    '@/lib/ingress-cluster': { ...helper, getIngressCluster: async () => ({ orgIds: ['org'], home: false }) },
+    '@/lib/trellis-instance': { getTrellisClient: async () => ({
+      getJob: async () => { if (!applied) throw new TrellisApiError(404, 'Not Found', 'absent'); return { spec: applied } },
+      getSecret: async () => ({ version }), setSecret: async () => {}, planJob: async () => ({}),
+      applyJobPlan: async (spec: import('@/types/trellis').TrellisJobSpec) => { applies++; applied = spec },
+    }) },
+  })
+  await sync.syncManagedProxy('a', 'a', 'org')
+  const mounts = applied!.task_groups[0].tasks[0].secrets!
+  assert.equal(mounts.length, 4)
+  assert.equal(new Set(mounts.map((mount) => mount.name)).size, 4)
+  const rendered = JSON.parse(applied!.task_groups[0].tasks[1].env!.BOWER_ROUTES)
+  assert.notEqual(rendered[0].tlsCertSecret, rendered[1].tlsCertSecret)
+  const hash = applied!.task_groups[0].labels!['bower/config-hash']
+  await sync.syncManagedProxy('a', 'a', 'org')
+  assert.equal(applies, 1)
+  version = 2
+  await sync.syncManagedProxy('a', 'a', 'org')
+  assert.equal(applies, 2)
+  assert.notEqual(applied!.task_groups[0].labels!['bower/config-hash'], hash)
+})
+
+test('cluster ingress groups organizations by endpoint and rejects cross-organization hostname claims', async (t) => {
+  const previous = process.env.TRELLIS_API_URL
+  const previousPublic = process.env.BOWER_PUBLIC_URL
+  process.env.TRELLIS_API_URL = 'https://cluster.test'
+  process.env.BOWER_PUBLIC_URL = 'https://bower.example.com'
+  t.after(() => {
+    if (previous === undefined) delete process.env.TRELLIS_API_URL; else process.env.TRELLIS_API_URL = previous
+    if (previousPublic === undefined) delete process.env.BOWER_PUBLIC_URL; else process.env.BOWER_PUBLIC_URL = previousPublic
+  })
+  const orgs = [
+    { id: 'a', trellisApiUrl: 'cluster.test/', trellisApiToken: 'a' },
+    { id: 'b', trellisApiUrl: 'https://cluster.test', trellisApiToken: 'b' },
+    { id: 'c', trellisApiUrl: 'https://other.test', trellisApiToken: 'c' },
+  ]
+  const helper = load<typeof import('./ingress-cluster')>('src/lib/ingress-cluster.ts', {
+    '@/db': { db: { select: (shape: unknown) => query(shape ? [{ route: { id: 'route-b', domain: '*.apps.example.com', projectId: 'b', environmentId: 'env-b' } }] : orgs) } },
+  })
+  assert.deepEqual(JSON.parse(JSON.stringify((await helper.getIngressCluster('a')).orgIds)), ['a', 'b'])
+  assert.equal((await helper.getIngressCluster('a')).home, true)
+  assert.equal((await helper.getIngressCluster('c')).home, false)
+  await assert.rejects(helper.assertIngressHostname('a', 'a', 'env-a', 'shop.apps.example.com'), /another environment/)
+  await assert.rejects(helper.assertIngressHostname('a', 'a', 'env-a', 'bower.example.com'), /reserved/)
+  await helper.assertIngressHostname('a', 'b', 'env-b', 'shop.apps.example.com')
+  await helper.assertIngressHostname('a', 'a', 'env-a', 'unique.example.com')
+  assert.notEqual(helper.ingressSecretName('team-a', 'CERT'), helper.ingressSecretName('team-b', 'CERT'))
+})
+
+test('TLS PEM uploads mirror into ingress without copying ordinary secrets', async () => {
+  const writes: Array<[string, string, string]> = []
+  const removals: Array<[string, string]> = []
+  const actions = load<typeof import('./actions/operations')>('src/lib/actions/operations.ts', {
+    'next/cache': { revalidatePath() {} }, '@/lib/auth': {}, '@/lib/managed-proxy': {},
+    './shared': { requireProject: async () => access, recordAudit: async () => {}, text: (form: FormData, key: string) => String(form.get(key) ?? '') },
+    '@/db': { db: {
+      select: () => query([{ trellisNamespace: 'team-a' }]),
+      insert: () => ({ values: () => ({ onConflictDoUpdate: async () => {} }) }),
+    } },
+    '@/lib/trellis-instance': { getTrellisClient: async () => ({
+      setSecret: async (...args: [string, string, string]) => { writes.push(args) },
+      deleteSecret: async (...args: [string, string]) => { removals.push(args) },
+    }) },
+  })
+  const form = new FormData()
+  form.set('environmentId', 'env'); form.set('name', 'CERT'); form.set('value', '-----BEGIN CERTIFICATE-----\nfixture\n-----END CERTIFICATE-----')
+  await actions.setSecretAction('project', form)
+  assert.equal(writes.length, 2)
+  assert.equal(writes[0][0], 'team-a')
+  assert.equal(writes[1][0], 'platform')
+  assert.match(writes[1][1], /^BOWER_TLS_[a-f0-9]{64}$/)
+  assert.equal(writes[1][2], writes[0][2])
+  writes.length = 0
+  form.set('name', 'TOKEN'); form.set('value', 'ordinary-secret-fixture')
+  await actions.setSecretAction('project', form)
+  assert.equal(writes.length, 1)
+  assert.equal(removals.length, 1)
+  assert.equal(removals[0][0], 'platform')
 })
 
 const servicePath = 'src/app/(dashboard)/projects/[slug]/services/[serviceSlug]'
@@ -499,6 +635,7 @@ test('route editing validates the target project/environment and persists the se
     '@/lib/auth': {}, '@/lib/trellis-instance': {},
     './shared': { requireProject: async () => access, recordAudit: async () => {}, text: (form: FormData, key: string) => String(form.get(key) ?? ''), integer: (form: FormData, key: string, fallback: number) => form.has(key) ? Number(form.get(key)) : fallback },
     '@/lib/managed-proxy': { syncManagedProxy: async () => {} },
+    '@/lib/ingress-cluster': { assertIngressHostname: async () => {} },
     '@/db': { db: {
       select: () => query(rows.shift()!, (sql) => filters.push(new PgDialect().sqlToQuery(sql).params)),
       update: () => ({ set: (value: Record<string, unknown>) => { written = value; return { where: async () => {} } } }),

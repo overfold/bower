@@ -72,8 +72,18 @@ export async function registerNodeInstrumentation() {
   )
 
   const { reconcileAllDeployments } = await import('@/lib/deployment-reconciler')
+  const { reconcileManagedIngress } = await import('@/lib/managed-proxy')
   const seconds = Math.max(2, Number(process.env.BOWER_RECONCILE_INTERVAL || 5))
-  const reconcile = () => void reconcileAllDeployments().catch((error) => console.error('Bower deployment reconciliation failed:', error))
+  let running = false
+  const reconcile = async () => {
+    if (running) return
+    running = true
+    try {
+      await reconcileManagedIngress()
+      await reconcileAllDeployments()
+    } catch (error) { console.error('Bower reconciliation failed:', error) }
+    finally { running = false }
+  }
   reconcile()
   globalThis.bowerDeploymentMonitor = setInterval(reconcile, seconds * 1000)
   globalThis.bowerDeploymentMonitor.unref()
