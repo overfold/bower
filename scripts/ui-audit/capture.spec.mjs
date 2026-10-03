@@ -4,6 +4,7 @@ import path from "node:path";
 import postgres from "postgres";
 
 const output = path.resolve(process.env.UI_AUDIT_OUTPUT || "ui-audit-output");
+const baseURL = process.env.UI_AUDIT_BASE_URL || "http://127.0.0.1:3100";
 const fixture = JSON.parse(await readFile(`${output}/fixture.json`, "utf8"));
 const project = "/projects/commerce";
 const service = `${project}/services/storefront`;
@@ -22,7 +23,7 @@ const rowAction = async (page, name, action, index = 0) => {
 let authCookies;
 test.beforeAll(async ({ browser }) => {
   const context = await browser.newContext({
-    baseURL: "http://127.0.0.1:3100",
+    baseURL,
   });
   try {
     const page = await context.newPage();
@@ -47,7 +48,7 @@ const pages = [
   ["deployments", "/deployments", "Deployments"],
   ["audit-log", "/audit", "Audit log"],
   ["cluster", "/status", "Status"],
-  ["node-detail", "/status/node-eu-west-01", "Ready"],
+  ["node-detail", "/status/node-eu-west-01", "Healthy"],
   ["node-draining", "/status/node-eu-west-03", "Node details"],
   ["project-overview", project, "Commerce Platform"],
   ["empty-project", "/projects/internal-tools", "Internal Tools"],
@@ -78,7 +79,7 @@ const pages = [
     `${service}/${tab}`,
     "Storefront",
   ]),
-  ["allocation-detail", allocation, "cores"],
+  ["allocation-detail", allocation, "Logs"],
   ...[
     "account",
     "cluster",
@@ -101,7 +102,7 @@ const pages = [
   [
     "invitation-invalid",
     "/invite/invalid-audit-token",
-    "This invitation is invalid.",
+    "This invitation link is invalid",
   ],
   [
     "not-found",
@@ -119,33 +120,33 @@ const dialogs = [
     "Revoke access for Platform Engineering",
   ],
   ["revoke-user-access", `${project}/access`, "Revoke access for Jamie Chen"],
-  ["add-secret", `${project}/environment`, "Add secret"],
+  ["add-secret", `${project}/environment`, "New secret"],
   ["delete-secret", `${project}/environment`, "Delete database-url"],
-  ["service-environment", `${project}/environment`, "Edit variables"],
-  ["add-route", `${project}/routes`, "Add route"],
+  ["service-environment", `${project}/environment`, "Paste .env"],
+  ["add-route", `${project}/routes`, "New route"],
   [
     "route-protection",
     `${project}/routes`,
     "Protection",
   ],
   ["delete-route", `${project}/routes`, "Delete"],
-  ["add-volume", `${project}/volumes`, "Add volume"],
+  ["add-volume", `${project}/volumes`, "New volume"],
   ["edit-volume", `${project}/volumes`, "Edit"],
   ["delete-volume", `${project}/volumes`, "Delete uploads"],
-  ["add-webhook", `${project}/integrations`, "Add webhook"],
+  ["add-webhook", `${project}/integrations`, "New webhook"],
   [
     "delete-webhook",
     `${project}/integrations`,
     "Delete webhook for Storefront",
   ],
-  ["add-channel", `${project}/integrations`, "Add channel"],
+  ["add-channel", `${project}/integrations`, "New notification channel"],
   ["delete-channel", `${project}/integrations`, "Delete Production alerts"],
   ["delete-project", `${project}/settings`, "Delete project"],
-  ["rollback-service", service, "Roll back"],
+  ["rollback-service", service, "Roll back to…"],
   ["attach-volume", `${service}/mounts`, "Attach volume"],
   ["new-api-key", "/settings/account", "New key"],
   ["revoke-api-key", "/settings/account", "Revoke GitHub Actions"],
-  ["add-domain", "/settings/domains", "Add domain"],
+  ["add-domain", "/settings/domains", "New domain"],
   ["delete-domain", "/settings/domains", "Delete domain"],
   ["new-organization", "/settings/instance", "New organization"],
   ["invite-people", "/settings/members", "Invite people"],
@@ -172,12 +173,10 @@ for (const [name, route, button] of dialogs)
         "revoke-team-access": ["Platform Engineering", "Revoke access"],
         "revoke-user-access": ["Jamie Chen", "Revoke access"],
         "delete-secret": ["database-url", "Delete"],
-        "route-protection": ["shop.acme.test", "Edit protection"],
+        "route-protection": ["shop.acme.test", "Edit route"],
         "delete-route": ["shop.acme.test", "Delete"],
         "edit-volume": ["uploads", "Edit"],
         "delete-volume": ["uploads", "Delete"],
-        "delete-webhook": ["webhook for Storefront", "Delete"],
-        "delete-channel": ["Production alerts", "Delete"],
         "edit-team": ["Platform Engineering", "Rename"],
         "delete-team": ["Platform Engineering", "Delete"],
         "delete-domain": ["acme-preview.test", "Delete"],
@@ -195,10 +194,42 @@ for (const [name, route, button] of dialogs)
   });
 const state = (name, route, setup, extra = {}) =>
   scenarios.push({ name, route, setup, ...extra });
+state("empty-project-environment", "/projects/internal-tools/environment", async (page) => {
+  await expect(page.getByRole("heading", { name: "Variables", exact: true })).toBeVisible();
+  await expect(page.getByText("No secrets", { exact: true })).toBeVisible();
+});
+for (const slug of ["commerce", "internal-tools"])
+  state(`${slug}-unified-settings`, `/projects/${slug}/settings`, async (page) => {
+    await expect(page.locator("#volumes")).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Project settings", exact: true })).toHaveCount(0);
+    const widths = await page.locator("#general > div > .rounded-xl, #access .rounded-xl, #integrations .rounded-xl, #volumes .rounded-xl").evaluateAll((cards) => cards.map((card) => card.getBoundingClientRect().width));
+    expect(widths.length).toBeGreaterThan(0);
+    expect(new Set(widths).size).toBe(1);
+  }, { fullPage: true });
+for (const tab of ["Details", "Lifecycle"])
+  state(`allocation-${tab.toLowerCase()}`, allocation, async (page) => {
+    await page.getByRole("tab", { name: tab, exact: true }).click();
+    await expect(page.getByRole("heading", { name: tab === "Details" ? "Allocation details" : "Lifecycle history", exact: true })).toBeVisible();
+    if (tab === "Details") await expect(page.getByLabel("Sampling CPU usage")).toHaveCount(0);
+  }, { fullPage: true });
+state("failing-service-cause", `${project}/services/order-worker`, async (page) => {
+  await click(page, "Failing");
+  await expect(page.getByText("Worker could not reach database", { exact: true })).toBeVisible();
+});
+state("terminal-fullscreen", allocation, async (page) => {
+  await click(page, "Terminal");
+  await expect(page.getByText("Connected", { exact: true })).toBeVisible();
+  await click(page, "Full screen");
+  await expect(page.getByRole("button", { name: "Exit full screen", exact: true })).toBeVisible();
+});
+state("active-release-rollback-target", `${project}/deployments/${fixture.deploymentId}`, async (page) => {
+  await expect(page.getByRole("heading", { name: "Events", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Roll back to storefront:v2.3.0", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Roll back to storefront:v2.4.1", exact: true })).toHaveCount(0);
+}, { fullPage: true });
 state("add-variable", `${project}/environment`, async (page) => {
-  await click(page, "Edit variables");
-  await click(page, "Add variable");
-  await expect(page.getByRole("dialog").getByLabel("Variable 3 name")).toBeVisible();
+  await click(page, "New variable");
+  await expect(page.getByRole("dialog").getByLabel("Key", { exact: true })).toBeVisible();
 });
 state("new-service-filled", `${project}/services`, async (page) => {
   await click(page, "New service");
@@ -217,23 +248,28 @@ for (const mode of ["Password", "Bower account"])
     `add-route-${mode === "Password" ? "password" : "bower-auth"}`,
     `${project}/routes`,
     async (page) => {
-      await click(page, "Add route");
+      await click(page, "New route");
       await page.getByLabel("Hostname prefix").fill("preview");
       await choose(page, "Access protection", mode);
     },
   );
 state("route-protection-password", `${project}/routes`, async (page) => {
-  await rowAction(page, "shop.acme.test", "Edit protection");
+  await rowAction(page, "shop.acme.test", "Edit route");
   await choose(page, "Access protection", "Password");
 });
-for (const target of ["Env var", "File"])
+for (const target of ["Environment", "File"])
   state(
     `secret-binding-${target === "File" ? "file" : "env"}`,
     `${project}/environment`,
     async (page) => {
-      await click(page, "Edit variables");
-      await click(page, "Add binding");
-      await choose(page, "Target", target);
+      await click(page, "New variable");
+      const dialog = page.getByRole("dialog");
+      await dialog.getByRole("combobox").nth(0).click();
+      await page.getByRole("option", { name: "Storefront configuration", exact: true }).click();
+      await dialog.getByRole("combobox").nth(1).click();
+      await page.getByRole("option", { name: "Secret binding", exact: true }).click();
+      await dialog.getByRole("combobox").nth(3).click();
+      await page.getByRole("option", { name: target, exact: true }).click();
     },
   );
 for (const type of ["Script", "TCP", "None"])
@@ -352,14 +388,14 @@ state(
 state(
   "narrow-add-route",
   `${project}/routes`,
-  (page) => click(page, "Add route"),
+  (page) => click(page, "New route"),
   { narrow: true },
 );
 state(
   "narrow-add-route-footer",
   `${project}/routes`,
   async (page) => {
-    await click(page, "Add route");
+    await click(page, "New route");
     await page
       .getByRole("button", { name: "Create route", exact: true })
       .scrollIntoViewIfNeeded();
@@ -375,12 +411,12 @@ state("invite-link", "/settings/members", async (page) => {
 });
 state("invite-custom-expiry", "/settings/members", async (page) => {
   await click(page, "Invite people");
-  await choose(page, "Expires", "Custom");
-  await page.getByLabel("Custom expiry").fill("2030-12-31T18:00");
+  await choose(page, "Expires", "Choose a date");
+  await page.getByLabel("Expiry date").fill("2030-12-31");
 });
-state("member-actions", "/settings/members", (page) => click(page, "Actions for Sam Rivera"));
+state("member-actions", `/settings/members/${fixture.memberId}`, (page) => click(page, "Actions for Sam Rivera"));
 for (const [name, action] of [["remove-instance-admin", "Remove instance admin"], ["remove-organization-member", "Remove from organization"]])
-  state(name, "/settings/members", async (page) => {
+  state(name, `/settings/members/${fixture.memberId}`, async (page) => {
     await click(page, "Actions for Sam Rivera");
     await page.getByRole("menuitem", { name: action, exact: true }).click();
     await expect(page.getByRole("alertdialog")).toBeVisible();
@@ -390,35 +426,16 @@ state("delete-project-confirmed-name", `${project}/settings`, async (page) => {
   await page.locator("#confirm-project-name").fill("commerce");
   await expect(page.getByRole("alertdialog").getByRole("button", { name: "Delete project", exact: true })).toBeEnabled();
 });
-state("rollback-to-deployment", `${project}/deployments/${fixture.deploymentId}`, async (page) => {
+state("rollback-to-deployment", `${project}/deployments/${fixture.rollbackDeploymentId}`, async (page) => {
   await page.getByRole("button", { name: /^Roll back to / }).click();
   await expect(page.getByRole("alertdialog")).toBeVisible();
 });
 state("failed-deployment-rollback", `${project}/deployments/${fixture.failedDeploymentId}`, async (page) => {
-  const sql = postgres(process.env.DATABASE_URL);
-  let targetId;
-  try {
-    // The baseline older successes have no stored spec. Add one disposable,
-    // eligible predecessor to exercise recovery without mutating that fixture.
-    const [target] = await sql`
-      INSERT INTO deployments (service_id, environment_id, image_after, strategy, status, trigger_type, job_spec, created_at, started_at, completed_at)
-      SELECT failed.service_id, failed.environment_id, 'ghcr.io/acme/storefront:v2.3.0', 'rolling', 'healthy', 'manual',
-        jsonb_set(success.job_spec, '{task_groups,0,tasks,0,image}', '"ghcr.io/acme/storefront:v2.3.0"'::jsonb),
-        failed.created_at - interval '1 hour', failed.created_at - interval '1 hour', failed.created_at - interval '59 minutes'
-      FROM deployments failed, deployments success
-      WHERE failed.id=${fixture.failedDeploymentId} AND success.id=${fixture.deploymentId}
-      RETURNING id`;
-    targetId = target.id;
-    await page.reload();
-    const rollback = page.getByRole("button", { name: "Roll back to storefront:v2.3.0", exact: true });
-    await expect(rollback).toHaveClass(/bg-brand-500/);
-    await expect(page.getByRole("button", { name: "Redeploy", exact: true })).not.toHaveClass(/bg-brand-500/);
-    await expect(page.getByRole("link", { name: "Edit configuration", exact: true })).toHaveAttribute("href", `${service}/configuration`);
-    await expect(page.getByRole("link", { name: "View allocations", exact: true })).toBeVisible();
-  } finally {
-    if (targetId) await sql`DELETE FROM deployments WHERE id=${targetId}`;
-    await sql.end();
-  }
+  const rollback = page.getByRole("button", { name: "Roll back to storefront:v2.3.0", exact: true });
+  await expect(rollback).toHaveClass(/bg-brand-500/);
+  await expect(page.getByRole("button", { name: "Redeploy", exact: true })).not.toHaveClass(/bg-brand-500/);
+  await expect(page.getByRole("link", { name: "Edit configuration", exact: true })).toHaveAttribute("href", `${service}/configuration`);
+  await expect(page.getByRole("link", { name: "View allocation logs", exact: true })).toBeVisible();
 });
 for (const [name, route] of [["organization", "/deployments"], ["project", `${project}/deployments`]])
   state(`${name}-deployments-page-two`, route, async (page) => {
@@ -427,7 +444,7 @@ for (const [name, route] of [["organization", "/deployments"], ["project", `${pr
   });
 state("deployments-search-empty", "/deployments", async (page) => {
   await page.getByRole("searchbox", { name: "Search deployments" }).fill("unmatched-audit-search");
-  await expect(page.locator("body")).toContainText("No deployments match the current filters.");
+  await expect(page.locator("body")).toContainText("No deployments match these filters");
 });
 state("audit-system-diff", "/audit", async (page) => {
   await choose(page, "Filter by actor", "System");
@@ -453,7 +470,7 @@ state("advanced-dirty", `${service}/advanced`, async (page) => {
 for (const empty of [false, true])
   state(`allocation-logs-search-${empty ? "empty" : "results"}`, allocation, async (page) => {
     await page.getByRole("searchbox", { name: "Search logs" }).fill(empty ? "unmatched-audit-search" : "products");
-    await expect(page.locator("pre")).toContainText(empty ? "No matching log lines." : "GET /products");
+    await expect(page.locator("#logs pre")).toContainText(empty ? "No matching log lines." : "GET /products");
     await page.getByRole("searchbox", { name: "Search logs" }).scrollIntoViewIfNeeded();
   });
 state("allocation-logs-follow-wrap", allocation, async (page) => {
@@ -464,7 +481,7 @@ state("allocation-logs-follow-wrap", allocation, async (page) => {
 });
 state("recent-projects-navigation", "/status", async (page) => {
   await page.goto(project);
-  await expect(page.getByRole("heading", { name: "Commerce Platform", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^Commerce Platform/ })).toBeVisible();
   await page.goto("/status");
   await expect(page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Commerce Platform", exact: true })).toBeVisible();
 });
@@ -472,27 +489,27 @@ state("dashboard-live-health", "/dashboard", async (page) => {
   const allocationTile = page.locator("section").filter({ hasText: "Allocation health" }).first();
   await expect(allocationTile).toContainText("4/5 healthy");
   await expect(allocationTile).toContainText("1 failing");
-  const worker = page.locator("body").getByText("Order Worker", { exact: true }).first().locator("xpath=ancestor::*[self::tr or self::a or self::div][1]");
-  await expect(worker).toContainText("Down");
+  const worker = page.getByRole("row").filter({ hasText: "order-worker-alloc-1" });
+  await expect(worker).toContainText("Failing");
 });
 state("project-deployments-scoped", `${project}/deployments`, async (page) => {
   await expect(page.getByRole("combobox", { name: "Filter by project" })).toHaveCount(0);
   await expect(page.getByText("All projects", { exact: true })).toHaveCount(0);
 });
 state("variable-validation", `${project}/environment`, async (page) => {
-  await click(page, "Edit variables");
-  await click(page, "Add variable");
-  const name = page.getByRole("dialog").getByLabel("Variable 3 name");
-  await name.fill("PORT");
-  await expect(page.getByRole("dialog").getByText("Variable names must be unique.", { exact: true })).toHaveCount(2);
-  await expect(name).toHaveAttribute("aria-invalid", "true");
+  await click(page, "New variable");
+  const name = page.getByRole("dialog").getByLabel("Key", { exact: true });
   await name.fill("1INVALID");
-  await expect(page.getByText(/Use uppercase letters, numbers, and underscores/)).toBeVisible();
+  await page.getByLabel("Value", { exact: true }).fill("audit-value");
+  await click(page, "Create variable");
+  await expect(name).toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByText(/Use a key starting with a letter or underscore/)).toBeVisible();
 });
-state("focus-brand-500", "/projects", async (page) => {
+state("focus-brand-ring", "/projects", async (page) => {
   const control = page.getByRole("searchbox", { name: "Filter projects" });
   await control.focus();
-  await expect(control).toHaveClass(/focus-visible:(?:border|ring)-brand-500/);
+  await expect(control).toHaveClass(/focus-visible:ring-\[3px\]/);
+  await expect(control).toHaveClass(/focus-visible:ring-brand-100/);
   await expect(control).toBeFocused();
 });
 state("focus-text-link", "/login", async (page) => {
@@ -516,7 +533,7 @@ state("service-header-persists", service, async (page) => {
   await page.getByRole("link", { name: "Configuration", exact: true }).click();
   await expect(page).toHaveURL(`${service}/configuration`);
   await expect(page.getByRole("heading", { name: "Storefront", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Overview", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Overview", exact: true }).last()).toBeVisible();
 });
 state("configuration-discard", `${service}/configuration`, async (page) => {
   const image = page.getByLabel("Container image", { exact: true });
@@ -563,14 +580,7 @@ for (const kind of ["api-key", "invitation", "webhook"])
             .getByLabel("Name", { exact: true })
             .fill("Audit temporary key");
           await click(page, "Create key");
-          await expect(
-            page.getByText("Copy this key now. It will not be shown again."),
-          ).toBeVisible();
-          await page
-            .locator("[role=dialog] code")
-            .evaluate(
-              (el) => (el.textContent = "[REDACTED — revoked audit key]"),
-            );
+          await expect(page.getByRole("textbox", { name: "API key", exact: true })).toBeVisible();
         } else if (kind === "invitation") {
           await click(page, "Invite people");
           await page
@@ -580,23 +590,11 @@ for (const kind of ["api-key", "invitation", "webhook"])
           await expect(
             page.getByRole("textbox", { name: "Invitation link" }),
           ).toBeVisible();
-          await page
-            .getByRole("textbox", { name: "Invitation link" })
-            .evaluate(
-              (el) => (el.value = "[REDACTED — revoked audit invitation]"),
-            );
         } else {
-          await click(page, "Add webhook");
+          await click(page, "New webhook");
           await choose(page, "Service", "Storefront");
           await click(page, "Create webhook");
-          await expect(
-            page.getByText(
-              "Copy this webhook token now. It will not be shown again.",
-            ),
-          ).toBeVisible();
-          await page.locator("[role=dialog] code, [role=dialog] pre").evaluateAll((elements) => {
-            for (const el of elements) el.textContent = "[REDACTED — deleted audit token]";
-          });
+          await expect(page.getByRole("textbox", { name: "Token", exact: true })).toBeVisible();
         }
       } finally {
         // Also scrub a partially completed success screen before Playwright's
@@ -608,12 +606,12 @@ for (const kind of ["api-key", "invitation", "webhook"])
         await page.getByRole("dialog").getByText(/^curl -X POST/).evaluateAll((elements) => {
           for (const el of elements) el.textContent = "curl -X POST '[REDACTED endpoint]' -H 'Authorization: Bearer <token>'";
         });
-        await page
-          .getByRole("textbox", { name: "Invitation link" })
-          .evaluateAll((elements) => {
-            for (const el of elements)
-              el.value = "[REDACTED — disposable audit invitation]";
-          });
+        await page.locator('[role="dialog"] input[readonly]').evaluateAll((elements) => {
+          for (const el of elements) {
+            el.value = "[REDACTED — disposable audit credential]";
+            el.setAttribute("value", el.value);
+          }
+        });
         if (kind === "api-key")
           await sql`DELETE FROM api_keys WHERE name='Audit temporary key'`;
         if (kind === "invitation")
@@ -712,7 +710,7 @@ for (const scenario of scenarios)
           {
             name: "bower_org",
             value: fixture.orgId,
-            url: "http://127.0.0.1:3100",
+            url: baseURL,
           },
         ]);
       }
@@ -724,7 +722,9 @@ for (const scenario of scenarios)
             ? "/settings/instance"
             : scenario.name === "invitation-login-redirect"
               ? "/login"
-              : scenario.route.split("?")[0];
+              : ["access", "integrations", "volumes"].some((section) => scenario.route === `${project}/${section}`)
+                ? `${project}/settings`
+                : scenario.route.split("?")[0];
       await expect(page).toHaveURL((url) => url.pathname === expectedPath);
       await expect(page.locator("body")).not.toContainText(
         "Application error:",

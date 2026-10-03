@@ -17,7 +17,7 @@ export default defineConfig({
   ),
   reporter: [["list"]],
   use: {
-    baseURL: "http://127.0.0.1:3100",
+    baseURL: process.env.UI_AUDIT_BASE_URL || "http://127.0.0.1:3100",
     viewport: { width: 1440, height: 1000 },
     deviceScaleFactor: 2,
     timezoneId: "Europe/Madrid",
@@ -41,6 +41,7 @@ export default defineConfig({
           reuseExistingServer: false,
           env: {
             NODE_ENV: "production",
+            TZ: "Europe/Madrid",
             HOSTNAME: "127.0.0.1",
             PORT: "3100",
             BOWER_PUBLIC_URL: "http://127.0.0.1:3100",

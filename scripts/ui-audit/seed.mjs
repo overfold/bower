@@ -63,6 +63,12 @@ try {
     const [emptyProject] =
       await sql`INSERT INTO projects (org_id,name,slug) VALUES (${org.id},'Internal Tools','internal-tools') RETURNING *`;
     await sql`INSERT INTO environments (project_id,name,slug,trellis_namespace) VALUES (${emptyProject.id},'Production','production','internal-tools-production')`;
+    // The project filter is shown only when there are more than eight projects.
+    for (let i = 1; i <= 7; i++) {
+      const slug = `audit-project-${i}`;
+      const [extra] = await sql`INSERT INTO projects (org_id,name,slug) VALUES (${org.id},${`Audit Project ${i}`},${slug}) RETURNING id`;
+      await sql`INSERT INTO environments (project_id,name,slug,trellis_namespace) VALUES (${extra.id},'Production','production',${`${slug}-production`})`;
+    }
     await sql`INSERT INTO team_project_access (team_id,project_id,role) VALUES (${team.id},${project.id},'admin')`;
     await sql`INSERT INTO project_user_access (project_id,user_id,role) VALUES (${project.id},${viewer.id},'viewer')`;
     const [environment] =
@@ -72,7 +78,7 @@ try {
     await sql`INSERT INTO organization_domains (org_id,domain,verification_token) VALUES (${org.id},'acme-staging.test','audit-staging')`;
     await sql`INSERT INTO project_volumes (project_id,environment_id,name,host_path) VALUES (${project.id},${environment.id},'uploads','@/commerce-uploads')`;
     await sql`INSERT INTO project_volumes (project_id,environment_id,name,host_path) VALUES (${project.id},${environment.id},'cache','@/commerce-cache')`;
-    let deploymentId, failedDeploymentId;
+    let deploymentId, failedDeploymentId, rollbackDeploymentId;
     for (const [i, slug] of [
       "storefront",
       "checkout-api",
@@ -141,7 +147,16 @@ try {
       }
       // More than one page of history, without altering the latest release.
       for (let j = 0; j < 6; j++) {
-        await sql`INSERT INTO deployments (service_id,environment_id,image_after,strategy,status,trigger_type,created_at,completed_at) VALUES (${service.id},${environment.id},${`ghcr.io/acme/${slug}:v2.2.${j}`},'rolling',${j === 0 ? 'failed' : 'healthy'},'manual',${new Date(Date.now() - (j + 4) * 86400000)},${new Date(Date.now() - (j + 4) * 86400000 + 90000)})`;
+        const retained = j === 1;
+        const image = `ghcr.io/acme/${slug}:${retained ? 'v2.3.0' : `v2.2.${j}`}`;
+        const [older] = await sql`INSERT INTO deployments ${sql({
+          service_id: service.id, environment_id: environment.id, image_after: image,
+          strategy: "rolling", status: j === 0 ? "failed" : "healthy", trigger_type: "manual",
+          trellis_job_name: retained ? slug : null, trellis_version: retained ? 2 : null, trellis_revision: retained ? 2 : null,
+          job_spec: retained ? sql.json({ name: slug, namespace: "commerce-production", task_groups: [{ name: "web", count: i === 0 ? 2 : 1, tasks: [{ name: "app", image }] }] }) : null,
+          created_at: new Date(Date.now() - (j + 4) * 86400000), completed_at: new Date(Date.now() - (j + 4) * 86400000 + 90000),
+        })} RETURNING id`;
+        if (i === 0 && retained) rollbackDeploymentId = older.id;
       }
       if (i < 2)
         await sql`INSERT INTO routes (project_id,environment_id,domain,service_id,port,protection_mode) VALUES (${project.id},${environment.id},${i === 0 ? "shop.acme.test" : "api.acme.test"},${service.id},3000,${i === 0 ? "none" : "bower_auth"})`;
@@ -168,6 +183,7 @@ try {
       memberId: admin.id,
       deploymentId,
       failedDeploymentId,
+      rollbackDeploymentId,
     };
   });
   // Clear only the harness-owned capture directories, so stale images cannot
