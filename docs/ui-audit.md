@@ -36,7 +36,7 @@ Use a disposable local PostgreSQL database named with the suffix `_ui_audit`. **
 ```bash
 export DATABASE_URL=postgres://bower:bower@127.0.0.1:5432/bower_ui_audit
 npm ci
-npx playwright install --with-deps chromium
+npx playwright install --with-deps chromium webkit
 npm run db:migrate
 node scripts/ui-audit/seed.mjs
 npm run build
@@ -49,6 +49,6 @@ For externally supervised servers (such as orb services), set `UI_AUDIT_EXTERNAL
 
 ## Maintaining coverage
 
-`scripts/ui-audit/capture.spec.mjs` owns the page/flow scenario manifest and assertions. `reporter.mjs` generates each layout's inventory and gallery from Playwright results, preserving failure status across worker restarts. Add an independent scenario for each meaningful new state; wait for its expected content before capturing. `seed.mjs` owns Bower database data, and `trellis.mjs` owns fake runtime responses. Update these fixtures together when a screen's data contract changes. Playwright and its Chromium revision are pinned through `package-lock.json`.
+`scripts/ui-audit/capture.spec.mjs` owns the page/flow scenario manifest and assertions. `reporter.mjs` generates each layout's inventory and gallery from Playwright results, preserving failure status across worker restarts. Add an independent scenario for each meaningful new state; wait for its expected content before capturing. `seed.mjs` owns Bower database data, and `trellis.mjs` owns fake runtime responses. Update these fixtures together when a screen's data contract changes. Playwright and its Chromium/WebKit revisions are pinned through `package-lock.json`. Chromium runs the capture scenarios; the monospace URL check also launches Linux WebKit, so both engines and their system dependencies must be installed.
 
 The seed deliberately includes more than eight projects and ten members to expose filters, more than twenty deployments to expose pagination, multiple pending domains to expose DNS disclosures, an unused volume to enable attachment, and a successful retained predecessor matching the fake runtime's version/revision to enable targeted rollback. Every seeded project has Production, including empty projects. A system audit event contains object-valued before/after details. Keep these boundary conditions when adjusting fixtures. Removed UI states (such as the old expandable team cards) should be removed from the manifest, not retained as stale screenshots.
