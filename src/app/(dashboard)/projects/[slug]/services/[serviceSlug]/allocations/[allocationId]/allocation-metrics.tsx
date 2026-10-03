@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { getAllocationMetricsAction } from '@/lib/actions/allocation-actions'
 import { Panel } from '@/components/ui/panel'
+import { Skeleton } from '@/components/ui/skeleton'
 import { formatCpu, formatMemory } from '@/lib/format'
 import { Time } from '@/components/time'
 import type { TrellisAllocationMetrics } from '@/types/trellis'
@@ -92,7 +93,7 @@ export function AllocationMetrics({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-medium text-ink-muted">CPU usage</p>
-            {cpuMillicores === null && taskCount ? <p className="mt-2 inline-block animate-pulse rounded bg-sunken px-2 py-1 text-sm text-ink-muted" aria-label="Sampling CPU usage">Measuring…</p> : <p className="nums mt-1.5 text-2xl font-semibold tracking-tight text-ink">{cpuMillicores === null ? (error ? 'Unavailable' : 'No samples') : <>{formatCpu(Math.max(0, cpuMillicores))}{cpuLimit ? ` / ${formatCpu(cpuLimit)}` : ''}</>}</p>}
+            {cpuMillicores === null && taskCount ? <Skeleton className="mt-2 h-7 w-28" aria-label="Sampling CPU usage" /> : <p className="nums mt-1.5 text-2xl font-semibold tracking-tight text-ink">{cpuMillicores === null ? (error ? 'Unavailable' : 'No samples') : <>{formatCpu(Math.max(0, cpuMillicores))}{cpuLimit ? ` / ${formatCpu(cpuLimit)}` : ''}</>}</p>}
           </div>
         </div>
         <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-line" aria-label="CPU usage"><div className={`h-full rounded-full ${usageColor(cpuPercent)}`} style={{ width: `${Math.min(100, cpuPercent)}%` }} /></div>

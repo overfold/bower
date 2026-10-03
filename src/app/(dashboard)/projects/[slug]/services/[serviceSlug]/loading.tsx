@@ -1,5 +1,7 @@
+import { TableSkeleton } from '@/components/page-skeletons'
+import { Panel } from '@/components/ui/panel'
+import { Skeleton } from '@/components/ui/skeleton'
+
 export default function ServiceLoading() {
-  return <div aria-label="Loading service" aria-busy="true" className="animate-pulse space-y-6">
-    {[0, 1].map((section) => <div key={section} className="space-y-4"><div className="h-5 w-40 rounded bg-line" /><div className="overflow-hidden rounded-xl border border-line bg-surface"><div className="h-11 border-b border-line bg-sunken" />{[0, 1, 2].map((row) => <div key={row} className="grid h-14 grid-cols-4 gap-5 border-b border-line px-4 py-4 last:border-0"><div className="rounded bg-line" /><div className="rounded bg-line" /><div className="rounded bg-line" /><div className="rounded bg-line" /></div>)}</div></div>)}
-  </div>
+  return <div aria-label="Loading service" aria-busy="true" className="space-y-6"><Skeleton className="h-6 w-24" /><div className="grid gap-4 sm:grid-cols-2">{[0, 1].map((metric) => <Panel key={metric} className="space-y-3 p-4"><Skeleton className="h-3 w-24" /><Skeleton className="h-7 w-40" /><Skeleton className="h-1.5" /><Skeleton className="h-3 w-48" /></Panel>)}</div>{[0, 1].map((section) => <div key={section} className="space-y-5"><Skeleton className="h-6 w-40" /><TableSkeleton rows={3} columns={5} /></div>)}</div>
 }

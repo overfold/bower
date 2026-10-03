@@ -12,6 +12,8 @@ import { ProjectTabs } from '@/components/project-tabs'
 import { ProjectShell } from './project-shell'
 import { getProjectLiveServices } from '@/lib/service-health-query'
 import { Chip } from '@/components/ui/badge'
+import { Suspense } from 'react'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export default async function ProjectLayout({
   children,
@@ -35,8 +37,6 @@ export default async function ProjectLayout({
     getServicesByProject(project.id),
     getProjectEnvironment(project.id),
   ])
-  const live = await getProjectLiveServices(ctx.org.id, project.id, environment)
-  const failing = live.services.filter(({ health }) => health !== 'healthy').length
 
   const tabs = [
     { label: 'Overview', href: '' },
@@ -50,7 +50,7 @@ export default async function ProjectLayout({
   const header = <>
       <PageHeading
         title={project.name}
-        status={services.length > 0 ? <Chip tone={failing ? 'danger' : 'success'}>{failing ? `${failing} of ${services.length} failing` : 'Healthy'}</Chip> : undefined}
+        status={services.length > 0 ? <Suspense fallback={<Skeleton className="h-5 w-20 rounded-full" />}><ProjectHealth orgId={ctx.org.id} projectId={project.id} environment={environment} serviceCount={services.length} /></Suspense> : undefined}
         description={project.description ?? undefined}
       />
       <div className="mt-6 border-b border-line">
@@ -59,4 +59,15 @@ export default async function ProjectLayout({
     </>
 
   return <ProjectShell header={header}>{children}</ProjectShell>
+}
+
+async function ProjectHealth({ orgId, projectId, environment, serviceCount }: {
+  orgId: string
+  projectId: string
+  environment: Awaited<ReturnType<typeof getProjectEnvironment>>
+  serviceCount: number
+}) {
+  const live = await getProjectLiveServices(orgId, projectId, environment)
+  const failing = live.services.filter(({ health }) => health !== 'healthy').length
+  return <Chip tone={failing ? 'danger' : 'success'}>{failing ? `${failing} of ${serviceCount} failing` : 'Healthy'}</Chip>
 }
