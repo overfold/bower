@@ -8,11 +8,11 @@ import {
   getDeploymentsByProject,
   getRoutesByProject,
 } from '@/lib/queries'
-import { Panel, PanelHeader, SectionTitle } from '@/components/ui/panel'
+import { Panel, PanelHeader, PanelFooter, SectionTitle } from '@/components/ui/panel'
 import { StatusDot } from '@/components/status'
 import { Chip } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
-import { Rocket, Globe, Server } from 'lucide-react'
+import { Rocket, Globe, Server, ChevronRight } from 'lucide-react'
 import { Time } from '@/components/time'
 import { tlsLabels } from '@/lib/labels'
 import { getProjectLiveServices } from '@/lib/service-health-query'
@@ -80,9 +80,10 @@ export default async function ProjectOverviewPage({
       <NeedsAttention rows={attentionRows} />
       {services.length > 0 && !settingUp ? <>
       <Panel>
-        <PanelHeader title="Service health" action={services.length ? <Link href={`/projects/${slug}/services`} className="text-link text-sm font-medium">View all</Link> : undefined} />
+        <PanelHeader title="Service health" hint={`${services.length} services`} />
         {services.length === 0 ? <EmptyState icon={<Server className="size-4" />} title="No services yet" body="Create a service to start deploying." action={access.projectRole === 'admin' ? <CreateServiceDialog projectSlug={slug} /> : undefined} /> :
-          <div className="grid divide-y divide-line sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-3">{services.map(({ service, config, latestDeployment, health, ready }) => <Link key={service.id} href={`/projects/${slug}/services/${service.slug}`} className="p-4 hover:bg-sunken"><div className="flex items-center justify-between gap-2"><span className="font-medium text-ink">{service.name}</span><StatusDot status={health} /></div><p className="mt-2 text-xs text-ink-muted">{formatReadyReplicas(ready, config?.replicas ?? 0)} · <span className="font-mono">{imageTag(config?.image ?? null)}</span></p><p className="mt-1 text-xs text-ink-muted">{latestDeployment ? <>Last deploy <Time value={latestDeployment.createdAt} /></> : 'Not deployed'}</p></Link>)}</div>}
+          <div className="grid divide-y divide-line sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-3">{services.map(({ service, config, latestDeployment, health, ready }) => <Link key={service.id} href={`/projects/${slug}/services/${service.slug}`} className="p-4 transition-colors hover:bg-sunken focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"><div className="flex items-center justify-between gap-2"><span className="text-tile font-medium text-ink">{service.name}</span><span className="flex items-center gap-2"><StatusDot status={health} /><ChevronRight className="size-4 text-ink-faint" aria-hidden="true" /></span></div><p className="mt-2 text-xs text-ink-muted">{formatReadyReplicas(ready, config?.replicas ?? 0)} · <span className="font-mono">{imageTag(config?.image ?? null)}</span></p><p className="mt-1 text-xs text-ink-muted">{latestDeployment ? <>Last deploy <Time value={latestDeployment.createdAt} /></> : 'Not deployed'}</p></Link>)}</div>}
+        <PanelFooter shown={services.length} total={services.length} href={`/projects/${slug}/services`}>View all services</PanelFooter>
       </Panel>
 
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
@@ -90,14 +91,7 @@ export default async function ProjectOverviewPage({
         <Panel>
           <PanelHeader
             title="Recent deployments"
-            action={deployments.length > 0 ?
-              <Link
-                href={`/projects/${slug}/deployments`}
-                className="text-link text-sm font-medium"
-              >
-                View all
-              </Link>
-            : undefined}
+            hint={`${deployments.length} deployments`}
           />
           {deployments.length === 0 ? (
             <div className="px-4 py-6">
@@ -111,11 +105,12 @@ export default async function ProjectOverviewPage({
           ) : (
             <DeploymentsTable preset="compact" rows={deployments.slice(0, 5).map((row) => ({ ...row, projectName: project.name, projectSlug: project.slug }))} />
           )}
+          <PanelFooter shown={Math.min(5, deployments.length)} total={deployments.length} href={`/projects/${slug}/deployments`}>View all deployments</PanelFooter>
         </Panel>
 
         {/* Routes */}
         <Panel>
-          <PanelHeader title="Routes" action={routeRows.length ? <Link href={`/projects/${slug}/routes`} className="text-link text-sm font-medium">View all</Link> : undefined} />
+          <PanelHeader title="Routes" hint={`${routeRows.length} routes`} />
           {routeRows.length === 0 ? (
             <div className="px-4 py-6">
               <EmptyState
@@ -144,6 +139,7 @@ export default async function ProjectOverviewPage({
               </ul>
             </>
           )}
+          <PanelFooter shown={Math.min(4, routeRows.length)} total={routeRows.length} href={`/projects/${slug}/routes`}>View all routes</PanelFooter>
         </Panel>
       </div>
       </> : null}

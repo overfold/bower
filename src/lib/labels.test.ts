@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import test from 'node:test'
-import { auditActionSentence } from './labels'
+import { auditActionSentence, auditActorDisplay, isHomeAuditEvent } from './labels'
 
 test('every emitted literal audit action has an explicit sentence', () => {
   const sourceFiles = (directory: string): string[] => readdirSync(directory, { withFileTypes: true }).flatMap((entry) => entry.isDirectory() ? sourceFiles(join(directory, entry.name)) : entry.name.endsWith('.ts') || entry.name.endsWith('.tsx') ? [join(directory, entry.name)] : [])
@@ -31,4 +31,17 @@ test('common audit actions have specific sentences and deployment tags', () => {
   assert.equal(auditActionSentence('secret.rotate', 'DATABASE_URL'), 'rotated secret DATABASE_URL')
   assert.equal(auditActionSentence('service.deploy', 'Storefront', { image: 'ghcr.io/acme/storefront:v2.4.1' }), 'deployed Storefront v2.4.1')
   assert.equal(auditActionSentence('deployment.reconciled', 'Storefront'), 'reconciled Storefront')
+})
+
+test('audit actors retain attribution across automation and historical events', () => {
+  assert.deepEqual(auditActorDisplay({ actorType: 'api_key', userName: 'Alex Morgan', apiKeyName: 'GitHub Actions' }), {
+    type: 'api_key', name: 'Alex Morgan via API key GitHub Actions', icon: 'key',
+  })
+  assert.equal(auditActorDisplay({ userName: null }).name, 'System')
+  assert.equal(auditActorDisplay({ actorType: 'webhook' }).icon, 'webhook')
+})
+
+test('Home audit filter excludes read-only events without affecting mutations', () => {
+  assert.equal(isHomeAuditEvent({ action: 'allocation.terminal.opened' }), false)
+  assert.equal(isHomeAuditEvent({ entry: { action: 'service.restarted' } }), true)
 })

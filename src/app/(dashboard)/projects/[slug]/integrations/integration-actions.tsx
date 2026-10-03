@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
-  Dialog, DialogContent, DialogBody, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog, DialogContent, DialogBody, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -52,11 +52,13 @@ export function CreateWebhookDialog({ projectId, services, environmentId }: Crea
       <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>{state.token ? 'Webhook created' : 'Create webhook'}</DialogTitle>
+          {state.token ? <DialogDescription>Copy the endpoint URL and token before closing this dialog.</DialogDescription> : null}
         </DialogHeader>
         {state.token ? (
           <>
             <DialogBody>
               <div className="space-y-3">
+                <InlineNotice tone="warning">Copy these values now. You won’t see them again.</InlineNotice>
                 <OneTimeSecret label="Endpoint URL" value={endpoint} />
                 <OneTimeSecret label="Token" value={state.token} />
                 <div className="rounded-lg bg-sunken p-3 font-mono text-xs text-ink-soft">curl -X POST &apos;{endpoint}&apos; -H &apos;Authorization: Bearer {'<token>'}&apos;</div>

@@ -14,5 +14,5 @@ export async function authenticateApiKey(header: string | null, serviceId: strin
     allowed = grants.some((grant) => grant.role === 'admin' || grant.role === 'deployer')
   }
   if (!allowed) return null
-  await db.update(apiKeys).set({ lastUsedAt: new Date() }).where(eq(apiKeys.id, key.id)); return { key, ...row }
+  await db.update(apiKeys).set({ lastUsedAt: new Date() }).where(eq(apiKeys.id, key.id)); return { key, ...row, actor: { actorType: 'api_key' as const, apiKeyId: key.id, userId: key.userId } }
 }

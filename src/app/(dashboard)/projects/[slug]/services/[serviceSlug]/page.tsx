@@ -7,7 +7,7 @@ import { allocationBelongsToService, trellisReadError } from '@/lib/trellis-runt
 import { TrellisReadError } from '@/components/trellis-read-error'
 import { NodeLink } from '@/components/node-link'
 import { getProjectRole } from '@/lib/actions/shared'
-import { Panel, PanelHeader, SectionTitle } from '@/components/ui/panel'
+import { Panel, PanelHeader, PanelFooter, SectionTitle } from '@/components/ui/panel'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { EmptyState } from '@/components/ui/empty-state'
 import { AllocationStatus } from '@/components/status'
@@ -39,7 +39,7 @@ export default async function ServiceDetailPage({
 
   const [configs, deployments, environment] = await Promise.all([
     getServiceConfigsWithEnvironments(service.id),
-    getDeploymentsByService(service.id, 10),
+    getDeploymentsByService(service.id, null),
     getProjectEnvironment(project.id),
   ])
   if (!environment) notFound()
@@ -125,7 +125,7 @@ export default async function ServiceDetailPage({
       <div className="space-y-5">
         {selectedDeployments.length === 0 ? (
           <Panel>
-            <PanelHeader title="Recent deployments" action={<Link href={`/projects/${slug}/services/${serviceSlug}/revisions`} className="text-link text-sm font-medium">View all</Link>} />
+            <PanelHeader title="Recent deployments" hint="0 deployments" />
             <EmptyState
               icon={<Rocket className="h-4 w-4" />}
               title="No deployments yet"
@@ -134,8 +134,9 @@ export default async function ServiceDetailPage({
           </Panel>
         ) : (
           <Panel>
-            <PanelHeader title="Recent deployments" action={<Link href={`/projects/${slug}/services/${serviceSlug}/revisions`} className="text-link text-sm font-medium">View all</Link>} />
+            <PanelHeader title="Recent deployments" hint={`${selectedDeployments.length} deployments`} />
             <DeploymentsTable preset="service-compact" rows={selectedDeployments.slice(0, 5).map((deployment) => ({ deployment, serviceName: service.name, serviceSlug: service.slug, projectName: project.name, projectSlug: project.slug }))} />
+            <PanelFooter shown={Math.min(5, selectedDeployments.length)} total={selectedDeployments.length} href={`/projects/${slug}/services/${serviceSlug}/revisions`}>View all deployments</PanelFooter>
           </Panel>
         )}
       </div>

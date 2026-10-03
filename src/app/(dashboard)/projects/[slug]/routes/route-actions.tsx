@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { actionErrorMessage } from '@/lib/action-error'
 import { Plus, Info } from 'lucide-react'
 import { createManagedRouteAction, deleteManagedRouteAction, updateManagedRouteAction } from '@/lib/actions/routes'
@@ -58,11 +58,6 @@ export function AddRouteDialog({
   const [protectionMode, setProtectionMode] = useState('none')
   const [serviceId, setServiceId] = useState(services[0]?.id ?? '')
   const [port, setPort] = useState(services[0]?.port ?? 80)
-  const selectedDomain = useMemo(() => domains.find((domain) => domain.id === domainId), [domainId, domains])
-  const preview = selectedDomain
-    ? (prefix.trim() ? `${prefix.trim().replace(/^\.+|\.+$/g, '')}.${selectedDomain.domain}` : selectedDomain.domain)
-    : ''
-
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError(null)
@@ -116,34 +111,22 @@ export function AddRouteDialog({
             <div className="space-y-4">
               {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
 
-              <div className="rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 font-mono text-sm text-ink">
-                <span className={prefix.trim() ? undefined : 'text-ink-muted'}>{prefix.trim() ? preview : `<prefix>.${selectedDomain?.domain ?? 'example.com'}`}</span> → {services.find((service) => service.id === serviceId)?.name ?? 'service'} on port {port}
-              </div>
-
               <fieldset className="space-y-4 border-t border-line pt-4"><legend className="overline mb-3">Destination</legend>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="managedDomainId">Managed domain</Label>
-                  <Select name="managedDomainId" value={domainId} onValueChange={setDomainId}>
-                    <SelectTrigger id="managedDomainId"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {domains.map((domain) => (
-                        <SelectItem key={domain.id} value={domain.id}>{domain.domain}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="hostnamePrefix">Hostname prefix</Label>
-                  <div className="flex overflow-hidden rounded-lg border border-line-strong bg-surface focus-within:border-brand-500 focus-within:ring-1 focus-within:ring-brand-500"><Input
+              <div className="space-y-2">
+                <Label htmlFor="hostnamePrefix">Hostname</Label>
+                <div className="flex overflow-hidden rounded-lg border border-line-strong bg-surface focus-within:border-brand-500 focus-within:ring-1 focus-within:ring-brand-500"><Input
                     id="hostnamePrefix"
                     name="hostnamePrefix"
                     value={prefix}
                     onChange={(event) => setPrefix(event.target.value)}
-                    className="min-w-0 rounded-none border-0 font-mono text-sm focus-visible:ring-0"
+                    className="w-0 min-w-0 flex-1 rounded-none border-0 font-mono text-sm focus-visible:ring-0"
                     autoComplete="off"
-                  /><span className="flex shrink-0 items-center border-l border-line bg-sunken px-3 font-mono text-xs text-ink-muted">.{selectedDomain?.domain}</span></div>
+                    placeholder="prefix"
+                  /><span className="flex items-center border-l border-line pl-3 font-mono text-sm text-ink-muted">.</span><Select name="managedDomainId" value={domainId} onValueChange={setDomainId}>
+                    <SelectTrigger aria-label="Managed domain" className="w-auto max-w-[60%] shrink-0 rounded-none border-0 pl-1 font-mono focus-visible:ring-0"><SelectValue /></SelectTrigger>
+                    <SelectContent>{domains.map((domain) => <SelectItem key={domain.id} value={domain.id}>{domain.domain}</SelectItem>)}</SelectContent>
+                  </Select>
                 </div>
               </div>
 

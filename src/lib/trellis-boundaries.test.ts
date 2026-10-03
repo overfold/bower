@@ -446,7 +446,7 @@ test('version history keeps the deployment journal and omits the separate retain
       getProjectEnvironment: async () => environment,
       getServiceBySlug: async () => ({ id: 'service', slug: 'web', name: 'Web' }),
       getServiceConfigsWithEnvironments: async () => [{ config: { activeJobName: 'web' }, environment }],
-      getDeploymentsByService: async () => [{ id: 'deployment', environmentId: 'env', trellisVersion: 12, trellisRevision: 7, trellisJobName: 'web', status: 'healthy', createdAt: '2026-10-01T10:00:00Z' }],
+      getDeploymentsByService: async () => [{ id: 'deployment', environmentId: 'env', trellisVersion: 12, trellisRevision: 7, trellisJobName: 'web', status: 'healthy', imageAfter: 'app:v2', triggerType: 'manual', createdAt: '2026-10-01T10:00:00Z' }],
     },
     '@/lib/actions/shared': { getProjectRole: async () => 'admin' },
     '@/lib/trellis-instance': { getTrellisClient: async () => ({ getJobVersions: async () => [
@@ -657,4 +657,97 @@ test('route editing validates the target project/environment and persists the se
   assert.deepEqual(filters.slice(1), [['new-service', 'project'], ['new-service', 'env']])
   assert.equal(written?.serviceId, 'new-service')
   assert.equal(written?.port, 8123)
+})
+
+test('audit recording preserves automation attribution and infers legacy user/system actors', async () => {
+  const writes: Record<string, unknown>[] = []
+  const shared = load<typeof import('./actions/shared')>('src/lib/actions/shared.ts', {
+    'next/headers': {}, '@/lib/auth': {}, '@/lib/queries': {},
+    '@/db': { db: { insert: () => ({ values: async (value: Record<string, unknown>) => { writes.push(value) } }) } },
+  })
+  const base = { orgId: 'org', action: 'deployment.manual', resourceType: 'deployment', resourceId: 'deployment' }
+  await shared.recordAudit({ ...base, userId: 'alex', actorType: 'api_key', apiKeyId: 'github-actions' })
+  await shared.recordAudit({ ...base, userId: null, actorType: 'webhook' })
+  await shared.recordAudit({ ...base, userId: 'sam' })
+  await shared.recordAudit({ ...base, userId: null })
+  assert.deepEqual(writes.map(({ actorType, apiKeyId, userId }) => [actorType, apiKeyId, userId]), [
+    ['api_key', 'github-actions', 'alex'], ['webhook', null, null], ['user', null, 'sam'], ['system', null, null],
+  ])
+})
+
+test('automation deploys write API key or webhook actors and human-readable service/environment details', async () => {
+  const audits: Record<string, unknown>[] = []
+  const row = { project: { orgId: 'org' }, service: { slug: 'web', name: 'Storefront' }, environment: { name: 'Production', trellisNamespace: 'commerce-production' }, config: { image: 'app:v3', deploymentStrategy: 'rolling' }, spec: { name: 'web' } }
+  let reads = 0
+  const actions = load<typeof import('./actions/services')>('src/lib/actions/services.ts', {
+    'next/navigation': navigation, 'next/cache': { revalidatePath() {} },
+    '@/lib/auth': {}, '@/lib/queries': {}, '@/lib/managed-proxy': {}, '@/lib/deployment-reconciler': {}, '@/lib/trellis-cleanup': {},
+    '@/lib/actions/shared': { recordAudit: async (entry: Record<string, unknown>) => { audits.push(entry) } },
+    '@/lib/deployment-runtime': { createDeploymentSpec: async () => row, notifyDeployment: async () => {}, recordDeploymentEvent: async () => {} },
+    '@/lib/trellis-instance': { getTrellisClient: async () => ({ planJob: async () => ({}), applyJobPlan: async () => ({ incarnation: 'inc', version: 8, revision: 3 }) }) },
+    '@/db': { db: {
+      select: () => query(++reads % 2 ? [{ config: { id: 'config', overrides: {} } }] : []),
+      insert: () => ({ values: () => ({ returning: async () => [{ id: 'deployment' }] }) }),
+      update: () => ({ set: () => ({ where: async () => {} }) }),
+    } },
+  })
+  await actions.deployServiceFromAutomation('service', 'env', 'app:v3', 'manual', { actorType: 'api_key', apiKeyId: 'key', userId: 'alex' })
+  await actions.deployServiceFromAutomation('service', 'env', 'app:v3', 'webhook', { actorType: 'webhook' })
+  assert.deepEqual(audits.map(({ actorType, apiKeyId, userId, action }) => [actorType, apiKeyId, userId, action]), [
+    ['api_key', 'key', 'alex', 'deployment.manual'], ['webhook', null, null, 'deployment.webhook'],
+  ])
+  for (const audit of audits) {
+    const details = audit.details as Record<string, unknown>
+    assert.equal(details.serviceName, 'Storefront')
+    assert.equal(details.environmentName, 'Production')
+  }
+})
+
+test('historical audit details resolve names and never fall back to service/environment UUIDs', async () => {
+  const results = [
+    [{ entry: { details: { serviceId: 'svc-id', environmentId: 'env-id' } } }, { entry: { details: { serviceId: 'deleted-id', environmentId: 'deleted-env' } } }, { entry: { details: { serviceId: 'svc-id', serviceName: 'Original name' } } }],
+    [{ id: 'svc-id', name: 'Storefront' }], [{ id: 'env-id', name: 'Production' }],
+  ]
+  const queries = load<typeof import('./queries')>('src/lib/queries.ts', {
+    'next/headers': {}, '@/db': { db: { select: () => query(results.shift()!) } },
+  })
+  const rows = await queries.getAuditLog('org', null)
+  assert.equal((rows[0].entry.details as Record<string, unknown>).serviceName, 'Storefront')
+  assert.equal((rows[0].entry.details as Record<string, unknown>).environmentName, 'Production')
+  assert.equal((rows[1].entry.details as Record<string, unknown>).serviceName, 'Deleted service')
+  assert.equal((rows[1].entry.details as Record<string, unknown>).environmentName, 'Deleted environment')
+  assert.equal((rows[2].entry.details as Record<string, unknown>).serviceName, 'Original name')
+})
+
+test('combined member role save enforces authorization and last owner/admin protection before writing', async () => {
+  let instanceAdmin = true
+  let orgRole = 'owner'
+  let results: unknown[][] = []
+  const writes: Record<string, unknown>[] = []
+  const tx = { update: () => ({ set: (value: Record<string, unknown>) => ({ where: async () => { writes.push(value) } }) }) }
+  const actions = load<typeof import('./actions/settings')>('src/lib/actions/settings.ts', {
+    'next/cache': { revalidatePath() {} }, 'next/headers': {}, '@/lib/invitations': {},
+    '@/lib/auth': { getCurrentUser: async () => ({ id: 'requester' }) },
+    '@/lib/queries': { getUserOrganization: async () => ({ ...context, role: orgRole }), isInstanceAdmin: async () => instanceAdmin },
+    './shared': { recordAudit: async () => {} },
+    '@/db': { db: { select: () => query(results.shift()!), transaction: async (callback: (transaction: typeof tx) => Promise<void>) => callback(tx) } },
+  })
+  const membership = { id: 'membership', orgId: 'org', userId: 'target', role: 'owner' }
+  const target = { id: 'target', isInstanceAdmin: true }
+  const input = { membershipId: 'membership', organizationRole: 'member' as const, instanceAdmin: false }
+  results = [[membership], [target], [{ id: 'target' }]]
+  assert.match((await actions.updateMemberRolesAction(input)).error!, /at least one owner/)
+  results = [[{ ...membership, role: 'member' }], [target], [{ id: 'target' }]]
+  assert.match((await actions.updateMemberRolesAction(input)).error!, /at least one administrator/)
+  instanceAdmin = false
+  results = [[{ ...membership, role: 'member' }], [target]]
+  assert.match((await actions.updateMemberRolesAction(input)).error!, /Instance administrator access required/)
+  orgRole = 'member'
+  assert.match((await actions.updateMemberRolesAction(input)).error!, /Only organization owners/)
+  assert.equal(writes.length, 0)
+  instanceAdmin = true
+  results = [[membership], [target], [{ id: 'target' }, { id: 'other-owner' }], [{ id: 'target' }, { id: 'requester' }]]
+  assert.equal((await actions.updateMemberRolesAction(input)).success, true)
+  assert.equal(writes[0].role, 'member')
+  assert.equal(writes[1].isInstanceAdmin, false)
 })

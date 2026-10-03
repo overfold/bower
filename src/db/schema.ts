@@ -96,6 +96,13 @@ export const webhookDeployModeEnum = pgEnum("webhook_deploy_mode", [
   "digest",
 ]);
 
+export const auditActorTypeEnum = pgEnum("audit_actor_type", [
+  "user",
+  "system",
+  "api_key",
+  "webhook",
+]);
+
 // ---------------------------------------------------------------------------
 // Auth / Org layer
 // ---------------------------------------------------------------------------
@@ -555,6 +562,10 @@ export const auditLog = pgTable(
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
     userId: uuid("user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    actorType: auditActorTypeEnum("actor_type"),
+    apiKeyId: uuid("api_key_id").references(() => apiKeys.id, {
       onDelete: "set null",
     }),
     action: text("action").notNull(),

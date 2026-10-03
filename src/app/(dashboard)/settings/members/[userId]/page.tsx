@@ -5,8 +5,8 @@ import { PageHeading } from '@/components/page-heading'
 import { Panel, PanelHeader, KeyValue } from '@/components/ui/panel'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Time } from '@/components/time'
-import { MemberRoleSelect } from '../member-role-select'
 import { MemberActionsMenu } from '../../instance/instance-admin-actions'
+import { MemberRolesForm } from './member-roles-form'
 
 export default async function MemberPage({ params }: { params: Promise<{ userId: string }> }) {
   const user = await getCurrentUser()
@@ -45,10 +45,8 @@ export default async function MemberPage({ params }: { params: Promise<{ userId:
         </dl>
       </Panel>
       {canManageRoles ? <Panel>
-        <PanelHeader title="Organization role" />
-        <div className="flex flex-wrap items-end justify-between gap-4 p-4">
-          <div className="space-y-2"><p className="text-xs font-medium text-ink-muted">Organization role</p>{member.membership.role === 'owner' ? <p className="text-sm text-ink">Owner</p> : <MemberRoleSelect membershipId={member.membership.id} role={member.membership.role} canManage={canManageRoles} />}</div>
-        </div>
+        <PanelHeader title="Roles" />
+        <MemberRolesForm membershipId={member.membership.id} memberName={member.userName} organizationRole={member.membership.role} instanceAdmin={member.isInstanceAdmin} canManageOrganization={canManageRoles} canManageInstance={showInstanceRole} />
       </Panel> : null}
       <Panel>
         <PanelHeader title="Teams" hint={`${teams.length} ${teams.length === 1 ? 'team' : 'teams'}`} />
@@ -58,9 +56,9 @@ export default async function MemberPage({ params }: { params: Promise<{ userId:
           </ul>
         ) : <p className="p-4 text-sm text-ink-muted">This member does not belong to any teams.</p>}
       </Panel>
-      {(canRemove || (showInstanceRole && member.isInstanceAdmin && user.id !== userId)) ? <Panel>
-        <PanelHeader title="Danger zone" />
-        <div className="flex items-center justify-between gap-4 p-4"><p className="text-sm text-ink-muted">Remove elevated or organization access for this member.</p><MemberActionsMenu presentation="buttons" membershipId={member.membership.id} memberName={member.userName} email={member.userEmail} canRemoveInstanceAdmin={showInstanceRole && member.isInstanceAdmin && user.id !== userId} canRemoveFromOrganization={canRemove} /></div>
+      {canRemove ? <Panel className="border-danger-200">
+        <PanelHeader title={<span className="text-danger-500">Danger zone</span>} />
+        <div className="flex items-center justify-between gap-4 p-4"><p className="text-sm text-ink-muted">Remove this member and revoke access granted by the organization.</p><MemberActionsMenu presentation="buttons" membershipId={member.membership.id} memberName={member.userName} email={member.userEmail} canRemoveInstanceAdmin={false} canRemoveFromOrganization /></div>
       </Panel> : null}
     </div>
   )

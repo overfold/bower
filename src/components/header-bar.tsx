@@ -47,6 +47,7 @@ export function HeaderBar({ orgs, currentOrg, teams, searchData, user, projects 
 }) {
   const pathname = usePathname()
   const crumbs = deriveBreadcrumbs(pathname, searchData)
+  const showOrganizationSwitcher = !pathname.startsWith('/settings/instance')
   const [paletteOpen, setPaletteOpen] = useState(false)
 
   useEffect(() => {
@@ -65,11 +66,11 @@ export function HeaderBar({ orgs, currentOrg, teams, searchData, user, projects 
       <header className="sticky top-0 z-20 flex h-14 w-full shrink-0 items-center gap-2 border-b border-line bg-canvas/85 px-3 backdrop-blur-md sm:gap-3 sm:px-6">
         <MobileDrawer user={user} projects={projects} currentOrg={currentOrg} />
         <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
-          <OrgTeamPicker orgs={orgs} currentOrg={currentOrg} teams={teams} instanceAdmin={searchData.instanceAdmin} />
+          {showOrganizationSwitcher ? <OrgTeamPicker orgs={orgs} currentOrg={currentOrg} teams={teams} instanceAdmin={searchData.instanceAdmin} /> : null}
           <nav aria-label="Breadcrumb" className="flex min-w-0 flex-1 items-center gap-1">
           {(crumbs.length > 4 ? [crumbs[0], ...crumbs.slice(-2)] : crumbs).map((crumb, i, visibleCrumbs) => (
             <Fragment key={`${crumb.label}-${i}`}>
-              <ChevronRight className={`h-3.5 w-3.5 shrink-0 text-ink-faint ${i < visibleCrumbs.length - 1 ? "max-sm:hidden" : ""}`} />
+              {showOrganizationSwitcher || i > 0 ? <ChevronRight className={`h-3.5 w-3.5 shrink-0 text-ink-faint ${i < visibleCrumbs.length - 1 ? "max-sm:hidden" : ""}`} /> : null}
               {crumbs.length > 4 && i === 1 ? (
                 <>
                   <DropdownMenu>
@@ -86,7 +87,7 @@ export function HeaderBar({ orgs, currentOrg, teams, searchData, user, projects 
                 </>
               ) : null}
               {i === visibleCrumbs.length - 1 ? (
-                <span aria-current="page" title={crumb.label} className="min-w-0 truncate text-sm font-semibold text-ink">{crumb.label}</span>
+                <span aria-current="page" title={crumb.label} className={`min-w-0 truncate text-sm font-semibold text-ink ${pathname.startsWith('/projects/') && !searchData.projects.some((project) => project.slug === pathname.split('/')[2]) ? 'font-mono' : ''}`}>{crumb.label}</span>
               ) : crumb.href ? (
                 <Link title={crumb.label} href={crumb.href} className="min-w-0 max-w-[180px] truncate rounded-md text-sm font-medium text-ink-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface max-sm:hidden">
                   {crumb.label}

@@ -17,14 +17,21 @@ const segmentLabels: Record<string, string> = {
 }
 
 export function deriveBreadcrumbs(pathname: string, data: BreadcrumbData): { label: string; href: string }[] {
+  if (['/dashboard', '/projects', '/deployments', '/status', '/audit'].includes(pathname)) return []
   const raw = pathname.split('/').filter(Boolean)
+  if (raw[0] === 'settings' && raw[1] === 'instance') {
+    return [
+      { label: 'Instance', href: '/settings/instance' },
+      { label: 'Organizations', href: '/settings/instance' },
+    ]
+  }
   const serviceTabs = new Set(['revisions', 'advanced', 'configuration', 'mounts'])
   const segments = raw[0] === 'projects' && raw[2] === 'services' && serviceTabs.has(raw.at(-1) ?? '') ? raw.slice(0, -1) : raw
   if (!segments.length) return [{ label: 'Home', href: '/dashboard' }]
   return segments.flatMap((segment, index) => {
     // Structural route segments do not have index pages in detail breadcrumbs.
     if (segments[0] === 'projects' && ((segments.length > 3 && index === 2 && segment === 'services') || (index === 4 && segment === 'allocations'))) return []
-    const label = segments[0] === 'projects' && index === 1 ? data.projects.find((project) => project.slug === segment)?.name ?? 'Project'
+    const label = segments[0] === 'projects' && index === 1 ? data.projects.find((project) => project.slug === segment)?.name ?? decodeURIComponent(segment)
       : segments[0] === 'projects' && segments[2] === 'services' && index === 3 ? data.services.find((service) => service.projectSlug === segments[1] && service.slug === segment)?.name ?? 'Service'
       : segments[index - 1] === 'deployments' ? data.deploymentLabels[segment] ?? 'Deployment'
       : segments[0] === 'settings' && segments[1] === 'members' && index === 2 ? data.memberLabels[segment] ?? 'Member'

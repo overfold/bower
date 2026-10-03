@@ -79,7 +79,7 @@ function deploymentSeries(deployments: DeploymentPoint[], days = 14): Deployment
   return series
 }
 
-function StatCell({
+export function StatCell({
   label,
   value,
   detail,

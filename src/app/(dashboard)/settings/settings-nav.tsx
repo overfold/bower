@@ -1,8 +1,7 @@
 'use client'
 
-import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { cn } from '@/lib/utils'
+import { SubNav } from '@/components/ui/sub-nav'
 
 const groups = [
   { label: 'Personal', links: [{ label: 'Account', href: '/settings/account' }] },
@@ -18,14 +17,14 @@ export function SettingsNav({ showInstance }: { showInstance: boolean }) {
     ? [groups[0], { label: 'Instance', links: [{ label: 'Organizations', href: '/settings/instance' }] }, groups[1]]
     : groups
   return (
-    <nav className="space-y-5" aria-label="Settings">
+    <div className="space-y-5">
       {navGroups.map((group) => <div key={group.label}>
         <p className="overline mb-1 px-2">{group.label}</p>
-        <div className="space-y-0.5">{group.links.map((link) => {
+        <SubNav label={`${group.label} settings`} items={group.links.map((link) => {
           const active = pathname === link.href || pathname.startsWith(link.href + '/')
-          return <Link key={link.href} href={link.href} aria-current={active ? 'page' : undefined} className={cn('block rounded-md px-2 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500', active ? 'bg-brand-50 font-medium text-brand-700' : 'text-ink-muted hover:bg-sunken hover:text-ink')}>{link.label}</Link>
-        })}</div>
+          return { ...link, active }
+        })} />
       </div>)}
-    </nav>
+    </div>
   )
 }

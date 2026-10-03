@@ -4,6 +4,7 @@ const labels: Record<string, string> = {
   nonvoter: 'Non-voter', voter: 'Voter',
   fresh: 'Fresh', stale: 'Stale', auto: 'Automatic', none: 'Public',
   instance_admin: 'Instance admin', user: 'User', admin: 'Admin',
+  serviceName: 'Service', environmentName: 'Environment',
 }
 
 export const roleLabels = { viewer: 'Viewer', deployer: 'Deployer', admin: 'Admin', owner: 'Owner', member: 'Member' } as const
@@ -26,12 +27,35 @@ export function label(value: string): string {
 
 export function auditResourceName(entry: { resourceName?: string; details: Record<string, unknown>; resourceType?: string }): string | undefined {
   if (entry.resourceName) return entry.resourceName
-  for (const key of ['name', 'serviceName', 'hostname', 'domain', 'teamName']) {
+  for (const key of ['name', 'serviceName', 'environmentName', 'hostname', 'domain', 'teamName']) {
     if (typeof entry.details[key] === 'string') return entry.details[key] as string
   }
   const after = entry.details.after
   if (after && typeof after === 'object' && 'name' in after && typeof after.name === 'string') return after.name
   return entry.resourceType ? `the ${entry.resourceType.replaceAll('_', ' ')}` : undefined
+}
+
+export type AuditActor = {
+  actorType?: 'user' | 'system' | 'api_key' | 'webhook' | null
+  userName?: string | null
+  apiKeyName?: string | null
+}
+
+/** Shared presentation contract for Home and Audit. `icon` maps to lucide User, Bot, Key or Webhook. */
+export function auditActorDisplay(actor: AuditActor): { type: 'user' | 'system' | 'api_key' | 'webhook'; name: string; icon: 'user' | 'bot' | 'key' | 'webhook' } {
+  const type = actor.actorType ?? (actor.userName ? 'user' : 'system')
+  if (type === 'api_key') return { type, name: `${actor.userName ?? 'Unknown user'} via API key ${actor.apiKeyName ?? 'Deleted key'}`, icon: 'key' }
+  if (type === 'webhook') return { type, name: 'Webhook', icon: 'webhook' }
+  if (type === 'user') return { type, name: actor.userName ?? 'Deleted user', icon: 'user' }
+  return { type: 'system', name: 'System', icon: 'bot' }
+}
+
+const READ_ONLY_AUDIT_ACTIONS = new Set(['allocation.terminal.opened'])
+
+/** Use on the Home activity feed; the full Audit page intentionally keeps these events. */
+export function isHomeAuditEvent(entry: { action: string } | { entry: { action: string } }): boolean {
+  const action = 'entry' in entry ? entry.entry.action : entry.action
+  return !READ_ONLY_AUDIT_ACTIONS.has(action) && !action.endsWith('.viewed') && !action.endsWith('.read')
 }
 
 export function auditActionSentence(action: string, resourceName?: string, details: Record<string, unknown> = {}): string {

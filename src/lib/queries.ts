@@ -223,8 +223,9 @@ export async function getProjectVolumes(projectId: string, environmentId: string
   )).orderBy(projectVolumes.name)
 }
 
-export async function getDeploymentsByService(serviceId: string, limit = 20) {
-  return db.select().from(deployments).where(eq(deployments.serviceId, serviceId)).orderBy(desc(deployments.createdAt)).limit(limit)
+export async function getDeploymentsByService(serviceId: string, limit: number | null = 20) {
+  const query = db.select().from(deployments).where(eq(deployments.serviceId, serviceId)).orderBy(desc(deployments.createdAt))
+  return limit === null ? query : query.limit(limit)
 }
 
 export async function getDeploymentsByProject(projectId: string, limit: number | null = 50, environmentId?: string) {
@@ -417,9 +418,29 @@ export async function getOrgMembers(orgId: string) {
 }
 
 export async function getAuditLog(orgId: string, limit: number | null = 50) {
-  const query = db.select({ entry: auditLog, userName: users.name }).from(auditLog)
-    .leftJoin(users, eq(users.id, auditLog.userId)).where(eq(auditLog.orgId, orgId)).orderBy(desc(auditLog.createdAt))
-  return limit === null ? query : query.limit(limit)
+  const query = db.select({ entry: auditLog, userName: users.name, apiKeyName: apiKeys.name }).from(auditLog)
+    .leftJoin(users, eq(users.id, auditLog.userId))
+    .leftJoin(apiKeys, eq(apiKeys.id, auditLog.apiKeyId))
+    .where(eq(auditLog.orgId, orgId)).orderBy(desc(auditLog.createdAt))
+  const rows = await (limit === null ? query : query.limit(limit))
+  if (!rows.length) return rows
+
+  // Older audit entries only stored IDs. Resolve them while the referenced
+  // resources still exist; newer writers also persist names for deletions.
+  const [serviceRows, environmentRows] = await Promise.all([
+    db.select({ id: services.id, name: services.name }).from(services)
+      .innerJoin(projects, eq(projects.id, services.projectId)).where(eq(projects.orgId, orgId)),
+    db.select({ id: environments.id, name: environments.name }).from(environments)
+      .innerJoin(projects, eq(projects.id, environments.projectId)).where(eq(projects.orgId, orgId)),
+  ])
+  const serviceNames = new Map(serviceRows.map((row) => [row.id, row.name]))
+  const environmentNames = new Map(environmentRows.map((row) => [row.id, row.name]))
+  return rows.map((row) => {
+    const details = { ...((row.entry.details ?? {}) as Record<string, unknown>) }
+    if (!details.serviceName && typeof details.serviceId === 'string') details.serviceName = serviceNames.get(details.serviceId) ?? 'Deleted service'
+    if (!details.environmentName && typeof details.environmentId === 'string') details.environmentName = environmentNames.get(details.environmentId) ?? 'Deleted environment'
+    return { ...row, entry: { ...row.entry, details } }
+  })
 }
 
 export async function getSecretsByProject(projectId: string) {

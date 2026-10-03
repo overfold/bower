@@ -9,6 +9,7 @@ import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Textarea } from '../components/ui/textarea'
 import { PageHeading } from '../components/page-heading'
+import { PanelFooter } from '../components/ui/panel'
 import { statusDefinition } from './status'
 
 test('shared status vocabulary keeps product labels, tones, and progress semantics together', () => {
@@ -81,13 +82,13 @@ test('DeploymentsTable presets retain their intended column contracts', () => {
   }
   const headers = (preset: DeploymentsTablePreset) => [...renderToStaticMarkup(createElement(DeploymentsTable, { rows: [row], preset })).matchAll(/<th[^>]*>(.*?)<\/th>/g)].map((match) => match[1].replace(/<[^>]+>/g, ''))
   for (const preset of ['organization', 'project'] as const) {
-    assert.deepEqual(headers(preset), ['Service', 'Image', 'Trigger', 'Status', 'Duration', 'Time', 'Open'])
+    assert.deepEqual(headers(preset), ['Service', 'Image', 'Status', 'Trigger', 'Duration', 'Time', 'Open'])
   }
   for (const preset of ['home', 'compact'] as const) assert.deepEqual(headers(preset), ['Service', 'Image', 'Status', 'Time', 'Open'])
   assert.deepEqual(headers('service-compact'), ['Image', 'Status', 'Time', 'Open'])
-  assert.deepEqual(headers('service-history'), ['Rev', 'Image', 'Status', 'Trigger', 'Time', 'Actions', 'Open'])
+  assert.deepEqual(headers('service-history'), ['Rev', 'Image', 'Status', 'Trigger', 'Duration', 'Time', 'Actions', 'Open'])
   const compactHtml = renderToStaticMarkup(createElement(DeploymentsTable, { rows: [row], preset: 'compact' }))
-  assert.match(compactHtml, /title="v2"/)
+  assert.match(compactHtml, /title="app:v2">v2<\/span><span[^>]+>app<\/span>/)
   assert.doesNotMatch(compactHtml, /app:v1|Commerce|min-w-\[640px\]/)
   for (const preset of ['organization', 'project', 'home', 'service-history'] as const) {
     const html = renderToStaticMarkup(createElement(DeploymentsTable, { rows: [{ ...row, rollbackAction: createElement('button', null, 'Roll back') }], preset }))
@@ -99,4 +100,13 @@ test('DeploymentsTable presets retain their intended column contracts', () => {
       assert.doesNotMatch(cells.at(-2)!, /lucide-chevron-right/)
     }
   }
+})
+
+test('preview footers appear only for omitted rows except cluster detail', () => {
+  const render = (shown: number, total: number, always = false) => renderToStaticMarkup(PanelFooter({ shown, total, always, href: '/deployments', children: 'View all deployments' }))
+  assert.equal(render(0, 0), '')
+  assert.equal(render(5, 5), '')
+  assert.match(render(5, 6), /Showing 5 of 6/)
+  assert.match(render(5, 6), /View all deployments →/)
+  assert.match(render(3, 3, true), /Showing 3 of 3/)
 })

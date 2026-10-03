@@ -1,5 +1,4 @@
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
 import {
   getUserOrganization,
@@ -15,7 +14,7 @@ import { TrellisReadError } from '@/components/trellis-read-error'
 import { NodeLink } from '@/components/node-link'
 import { parseNodeAllocatedResources } from '@/lib/trellis-resource-metrics'
 import { PageHeading } from '@/components/page-heading'
-import { Panel, PanelHeader } from '@/components/ui/panel'
+import { Panel, PanelHeader, PanelFooter } from '@/components/ui/panel'
 import { StatusDot, DeploymentStatus, Chip, Dot, Mono } from '@/components/status'
 import { EmptyState } from '@/components/ui/empty-state'
 import { DeploymentPoller } from '@/components/deployment-poller'
@@ -29,11 +28,12 @@ import {
   RotateCcw,
   ShieldAlert,
   BotIcon,
+  Key,
 } from 'lucide-react'
 import type { TrellisAllocation, TrellisNode, TrellisJob } from '@/types/trellis'
 import { formatRelativeTime } from '@/lib/format'
 import { currentJobAllocations } from '@/lib/service-health'
-import { auditActionSentence, auditResourceName } from '@/lib/labels'
+import { auditActionSentence, auditResourceName, auditActorDisplay, isHomeAuditEvent } from '@/lib/labels'
 import { NeedsAttention } from '@/components/needs-attention'
 import { needsAttentionRows } from '@/lib/needs-attention'
 
@@ -62,13 +62,15 @@ export default async function DashboardPage() {
     getProjectsForUser(orgCtx.org.id, user.id, orgCtx.role),
     getServicesForOrg(orgCtx.org.id),
     getDeploymentsForOrg(orgCtx.org.id, null),
-    getAuditLog(orgCtx.org.id, 5),
+    getAuditLog(orgCtx.org.id, null),
     getOperationalTargetsForOrg(orgCtx.org.id),
   ])
   const accessibleProjectIds = new Set(projectList.map((project) => project.id))
   const accessibleProjectSlugs = new Set(projectList.map((project) => project.slug))
   const visibleServices = orgServices.filter(({ project }) => accessibleProjectIds.has(project.id))
   const visibleDeployments = allDeployments.filter((deployment) => accessibleProjectSlugs.has(deployment.projectSlug))
+  const homeActivity = auditEntries.filter(isHomeAuditEvent)
+  const recentActivity = homeActivity.slice(0, 5)
 
   // Deployment stats
   const recentDeployments = visibleDeployments.slice(0, 8)
@@ -161,14 +163,6 @@ export default async function DashboardPage() {
         <Panel className="overflow-hidden">
           <PanelHeader
             title={`In flight · ${activeDeployments.length} deployment${activeDeployments.length === 1 ? '' : 's'}`}
-            action={
-              <Link
-                href="/deployments"
-                className="text-link text-sm font-medium"
-              >
-                View all
-              </Link>
-            }
           />
           <ul className="divide-y divide-line">
             {activeDeployments.map((row) => {
@@ -211,14 +205,7 @@ export default async function DashboardPage() {
           <Panel className="min-w-0 overflow-hidden">
             <PanelHeader
               title="Recent deployments"
-              action={
-                <Link
-                  href="/deployments"
-                  className="text-link text-sm font-medium"
-                >
-                  View all
-                </Link>
-              }
+              hint={`${visibleDeployments.length} deployments`}
             />
             {recentDeployments.length === 0 ? (
               <EmptyState
@@ -229,6 +216,7 @@ export default async function DashboardPage() {
             ) : (
               <DeploymentsTable rows={recentDeployments} preset="home" />
             )}
+            <PanelFooter shown={recentDeployments.length} total={visibleDeployments.length} href="/deployments">View all deployments</PanelFooter>
           </Panel>
         </div>
 
@@ -239,12 +227,11 @@ export default async function DashboardPage() {
             <Panel>
               <PanelHeader
                 title="Cluster"
-                hint={orgCtx.org.trellisApiUrl ? <Mono>{orgCtx.org.trellisApiUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '')}</Mono> : undefined}
                 action={
-                  <div className="flex items-center gap-3"><Link href="/status" className="text-link text-sm font-medium">View status</Link><Chip tone={nodes.some((node) => node.status === 'unhealthy') ? 'danger' : drainingNodes > 0 ? 'warn' : drainedNodes > 0 ? 'neutral' : 'success'}>
+                  <Chip tone={nodes.some((node) => node.status === 'unhealthy') ? 'danger' : drainingNodes > 0 ? 'warn' : drainedNodes > 0 ? 'neutral' : 'success'}>
                     <Dot tone={nodes.some((node) => node.status === 'unhealthy') ? 'danger' : drainingNodes > 0 ? 'warn' : drainedNodes > 0 ? 'neutral' : 'success'} />
                     {nodes.some((node) => node.status === 'unhealthy') ? `${nodes.filter((node) => node.status === 'unhealthy').length} unhealthy` : drainingNodes > 0 ? `${drainingNodes} draining` : drainedNodes > 0 ? `${drainedNodes} drained` : 'All healthy'}
-                  </Chip></div>
+                  </Chip>
                 }
               />
               <ul className="divide-y divide-line border-t border-line">
@@ -259,6 +246,7 @@ export default async function DashboardPage() {
                   </li>
                 ))}
               </ul>
+              <PanelFooter shown={nodes.length} total={nodes.length} href="/status" always>View cluster status</PanelFooter>
             </Panel>
           )}
 
@@ -266,22 +254,15 @@ export default async function DashboardPage() {
           <Panel>
             <PanelHeader
               title="Recent activity"
-              action={
-                <Link
-                  href="/audit"
-                  className="text-link text-sm font-medium"
-                >
-                  View all
-                </Link>
-              }
+              hint={`${homeActivity.length} events`}
             />
-            {auditEntries.length === 0 ? (
+            {recentActivity.length === 0 ? (
               <div className="px-4 py-6 text-center text-sm text-ink-muted">No activity yet.</div>
             ) : (
               <ul className="divide-y divide-line">
-                {auditEntries.map((entry) => {
-                  const isSystem = !entry.userName
-                  const ActorIcon = isSystem ? BotIcon : UserIcon
+                {recentActivity.map((entry) => {
+                  const actor = auditActorDisplay({ actorType: entry.entry.actorType, userName: entry.userName, apiKeyName: entry.apiKeyName })
+                  const ActorIcon = { user: UserIcon, bot: BotIcon, key: Key, webhook: WebhookIcon }[actor.icon]
                   return (
                     <li key={entry.entry.id} className="px-4 py-3">
                       <div className="flex items-start gap-2.5">
@@ -291,10 +272,10 @@ export default async function DashboardPage() {
                         <div className="min-w-0">
                           <span className="flex flex-wrap items-center gap-2">
                             <span className="text-sm font-medium text-ink">
-                              {entry.userName ?? 'System'} {auditActionSentence(entry.entry.action, auditResourceName({ resourceName: resourceNames.get(entry.entry.resourceId), details: entry.entry.details as Record<string, unknown>, resourceType: entry.entry.resourceType }), entry.entry.details as Record<string, unknown>)}
+                              {actor.name} {auditActionSentence(entry.entry.action, auditResourceName({ resourceName: resourceNames.get(entry.entry.resourceId), details: entry.entry.details as Record<string, unknown>, resourceType: entry.entry.resourceType }), entry.entry.details as Record<string, unknown>)}
                             </span>
                           </span>
-                          <p className="mt-0.5 truncate text-xs text-ink-muted">
+                          <p className="mt-0.5 truncate font-mono text-xs text-ink-muted">
                             {entry.entry.action} · {formatRelativeTime(entry.entry.createdAt)}
                           </p>
                         </div>
@@ -304,6 +285,7 @@ export default async function DashboardPage() {
                 })}
               </ul>
             )}
+            <PanelFooter shown={recentActivity.length} total={homeActivity.length} href="/audit">View all activity</PanelFooter>
           </Panel>
         </div>
       </div>

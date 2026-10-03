@@ -71,7 +71,7 @@ const DialogContent = React.forwardRef<
           }}>
             <motion.div
               className={cn(
-                'fixed left-1/2 top-1/2 z-50 grid max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border border-line bg-surface shadow-pop',
+                'fixed left-1/2 top-3 z-50 grid max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] -translate-x-1/2 overflow-hidden rounded-xl border border-line bg-surface shadow-pop sm:top-8',
                 { sm: 'max-w-md', md: 'max-w-xl', lg: 'max-w-2xl' }[size],
                 className,
               )}
@@ -101,7 +101,7 @@ const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivEleme
 )
 
 const DialogBody = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn('max-h-[62vh] min-h-0 overflow-y-auto overscroll-contain px-4 py-4 scroll-thin sm:px-5', className)} {...props} />
+  <div className={cn('scroll-vertical max-h-[62vh] min-h-0 overflow-y-auto overscroll-contain px-4 py-4 scroll-thin [--scroll-surface:var(--surface)] sm:px-5', className)} {...props} />
 )
 
 const DialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (

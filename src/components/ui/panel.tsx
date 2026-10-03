@@ -1,9 +1,15 @@
 import * as React from 'react'
+import Link from 'next/link'
 import { cn } from '@/lib/utils'
-import { Card, CardHeader } from '@/components/ui/card'
+import { Card, CardHeader, CardFooter } from '@/components/ui/card'
 
 export const Panel = Card
 export const PanelHeader = CardHeader
+
+export function PanelFooter({ shown, total, href, children, always = false }: { shown: number; total: number; href: string; children: React.ReactNode; always?: boolean }) {
+  if (!always && shown >= total) return null
+  return <CardFooter className="justify-between text-xs text-ink-muted"><span>Showing {shown} of {total}</span><Link href={href} className="text-link font-medium">{children} →</Link></CardFooter>
+}
 
 export function SectionTitle({ children, className }: { children: React.ReactNode; className?: string }) {
   return (

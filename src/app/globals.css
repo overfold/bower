@@ -53,6 +53,7 @@
   --text-2xs--line-height: 1rem;
   --text-xs: 0.75rem;
   --text-sm: 0.8125rem;
+  --text-tile: 0.875rem;
   --text-code: 0.78125rem;
   --text-md: 0.9375rem;
   --text-lg: 1.125rem;
@@ -177,6 +178,18 @@ input[type="search"]::-webkit-search-cancel-button {
     linear-gradient(to left, color-mix(in srgb, var(--ink) 16%, transparent), transparent);
   background-position: left center, right center, left center, right center;
   background-size: 40px 100%, 40px 100%, 12px 100%, 12px 100%;
+  background-repeat: no-repeat;
+  background-attachment: local, local, scroll, scroll;
+}
+
+.scroll-vertical {
+  background-image:
+    linear-gradient(to bottom, var(--scroll-surface, var(--canvas)) 30%, transparent),
+    linear-gradient(to top, var(--scroll-surface, var(--canvas)) 30%, transparent),
+    linear-gradient(to bottom, color-mix(in srgb, var(--ink) 16%, transparent), transparent),
+    linear-gradient(to top, color-mix(in srgb, var(--ink) 16%, transparent), transparent);
+  background-position: top center, bottom center, top center, bottom center;
+  background-size: 100% 40px, 100% 40px, 100% 12px, 100% 12px;
   background-repeat: no-repeat;
   background-attachment: local, local, scroll, scroll;
 }

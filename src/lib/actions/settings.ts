@@ -128,6 +128,47 @@ export async function updateOrganizationMemberRoleAction(
   return { success: true }
 }
 
+export async function updateMemberRolesAction(input: {
+  membershipId: string
+  organizationRole: 'owner' | 'admin' | 'member'
+  instanceAdmin?: boolean
+}): Promise<{ error?: string; success?: boolean }> {
+  const user = await getCurrentUser()
+  if (!user) return { error: 'Not authenticated.' }
+  const requesterIsInstanceAdmin = await isInstanceAdmin(user.id)
+  const ctx = await getUserOrganization(user.id)
+  if (!ctx) return { error: 'No organization found.' }
+  if (!requesterIsInstanceAdmin && ctx.role !== 'owner') return { error: 'Only organization owners can change member roles.' }
+  if (!['owner', 'admin', 'member'].includes(input.organizationRole)) return { error: 'Invalid organization role.' }
+  if (input.instanceAdmin !== undefined && typeof input.instanceAdmin !== 'boolean') return { error: 'Invalid instance role.' }
+
+  const [membership] = await db.select().from(organizationMembers).where(eq(organizationMembers.id, input.membershipId)).limit(1)
+  if (!membership || membership.orgId !== ctx.org.id) return { error: 'Member not found.' }
+  const [target] = await db.select().from(users).where(eq(users.id, membership.userId)).limit(1)
+  if (!target) return { error: 'Member not found.' }
+
+  if (membership.role === 'owner' && input.organizationRole !== 'owner') {
+    const owners = await db.select({ id: organizationMembers.id }).from(organizationMembers)
+      .where(and(eq(organizationMembers.orgId, membership.orgId), eq(organizationMembers.role, 'owner')))
+    if (owners.length <= 1) return { error: 'An organization must have at least one owner.' }
+  }
+  if (input.instanceAdmin !== undefined && !requesterIsInstanceAdmin) return { error: 'Instance administrator access required.' }
+  if (target.isInstanceAdmin && input.instanceAdmin === false) {
+    if (target.id === user.id) return { error: 'You cannot remove your own instance admin access.' }
+    const admins = await db.select({ id: users.id }).from(users).where(eq(users.isInstanceAdmin, true))
+    if (admins.length <= 1) return { error: 'The instance must have at least one administrator.' }
+  }
+
+  await db.transaction(async (tx) => {
+    await tx.update(organizationMembers).set({ role: input.organizationRole }).where(eq(organizationMembers.id, membership.id))
+    if (input.instanceAdmin !== undefined) await tx.update(users).set({ isInstanceAdmin: input.instanceAdmin, updatedAt: new Date() }).where(eq(users.id, target.id))
+  })
+  await recordAudit({ orgId: membership.orgId, userId: user.id, action: 'organization.member.role_changed', resourceType: 'organization', resourceId: membership.orgId, details: { membershipId: membership.id, organizationRole: { before: membership.role, after: input.organizationRole }, instanceAdmin: input.instanceAdmin === undefined ? undefined : { before: target.isInstanceAdmin, after: input.instanceAdmin } } })
+  revalidatePath('/settings/members')
+  revalidatePath(`/settings/members/${target.id}`)
+  return { success: true }
+}
+
 export async function removeOrganizationMemberAction(
   membershipId: string,
 ): Promise<{ error?: string; success?: boolean }> {
@@ -297,6 +338,10 @@ export async function toggleInstanceAdminAction(
   const [target] = await db.select().from(users).where(eq(users.email, email.toLowerCase())).limit(1)
   if (!target) return { error: 'No registered user has that email.' }
   if (!promote && target.id === user.id) return { error: 'You cannot remove your own instance admin access.' }
+  if (!promote && target.isInstanceAdmin) {
+    const admins = await db.select({ id: users.id }).from(users).where(eq(users.isInstanceAdmin, true))
+    if (admins.length <= 1) return { error: 'The instance must have at least one administrator.' }
+  }
 
   await db.update(users).set({ isInstanceAdmin: promote, updatedAt: new Date() }).where(eq(users.id, target.id))
   revalidatePath('/settings/instance')

@@ -57,7 +57,7 @@ export function VolumeMountEditor({ serviceId, environmentId, mounts: initial, v
     }}>
       <DialogTrigger asChild><Button variant="primary" size="sm" disabled={available.length === 0} title={available.length === 0 ? 'No unattached project volumes are available' : undefined}><Plus />Attach volume</Button></DialogTrigger>
       <DialogContent size="lg">
-        <DialogHeader><DialogTitle>Attach a volume</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>Attach volume</DialogTitle></DialogHeader>
         <DialogBody><div className="space-y-4">
           {error && <InlineNotice tone="error">{error}</InlineNotice>}
           <div className="space-y-2"><Label htmlFor="mount-volume">Project volume</Label><Select value={name} onValueChange={setName}><SelectTrigger id="mount-volume"><SelectValue /></SelectTrigger><SelectContent>{available.map((volume) => <SelectItem key={volume} value={volume}>{volume}</SelectItem>)}</SelectContent></Select></div>

@@ -1,14 +1,14 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Bot, ChevronDown, User } from 'lucide-react'
+import { Bot, ChevronDown, Key, User, Webhook } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SearchInput } from '@/components/ui/search-input'
 import { Panel, PanelHeader } from '@/components/ui/panel'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Time } from '@/components/time'
 import { cn } from '@/lib/utils'
-import { auditActionSentence, auditResourceName, label } from '@/lib/labels'
+import { auditActionSentence, auditActorDisplay, auditResourceName, label } from '@/lib/labels'
 
 const PAGE_SIZE = 25
 
@@ -21,11 +21,15 @@ type AuditEntry = {
   details: Record<string, unknown>
   createdAt: Date | string
   userName: string | null
+  actorType?: 'user' | 'system' | 'api_key' | 'webhook' | null
+  apiKeyName?: string | null
 }
 
 const actorIcons = {
   user: User,
-  system: Bot,
+  bot: Bot,
+  key: Key,
+  webhook: Webhook,
 } as const
 
 export function DiffColumns({ details }: { details: Record<string, unknown> }) {
@@ -33,7 +37,13 @@ export function DiffColumns({ details }: { details: Record<string, unknown> }) {
   const after = details.after && typeof details.after === 'object' ? details.after as Record<string, unknown> : null
   const scalarDiff = 'before' in details && 'after' in details && !before && !after
   const diffKeys = [...new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})])].filter((key) => JSON.stringify(before?.[key]) !== JSON.stringify(after?.[key]))
-  const entries = Object.entries(details).filter(([key]) => !((scalarDiff || before || after) && (key === 'before' || key === 'after')))
+  const entries = Object.entries(details).filter(([key]) => {
+    if ((scalarDiff || before || after) && (key === 'before' || key === 'after')) return false
+    // Name fields are rendered instead of their companion UUIDs.
+    if (key === 'serviceId' && typeof details.serviceName === 'string') return false
+    if (key === 'environmentId' && typeof details.environmentName === 'string') return false
+    return true
+  })
   if (entries.length === 0 && diffKeys.length === 0 && !scalarDiff) return <p className="text-xs text-ink-muted">No additional details.</p>
 
   return (
@@ -68,16 +78,17 @@ export function AuditLogList({ entries, now }: { entries: AuditEntry[]; now: num
   const [date, setDate] = useState('all')
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
-  const actors = [...new Set(entries.map((entry) => entry.userName ?? 'System'))].sort()
+  const actors = [...new Set(entries.map((entry) => auditActorDisplay(entry).name))].sort()
   const actions = [...new Set(entries.map((entry) => entry.action))].sort()
   const resources = [...new Set(entries.map((entry) => entry.resourceType))].sort()
   const filtered = useMemo(() => entries.filter((entry) => {
-    if (actor !== 'all' && (entry.userName ?? 'System') !== actor) return false
+    const actorName = auditActorDisplay(entry).name
+    if (actor !== 'all' && actorName !== actor) return false
     if (action !== 'all' && entry.action !== action) return false
     if (resource !== 'all' && entry.resourceType !== resource) return false
     if (date !== 'all' && now - new Date(entry.createdAt).getTime() > Number(date) * 86_400_000) return false
     const name = auditResourceName(entry)
-    return !query || `${entry.action} ${entry.resourceType} ${entry.resourceId} ${entry.userName ?? 'System'} ${name ?? ''}`.toLowerCase().includes(query.toLowerCase())
+    return !query || `${entry.action} ${entry.resourceType} ${entry.resourceId} ${actorName} ${name ?? ''}`.toLowerCase().includes(query.toLowerCase())
   }), [entries, actor, action, resource, date, query, now])
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const currentPage = Math.min(page, pageCount)
@@ -85,18 +96,17 @@ export function AuditLogList({ entries, now }: { entries: AuditEntry[]; now: num
 
   return (
     <Panel>
-      <PanelHeader title={`${filtered.length} event${filtered.length === 1 ? '' : 's'}`} hint="Retained for 365 days" />
-      <div className="flex flex-wrap gap-2 border-b border-line p-3 [&_button[role=combobox]]:w-auto">
+      <PanelHeader className="h-auto flex-col items-stretch py-3 sm:min-h-[52px] sm:flex-row sm:items-center sm:py-0" title={`${filtered.length} event${filtered.length === 1 ? '' : 's'}`} hint="Retained for 365 days" action={<div className="flex w-full flex-col gap-1 sm:w-auto sm:flex-row">
         <SearchInput value={query} onChange={(event) => { setQuery(event.target.value); setPage(1) }} placeholder="Search" aria-label="Search audit log" />
         <AuditSelect label="actor" value={actor} setValue={setActor} options={actors} />
         <AuditSelect label="action" value={action} setValue={setAction} options={actions} />
         <AuditSelect label="resource" value={resource} setValue={setResource} options={resources} />
-        <Select value={date} onValueChange={setDate}><SelectTrigger aria-label="Filter by date"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Any date</SelectItem><SelectItem value="1">Last 24 hours</SelectItem><SelectItem value="7">Last 7 days</SelectItem><SelectItem value="30">Last 30 days</SelectItem></SelectContent></Select>
-      </div>
+        <Select value={date} onValueChange={setDate}><SelectTrigger className="h-10 w-full sm:h-8 sm:w-[130px]" aria-label="Filter by date"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Any date</SelectItem><SelectItem value="1">Last 24 hours</SelectItem><SelectItem value="7">Last 7 days</SelectItem><SelectItem value="30">Last 30 days</SelectItem></SelectContent></Select>
+      </div>} />
       <ul className="divide-y divide-line">
       {visible.map((entry) => {
-        const isSystem = !entry.userName
-        const Icon = isSystem ? actorIcons.system : actorIcons.user
+        const actorDisplay = auditActorDisplay(entry)
+        const Icon = actorIcons[actorDisplay.icon]
         const expanded = openId === entry.id
 
         return (
@@ -111,7 +121,7 @@ export function AuditLogList({ entries, now }: { entries: AuditEntry[]; now: num
                 <Icon className="h-3.5 w-3.5" aria-hidden="true" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium text-ink">{entry.userName ?? 'System'} {auditActionSentence(entry.action, auditResourceName(entry), entry.details)}</span>
+                <span className="block truncate text-sm font-medium text-ink">{actorDisplay.name} {auditActionSentence(entry.action, auditResourceName(entry), entry.details)}</span>
                 <span className="mt-1 block truncate text-xs text-ink-muted">
                   <span className="font-mono">{entry.action}</span> · <Time value={entry.createdAt} mode="auto" />
                 </span>
@@ -140,5 +150,5 @@ export function AuditLogList({ entries, now }: { entries: AuditEntry[]; now: num
 }
 
 function AuditSelect({ label, value, setValue, options }: { label: string; value: string; setValue: (value: string) => void; options: string[] }) {
-  return <Select value={value} onValueChange={setValue}><SelectTrigger aria-label={`Filter by ${label}`}><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All {label}s</SelectItem>{options.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectContent></Select>
+  return <Select value={value} onValueChange={setValue}><SelectTrigger className="h-10 w-full sm:h-8 sm:w-[150px]" aria-label={`Filter by ${label}`}><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All {label}s</SelectItem>{options.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectContent></Select>
 }

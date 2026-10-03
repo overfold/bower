@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { cn } from '@/lib/utils'
+import { SubNav } from '@/components/ui/sub-nav'
 
 export function SettingsAnchorNav({ items }: { items: Array<{ id: string; label: string }> }) {
   const [active, setActive] = useState(items[0]?.id)
@@ -15,7 +15,5 @@ export function SettingsAnchorNav({ items }: { items: Array<{ id: string; label:
     return () => observer.disconnect()
   }, [items])
 
-  return <nav aria-label="Project settings" className="sticky top-20 space-y-1">
-    {items.map((item) => <a key={item.id} href={`#${item.id}`} className={cn('block rounded-md px-3 py-2 text-sm', active === item.id ? 'bg-sunken font-medium text-ink' : 'text-ink-muted hover:text-ink')}>{item.label}</a>)}
-  </nav>
+  return <SubNav className="sticky top-20" label="Project settings" items={items.map((item) => ({ label: item.label, href: `#${item.id}`, active: active === item.id }))} />
 }

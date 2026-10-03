@@ -68,7 +68,7 @@ export function MemberActionsMenu({
     <AlertDialog open={open} onOpenChange={(next) => { if (!isPending) { setOpen(next); if (!next) setAction(null); setError(null) } }}>
       {presentation === 'buttons' ? <div className="flex flex-wrap gap-2">
         {canRemoveInstanceAdmin ? <Button onClick={() => { setAction('instance'); setOpen(true) }}>Remove instance admin</Button> : null}
-        {canRemoveFromOrganization ? <Button variant="destructive" onClick={() => { setAction('organization'); setOpen(true) }}>Remove from organization</Button> : null}
+        {canRemoveFromOrganization ? <Button variant="danger" onClick={() => { setAction('organization'); setOpen(true) }}>Remove from organization</Button> : null}
       </div> : <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon" disabled={isPending} aria-label={`Actions for ${memberName}`}>

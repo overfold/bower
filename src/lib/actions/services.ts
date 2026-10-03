@@ -19,6 +19,7 @@ import { parseDeploymentStrategy, parseHealthCheckInput, parseResourceInputs, po
 import { validateCanarySteps } from '@/lib/workload-input'
 
 type Trigger = 'manual' | 'webhook' | 'rollback' | 'auto_rollback'
+type AutomationActor = { actorType: 'api_key'; apiKeyId: string; userId: string } | { actorType: 'webhook'; userId?: null }
 
 function deploymentApplyError(error: unknown) {
   if (error instanceof TrellisApiError && error.status === 409) {
@@ -31,7 +32,7 @@ function slugify(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 63) || 'service'
 }
 
-async function executeDeployment(serviceId: string, environmentId: string, triggerType: Trigger, userId?: string | null) {
+async function executeDeployment(serviceId: string, environmentId: string, triggerType: Trigger, userId?: string | null, actor?: AutomationActor) {
   const row = await createDeploymentSpec(serviceId, environmentId)
   const [previous] = await db.select().from(deployments).where(and(eq(deployments.serviceId, serviceId), eq(deployments.environmentId, environmentId), eq(deployments.status, 'healthy'))).orderBy(desc(deployments.createdAt)).limit(1)
   let jobName = row.service.slug
@@ -70,7 +71,7 @@ async function executeDeployment(serviceId: string, environmentId: string, trigg
     }).where(eq(deployments.id, deployment.id))
     await recordDeploymentEvent(deployment.id, 'apply_accepted', `Trellis accepted ${jobName} version ${applied.version}, revision ${applied.revision}.`, { ...applied })
     if (initialCanary) await recordDeploymentEvent(deployment.id, 'canary_step', `Canary started at ${initialCanary.weight}%.`, initialCanary)
-    await recordAudit({ orgId: row.project.orgId, userId: userId ?? null, action: `deployment.${triggerType}`, resourceType: 'deployment', resourceId: deployment.id, details: { serviceId, environmentId, image: row.config.image, strategy: row.config.deploymentStrategy } })
+    await recordAudit({ orgId: row.project.orgId, userId: userId ?? null, actorType: actor?.actorType, apiKeyId: actor?.actorType === 'api_key' ? actor.apiKeyId : null, action: `deployment.${triggerType}`, resourceType: 'deployment', resourceId: deployment.id, details: { serviceId, serviceName: row.service.name, environmentId, environmentName: row.environment.name, image: row.config.image, strategy: row.config.deploymentStrategy } })
     await notifyDeployment(row, 'deploying', userId)
   } catch (error) {
     const reported = deploymentApplyError(error)
@@ -134,12 +135,12 @@ export async function deployServiceAction(serviceId: string, environmentId: stri
   revalidatePath(`/projects/${access.project.slug}`)
 }
 
-export async function deployServiceFromAutomation(serviceId: string, environmentId: string, image: string, trigger: 'webhook' | 'manual', userId?: string | null) {
+export async function deployServiceFromAutomation(serviceId: string, environmentId: string, image: string, trigger: 'webhook' | 'manual', actor: AutomationActor) {
   const [row] = await db.select({ config: serviceConfigs }).from(serviceConfigs).innerJoin(environments, eq(environments.id, serviceConfigs.environmentId)).where(and(eq(serviceConfigs.serviceId, serviceId), eq(serviceConfigs.environmentId, environmentId))).limit(1)
   if (!row) throw new Error('Service environment not found.')
   const overrides = { ...((row.config.overrides ?? {}) as Record<string, unknown>), image }
   await db.update(serviceConfigs).set({ image, overrides, updatedAt: new Date() }).where(eq(serviceConfigs.id, row.config.id))
-  return executeDeployment(serviceId, environmentId, trigger, userId)
+  return executeDeployment(serviceId, environmentId, trigger, actor.userId ?? null, actor)
 }
 
 export async function rollbackServiceAction(serviceId: string, environmentId: string, targetDeploymentId?: string) {
@@ -197,7 +198,7 @@ export async function rollbackServiceAction(serviceId: string, environmentId: st
     throw reported
   }
   await notifyDeployment(await createDeploymentSpec(serviceId, environmentId), 'deploying', access.user.id)
-  await recordAudit({ orgId: access.org.id, userId: access.user.id, action: 'service.rollback.requested', resourceType: 'deployment', resourceId: deployment.id, details: { environmentId, ...(targetDeploymentId ? { targetDeploymentId } : {}) } })
+  await recordAudit({ orgId: access.org.id, userId: access.user.id, action: 'service.rollback.requested', resourceType: 'deployment', resourceId: deployment.id, details: { serviceId, serviceName: access.service.name, environmentId, environmentName: configRow.environment?.name, ...(targetDeploymentId ? { targetDeploymentId } : {}) } })
 }
 
 export async function refreshDeploymentStatusesAction(projectId: string) {
@@ -213,7 +214,7 @@ export async function restartServiceAction(serviceId: string, environmentId: str
   const jobName = (row.config.activeJobName as string | null) || access.service.slug
   const client = await getTrellisClient(access.org.id)
   await client.restartJob(jobName, row.environment.trellisNamespace)
-  await recordAudit({ orgId: access.org.id, userId: access.user.id, action: 'service.restarted', resourceType: 'service', resourceId: serviceId, details: { environmentId, jobName } })
+  await recordAudit({ orgId: access.org.id, userId: access.user.id, action: 'service.restarted', resourceType: 'service', resourceId: serviceId, details: { serviceName: access.service.name, environmentId, environmentName: row.environment.name, jobName } })
   revalidatePath(`/projects/${access.project.slug}/services/${access.service.slug}`)
 }
 

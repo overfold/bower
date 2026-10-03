@@ -170,6 +170,7 @@ export function InviteTokensSection({
               {link ? (
                 <>
                   <DialogBody className="space-y-3">
+                    <InlineNotice tone="warning">Copy this link now. You won’t see it again.</InlineNotice>
                     <OneTimeSecret
                       label="Invitation link"
                       value={invitationUrl}

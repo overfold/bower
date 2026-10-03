@@ -7,8 +7,8 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { History } from 'lucide-react'
 import { getTrellisClient } from '@/lib/trellis-instance'
 import { RestoreRevisionButton } from './restore-revision-button'
-import { DeploymentsTable } from '@/components/deployments-table'
 import { earlierSuccessfulReleases, runningRelease } from '@/lib/service-releases'
+import { RevisionsToolbar } from './revisions-toolbar'
 
 export default async function RevisionsPage({ params }: { params: Promise<{ slug: string; serviceSlug: string }> }) {
   const { slug, serviceSlug } = await params
@@ -25,7 +25,7 @@ export default async function RevisionsPage({ params }: { params: Promise<{ slug
 
   const [environment, deployments, configs] = await Promise.all([
     getProjectEnvironment(project.id),
-    getDeploymentsByService(service.id, 100),
+    getDeploymentsByService(service.id, null),
     getServiceConfigsWithEnvironments(service.id),
   ])
   if (!environment) notFound()
@@ -57,11 +57,7 @@ export default async function RevisionsPage({ params }: { params: Promise<{ slug
           />
         </Panel>
       ) : (
-        <Panel>
-          <div className="overflow-x-auto">
-            <DeploymentsTable preset="service-history" rows={journal.map((deployment) => ({ deployment, serviceName: service.name, serviceSlug: service.slug, projectName: project.name, projectSlug: project.slug, revision: deployment.trellisRevision, rollbackAction: role !== 'viewer' && rollbackIds.has(deployment.id) && retainedKeys.has(`${deployment.trellisVersion}:${deployment.trellisRevision}`) ? <RestoreRevisionButton serviceId={service.id} environmentId={environment.id} deploymentId={deployment.id} image={deployment.imageAfter} /> : null }))} />
-          </div>
-        </Panel>
+        <RevisionsToolbar items={journal.map((deployment) => ({ deployment, serviceName: service.name, serviceSlug: service.slug, projectName: project.name, projectSlug: project.slug, revision: deployment.trellisRevision, rollbackAction: role !== 'viewer' && rollbackIds.has(deployment.id) && retainedKeys.has(`${deployment.trellisVersion}:${deployment.trellisRevision}`) ? <RestoreRevisionButton serviceId={service.id} environmentId={environment.id} deploymentId={deployment.id} image={deployment.imageAfter} /> : null }))} />
       )}
 
     </div>

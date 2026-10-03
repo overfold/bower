@@ -30,7 +30,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   if (hook.deployMode === 'digest' && !digest) return Response.json({ ignored: true, reason: 'digest required' })
   if (hook.deployMode === 'tag' && (!tag || (hook.tagFilter && !new RegExp(hook.tagFilter).test(tag)))) return Response.json({ ignored: true, reason: 'tag did not match' })
   try {
-    const result = await deployServiceFromAutomation(hook.serviceId, hook.environmentId, image, 'webhook')
+    const result = await deployServiceFromAutomation(hook.serviceId, hook.environmentId, image, 'webhook', { actorType: 'webhook' })
     return Response.json({ accepted: true, deploymentId: result.deployment.id }, { status: 202 })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Deployment failed.'

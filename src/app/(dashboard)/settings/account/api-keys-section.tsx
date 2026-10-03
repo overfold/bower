@@ -6,7 +6,7 @@ import { createApiKeyAction, revokeApiKeyAction } from '@/lib/actions/settings'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogBody, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogBody, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -64,9 +64,11 @@ export function ApiKeysSection({ keys }: { keys: ApiKey[] }) {
           <DialogContent size="sm">
             <DialogHeader>
               <DialogTitle>{newKey ? 'API key created' : 'Create API key'}</DialogTitle>
+              {newKey ? <DialogDescription>Copy this key before closing this dialog.</DialogDescription> : null}
             </DialogHeader>
               {newKey ? (<>
               <DialogBody>
+                <InlineNotice tone="warning" className="mb-4">Copy this key now. You won’t see it again.</InlineNotice>
                 <OneTimeSecret label="API key" value={newKey} />
               </DialogBody><DialogFooter><Button variant="primary" onClick={() => { setOpen(false); setNewKey(null) }}>Done</Button></DialogFooter></>) : (
                 <form onSubmit={handleCreate}>

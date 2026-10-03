@@ -11,7 +11,7 @@ export async function POST(request: Request) {
   const [environment] = await db.select().from(environments).where(and(eq(environments.id, body.environmentId), eq(environments.projectId, auth.project.id))).limit(1)
   if (!environment) return Response.json({ error: 'Environment not found.' }, { status: 404 })
   try {
-    const result = await deployServiceFromAutomation(body.serviceId, body.environmentId, body.image, 'manual', auth.key.userId)
+    const result = await deployServiceFromAutomation(body.serviceId, body.environmentId, body.image, 'manual', auth.actor)
     return Response.json({ accepted: true, deploymentId: result.deployment.id }, { status: 202 })
   } catch (error) { return Response.json({ error: error instanceof Error ? error.message : 'Deployment failed.' }, { status: 502 }) }
 }

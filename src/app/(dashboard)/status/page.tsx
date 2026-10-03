@@ -13,6 +13,7 @@ import { TrellisReadError } from '@/components/trellis-read-error'
 import { NodeLink } from '@/components/node-link'
 import { parseNodeAllocatedResources } from '@/lib/trellis-resource-metrics'
 import { PageHeading } from '@/components/page-heading'
+import { StatCell } from '@/components/dashboard-stats-bar'
 import { Panel, PanelHeader } from '@/components/ui/panel'
 import { Chip, Meter, Mono, StatusDot } from '@/components/status'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -104,18 +105,20 @@ export default async function StatusPage() {
     ...row,
     observation: managedProxyObservation(allocations, row.namespace, row.proxy.trellisJobName, row.proxy.configHash),
   }))
-  const drainingNodes = nodes.filter((node) => node.status === 'draining' && (!allocationsAvailable || allocations.some((allocation) => allocation.node_id === node.id && !['stopped', 'failed', 'lost'].includes(allocation.phase)))).length
+  const activeOnNode = (node: TrellisNode) => allocations.filter((allocation) => allocation.node_id === node.id && !['stopped', 'failed', 'lost', 'completed', 'dead'].includes(allocation.phase)).length
+  const drainedNodes = nodes.filter((node) => node.status === 'draining' && allocationsAvailable && activeOnNode(node) === 0).length
+  const drainingNodes = nodes.filter((node) => node.status === 'draining').length - drainedNodes
 
   return (
     <div className="space-y-6">
       <PageHeading title="Status" description="Monitor cluster capacity, placement, restart cooldowns, and managed ingress." />
 
       <Panel aria-label="Cluster status summary">
-        <div className="grid items-center gap-4 p-4 sm:grid-cols-2 lg:grid-cols-[auto_auto_1fr_1fr]">
-          <div><p className="text-xs text-ink-muted">Connection</p><StatusDot status={clusterError ? 'unhealthy' : 'healthy'} /></div>
-          <p className="nums text-sm">{clusterError ? 'Nodes unavailable' : `${nodes.length} nodes · ${drainingNodes} draining`}</p>
-          <div><p className="text-xs text-ink-muted">CPU allocated · {formatCpu(allocatedCpu)} / {formatCpu(totalAllocatableCpu)}</p><Meter value={cpuPct} label="Cluster CPU allocated" /></div>
-          <div><p className="text-xs text-ink-muted">Memory allocated · {formatMemory(allocatedMemory)} / {formatMemory(totalAllocatableMemory)}</p><Meter value={memoryPct} label="Cluster memory allocated" /></div>
+        <div className="grid gap-px bg-line sm:grid-cols-2 lg:grid-cols-4">
+          <StatCell label="Connection" value={clusterError ? 'Unavailable' : 'Connected'} detail={clusterError ? 'Could not reach the cluster' : 'Cluster reachable'} />
+          <StatCell label="Nodes" value={clusterError ? '—' : `${nodes.length}${drainedNodes ? ` · ${drainedNodes} drained` : ''}`} detail={drainingNodes ? `${drainingNodes} draining` : 'No nodes draining'} />
+          <StatCell label="CPU allocated" value={metricsError || clusterError ? '—' : `${cpuPct}%`} detail={`${formatCpu(allocatedCpu)} / ${formatCpu(totalAllocatableCpu)}`} meter={metricsError || clusterError ? undefined : cpuPct} />
+          <StatCell label="Memory allocated" value={metricsError || clusterError ? '—' : `${memoryPct}%`} detail={`${formatMemory(allocatedMemory)} / ${formatMemory(totalAllocatableMemory)}`} meter={metricsError || clusterError ? undefined : memoryPct} />
         </div>
         {clusterError ? <TrellisReadError title="Node data unavailable" message={clusterError} /> : metricsError ? <TrellisReadError title="Capacity data unavailable" message={metricsError} /> : null}
       </Panel>
@@ -159,13 +162,13 @@ export default async function StatusPage() {
       <Panel>
         <PanelHeader title="Nodes" />
         {clusterError ? <TrellisReadError title="Nodes unavailable" message={clusterError} /> : nodes.length === 0 ? <p className="border-t border-line px-4 py-3 text-sm text-ink-muted">No nodes are registered with this cluster.</p> : <Table>
-          <TableHeader><TableRow><TableHead>Node</TableHead><TableHead>Status</TableHead><TableHead>Address</TableHead><TableHead>Software</TableHead><TableHead>System</TableHead><TableHead>Resources</TableHead><TableHead>Capabilities</TableHead>{orgCtx.role === 'owner' ? <TableHead className="w-12 text-right"><span className="sr-only">Actions</span></TableHead> : null}<TableHead className="w-8"><span className="sr-only">Open</span></TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>Node</TableHead><TableHead>Status</TableHead><TableHead>Address</TableHead><TableHead>Software</TableHead><TableHead>System</TableHead><TableHead>Resources</TableHead>{orgCtx.role === 'owner' ? <TableHead className="w-12 text-right"><span className="sr-only">Actions</span></TableHead> : null}<TableHead className="w-8"><span className="sr-only">Open</span></TableHead></TableRow></TableHeader>
           <TableBody>{nodes.map((node) => {
             const allocated = allocatedByNode.get(node.id)
             const allocatable = nodeAllocatable(node)
             const allocatedCpuPct = allocatable.cpu > 0 ? Math.round((allocated?.cpu ?? 0) / allocatable.cpu * 100) : 0
             const allocatedMemoryPct = allocatable.memory > 0 ? Math.round((allocated?.memory ?? 0) / allocatable.memory * 100) : 0
-            const activeCount = allocations.filter((allocation) => allocation.node_id === node.id && !['stopped', 'failed', 'lost'].includes(allocation.phase)).length
+            const activeCount = activeOnNode(node)
             const drained = allocationsAvailable && node.status === 'draining' && activeCount === 0
             return <ClickableTableRow key={node.id} href={`/status/${encodeURIComponent(node.id)}`} label={`View node ${node.id}`}>
               <TableCell><NodeLink id={node.id} name={node.id} /></TableCell>
@@ -173,8 +176,7 @@ export default async function StatusPage() {
               <TableCell><Mono>{node.host}</Mono></TableCell>
               <TableCell><Mono>{node.version || '—'}</Mono></TableCell>
               <TableCell className="whitespace-nowrap text-ink-muted">{node.os || '—'} / {node.arch || '—'}</TableCell>
-              <TableCell>{metricsError ? <span className="text-ink-muted">Unavailable</span> : <div className="grid min-w-48 grid-cols-2 gap-3"><div><Meter value={allocatedCpuPct} label={`${node.id} CPU allocated`} /><span className="text-xs text-ink-muted">{formatCpu(allocated?.cpu ?? 0)} / {formatCpu(allocatable.cpu)}</span></div><div><Meter value={allocatedMemoryPct} label={`${node.id} memory allocated`} /><span className="text-xs text-ink-muted">{formatMemory(allocated?.memory ?? 0)} / {formatMemory(allocatable.memory)}</span></div></div>}</TableCell>
-              <TableCell><span className="text-xs text-ink-muted">{node.capabilities?.join(', ') || 'None reported'}</span></TableCell>
+              <TableCell>{metricsError ? <span className="text-ink-muted">Unavailable</span> : <div className="min-w-48 space-y-3"><div><div className="flex items-center justify-between gap-3"><span className="text-xs text-ink-muted">CPU</span><div className="w-32"><Meter value={allocatedCpuPct} label={`${node.id} CPU allocated`} /></div></div><p className="mt-1 whitespace-nowrap text-xs text-ink-muted">{formatCpu(allocated?.cpu ?? 0)} / {formatCpu(allocatable.cpu)}</p></div><div><div className="flex items-center justify-between gap-3"><span className="text-xs text-ink-muted">Memory</span><div className="w-32"><Meter value={allocatedMemoryPct} label={`${node.id} memory allocated`} /></div></div><p className="mt-1 whitespace-nowrap text-xs text-ink-muted">{formatMemory(allocated?.memory ?? 0)} / {formatMemory(allocatable.memory)}</p></div></div>}</TableCell>
               {orgCtx.role === 'owner' ? <TableCell className="text-right"><DrainToggle nodeId={node.id} drain={node.status === 'draining'} allocationCount={activeCount} /></TableCell> : null}
               <TableCell><ChevronRight className="ml-auto size-4 text-ink-faint" /></TableCell>
             </ClickableTableRow>

@@ -54,11 +54,14 @@ export async function getProjectRole(userId: string, orgRole: 'owner' | 'admin' 
 
 export async function recordAudit(input: {
   orgId: string; userId: string | null; action: string; resourceType: string;
-  resourceId: string; details?: Record<string, unknown>
+  resourceId: string; details?: Record<string, unknown>;
+  actorType?: 'user' | 'system' | 'api_key' | 'webhook'; apiKeyId?: string | null
 }) {
   await db.insert(auditLog).values({
     orgId: input.orgId, userId: input.userId, action: input.action,
     resourceType: input.resourceType, resourceId: input.resourceId,
+    actorType: input.actorType ?? (input.userId ? 'user' : 'system'),
+    apiKeyId: input.apiKeyId ?? null,
     details: input.details ?? {},
   })
 }

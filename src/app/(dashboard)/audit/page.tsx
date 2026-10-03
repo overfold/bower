@@ -36,6 +36,8 @@ export default async function AuditLogPage() {
     details: (e.entry.details ?? {}) as Record<string, unknown>,
     createdAt: e.entry.createdAt,
     userName: e.userName,
+    actorType: e.entry.actorType,
+    apiKeyName: e.apiKeyName,
   }))
 
   return (
