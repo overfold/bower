@@ -6,7 +6,7 @@ import { resolve } from 'node:path'
 import { runInNewContext } from 'node:vm'
 import ts from 'typescript'
 import { createElement, type ReactElement } from 'react'
-import { renderToStaticMarkup } from 'react-dom/server'
+import { renderToReadableStream, renderToStaticMarkup } from 'react-dom/server'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import type { SQL } from 'drizzle-orm'
 import { TrellisApiError } from './trellis'
@@ -551,7 +551,7 @@ test('service header shows the serving release, not an undeployed edit or a fail
     '@/lib/queries': {
       getUserOrganization: async () => context,
       getProjectBySlug: async () => ({ id: 'project' }),
-      getServiceBySlug: async () => ({ id: 'service', slug: 'web' }),
+      getServiceBySlug: async () => ({ id: 'service', projectId: 'project', slug: 'web' }),
       getProjectEnvironment: async () => environment,
       getRoutesByProject: async () => [],
       getDeploymentsByService: async () => [{ ...deployment, environmentId: 'env', jobSpec: { task_groups: [] }, id: 'deployment', createdAt: new Date(), imageAfter: 'app:v2' }],
@@ -565,7 +565,9 @@ test('service header shows the serving release, not an undeployed edit or a fail
   })
   for (const status of ['healthy', 'failed']) {
     deployment.status = status
-    renderToStaticMarkup(await layout.default({ children: createElement('div'), params: Promise.resolve({ slug: 'demo', serviceSlug: 'web' }) }))
+    const stream = await renderToReadableStream(await layout.default({ children: createElement('div'), params: Promise.resolve({ slug: 'demo', serviceSlug: 'web' }) }))
+    await stream.allReady
+    await new Response(stream).text()
   }
   assert.deepEqual(captured, ['app:v2', 'app:v1'])
   assert.deepEqual(logLinks, Array(2).fill('/projects/demo/services/web/allocations/failing'))
