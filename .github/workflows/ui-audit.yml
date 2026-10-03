@@ -35,17 +35,49 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: node --test scripts/ui-audit/reporter.test.mjs
       - run: npx playwright install --with-deps chromium
       - run: npm run db:migrate
       - run: node scripts/ui-audit/seed.mjs
       - run: npm run build
       - name: Capture production UI
         run: npx playwright test --config scripts/ui-audit/playwright.config.mjs
-      - name: Upload screenshots and diagnostics
+      - name: Enforce 30 MB artifact budget
+        id: budget
         if: always()
+        run: |
+          for artifact in desktop narrow diagnostics; do
+            directory="ui-audit-output/$artifact"
+            if [ -d "$directory" ]; then
+              bytes=$(du -sb "$directory" | cut -f1)
+              echo "$artifact: $bytes bytes (maximum 30000000)"
+              if [ "$bytes" -gt 30000000 ]; then
+                echo "::error::$artifact exceeds the 30 MB artifact budget"
+                exit 1
+              fi
+            fi
+          done
+      - name: Upload desktop captures
+        if: always() && steps.budget.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: bower-ui-audit-${{ github.run_number }}
-          path: ui-audit-output/
+          name: bower-ui-audit-desktop-${{ github.run_number }}
+          path: ui-audit-output/desktop/
           if-no-files-found: error
+          retention-days: 14
+      - name: Upload narrow captures
+        if: always() && steps.budget.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: bower-ui-audit-narrow-${{ github.run_number }}
+          path: ui-audit-output/narrow/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload failure diagnostics
+        if: always() && steps.budget.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: bower-ui-audit-diagnostics-${{ github.run_number }}
+          path: ui-audit-output/diagnostics/
+          if-no-files-found: ignore
           retention-days: 14

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { readFile, writeFile, mkdir, readdir } from "node:fs/promises";
+import { readFile, mkdir, readdir } from "node:fs/promises";
 import path from "node:path";
 import postgres from "postgres";
 
@@ -623,49 +623,6 @@ for (const kind of ["api-key", "invitation", "webhook"])
     },
   );
 
-test.afterAll(async () => {
-  const results = await Promise.all(
-    scenarios.map(async (scenario) => {
-      try {
-        return JSON.parse(
-          await readFile(`${output}/results/${scenario.name}.json`, "utf8"),
-        );
-      } catch {
-        return {
-          name: scenario.name,
-          route: scenario.route,
-          status: "missing",
-        };
-      }
-    }),
-  );
-  const inventory = {
-    expected: scenarios.length,
-    captured: results.filter((r) => r.status === "captured").length,
-    scenarios: results,
-  };
-  await writeFile(
-    `${output}/captures.json`,
-    JSON.stringify(inventory, null, 2),
-  );
-  const escape = (s) =>
-    String(s).replace(
-      /[&<>"']/g,
-      (c) =>
-        ({
-          "&": "&amp;",
-          "<": "&lt;",
-          ">": "&gt;",
-          '"': "&quot;",
-          "'": "&#39;",
-        })[c],
-    );
-  await writeFile(
-    `${output}/index.html`,
-    `<!doctype html><meta charset="utf-8"><title>Bower UI audit</title><style>body{font:15px system-ui;background:#f4f4f1;margin:32px}main{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px}article{background:white;padding:16px}img{width:100%;height:280px;object-fit:contain}code{overflow-wrap:anywhere}input{padding:10px;width:300px}</style><h1>Bower production UI audit</h1><p>${inventory.captured} / ${inventory.expected} captures · fake connected cluster only · 2× Chromium screenshots</p><p>Open a PNG for full resolution. Failed scenarios are retained below. Destructive dialogs are not confirmed.</p><input placeholder="Filter screens" oninput="document.querySelectorAll('article').forEach(e=>e.hidden=!e.textContent.toLowerCase().includes(this.value.toLowerCase()))"><main>${results.map((r) => `<article><h2>${escape(r.name)}</h2><code>${escape(r.route)}</code><p>${escape(r.status)}</p>${r.status === "captured" ? `<a href="screenshots/${escape(r.name)}.png"><img loading="lazy" src="screenshots/${escape(r.name)}.png" alt="${escape(r.name)}"></a>` : `<p>${escape(r.error)}</p>`}</article>`).join("")}</main>`,
-  );
-});
-
 test("every UI page route is represented", async () => {
   async function routes(dir, parts = []) {
     const found = [];
@@ -695,83 +652,71 @@ test("every UI page route is represented", async () => {
   );
 });
 for (const scenario of scenarios)
-  test(scenario.name, async ({ page, context }) => {
+  test(scenario.name, {
+    annotation: {
+      type: "capture",
+      description: JSON.stringify({
+        route: scenario.route,
+        layout: scenario.narrow ? "narrow" : "desktop",
+      }),
+    },
+  }, async ({ page, context }) => {
     const browserErrors = [];
     page.on("pageerror", (error) => browserErrors.push(error.message));
-    await mkdir(`${output}/screenshots`, { recursive: true });
-    await mkdir(`${output}/results`, { recursive: true });
-    try {
-      if (scenario.narrow)
-        await page.setViewportSize({ width: 390, height: 844 });
-      if (scenario.dark) await page.emulateMedia({ colorScheme: "dark" });
-      if (!scenario.public) {
-        await context.addCookies([
-          ...authCookies,
-          {
-            name: "bower_org",
-            value: fixture.orgId,
-            url: baseURL,
-          },
-        ]);
-      }
-      await page.goto(scenario.route);
-      const expectedPath =
-        scenario.name === "root"
-          ? "/projects"
-          : scenario.name === "settings-redirect"
-            ? "/settings/instance"
-            : scenario.name === "invitation-login-redirect"
-              ? "/login"
-              : ["access", "integrations", "volumes"].some((section) => scenario.route === `${project}/${section}`)
-                ? `${project}/settings`
-                : scenario.route.split("?")[0];
-      await expect(page).toHaveURL((url) => url.pathname === expectedPath);
-      await expect(page.locator("body")).not.toContainText(
-        "Application error:",
-      );
-      await expect(page.locator("body")).not.toContainText(
-        "Trellis is unavailable.",
-      );
-      if (!scenario.public) await expect(page).not.toHaveURL(/\/login/);
-      await expect(page.locator('[aria-busy="true"][aria-label^="Loading"]')).toHaveCount(0);
-      if (scenario.ready)
-        await expect(page.locator("body")).toContainText(scenario.ready);
-      if (scenario.setup) await scenario.setup(page);
-      await page.evaluate(() => document.fonts.ready);
-      if (!scenario.setup || scenario.fullPage) {
-        await page.evaluate(() => window.scrollTo(0, 0));
-        await page.evaluate(
-          () =>
-            new Promise((resolve) =>
-              requestAnimationFrame(() => requestAnimationFrame(resolve)),
-            ),
-        );
-      }
-      await page.screenshot({
-        path: `${output}/screenshots/${scenario.name}.png`,
-        fullPage: !scenario.setup || scenario.fullPage,
-        animations: "disabled",
-      });
-      await expect(page.getByRole("heading", { name: "Page unavailable", exact: true })).toHaveCount(0);
-      expect(browserErrors, "No client runtime errors").toEqual([]);
-      await writeFile(
-        `${output}/results/${scenario.name}.json`,
-        JSON.stringify({
-          name: scenario.name,
-          route: scenario.route,
-          status: "captured",
-        }),
-      );
-    } catch (error) {
-      await writeFile(
-        `${output}/results/${scenario.name}.json`,
-        JSON.stringify({
-          name: scenario.name,
-          route: scenario.route,
-          status: "failed",
-          error: error.message,
-        }),
-      );
-      throw error;
+    const screenshots = `${output}/${scenario.narrow ? "narrow" : "desktop"}/screenshots`;
+    await mkdir(screenshots, { recursive: true });
+    if (scenario.narrow)
+      await page.setViewportSize({ width: 390, height: 844 });
+    if (scenario.dark) await page.emulateMedia({ colorScheme: "dark" });
+    if (!scenario.public) {
+      await context.addCookies([
+        ...authCookies,
+        {
+          name: "bower_org",
+          value: fixture.orgId,
+          url: baseURL,
+        },
+      ]);
     }
+    await page.goto(scenario.route);
+    const expectedPath =
+      scenario.name === "root"
+        ? "/projects"
+        : scenario.name === "settings-redirect"
+          ? "/settings/instance"
+          : scenario.name === "invitation-login-redirect"
+            ? "/login"
+            : ["access", "integrations", "volumes"].some((section) => scenario.route === `${project}/${section}`)
+              ? `${project}/settings`
+              : scenario.route.split("?")[0];
+    await expect(page).toHaveURL((url) => url.pathname === expectedPath);
+    await expect(page.locator("body")).not.toContainText(
+      "Application error:",
+    );
+    await expect(page.locator("body")).not.toContainText(
+      "Trellis is unavailable.",
+    );
+    if (!scenario.public) await expect(page).not.toHaveURL(/\/login/);
+    await expect(page.locator('[aria-busy="true"][aria-label^="Loading"]')).toHaveCount(0);
+    if (scenario.ready)
+      await expect(page.locator("body")).toContainText(scenario.ready);
+    if (scenario.setup) await scenario.setup(page);
+    await page.evaluate(() => document.fonts.ready);
+    if (!scenario.setup || scenario.fullPage) {
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.evaluate(
+        () =>
+          new Promise((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(resolve)),
+          ),
+      );
+    }
+    await page.screenshot({
+      path: `${screenshots}/${scenario.name}.png`,
+      fullPage: !scenario.setup || scenario.fullPage,
+      scale: "css",
+      animations: "disabled",
+    });
+    await expect(page.getByRole("heading", { name: "Page unavailable", exact: true })).toHaveCount(0);
+    expect(browserErrors, "No client runtime errors").toEqual([]);
   });

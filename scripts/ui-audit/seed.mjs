@@ -188,7 +188,7 @@ try {
   });
   // Clear only the harness-owned capture directories, so stale images cannot
   // make a failed scenario appear covered on a subsequent run.
-  for (const dir of ["screenshots", "results", "diagnostics"])
+  for (const dir of ["desktop", "narrow", "diagnostics", "screenshots", "results", "captures.json", "index.html"])
     await rm(`${output}/${dir}`, { recursive: true, force: true });
   await mkdir(output, { recursive: true });
   await writeFile(`${output}/fixture.json`, JSON.stringify(fixture, null, 2));

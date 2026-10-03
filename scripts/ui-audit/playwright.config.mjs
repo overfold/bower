@@ -15,11 +15,11 @@ export default defineConfig({
     process.env.UI_AUDIT_OUTPUT || "ui-audit-output",
     "diagnostics",
   ),
-  reporter: [["list"]],
+  reporter: [["list"], ["./reporter.mjs"]],
   use: {
     baseURL: process.env.UI_AUDIT_BASE_URL || "http://127.0.0.1:3100",
     viewport: { width: 1440, height: 1000 },
-    deviceScaleFactor: 2,
+    deviceScaleFactor: 1,
     timezoneId: "Europe/Madrid",
     locale: "en-GB",
     screenshot: "only-on-failure",
