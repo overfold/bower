@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { notificationChannels } from '@/db/schema'
+import { postNotification } from './notification-outbound'
 
 export async function sendDeploymentNotifications(projectId: string, payload: Record<string, unknown>) {
   const channels = await db.select().from(notificationChannels).where(eq(notificationChannels.projectId, projectId))
@@ -12,7 +13,7 @@ export async function sendDeploymentNotifications(projectId: string, payload: Re
       : channel.type === 'discord'
         ? { content: `Bower deployment **${payload.status}**`, embeds: [{ fields: Object.entries(payload).map(([name, value]) => ({ name, value: String(value), inline: true })) }] }
         : payload
-    const response = await fetch(config.url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(10_000) })
-    if (!response.ok) throw new Error(`Notification ${channel.name} returned ${response.status}.`)
+    const status = await postNotification(config.url, body)
+    if (status < 200 || status >= 300) throw new Error(`Notification ${channel.name} returned ${status}.`)
   }))
 }

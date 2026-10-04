@@ -3,6 +3,8 @@ import { eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { webhookEndpoints } from '@/db/schema'
 import { deployServiceFromAutomation } from '@/lib/actions/services'
+import { BODY_LIMITS, readRequestBody, requestBodyErrorResponse } from '@/lib/request-body'
+import { tagMatchesFilter } from '@/lib/webhook-filter'
 
 function imageFromPayload(provider: string, payload: Record<string, unknown>) {
   if (provider === 'docker_hub') {
@@ -18,17 +20,21 @@ function imageFromPayload(provider: string, payload: Record<string, unknown>) {
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ token: string }> }) {
-  const { token } = await params; const raw = await request.text(); const tokenHash = createHash('sha256').update(token).digest('hex')
+  const { token } = await params; const tokenHash = createHash('sha256').update(token).digest('hex')
   const [hook] = await db.select().from(webhookEndpoints).where(eq(webhookEndpoints.tokenHash, tokenHash)).limit(1)
   if (!hook?.isActive) return Response.json({ error: 'Webhook not found.' }, { status: 404 })
   const supplied = (request.headers.get('x-bower-signature') || request.headers.get('x-hub-signature-256') || '').replace(/^sha256=/, '')
+  if (!/^[0-9a-f]{64}$/i.test(supplied)) return Response.json({ error: 'Invalid signature.' }, { status: 401 })
+  let raw: Buffer
+  try { raw = await readRequestBody(request, BODY_LIMITS.webhook) } catch (error) { return requestBodyErrorResponse(error) }
   const expected = createHmac('sha256', token).update(raw).digest('hex')
-  if (supplied.length !== expected.length || !timingSafeEqual(Buffer.from(supplied), Buffer.from(expected))) return Response.json({ error: 'Invalid signature.' }, { status: 401 })
-  let payload: Record<string, unknown>; try { payload = JSON.parse(raw) as Record<string, unknown> } catch { return Response.json({ error: 'Invalid JSON.' }, { status: 400 }) }
+  if (!timingSafeEqual(Buffer.from(supplied, 'hex'), Buffer.from(expected, 'hex'))) return Response.json({ error: 'Invalid signature.' }, { status: 401 })
+  let payload: Record<string, unknown>; try { payload = JSON.parse(raw.toString('utf8')) as Record<string, unknown> } catch { return Response.json({ error: 'Invalid JSON.' }, { status: 400 }) }
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return Response.json({ error: 'Invalid JSON payload.' }, { status: 400 })
   const image = imageFromPayload(hook.provider, payload); if (!image) return Response.json({ error: 'No image was found in the payload.' }, { status: 422 })
   const tag = image.includes(':') ? image.slice(image.lastIndexOf(':') + 1) : ''; const digest = image.includes('@sha256:')
   if (hook.deployMode === 'digest' && !digest) return Response.json({ ignored: true, reason: 'digest required' })
-  if (hook.deployMode === 'tag' && (!tag || (hook.tagFilter && !new RegExp(hook.tagFilter).test(tag)))) return Response.json({ ignored: true, reason: 'tag did not match' })
+  if (hook.deployMode === 'tag' && (!tag || (hook.tagFilter && !tagMatchesFilter(hook.tagFilter, tag)))) return Response.json({ ignored: true, reason: 'tag did not match' })
   try {
     const result = await deployServiceFromAutomation(hook.serviceId, hook.environmentId, image, 'webhook', { actorType: 'webhook' })
     return Response.json({ accepted: true, deploymentId: result.deployment.id }, { status: 202 })

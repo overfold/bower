@@ -1,14 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyPassword } from '@/lib/auth'
+import { PasswordWorkBusyError, verifyPassword } from '@/lib/auth'
 import { createPasswordRouteHandoff, getProtectedRoute, routeMatchesUrl } from '@/lib/route-auth'
+import { consumeAuthAttempt } from '@/lib/auth-abuse'
+import { BODY_LIMITS, readRequestBody, requestBodyErrorResponse } from '@/lib/request-body'
 
 export async function POST(request: NextRequest) {
-  const formData = await request.formData()
+  let formData: FormData
+  try {
+    const raw = await readRequestBody(request, BODY_LIMITS.password)
+    formData = await new Request(request.url, { method: 'POST', headers: { 'content-type': request.headers.get('content-type') || '' }, body: new Uint8Array(raw) }).formData()
+  } catch (error) { return requestBodyErrorResponse(error) }
   const routeId = formData.get('route')
   const returnTo = formData.get('returnTo')
   const password = formData.get('password')
   if (typeof routeId !== 'string' || typeof returnTo !== 'string' || typeof password !== 'string') {
     return new NextResponse('Missing route password parameters.', { status: 400 })
+  }
+
+  if (!await consumeAuthAttempt(request.headers, `route-password:${routeId}`)) {
+    return new NextResponse('Too many attempts. Try again later.', { status: 429, headers: { 'Retry-After': '60' } })
   }
 
   const route = await getProtectedRoute(routeId)
@@ -22,7 +32,12 @@ export async function POST(request: NextRequest) {
     return new NextResponse('Route not found.', { status: 404 })
   }
 
-  if (!await verifyPassword(password, route.passwordHash)) {
+  let verified: boolean
+  try { verified = await verifyPassword(password, route.passwordHash) } catch (error) {
+    if (error instanceof PasswordWorkBusyError) return new NextResponse('Too many attempts. Try again later.', { status: 429, headers: { 'Retry-After': '60' } })
+    throw error
+  }
+  if (!verified) {
     const retry = new URL('/route-auth/password', request.url)
     retry.searchParams.set('route', routeId)
     retry.searchParams.set('returnTo', target.toString())

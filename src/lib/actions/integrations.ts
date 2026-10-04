@@ -5,6 +5,8 @@ import { and, eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/db'
 import { environments, notificationChannels, services, webhookEndpoints } from '@/db/schema'
+import { compileTagFilter } from '@/lib/webhook-filter'
+import { validateNotificationUrl } from '@/lib/notification-outbound'
 import { recordAudit, requireProject } from './shared'
 
 export type WebhookCreationState = { error?: string; token?: string }
@@ -16,7 +18,7 @@ export async function createWebhookAction(projectId: string, _state: WebhookCrea
   const [environment] = await db.select().from(environments).where(and(eq(environments.id, environmentId), eq(environments.projectId, projectId))).limit(1)
   if (!service || !environment) return { error: 'Choose a valid service and environment.' }
   const tagFilter = String(formData.get('tagFilter') ?? '').trim() || null
-  if (tagFilter) { try { new RegExp(tagFilter) } catch { return { error: 'Tag filter must be a valid regular expression.' } } }
+  if (tagFilter) { try { compileTagFilter(tagFilter) } catch { return { error: 'Tag filter must be an RE2-compatible expression of at most 512 characters (no lookaround or backreferences).' } } }
   const token = randomBytes(32).toString('base64url'); const tokenHash = createHash('sha256').update(token).digest('hex')
   const [hook] = await db.insert(webhookEndpoints).values({ serviceId, environmentId, tokenHash, tokenPrefix: token.slice(0, 8), signatureSecretHash: tokenHash, provider: String(formData.get('provider') ?? 'generic') as 'generic' | 'docker_hub' | 'ghcr', deployMode: String(formData.get('deployMode') ?? 'any_push') as 'any_push' | 'tag' | 'digest', tagFilter }).returning()
   await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'webhook.created', resourceType: 'webhook', resourceId: hook.id, details: { serviceId, environmentId, provider: hook.provider } })
@@ -32,7 +34,8 @@ export async function deleteWebhookAction(projectId: string, id: string) {
 export async function createNotificationChannelAction(projectId: string, formData: FormData) {
   const ctx = await requireProject(projectId); if (ctx.projectRole !== 'admin') throw new Error('Insufficient permissions.')
   const name = String(formData.get('name') ?? '').trim(); const url = String(formData.get('url') ?? '').trim()
-  if (!name || !URL.canParse(url) || !url.startsWith('https://')) throw new Error('A name and HTTPS endpoint are required.')
+  if (!name) throw new Error('A name and HTTPS endpoint are required.')
+  validateNotificationUrl(url)
   const [channel] = await db.insert(notificationChannels).values({ projectId, name, type: String(formData.get('type') ?? 'http') as 'slack' | 'discord' | 'http', config: { url } }).returning()
   await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'notification.created', resourceType: 'notification', resourceId: channel.id, details: { name, type: channel.type } }); revalidatePath(`/projects/${ctx.project.slug}/settings`)
 }
