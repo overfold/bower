@@ -1,6 +1,8 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/overfold/trellis/main/schemas/trellis-job.schema.json
 #
 # Quick-start Bower deployment for a single-node Trellis cluster.
+# Download this file, edit the settings below, then apply the local file.
+# Set BOWER_PUBLIC_URL for HTTPS; point its DNS at this node and allow 80/443.
 # Bower reconciles a separate platform/bower-ingress job on ports 80/443.
 # Port 3000 remains published for ingress discovery and troubleshooting.
 # The bundled Postgres allocation is intentionally colocated only by virtue of
@@ -21,6 +23,7 @@ task_groups:
           memory: 256MiB
         env:
           POSTGRES_USER: bower
+          # Change this example password and match it in DATABASE_URL below.
           POSTGRES_PASSWORD: bower
           POSTGRES_DB: bower
         volumes:
@@ -51,6 +54,10 @@ task_groups:
           memory: 512MiB
         env:
           NODE_ENV: production
+          # Uncomment and replace with your dashboard's public origin.
+          # Leave commented for HTTP-only setup at http://<node-ip>.
+          # BOWER_PUBLIC_URL: https://bower.example.com
+          # Match the database password above; URL-encode it in this URL.
           DATABASE_URL: postgres://bower:bower@db.bower.platform.trellis:5432/bower
           BOWER_PROXY_NAMESPACE: platform
           BOWER_RECONCILE_INTERVAL: "5"

@@ -22,32 +22,43 @@ Bower is an opinionated deployment dashboard built on top of [Trellis](https://g
 
 ### On Trellis
 
-Bower includes a root [`trellis.yml`](trellis.yml), so a recent `trellisctl` can fetch the manifest directly from this repository and apply it without cloning Bower.
+Bower includes a root [`trellis.yml`](trellis.yml). Download it and edit the deployment settings before applying it; no clone is required.
 
-The quick-start manifest includes a bundled Postgres container, uses host networking, and is intended for a single-node Trellis cluster. For a multi-node or production deployment, use an external Postgres instance and adjust `DATABASE_URL` instead. The bundled database persists across container crashes, but its node-local data is not a substitute for a production database backup/HA strategy.
+The quick-start manifest includes a bundled Postgres container, uses private namespace networking for Bower and Postgres, and is intended for a single-node Trellis cluster. Shared ingress uses host networking on ports 80/443. For a multi-node or production deployment, use an external Postgres instance and adjust `DATABASE_URL` instead. The bundled database persists across container crashes, but its node-local data is not a substitute for a production database backup/HA strategy.
 
-#### 1. Set the encryption key secret
+#### 1. Download and configure the manifest
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/overfold/bower/main/trellis.yml -o bower.yml
+# Open bower.yml in your editor before applying it.
+```
+
+Review these common settings:
+
+- **Dashboard URL:** uncomment `BOWER_PUBLIC_URL` in the web task's `env` block and set it to your public origin, for example `https://bower.example.com`. Point the hostname's DNS A record at the ingress node, ensure any AAAA record reaches that node too, and allow inbound TCP ports 80/443. Caddy obtains the HTTPS certificate automatically. Leaving this setting commented out gives HTTP-only setup at `http://<node-ip>`; it does not enable HTTPS for the domain or bare IP.
+- **Database credentials:** replace the example `POSTGRES_PASSWORD` and update the password in `DATABASE_URL` to match (URL-encode it in the connection string). For an external database, remove the `db` task group and set `DATABASE_URL` to its connection string. Changing these values does not change credentials in an already initialized Postgres data directory.
+- **Images and resources:** the manifest uses `latest` Bower/proxy images and small CPU/memory allocations. Pin image versions and adjust resources as needed.
+
+Keep the `platform` namespace for the quick start. If you change it, also update the database DNS hostname, `BOWER_PROXY_NAMESPACE`, and the namespace used for the encryption secret and apply commands. See the [configuration reference](docs/configuration.md) for additional settings.
+
+#### 2. Set the encryption key secret
 
 ```bash
 # Generate a stable 32-byte key and store it — it must be identical across all Bower instances.
 openssl rand -hex 32 | trellisctl --namespace platform secrets set encryption-key --stdin
 ```
 
-#### 2. Apply Bower from GitHub
+Generate this secret once; keep the existing key when updating an installation.
+
+#### 3. Apply the edited manifest
 
 ```bash
-trellisctl --namespace platform jobs apply github.com/overfold/bower --wait
+trellisctl --namespace platform jobs apply ./bower.yml --wait
 ```
 
-`trellisctl` resolves the repository's `trellis.yml`, validates it locally, and applies the resulting Trellis job through the normal plan/apply path. The checked-in quick-start manifest uses the current `latest` Bower and proxy images.
+`trellisctl` validates the local manifest and applies it through the normal plan/apply path. Keep this edited file for subsequent updates; applying directly from GitHub would use the repository's defaults rather than your settings.
 
-If you already have the repository checked out, the equivalent local command is:
-
-```bash
-trellisctl --namespace platform jobs apply ./trellis.yml --wait
-```
-
-#### 3. Finish setup
+#### 4. Finish setup
 
 On first startup Bower creates a default organization backed by the allocation's Trellis workload identity (injected via `api_access`) and prints a single-use instance admin token to the container logs. Retrieve it with:
 
@@ -55,7 +66,7 @@ On first startup Bower creates a default organization backed by the allocation's
 trellisctl --namespace platform jobs logs bower --tail 50
 ```
 
-Look for the `Bower — First Run Setup` banner containing the token. Open Bower at `http://<node-ip>` and use the token to create the first account. Bower creates a shared `platform/bower-ingress` job on startup; it owns ports 80/443 and serves both the dashboard and application routes across namespaces. Allow a short delay for ingress to become healthy. Port 3000 remains available for troubleshooting. The Trellis connection is already configured — no manual cluster setup required. Bower resolves the address, token, and cluster CA from each running allocation rather than storing them in Postgres. When Trellis replaces an allocation generation, the replacement therefore uses its newly injected token; multiple Bower replicas likewise use their own credentials.
+Look for the `Bower — First Run Setup` banner containing the invitation link. Open that link using your configured `BOWER_PUBLIC_URL` (or `http://<node-ip>` for HTTP-only setup) to create the first account. Bower creates a shared `platform/bower-ingress` job on startup; it owns ports 80/443 and serves both the dashboard and application routes across namespaces. Allow a short delay for ingress to become healthy and, for HTTPS, for certificate issuance. Port 3000 remains available for troubleshooting. The Trellis connection is already configured — no manual cluster setup required. Bower resolves the address, token, and cluster CA from each running allocation rather than storing them in Postgres. When Trellis replaces an allocation generation, the replacement therefore uses its newly injected token; multiple Bower replicas likewise use their own credentials.
 
 For Bower-account-protected application routes, also configure `BOWER_PUBLIC_URL` and `BOWER_ROUTE_AUTH_SECRET`; see the [configuration reference](docs/configuration.md).
 
@@ -99,6 +110,8 @@ On first startup the dev server prints a single-use instance administrator invit
 ### Migrations
 
 Both setup paths set `AUTO_MIGRATE=true`, which applies pending Drizzle migrations automatically on startup before the app begins serving traffic. No manual step is needed.
+
+Startup migrations retry transient DNS/connection failures and PostgreSQL-not-ready errors up to ten attempts, with a two-second delay between attempts and a five-second connection timeout per attempt. Authentication, SQL, and other non-transient errors fail immediately. Persistent connection failures still fail startup after the retry budget is exhausted.
 
 To run migrations manually instead, unset `AUTO_MIGRATE` and use `npm run db:migrate` with the appropriate `DATABASE_URL`:
 
