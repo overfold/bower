@@ -13,10 +13,10 @@ function allocationUpstream(allocation, containerPort) {
   const endpoint = endpoints.find((item) => item.task === allocation.job)
   if (endpoints.length > 0) {
     if (!endpoint) return null
-    const mapping = endpoint.ports?.find((item) => item.container_port === containerPort)
     // Namespace endpoints are private task addresses. Published host ports
     // apply to node addresses, not to these directly reachable endpoints.
-    return endpoint.address && mapping ? `${endpoint.address}:${mapping.container_port}` : null
+    // Bower service jobs do not declare published ports; use the route port.
+    return endpoint.address ? `${endpoint.address}:${containerPort}` : null
   }
 
   // Compatibility for allocations written before task endpoints were added.
