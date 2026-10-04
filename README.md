@@ -134,3 +134,4 @@ When `AUTO_MIGRATE=true` is set, the container applies pending migrations on sta
 - [Deployment strategies](docs/deployment-strategies.md) — rolling, recreate, blue-green, canary, and auto-rollback
 - [Managed ingress](docs/managed-ingress.md) — how the per-namespace Caddy proxy works
 - [CI/CD automation](docs/automation.md) — deploy API and registry webhooks
+- [Design system](docs/design-system/README.md) — UI principles, tokens, components, patterns, and audit records
