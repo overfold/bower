@@ -11,7 +11,7 @@ export default async function AuditLogPage() {
   const user = await getCurrentUser()
   if (!user) redirect('/login')
   const orgCtx = await getUserOrganization(user.id)
-  if (!orgCtx) redirect('/login')
+  if (!orgCtx) redirect('/no-organization')
 
   // eslint-disable-next-line react-hooks/purity
   const requestTime = Date.now()

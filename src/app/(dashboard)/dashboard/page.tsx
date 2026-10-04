@@ -56,7 +56,7 @@ export default async function DashboardPage() {
   if (!user) redirect('/login')
 
   const orgCtx = await getUserOrganization(user.id)
-  if (!orgCtx) redirect('/login')
+  if (!orgCtx) redirect('/no-organization')
 
   const [projectList, orgServices, allDeployments, auditEntries, targets] = await Promise.all([
     getProjectsForUser(orgCtx.org.id, user.id, orgCtx.role),

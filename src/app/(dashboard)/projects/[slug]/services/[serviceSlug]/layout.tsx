@@ -20,7 +20,7 @@ export default async function ServiceLayout({ children, params }: {
   const user = await getCurrentUser()
   if (!user) redirect('/login')
   const org = await getUserOrganization(user.id)
-  if (!org) redirect('/login')
+  if (!org) redirect('/no-organization')
   const project = await getProjectBySlug(org.org.id, slug)
   if (!project) notFound()
   const role = await getProjectRole(user.id, org.role, project.id)

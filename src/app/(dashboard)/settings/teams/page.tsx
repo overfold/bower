@@ -18,7 +18,7 @@ export default async function TeamsPage() {
   const cookieStore = await cookies()
   const preferredOrgId = cookieStore.get(ORG_COOKIE_NAME)?.value ?? null
   const orgCtx = await getUserOrganization(user.id, preferredOrgId)
-  if (!orgCtx) redirect('/login')
+  if (!orgCtx) redirect('/no-organization')
 
   const teams = await getTeamsByOrg(orgCtx.org.id)
 

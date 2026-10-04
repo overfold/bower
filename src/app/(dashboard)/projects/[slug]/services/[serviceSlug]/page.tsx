@@ -30,7 +30,7 @@ export default async function ServiceDetailPage({
   const user = await getCurrentUser()
   if (!user) redirect('/login')
   const orgCtx = await getUserOrganization(user.id)
-  if (!orgCtx) redirect('/login')
+  if (!orgCtx) redirect('/no-organization')
   const project = await getProjectBySlug(orgCtx.org.id, slug)
   if (!project) notFound()
   if (!await getProjectRole(user.id, orgCtx.role, project.id)) notFound()

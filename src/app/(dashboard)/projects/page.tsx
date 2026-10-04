@@ -16,7 +16,7 @@ export default async function ProjectsPage() {
   if (!user) redirect('/login')
 
   const orgCtx = await getUserOrganization(user.id)
-  if (!orgCtx) redirect('/login')
+  if (!orgCtx) redirect('/no-organization')
 
   const clusterConfigured = hasTrellisConnection(orgCtx.org)
   const projectList = await getProjectsForUser(orgCtx.org.id, user.id, orgCtx.role)

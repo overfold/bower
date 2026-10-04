@@ -39,7 +39,7 @@ export default async function StatusPage() {
   const user = await getCurrentUser()
   if (!user) redirect('/login')
   const orgCtx = await getUserOrganization(user.id)
-  if (!orgCtx) redirect('/login')
+  if (!orgCtx) redirect('/no-organization')
 
   const [proxies, routeCounts, targets] = await Promise.all([
     getManagedProxiesForOrg(orgCtx.org.id),
