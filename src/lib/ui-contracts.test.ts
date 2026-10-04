@@ -180,7 +180,7 @@ test('toasts cap the visible stack, skip the exit under reduced motion, and clea
 test('toasts render in sibling polite and assertive regions with no nested live roles', () => {
   const toast = (tone: ToastEntry['tone'], title: string, description?: string): ToastEntry => ({ id: title, tone, title, description, closing: false })
   const empty = renderToStaticMarkup(createElement(ToastViewport, { toasts: [], onDismiss() {} }))
-  assert.match(empty, /^<section aria-label="Notifications"[^>]*><div aria-live="polite"[^>]*><\/div><div aria-live="assertive"[^>]*><\/div><\/section>$/)
+  assert.match(empty, /^<section aria-label="Status messages"[^>]*><div aria-live="polite"[^>]*><\/div><div aria-live="assertive"[^>]*><\/div><\/section>$/)
 
   const html = renderToStaticMarkup(createElement(ToastViewport, {
     toasts: [toast('success', 'Logs copied'), toast('danger', 'Could not roll back', 'The rollback could not be started.'), toast('info', 'Rollback started')],
@@ -258,4 +258,24 @@ test('page banner actions render beside the text, not inside the sentence', () =
   assert.match(after, /^<div class="flex shrink-0[^"]*"><button type="button">Retry connection<\/button><\/div>/)
   // The text and action share a row that stacks on narrow screens.
   assert.match(html, /flex-col[^"]*sm:flex-row[^"]*"><div class="min-w-0">/)
+})
+
+test('the notifications button names its unread count and caps the visible badge', async () => {
+  process.env.DATABASE_URL ??= 'postgres://test:test@localhost:5432/test'
+  const { NotificationsMenu } = await import('../components/notifications-menu')
+  const feed = (unreadCount: number) => ({ items: [], unreadCount, lastSeenAt: '2026-10-04T08:00:00.000Z' })
+
+  const read = renderToStaticMarkup(createElement(NotificationsMenu, { initial: feed(0) }))
+  assert.match(read, /aria-label="Notifications"/)
+  assert.match(read, /aria-haspopup="menu"/)
+  assert.ok(!read.includes('bg-brand-500'), 'no badge without unread items')
+
+  const some = renderToStaticMarkup(createElement(NotificationsMenu, { initial: feed(3) }))
+  assert.match(some, /aria-label="Notifications, 3 unread"/)
+  assert.match(some, /<span aria-hidden="true"[^>]*>3<\/span>/)
+
+  const many = renderToStaticMarkup(createElement(NotificationsMenu, { initial: feed(12) }))
+  assert.match(many, /aria-label="Notifications, 12 unread"/)
+  assert.match(many, />9\+<\/span>/)
+  assert.match(many, /focus-visible:ring-2/)
 })

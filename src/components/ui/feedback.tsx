@@ -172,7 +172,7 @@ export function ToastViewport({ toasts, onDismiss, onPauseChange }: { toasts: To
   return (
     <section
       ref={ref}
-      aria-label="Notifications"
+      aria-label="Status messages"
       className="pointer-events-none fixed bottom-4 right-4 z-[100] flex w-[calc(100%-2rem)] max-w-[22rem] flex-col items-end"
       onPointerEnter={() => { hovered.current = true; sync() }}
       onPointerLeave={() => { hovered.current = false; sync() }}

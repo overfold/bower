@@ -1,6 +1,6 @@
 # Navigation
 
-Sources: `src/components/sidebar.tsx`, `mobile-drawer.tsx`, `header-bar.tsx`, `org-team-picker.tsx`, `project-tabs.tsx`, `src/app/(dashboard)/projects/[slug]/services/[serviceSlug]/service-tabs.tsx`, `src/components/ui/tabs.tsx`, `src/components/ui/sub-nav.tsx`, `src/components/settings-anchor-nav.tsx`, `src/lib/breadcrumbs.ts`.
+Sources: `src/components/sidebar.tsx`, `mobile-drawer.tsx`, `header-bar.tsx`, `org-team-picker.tsx`, `notifications-menu.tsx`, `project-tabs.tsx`, `src/app/(dashboard)/projects/[slug]/services/[serviceSlug]/service-tabs.tsx`, `src/components/ui/tabs.tsx`, `src/components/ui/sub-nav.tsx`, `src/components/settings-anchor-nav.tsx`, `src/lib/breadcrumbs.ts`.
 
 For what goes where (the IA), see [Information architecture](../patterns/information-architecture.md).
 
@@ -30,7 +30,7 @@ There is **no** global cluster-health indicator or connection footer in the side
 
 ## Header bar and breadcrumbs
 
-The sticky header, `h-14`. From left to right: the mobile drawer button, the **organization picker**, the **breadcrumbs**, then the **Search ⌘K** button.
+The sticky header, `h-14`. From left to right: the mobile drawer button, the **organization picker**, the **breadcrumbs**, the **Search ⌘K** button, then the **notifications** bell.
 
 ### Organization picker
 
@@ -53,6 +53,18 @@ The sticky header, `h-14`. From left to right: the mobile drawer button, the **o
 ### Search button
 
 A `surface` button with a `line` border showing "Search" and a `⌘K` key hint (from `md`). It opens the [command palette](overlays.md#command-palette).
+
+### Notifications menu
+
+`NotificationsMenu` is a bell `IconButton` with the Search button's border and size, opening a `DropdownMenu` aligned to its end. It answers "what happened to deployments while I was elsewhere?" It is not a channel for the results of your own clicks (see [Notices and toasts](status-and-feedback.md#notices-and-toasts)).
+
+- **What it lists:** deployment outcomes from the current organization. That means failures in any project the viewer can access, whoever triggered them, plus the successes and failures of deployments the viewer triggered. Each deployment appears once, newest first, at most 20, from the last 14 days. In-progress and rolled-back deployments are not listed. Access is filtered on the server (`src/lib/deployment-notifications.ts`).
+- **Unread badge:** a `brand-500` count pill on the bell, capped at "9+", hidden at 0. The button's accessible name carries the exact count ("Notifications, 3 unread"), so the badge itself is `aria-hidden`.
+- **Rows:** each row is a `DropdownMenuItem` link to the deployment. It shows the service (title), project and environment (plain muted text), a `DeploymentStatus` chip, and a relative `Time`. "Your deploy" marks deployments the viewer triggered. Unread rows add a leading dot, a semibold title, and a visually hidden "Unread:" prefix, so they never rely on color alone.
+- **Read state:** opening the menu marks everything it loaded as read. The server stores one last-seen time per user and organization. Unread markers stay visible until the menu closes. A user's first visit starts with nothing unread.
+- **States:** `EmptyState` ("No deployment activity yet") when there's nothing. A quiet muted "Couldn't load notifications." with **Try again** when the first load fails, and a one-line "Couldn't refresh. Showing earlier results." when a background refresh fails.
+- **Freshness:** the layout renders the first feed. The client refreshes from `/api/notifications` every 60 seconds while the tab is visible, and again when the window regains focus or the tab becomes visible. There are no WebSockets.
+- The footer link "View all deployments" goes to the organization's Deployments page.
 
 ## Page tabs
 

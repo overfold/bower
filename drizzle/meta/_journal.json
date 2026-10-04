@@ -24,6 +24,7 @@
     { "idx": 19, "version": "7", "when": 1790841601000, "tag": "0020_trellis_workload_identity", "breakpoints": true },
     { "idx": 20, "version": "7", "when": 1790841602000, "tag": "0021_cluster_only_tokens", "breakpoints": true },
     { "idx": 21, "version": "7", "when": 1790877600000, "tag": "0022_invitation_uses", "breakpoints": true },
-    { "idx": 22, "version": "7", "when": 1790985600000, "tag": "0023_audit_actors", "breakpoints": true }
+    { "idx": 22, "version": "7", "when": 1790985600000, "tag": "0023_audit_actors", "breakpoints": true },
+    { "idx": 23, "version": "7", "when": 1791158400000, "tag": "0024_notification_read_states", "breakpoints": true }
   ]
 }

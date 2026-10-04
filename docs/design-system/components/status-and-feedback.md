@@ -105,7 +105,7 @@ toast({ tone: 'danger', title: 'Could not roll back', description: 'The rollback
 - **Width:** `w-fit`, at most 22rem (and the full width on narrow screens), right-aligned so short confirmations stay short.
 - **Dismiss:** a 14px `X` in a 20px `rounded-sm` button, `text-ink-muted`, `hover:bg-sunken hover:text-ink`, the 2px `brand-500` focus ring, and `aria-label="Dismiss: {title}"`.
 - **Timing:** `danger` toasts stay until dismissed. Other tones leave after 5s. The timer pauses while the stack is hovered or contains focus, then resumes with the time that was left.
-- **Live regions:** the stack is a `section` labelled "Notifications" holding two sibling regions that are always mounted: `aria-live="polite"` for most tones, then `aria-live="assertive"` for `danger`. Toasts carry no `role`. Both regions render as one column, with danger toasts at the bottom.
+- **Live regions:** the stack is a `section` labelled "Status messages" (not "Notifications", which names the header menu) holding two sibling regions that are always mounted: `aria-live="polite"` for most tones, then `aria-live="assertive"` for `danger`. Toasts carry no `role`. Both regions render as one column, with danger toasts at the bottom.
 - **Motion:** fade and a 6px rise in (200ms, `ease-enter`), fade out (150ms). Removal waits for the exit. Under reduced motion there is no movement, and a dismissed toast is removed at once.
 
 ### Page banner dismissal
@@ -113,6 +113,20 @@ toast({ tone: 'danger', title: 'Could not roll back', description: 'The rollback
 A banner reports a live condition. Remembering a dismissal by title hid later recurrences of the same condition, so banners are **not dismissible by default**. Opt in with `dismissible` only for advisory banners the user may reasonably hide for the session, and pass a stable `id` (the session key is `bower.banner.{id}`). TypeScript rejects `dismissible` without an `id`. Because `sessionStorage` is client-only, a dismissible banner renders nothing on the server and during hydration, so a dismissed banner never flashes in and out on load.
 
 Contract: `src/lib/ui-contracts.test.ts` covers toast timing (danger persists, hover and focus pause), the sibling live regions, the absence of tone aliases, banner dismissal, the banner action slot, and dismiss labels. `src/lib/trellis-boundaries.test.ts` covers the Trellis banner.
+
+### Notifications menu vs toasts and banners
+
+The header's [notifications menu](navigation.md#notifications-menu) holds what the user may need to act on **later**. Today that means deployment outcomes that happened while they were looking elsewhere.
+
+| Channel | Answers | Lifetime |
+| --- | --- | --- |
+| Toast | "Did my click work?" | Seconds: gone after 5s, paused while hovered or focused. A `danger` toast stays until dismissed |
+| `PageBanner` | "Is something wrong right now, everywhere?" | While the condition lasts. Only an advisory banner that opts in with `dismissible` and an `id` can be hidden for the session |
+| Notifications menu | "What happened while I was away?" | A stored, per-user history, with unread state that survives reloads and devices |
+
+- Don't repeat a toast in the menu, or the reverse. A deployment you start gets a toast for the request, and the menu entry for its outcome.
+- Don't use the menu for conditions that are still happening (Trellis unavailable). That is a banner.
+- Rows use the shared status components (`DeploymentStatus`), never their own chips.
 
 ## `FieldError`
 

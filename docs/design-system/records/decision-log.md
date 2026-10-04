@@ -127,6 +127,9 @@ This is the consolidated list of design decisions **currently in force**, groupe
 | Command palette | Recent, then Go to, then Actions. Type icons. Places before actions | A3-N19, A4-Q32, A5-H2 | Actions first |
 | Palette no results | "No results for "…"" only | A3-N20 | Create row |
 | Instance › Organizations rows | Clicking switches organization | A3-N22 | Static rows |
+| Notifications menu | A bell `DropdownMenu` after Search in the header. Deployment outcomes only: failures in accessible projects, plus the viewer's own results. Newest 20 from 14 days, filtered on the server | Notifications v1 (2026-10-04) | — |
+| Notification read state | One last-seen time per user and organization. Opening the menu marks what it loaded as read. A first visit starts with nothing unread | Notifications v1 (2026-10-04) | — |
+| Unread badge | `brand-500` count capped at "9+". The exact count goes in the button's accessible name. Unread rows add a dot, a heavier title, and a hidden "Unread:" prefix | Notifications v1 (2026-10-04) | — |
 
 ## Pages
 
