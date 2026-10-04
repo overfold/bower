@@ -36,19 +36,32 @@ curl -fsSL https://raw.githubusercontent.com/overfold/bower/main/trellis.yml -o 
 Review these common settings:
 
 - **Dashboard URL:** uncomment `BOWER_PUBLIC_URL` in the web task's `env` block and set it to your public origin, for example `https://bower.example.com`. Point the hostname's DNS A record at the ingress node, ensure any AAAA record reaches that node too, and allow inbound TCP ports 80/443. Caddy obtains the HTTPS certificate automatically. Leaving this setting commented out gives HTTP-only setup at `http://<node-ip>`; it does not enable HTTPS for the domain or bare IP.
+- **Protected routes:** both Password and Bower account protection require `BOWER_PUBLIC_URL` and `BOWER_ROUTE_AUTH_SECRET`. The manifest injects the latter from the `route-auth-secret` secret created below. Public routes do not require these settings.
 - **Database credentials:** replace the example `POSTGRES_PASSWORD` and update the password in `DATABASE_URL` to match (URL-encode it in the connection string). For an external database, remove the `db` task group and set `DATABASE_URL` to its connection string. Changing these values does not change credentials in an already initialized Postgres data directory.
 - **Images and resources:** the manifest uses `latest` Bower/proxy images and small CPU/memory allocations. Pin image versions and adjust resources as needed.
 
-Keep the `platform` namespace for the quick start. If you change it, also update the database DNS hostname, `BOWER_PROXY_NAMESPACE`, and the namespace used for the encryption secret and apply commands. See the [configuration reference](docs/configuration.md) for additional settings.
+Keep the `platform` namespace for the quick start. If you change it, also update the database DNS hostname, `BOWER_PROXY_NAMESPACE`, and the namespace used for both deployment secrets and apply commands. See the [configuration reference](docs/configuration.md) for additional settings.
 
-#### 2. Set the encryption key secret
+#### 2. Set the deployment secrets
 
 ```bash
 # Generate a stable 32-byte key and store it — it must be identical across all Bower instances.
 openssl rand -hex 32 | trellisctl --namespace platform secrets set encryption-key --stdin
+# Generate a separate signing secret for password- and Bower-account-protected routes.
+openssl rand -hex 32 | trellisctl --namespace platform secrets set route-auth-secret --stdin
 ```
 
-Generate this secret once; keep the existing key when updating an installation.
+Generate each secret once; keep the existing values when updating an installation. Both must be identical across all Bower instances. Changing the route-auth secret invalidates existing route-access grants. Do not put secret values in the manifest or commit them to Git.
+
+For an existing installation, create `route-auth-secret` if it is missing and add this mapping to the Bower task's `secrets` list before redeploying:
+
+```yaml
+- name: route-auth-secret
+  target: env
+  env: BOWER_ROUTE_AUTH_SECRET
+```
+
+The default manifest includes this mapping. If you only need public routes, you can omit the route-auth secret and remove its mapping from the manifest.
 
 #### 3. Apply the edited manifest
 
@@ -68,7 +81,7 @@ trellisctl --namespace platform jobs logs bower --tail 50
 
 Look for the `Bower — First Run Setup` banner containing the invitation link. Open that link using your configured `BOWER_PUBLIC_URL` (or `http://<node-ip>` for HTTP-only setup) to create the first account. Bower creates a shared `platform/bower-ingress` job on startup; it owns ports 80/443 and serves both the dashboard and application routes across namespaces. Allow a short delay for ingress to become healthy and, for HTTPS, for certificate issuance. Port 3000 remains available for troubleshooting. The Trellis connection is already configured — no manual cluster setup required. Bower resolves the address, token, and cluster CA from each running allocation rather than storing them in Postgres. When Trellis replaces an allocation generation, the replacement therefore uses its newly injected token; multiple Bower replicas likewise use their own credentials.
 
-For Bower-account-protected application routes, also configure `BOWER_PUBLIC_URL` and `BOWER_ROUTE_AUTH_SECRET`; see the [configuration reference](docs/configuration.md).
+Password- and Bower-account-protected application routes use the public URL and route-auth secret configured above. See the [configuration reference](docs/configuration.md) for details.
 
 ### Local development
 

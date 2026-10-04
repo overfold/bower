@@ -9,7 +9,9 @@ All configuration is via environment variables. Copy `.env.example` at the repo 
 | `DATABASE_URL` | PostgreSQL connection string, e.g. `postgres://bower:bower@localhost:5432/bower` |
 | `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` | 32-byte hex key used to encrypt server action payloads. Must be identical across all Bower instances in a multi-instance deployment. Generate with `openssl rand -hex 32`. |
 | `BOWER_PUBLIC_URL` | Public origin of the Bower instance, such as `https://bower.example.com`. It must be reachable from managed ingress proxies and is required for protected routes. |
-| `BOWER_ROUTE_AUTH_SECRET` | Secret of at least 32 characters used to sign route-scoped access grants. Must be identical across all Bower instances. Generate with `openssl rand -hex 32`. Required for protected routes. |
+| `BOWER_ROUTE_AUTH_SECRET` | Secret of at least 32 characters used to sign route-scoped access grants. Required, together with `BOWER_PUBLIC_URL`, for both password- and Bower-account-protected routes; not needed for public routes. Must be identical across all Bower instances and stable across updates. Generate with `openssl rand -hex 32`. Changing it invalidates existing route-access grants. |
+
+The native `trellis.yml` maps the `platform` secret `route-auth-secret` to `BOWER_ROUTE_AUTH_SECRET` in the Bower task. This is separate from `encryption-key` / `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`. Create both secrets before applying the default manifest; see the [quick start](../README.md#2-set-the-deployment-secrets). Existing installations must add the route-auth secret mapping and redeploy to enable protected routes. Never store secret values in the manifest.
 
 ## Trellis credentials
 

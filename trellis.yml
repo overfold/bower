@@ -3,6 +3,8 @@
 # Quick-start Bower deployment for a single-node Trellis cluster.
 # Download this file, edit the settings below, then apply the local file.
 # Set BOWER_PUBLIC_URL for HTTPS; point its DNS at this node and allow 80/443.
+# Create encryption-key and route-auth-secret in platform before applying (see README).
+# Password and Bower account protection require BOWER_PUBLIC_URL and the route-auth secret.
 # Bower reconciles a separate platform/bower-ingress job on ports 80/443.
 # Port 3000 remains published for ingress discovery and troubleshooting.
 # The bundled Postgres allocation is intentionally colocated only by virtue of
@@ -68,6 +70,11 @@ task_groups:
           - name: encryption-key
             target: env
             env: NEXT_SERVER_ACTIONS_ENCRYPTION_KEY
+          # Stable across replicas and updates; separate from the encryption key.
+          # Public-only installations can omit this secret and its mapping.
+          - name: route-auth-secret
+            target: env
+            env: BOWER_ROUTE_AUTH_SECRET
         health_check:
           type: http
           port: 3000
