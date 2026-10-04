@@ -5,6 +5,7 @@ import { auditLog, projects, projectUserAccess, services, teamMemberships, teamP
 import { getCurrentUser } from '@/lib/auth'
 import { getUserOrganization } from '@/lib/queries'
 import { ORG_COOKIE_NAME } from '@/lib/constants'
+import { redactAuditDetails } from '@/lib/audit-details'
 
 export async function requireContext() {
   const user = await getCurrentUser()
@@ -62,7 +63,7 @@ export async function recordAudit(input: {
     resourceType: input.resourceType, resourceId: input.resourceId,
     actorType: input.actorType ?? (input.userId ? 'user' : 'system'),
     apiKeyId: input.apiKeyId ?? null,
-    details: input.details ?? {},
+    details: redactAuditDetails(input.details ?? {}),
   })
 }
 

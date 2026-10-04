@@ -1,3 +1,5 @@
+import { validateRoute } from './route-validation.mjs'
+
 const q = (value) => JSON.stringify(String(value))
 
 const namespaceFor = (route, allocation) => !route.namespace || route.namespace === allocation.namespace
@@ -41,6 +43,7 @@ function authLines(route) {
 
 export function renderCaddyfile(routes, allocations, { adminPort = '2019', httpPort = '80', httpsPort = '443', dashboard } = {}) {
   const rendered = routes.map((route) => {
+    validateRoute(route)
     const candidates = route.strategy === 'canary'
       ? allocations.filter((allocation) => namespaceFor(route, allocation) && allocation.labels?.['bower/service'] === route.service && allocation.labels?.['bower/canary'] === 'true')
       : []
@@ -66,7 +69,7 @@ export function renderCaddyfile(routes, allocations, { adminPort = '2019', httpP
       for (const [name, value] of Object.entries(route.responseHeaders || {})) lines.push(`      header_down ${name} ${q(value)}`)
       lines.push('    }')
     }
-    if (route.rateLimit) lines.unshift(`    rate_limit { zone route_${Buffer.from(`${route.domain}${route.pathPrefix}`).toString('hex').slice(0, 20)} { key {remote_host} events ${route.rateLimit} window 1s } }`)
+    if (route.rateLimit) lines.unshift('    rate_limit {', `      zone route_${Buffer.from(`${route.domain}${route.pathPrefix}`).toString('hex').slice(0, 20)} {`, '        key {remote_host}', `        events ${route.rateLimit}`, '        window 1s', '      }', '    }')
     return { ...route, lines }
   })
   const groups = new Map()
@@ -105,6 +108,7 @@ export function renderCaddyfile(routes, allocations, { adminPort = '2019', httpP
 
 
 export function renderBootstrapCaddyfile(routes, options = {}) {
+  routes.forEach(validateRoute)
   const bootstrapRoutes = routes.map((route) => ({
     ...route,
     protectionMode: 'none',

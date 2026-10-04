@@ -10,32 +10,24 @@ import {
 } from '@/db/schema'
 import { getTrellisClient } from '@/lib/trellis-instance'
 import { hashPassword } from '@/lib/auth'
-import { integer, recordAudit, requireContext, requireProject, text } from './shared'
+import { recordAudit, requireContext, requireProject, text } from './shared'
 import { syncManagedProxy } from '@/lib/managed-proxy'
 import { assertIngressHostname, ingressNamespace, ingressSecretName } from '@/lib/ingress-cluster'
 import { normalizeRouteHostname } from '@/lib/domains'
 import { cleanupTrellisResources } from '@/lib/trellis-cleanup'
-
-function parseLines(value: string) {
-  const record: Record<string, string> = {}
-  for (const line of value.split('\n').map((item) => item.trim()).filter(Boolean)) {
-    const at = line.indexOf('='); if (at < 1) throw new Error(`Invalid key/value line: ${line}`)
-    record[line.slice(0, at).trim()] = line.slice(at + 1).trim()
-  }
-  return record
-}
+import { parseRouteOptions } from '../../../proxy/route-validation.mjs'
+import { routeAuditState } from '@/lib/audit-details'
 
 export async function createRouteAction(projectId: string, formData: FormData) {
   const ctx = await requireProject(projectId)
   if (ctx.projectRole !== 'admin') throw new Error('Insufficient permissions.')
+  const options = parseRouteOptions(formData)
   const domain = normalizeRouteHostname(text(formData, 'domain'))
   const serviceId = text(formData, 'serviceId')
   const environmentId = text(formData, 'environmentId')
-  const port = integer(formData, 'port', 8080)
   const protectionMode = (text(formData, 'protectionMode') || 'none') as 'none' | 'password' | 'bower_auth'
   const password = text(formData, 'routePassword')
   if (!domain || !serviceId || !environmentId) throw new Error('Domain, service, and environment are required.')
-  if (port < 1 || port > 65_535) throw new Error('Route port must be between 1 and 65535.')
   if (!/^(?:\*\.)?[a-z0-9.-]+$/i.test(domain)) throw new Error('Enter a valid domain name.')
   if (!['none', 'password', 'bower_auth'].includes(protectionMode)) throw new Error('Invalid route protection mode.')
   if (protectionMode === 'password' && password.length < 8) throw new Error('Route passwords must be at least 8 characters.')
@@ -59,15 +51,8 @@ export async function createRouteAction(projectId: string, formData: FormData) {
   }
   await assertIngressHostname(ctx.org.id, projectId, environmentId, domain)
   const [route] = await db.insert(routes).values({
-    projectId, serviceId, environmentId, domain,
-    pathPrefix: text(formData, 'pathPrefix') || '/', port,
-    tlsMode: text(formData, 'tlsMode') as 'auto' | 'custom' | 'none',
-    headers: parseLines(text(formData, 'requestHeaders')),
-    responseHeaders: parseLines(text(formData, 'responseHeaders')),
-    rateLimit: integer(formData, 'rateLimit', 0) || null,
-    redirects: parseRedirects(text(formData, 'redirects')),
-    tlsCertSecret: text(formData, 'tlsCertSecret') || null,
-    tlsKeySecret: text(formData, 'tlsKeySecret') || null,
+    projectId, serviceId, environmentId,
+    ...options,
     protectionMode,
     passwordHash: protectionMode === 'password' ? await hashPassword(password) : null,
   }).returning()
@@ -77,15 +62,9 @@ export async function createRouteAction(projectId: string, formData: FormData) {
   revalidatePath(`/projects/${ctx.project.slug}/routes`)
 }
 
-function parseRedirects(value: string) {
-  return value.split('\n').map((line) => line.trim()).filter(Boolean).map((line) => {
-    const [from, to, code] = line.split(/\s+/); if (!from || !to) throw new Error(`Invalid redirect: ${line}`)
-    return { from, to, code: code ? Number(code) : 308 }
-  })
-}
-
 export async function updateRouteAction(projectId: string, routeId: string, formData: FormData) {
   const ctx = await requireProject(projectId); if (ctx.projectRole !== 'admin') throw new Error('Insufficient permissions.')
+  const options = parseRouteOptions(formData)
   const [before] = await db.select().from(routes).where(and(eq(routes.id, routeId), eq(routes.projectId, projectId))).limit(1); if (!before) throw new Error('Route not found.')
   const serviceId = text(formData, 'serviceId') || before.serviceId
   const [service] = await db.select({ id: services.id }).from(services)
@@ -94,12 +73,10 @@ export async function updateRouteAction(projectId: string, routeId: string, form
     .where(and(eq(serviceConfigs.serviceId, serviceId), eq(serviceConfigs.environmentId, before.environmentId))).limit(1)
   if (!service || !targetConfig) throw new Error('The target service must be configured in this project environment.')
   const domain = normalizeRouteHostname(text(formData, 'domain'))
-  const port = integer(formData, 'port', 8080)
   const tlsMode = text(formData, 'tlsMode')
   const protectionMode = text(formData, 'protectionMode') as 'none' | 'password' | 'bower_auth'
   const password = text(formData, 'routePassword')
   if (!/^(?:\*\.)?[a-z0-9.-]+$/i.test(domain)) throw new Error('Enter a valid domain name.')
-  if (port < 1 || port > 65_535) throw new Error('Route port must be between 1 and 65535.')
   if (!['auto', 'custom', 'none'].includes(tlsMode)) throw new Error('Invalid TLS mode.')
   if (!['none', 'password', 'bower_auth'].includes(protectionMode)) throw new Error('Invalid route protection mode.')
   if (protectionMode === 'password' && !before.passwordHash && password.length < 8) throw new Error('Route passwords must be at least 8 characters.')
@@ -113,9 +90,9 @@ export async function updateRouteAction(projectId: string, routeId: string, form
     if (!available.has(text(formData, 'tlsCertSecret')) || !available.has(text(formData, 'tlsKeySecret'))) throw new Error('Custom TLS secrets must exist in this environment.')
   }
   await assertIngressHostname(ctx.org.id, projectId, before.environmentId, domain, routeId)
-  const after = { domain, pathPrefix: text(formData, 'pathPrefix') || '/', port, tlsMode: tlsMode as 'auto' | 'custom' | 'none', headers: parseLines(text(formData, 'requestHeaders')), responseHeaders: parseLines(text(formData, 'responseHeaders')), rateLimit: integer(formData, 'rateLimit', 0) || null, redirects: parseRedirects(text(formData, 'redirects')), tlsCertSecret: text(formData, 'tlsCertSecret') || null, tlsKeySecret: text(formData, 'tlsKeySecret') || null, protectionMode, passwordHash: protectionMode === 'password' ? (password ? await hashPassword(password) : before.passwordHash) : null, updatedAt: new Date() }
+  const after = { ...options, protectionMode, passwordHash: protectionMode === 'password' ? (password ? await hashPassword(password) : before.passwordHash) : null, updatedAt: new Date() }
   await db.update(routes).set({ ...after, serviceId }).where(eq(routes.id, routeId)); await syncManagedProxy(projectId, before.environmentId, ctx.org.id)
-  await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'route.updated', resourceType: 'route', resourceId: routeId, details: { before, after: { ...after, serviceId } } }); revalidatePath(`/projects/${ctx.project.slug}/routes`)
+  await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'route.updated', resourceType: 'route', resourceId: routeId, details: { before: routeAuditState(before), after: routeAuditState({ ...after, serviceId }) } }); revalidatePath(`/projects/${ctx.project.slug}/routes`)
 }
 
 export async function deleteRouteAction(projectId: string, routeId: string) {

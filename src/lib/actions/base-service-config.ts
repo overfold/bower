@@ -9,6 +9,7 @@ import { recordAudit, requireService } from '@/lib/actions/shared'
 import { parseServiceConfigInput } from '@/lib/service-config-input'
 import { getTrellisJobLimits } from '@/lib/trellis-instance'
 import { assertWorkloadApiAccessAllowed } from '@/lib/workload-policy'
+import { serviceConfigAuditState } from '@/lib/audit-details'
 
 function deepEqual(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b)
@@ -55,7 +56,7 @@ export async function upsertBaseServiceConfigAction(serviceId: string, formData:
     orgId: access.org.id, userId: access.user.id,
     action: before ? 'service.base_config.updated' : 'service.base_config.created',
     resourceType: 'service', resourceId: serviceId,
-    details: { before, after: values },
+    details: { before: serviceConfigAuditState(before), after: serviceConfigAuditState(values) },
   })
   revalidatePath(`/projects/${access.project.slug}/services/${access.service.slug}`)
 }

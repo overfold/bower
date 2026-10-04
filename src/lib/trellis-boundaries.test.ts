@@ -234,7 +234,7 @@ test('reconciler targets the persisted accepted job identity rather than inferri
 test('shared ingress aggregates environments, skips unchanged applies, and survives the last route deletion', async () => {
   const statuses: string[] = []
   let definitions = ['a', 'b'].map((id) => ({
-    route: { id, projectId: `project-${id}`, environmentId: `env-${id}`, domain: `${id}.example.com`, protectionMode: 'none', headers: {}, responseHeaders: {}, redirects: [], tlsMode: 'none' },
+    route: { id, projectId: `project-${id}`, environmentId: `env-${id}`, domain: `${id}.example.com`, pathPrefix: '/', port: 8080, protectionMode: 'none', headers: {}, responseHeaders: {}, redirects: [], tlsMode: 'none' },
     service: { slug: 'web' }, config: {}, environment: { trellisNamespace: `team-${id}` },
   }))
   let applied: import('@/types/trellis').TrellisJobSpec | undefined
@@ -307,7 +307,7 @@ test('shared ingress uses namespace-qualified TLS mounts and reapplies on certif
   let applied: import('@/types/trellis').TrellisJobSpec | undefined
   let applies = 0
   const definitions = ['a', 'b'].map((id) => ({
-    route: { id, projectId: id, environmentId: id, domain: `${id}.example.com`, protectionMode: 'none', tlsMode: 'custom', tlsCertSecret: 'CERT', tlsKeySecret: 'KEY' },
+    route: { id, projectId: id, environmentId: id, domain: `${id}.example.com`, pathPrefix: '/', port: 8080, protectionMode: 'none', tlsMode: 'custom', tlsCertSecret: 'CERT', tlsKeySecret: 'KEY' },
     service: { slug: 'web' }, config: {}, environment: { trellisNamespace: `team-${id}` },
   }))
   let selectIndex = 0
@@ -748,7 +748,7 @@ test('audit recording preserves automation attribution and infers legacy user/sy
     'next/headers': {}, '@/lib/auth': {}, '@/lib/queries': {},
     '@/db': { db: { insert: () => ({ values: async (value: Record<string, unknown>) => { writes.push(value) } }) } },
   })
-  const base = { orgId: 'org', action: 'deployment.manual', resourceType: 'deployment', resourceId: 'deployment' }
+  const base = { orgId: 'org', action: 'deployment.manual', resourceType: 'deployment', resourceId: 'deployment', details: { before: { headers: { Authorization: 'SENSITIVE_HEADER' }, envVars: { DATABASE_URL: 'SENSITIVE_DB' } }, environmentName: 'Production' } }
   await shared.recordAudit({ ...base, userId: 'alex', actorType: 'api_key', apiKeyId: 'github-actions' })
   await shared.recordAudit({ ...base, userId: null, actorType: 'webhook' })
   await shared.recordAudit({ ...base, userId: 'sam' })
@@ -756,6 +756,8 @@ test('audit recording preserves automation attribution and infers legacy user/sy
   assert.deepEqual(writes.map(({ actorType, apiKeyId, userId }) => [actorType, apiKeyId, userId]), [
     ['api_key', 'github-actions', 'alex'], ['webhook', null, null], ['user', null, 'sam'], ['system', null, null],
   ])
+  assert.doesNotMatch(JSON.stringify(writes), /SENSITIVE/)
+  assert.equal((writes[0].details as Record<string, unknown>).environmentName, 'Production')
 })
 
 test('automation deploys write API key or webhook actors and human-readable service/environment details', async () => {
@@ -788,10 +790,12 @@ test('automation deploys write API key or webhook actors and human-readable serv
 
 test('historical audit details resolve names and never fall back to service/environment UUIDs', async () => {
   const results = [
-    [{ entry: { details: { serviceId: 'svc-id', environmentId: 'env-id' } } }, { entry: { details: { serviceId: 'deleted-id', environmentId: 'deleted-env' } } }, { entry: { details: { serviceId: 'svc-id', serviceName: 'Original name' } } }],
+    [{ org: { id: 'org' }, membership: { role: 'admin' } }], [{ isInstanceAdmin: false }],
+    [{ entry: { action: 'deployment.manual', details: { serviceId: 'svc-id', environmentId: 'env-id' } } }, { entry: { action: 'deployment.manual', details: { serviceId: 'deleted-id', environmentId: 'deleted-env' } } }, { entry: { action: 'deployment.manual', details: { serviceId: 'svc-id', serviceName: 'Original name' } } }],
     [{ id: 'svc-id', name: 'Storefront' }], [{ id: 'env-id', name: 'Production' }],
   ]
   const queries = load<typeof import('./queries')>('src/lib/queries.ts', {
+    '@/lib/auth': { getCurrentUser: async () => ({ id: 'user' }) },
     'next/headers': {}, '@/db': { db: { select: () => query(results.shift()!) } },
   })
   const rows = await queries.getAuditLog('org', null)
@@ -800,6 +804,66 @@ test('historical audit details resolve names and never fall back to service/envi
   assert.equal((rows[1].entry.details as Record<string, unknown>).serviceName, 'Deleted service')
   assert.equal((rows[1].entry.details as Record<string, unknown>).environmentName, 'Deleted environment')
   assert.equal((rows[2].entry.details as Record<string, unknown>).serviceName, 'Original name')
+})
+
+test('audit query enforces current-user org-wide access before reading rows, including direct callers', async () => {
+  for (const scenario of ['anonymous', 'member', 'other-org', 'owner', 'admin', 'instance-admin']) {
+    const allowed = ['owner', 'admin', 'instance-admin'].includes(scenario)
+    const membership = scenario === 'instance-admin' ? [] : [{ org: { id: scenario === 'other-org' ? 'elsewhere' : 'org' }, membership: { role: scenario === 'member' ? 'member' : scenario } }]
+    const results: unknown[][] = [membership, [{ isInstanceAdmin: scenario === 'instance-admin' }]]
+    if (scenario === 'instance-admin') results.push([{ id: 'org' }])
+    if (allowed) results.push([{ entry: { action: 'route.updated', details: {
+      environmentId: 'env', before: { domain: 'app.test', passwordHash: 'SENSITIVE_HASH', headers: { Authorization: 'SENSITIVE_HEADER' }, redirects: [{ to: 'https://x/?token=SENSITIVE_TOKEN' }] },
+    } } }, { entry: { action: 'service.base_config.updated', details: {
+      before: { image: 'app:v2', envVars: { DATABASE_URL: 'SENSITIVE_DB' }, healthCheckCommand: ['SENSITIVE_COMMAND'], healthCheckPath: '/?secret=SENSITIVE_PATH' },
+      after: { image: 'app:v3', replicas: 3, environmentVariableNames: ['DATABASE_URL'], labelNames: ['version'] },
+    } } }], [], [{ id: 'env', name: 'Production' }])
+    let selects = 0
+    const queries = load<typeof import('./queries')>('src/lib/queries.ts', {
+      '@/lib/auth': { getCurrentUser: async () => scenario === 'anonymous' ? null : { id: 'user' } },
+      'next/headers': {}, '@/db': { db: { select: () => { selects++; return query(results.shift()!) } } },
+    })
+    const rows = await queries.getAuditLog('org', null)
+    if (allowed) {
+      assert.equal(rows.length, 2, scenario)
+      assert.doesNotMatch(JSON.stringify(rows), /SENSITIVE/)
+      assert.equal((rows[0].entry.details as Record<string, unknown>).environmentName, 'Production')
+      assert.deepEqual(JSON.parse(JSON.stringify((rows[1].entry.details as Record<string, unknown>).after)), { image: 'app:v3', replicas: 3, environmentVariableNames: ['DATABASE_URL'], labelNames: ['version'] })
+    } else {
+      assert.equal(rows.length, 0, scenario)
+      assert.equal(selects, scenario === 'anonymous' ? 0 : 2, scenario)
+    }
+  }
+})
+
+test('route create and update reject injection before any database or ingress effect', async () => {
+  let reads = 0
+  const actions = load<typeof import('./actions/operations')>('src/lib/actions/operations.ts', {
+    'next/cache': {}, '@/lib/auth': {}, '@/lib/managed-proxy': {},
+    '@/lib/trellis-instance': {},
+    './shared': { requireProject: async () => access },
+    '@/db': { db: { select: () => { reads++; throw new Error('unexpected database read') } } },
+  })
+  for (const [field, value] of [['pathPrefix', '/safe {\n}\nhttp://unverified.invalid {'], ['requestHeaders', 'X-Test {=bad'], ['responseHeaders', '-Authorization=bad'], ['redirects', '/old /new 200'], ['rateLimit', '1000001']]) {
+    const form = new FormData()
+    form.set('domain', 'app.test')
+    form.set(field, value)
+    await assert.rejects(actions.createRouteAction('project', form))
+    await assert.rejects(actions.updateRouteAction('project', 'route', form))
+  }
+  assert.equal(reads, 0)
+})
+
+test('audit page redirects members before requesting audit rows or org-wide resource metadata', async () => {
+  let reads = 0
+  const page = load<{ default: () => Promise<ReactElement> }>('src/app/(dashboard)/audit/page.tsx', {
+    'next/navigation': { redirect: (path: string) => { throw new Error(`redirect:${path}`) } },
+    '@/lib/auth': { getCurrentUser: async () => ({ id: 'user' }) },
+    '@/lib/queries': { getUserOrganization: async () => ({ org: { id: 'org' }, role: 'member' }), getAuditLog: () => { reads++ }, getServicesForOrg: () => { reads++ }, getDeploymentsForOrg: () => { reads++ } },
+    './audit-log-list': {},
+  })
+  await assert.rejects(page.default(), /redirect:\/dashboard/)
+  assert.equal(reads, 0)
 })
 
 test('combined member role save enforces authorization and last owner/admin protection before writing', async () => {

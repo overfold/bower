@@ -28,6 +28,7 @@ import {
 } from '@/db/schema'
 import { ORG_COOKIE_NAME } from '@/lib/constants'
 import { ingressNamespace } from '@/lib/ingress-cluster'
+import { redactAuditDetails, routeAuditState, serviceConfigAuditState } from '@/lib/audit-details'
 
 export async function isInstanceAdmin(userId: string) {
   const [user] = await db
@@ -418,6 +419,11 @@ export async function getOrgMembers(orgId: string) {
 }
 
 export async function getAuditLog(orgId: string, limit: number | null = 50) {
+  const { getCurrentUser } = await import('@/lib/auth')
+  const user = await getCurrentUser()
+  if (!user) return []
+  const organization = await getUserOrganization(user.id, orgId)
+  if (!organization || organization.org.id !== orgId || !['owner', 'admin'].includes(organization.role)) return []
   const query = db.select({ entry: auditLog, userName: users.name, apiKeyName: apiKeys.name }).from(auditLog)
     .leftJoin(users, eq(users.id, auditLog.userId))
     .leftJoin(apiKeys, eq(apiKeys.id, auditLog.apiKeyId))
@@ -436,7 +442,16 @@ export async function getAuditLog(orgId: string, limit: number | null = 50) {
   const serviceNames = new Map(serviceRows.map((row) => [row.id, row.name]))
   const environmentNames = new Map(environmentRows.map((row) => [row.id, row.name]))
   return rows.map((row) => {
-    const details = { ...((row.entry.details ?? {}) as Record<string, unknown>) }
+    const details = redactAuditDetails((row.entry.details ?? {}) as Record<string, unknown>)
+    // Replace historical full rows with the same explicit representations used
+    // by current producers (including credentials inside redirect URLs).
+    for (const field of ['before', 'after']) {
+      const value = details[field]
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        if (row.entry.action === 'route.updated') details[field] = routeAuditState(value as Record<string, unknown>)
+        if (row.entry.action.startsWith('service.base_config.')) details[field] = serviceConfigAuditState(value as Record<string, unknown>)
+      }
+    }
     if (!details.serviceName && typeof details.serviceId === 'string') details.serviceName = serviceNames.get(details.serviceId) ?? 'Deleted service'
     if (!details.environmentName && typeof details.environmentId === 'string') details.environmentName = environmentNames.get(details.environmentId) ?? 'Deleted environment'
     return { ...row, entry: { ...row.entry, details } }

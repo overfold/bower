@@ -71,6 +71,14 @@ BOWER_PROXY_SYNC_IMAGE=registry.example.com/bower-proxy-sync:latest
 
 The source for both images is under `proxy/` in this repository.
 
+## Route configuration safety
+
+Ingress is shared by organizations connected to the same Trellis endpoint. Route mutations and the Caddy renderer both validate route configuration; stored rows are not treated as trusted Caddy syntax. Paths must begin with `/` and use URL path characters (encode spaces and other special characters). Header names must start with a letter or number and contain only letters, numbers, hyphens, or underscores. Header values cannot contain control characters or Caddy placeholders. Redirects accept a source path, an absolute path or HTTP(S) destination, and an optional 301, 302, 303, 307, or 308 code (default 308). Only the `{uri}` placeholder is supported in redirect destinations. Rate limits must be integral requests/second from 1 to 1,000,000; blank or zero disables them.
+
+Deploy Bower and the matching route-sync image together. The route-sync image includes the same validator and rejects invalid historical routes rather than loading them into shared ingress. Review and correct previously stored configurations that no longer meet these rules; rejection retains the last accepted running configuration but can block subsequent reconciliation.
+
+If prior injection is suspected, also inspect the currently loaded Caddy configuration and replace it with a clean accepted configuration. Validation prevents new unsafe loads; it does not remove a malicious configuration that was already loaded before the fix.
+
 ## Host ports
 
 The proxy binds to host ports 80 and 443 by default. Change them with:
