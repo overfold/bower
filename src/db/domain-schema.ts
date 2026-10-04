@@ -1,4 +1,5 @@
-import { index, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
+import { check, index, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
 import { organizations } from './schema'
 
 export const organizationDomains = pgTable(
@@ -17,5 +18,6 @@ export const organizationDomains = pgTable(
   (table) => [
     uniqueIndex('organization_domains_org_domain_idx').on(table.orgId, table.domain),
     index('organization_domains_org_idx').on(table.orgId),
+    check('organization_domains_domain_normalized', sql`${table.domain} = lower(${table.domain}) AND ${table.domain} NOT LIKE '*.%'`),
   ],
 )

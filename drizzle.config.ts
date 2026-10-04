@@ -5,7 +5,6 @@ export default defineConfig({
   schema: [
     "./src/db/schema.ts",
     "./src/db/domain-schema.ts",
-    "./src/db/service-advanced-schema.ts",
   ],
   out: "./drizzle",
   dbCredentials: {

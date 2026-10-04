@@ -9,7 +9,11 @@ import {
   jsonb,
   index,
   uniqueIndex,
+  unique,
+  foreignKey,
+  check,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 // ---------------------------------------------------------------------------
 // Enums
@@ -197,41 +201,41 @@ export const apiKeys = pgTable("api_keys", {
 
 export const invitations = pgTable("invitations", {
   id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id")
-    .references(() => organizations.id, { onDelete: "cascade" }),
-  tokenHash: text("token_hash").notNull().unique(),
+  orgId: uuid("org_id"),
+  tokenHash: text("token_hash").notNull().unique("invitations_token_hash_key"),
   organizationRole: orgMemberRoleEnum("organization_role"),
   grantInstanceAdmin: boolean("grant_instance_admin").notNull().default(false),
   reusable: boolean("reusable").notNull().default(false),
   maxUses: integer("max_uses").default(1),
   useCount: integer("use_count").notNull().default(0),
   note: text("note"),
-  createdByUserId: uuid("created_by_user_id").references(() => users.id, {
-    onDelete: "set null",
-  }),
-  usedByUserId: uuid("used_by_user_id").references(() => users.id, {
-    onDelete: "set null",
-  }),
+  createdByUserId: uuid("created_by_user_id"),
+  usedByUserId: uuid("used_by_user_id"),
   usedAt: timestamp("used_at", { withTimezone: true }),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+}, (table) => [
+  foreignKey({ name: "invitations_org_id_fkey", columns: [table.orgId], foreignColumns: [organizations.id] }).onDelete("cascade"),
+  foreignKey({ name: "invitations_created_by_user_id_fkey", columns: [table.createdByUserId], foreignColumns: [users.id] }).onDelete("set null"),
+  foreignKey({ name: "invitations_used_by_user_id_fkey", columns: [table.usedByUserId], foreignColumns: [users.id] }).onDelete("set null"),
+  check("invitation_max_uses_positive", sql`${table.maxUses} IS NULL OR ${table.maxUses} > 0`),
+]);
 
 export const invitationTeams = pgTable(
   "invitation_teams",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    invitationId: uuid("invitation_id")
-      .notNull()
-      .references(() => invitations.id, { onDelete: "cascade" }),
-    teamId: uuid("team_id")
-      .notNull()
-      .references(() => teams.id, { onDelete: "cascade" }),
+    invitationId: uuid("invitation_id").notNull(),
+    teamId: uuid("team_id").notNull(),
   },
-  (table) => [uniqueIndex("invitation_teams_invitation_team_idx").on(table.invitationId, table.teamId)]
+  (table) => [
+    unique("invitation_teams_invitation_team_idx").on(table.invitationId, table.teamId),
+    foreignKey({ name: "invitation_teams_invitation_id_fkey", columns: [table.invitationId], foreignColumns: [invitations.id] }).onDelete("cascade"),
+    foreignKey({ name: "invitation_teams_team_id_fkey", columns: [table.teamId], foreignColumns: [teams.id] }).onDelete("cascade"),
+  ]
 );
 
 // ---------------------------------------------------------------------------
@@ -314,8 +318,7 @@ export const baseServiceConfigs = pgTable("base_service_configs", {
   id: uuid("id").primaryKey().defaultRandom(),
   serviceId: uuid("service_id")
     .notNull()
-    .unique()
-    .references(() => services.id, { onDelete: "cascade" }),
+    .unique("base_service_configs_service_id_key"),
   image: text("image").notNull(),
   replicas: integer("replicas").notNull().default(1),
   cpu: integer("cpu").notNull(),
@@ -346,7 +349,13 @@ export const baseServiceConfigs = pgTable("base_service_configs", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+}, (table) => [
+  foreignKey({ name: "base_service_configs_service_id_fkey", columns: [table.serviceId], foreignColumns: [services.id] }).onDelete("cascade"),
+  check("base_service_configs_runtime_check", sql`${table.runtime} IN ('runc', 'runsc')`),
+  check("base_service_configs_api_scope_check", sql`${table.apiAccessScope} IS NULL OR ${table.apiAccessScope} = 'cluster'`),
+  check("base_service_configs_api_level_check", sql`${table.apiAccessLevel} IS NULL OR ${table.apiAccessLevel} IN ('read', 'write')`),
+  check("base_service_configs_api_pair_check", sql`(${table.apiAccessScope} IS NULL) = (${table.apiAccessLevel} IS NULL)`),
+]);
 
 export const serviceConfigs = pgTable(
   "service_configs",
@@ -396,6 +405,10 @@ export const serviceConfigs = pgTable(
       table.serviceId,
       table.environmentId
     ),
+    check("service_configs_runtime_check", sql`${table.runtime} IN ('runc', 'runsc')`),
+    check("service_configs_api_scope_check", sql`${table.apiAccessScope} IS NULL OR ${table.apiAccessScope} = 'cluster'`),
+    check("service_configs_api_level_check", sql`${table.apiAccessLevel} IS NULL OR ${table.apiAccessLevel} IN ('read', 'write')`),
+    check("service_configs_api_pair_check", sql`(${table.apiAccessScope} IS NULL) = (${table.apiAccessLevel} IS NULL)`),
   ]
 );
 
@@ -692,12 +705,8 @@ export const projectUserAccess = pgTable(
   "project_user_access",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    projectId: uuid("project_id")
-      .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id").notNull(),
+    userId: uuid("user_id").notNull(),
     role: teamProjectRoleEnum("role").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -708,6 +717,8 @@ export const projectUserAccess = pgTable(
       table.projectId,
       table.userId
     ),
+    foreignKey({ name: "project_user_access_project_id_fkey", columns: [table.projectId], foreignColumns: [projects.id] }).onDelete("cascade"),
+    foreignKey({ name: "project_user_access_user_id_fkey", columns: [table.userId], foreignColumns: [users.id] }).onDelete("cascade"),
   ]
 );
 

@@ -123,6 +123,10 @@ npm run db:migrate
 DATABASE_URL="postgres://bower:bower@<node-ip>:5432/bower" npm run db:migrate
 ```
 
+Generate new migrations with `npm run db:generate` after changing the schema. Commit the generated SQL, snapshot, and journal together; review the SQL before applying it. An unchanged schema should report “No schema changes, nothing to migrate”.
+
+The snapshot history contains a consolidated baseline at `drizzle/meta/0023_snapshot.json` for the schema after `0024_notification_read_states`. It covers the handwritten migrations after `0005`; their intermediate snapshots are intentionally absent. Snapshot filenames use journal indices, not SQL filename prefixes (the SQL numbering skips `0007`). The baseline was checked against a fresh database built from the existing SQL migrations, including column defaults, enums, indexes, and constraint names/definitions. Existing migration SQL and journal timestamps were preserved. Custom SQL functions and triggers remain owned by the handwritten migrations, not Drizzle snapshots.
+
 ## Commands
 
 ```bash
