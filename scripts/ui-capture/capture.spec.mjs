@@ -718,6 +718,62 @@ state("invitation-named-context", "/invite/audit-invite", async (page) => {
 state("public-not-found", "/invite/audit-invite/missing", async (page) => {
   await expect(page.getByRole("heading", { name: "Page not found", exact: true })).toBeVisible();
 }, { public: true });
+for (const [prefix, extra] of [["", {}], ["dark-", { dark: true }]])
+  state(`${prefix}toast-success`, "/settings/account", async (page) => {
+    await page.clock.install();
+    const name = page.getByLabel("Name", { exact: true });
+    const original = await name.inputValue();
+    // Exercise a real save without changing the seeded profile.
+    await name.fill("");
+    await name.fill(original);
+    await click(page, "Save changes");
+    const region = page.getByRole("region", { name: "Status messages" });
+    const dismiss = region.getByRole("button", { name: "Dismiss: Account updated", exact: true });
+    await expect(dismiss).toBeVisible();
+    await expect(region.locator('[aria-live="polite"]')).toContainText("Account updated");
+    await expect(region.getByRole("status")).toHaveCount(0);
+    await dismiss.focus();
+    await page.clock.fastForward(6000);
+    await expect(dismiss).toBeVisible();
+  }, extra);
+for (const [prefix, extra] of [["", {}], ["narrow-", { narrow: true }]]) {
+  state(`${prefix}toast-danger`, service, async (page) => {
+    await page.clock.install();
+    // The fake cluster rejects writes; no deployment or allocation is changed.
+    await click(page, "Restart");
+    const region = page.getByRole("region", { name: "Status messages" });
+    const dismiss = region.getByRole("button", { name: "Dismiss: Service action failed", exact: true });
+    await expect(dismiss).toBeVisible();
+    await expect(region.locator('[aria-live="assertive"]')).toContainText("Trellis rejected the request (405).");
+    await expect(region.getByRole("alert")).toHaveCount(0);
+    await page.clock.fastForward(6000);
+    await expect(dismiss).toBeVisible();
+  }, extra);
+  state(`${prefix}trellis-banner-actions`, "/dashboard", undefined, { ...extra, capture: async (page, options) => {
+    const sql = postgres(process.env.DATABASE_URL);
+    const [original] = await sql`SELECT trellis_api_url FROM organizations WHERE id=${fixture.orgId}`;
+    try {
+      // An unreachable loopback endpoint exercises the real server-side banner.
+      await sql`UPDATE organizations SET trellis_api_url='http://127.0.0.1:1' WHERE id=${fixture.orgId}`;
+      await page.reload();
+      const banner = page.getByRole("status").filter({ hasText: "Trellis is unavailable." });
+      await expect(banner).toBeVisible();
+      await expect(banner.getByRole("button", { name: "Retry connection", exact: true })).toBeVisible();
+      await expect(banner.getByRole("link", { name: "Check connection settings", exact: true })).toHaveAttribute("href", "/settings/organization#connection");
+      await expect(banner.getByRole("button", { name: /^Dismiss/ })).toHaveCount(0);
+      await page.evaluate(() => document.fonts.ready);
+      await page.evaluate(() => {
+        if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+        window.scrollTo(0, 0);
+        return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      });
+      await page.screenshot(options);
+    } finally {
+      await sql`UPDATE organizations SET trellis_api_url=${original.trellis_api_url} WHERE id=${fixture.orgId}`;
+      await sql.end();
+    }
+  } });
+}
 for (const [name, route] of [["overview", "/dashboard"], ["configuration", `${service}/configuration`]])
   state(`dark-${name}`, route, undefined, { dark: true });
 // Notifications: declared in this order because opening the menu marks its items read.
@@ -991,12 +1047,15 @@ for (const scenario of scenarios)
         ),
       ), { timeout: 10_000, message: 'Auth trellis introductory reveal has settled' }).toBe(true);
     }
-    await page.screenshot({
+    const screenshotOptions = {
       path: `${screenshots}/${scenario.name}.png`,
       fullPage: !scenario.setup || scenario.fullPage,
       scale: "css",
       animations: "disabled",
-    });
+    };
+    // Fixture-scoped captures keep their temporary state until the image is taken.
+    if (scenario.capture) await scenario.capture(page, screenshotOptions);
+    else await page.screenshot(screenshotOptions);
     await expect(page.getByRole("heading", { name: "Page unavailable", exact: true })).toHaveCount(0);
     expect(browserErrors, "No client runtime errors").toEqual([]);
   });
