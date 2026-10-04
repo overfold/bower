@@ -1,4 +1,8 @@
-# UI screenshot audit
+# Visual verification (UI capture)
+
+The UI capture workflow takes screenshots of every route and the main flows against a seeded database and a fake Trellis cluster. Use it to check a visual change across the whole app, in both layouts and in dark mode, and to produce the screenshots for a [UI audit](../records/README.md#audits). It complements, and doesn't replace, the checks in [Contributing](contributing.md#verify).
+
+## Running it in CI
 
 In GitHub, open **Actions → ui-capture → Run workflow**. Select the branch to capture. This workflow only runs manually; it does not deploy anything or require real Trellis credentials.
 
