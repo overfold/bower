@@ -15,7 +15,7 @@ export default async function SystemAllocationPage({ params }: { params: Promise
   const user = await getCurrentUser()
   if (!user) redirect('/login')
   const ctx = await getUserOrganization(user.id)
-  if (!ctx) redirect('/login')
+  if (!ctx) redirect('/no-organization')
   const { allocationId } = await params
 
   let allocation: TrellisAllocation | undefined

@@ -452,6 +452,23 @@ state(
   },
   { public: true },
 );
+for (const [name, options] of [
+  ['no-organization', {}],
+  ['no-organization-narrow', { narrow: true }],
+  ['no-organization-dark', { dark: true }],
+  ['no-organization-narrow-dark', { narrow: true, dark: true }],
+])
+  state(name, '/login', async (page) => {
+    await page.getByLabel('Email address').fill('taylor.wilson.with.a.long.address@example.test');
+    await page.getByLabel('Password', { exact: true }).fill('Audit-only-2026!');
+    await click(page, 'Sign in');
+    await expect(page).toHaveURL('/no-organization');
+    await expect(page.getByRole('heading', { name: 'No organization access' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Check access' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  }, { public: true, covers: '/no-organization', ...options });
+
 for (const [name, route] of [
   ["dashboard", "/dashboard"],
   ["projects", "/projects"],
@@ -918,6 +935,60 @@ test("every UI page route is represented", async () => {
     [],
   );
 });
+test('auth routing recovers from stale cookies and accounts without organizations', async ({ page, context }) => {
+  const sql = postgres(process.env.DATABASE_URL);
+  const email = `auth-routing-${Date.now()}@example.test`;
+  try {
+    await context.addCookies([{ name: 'bower_session', value: 'previous-installation-session', url: baseURL }]);
+    await page.goto('/projects');
+    await expect(page).toHaveURL('/login');
+    await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+    await page.goto('/register');
+    await page.getByLabel('Name', { exact: true }).fill('New account');
+    await page.getByLabel('Email address').fill(email);
+    await page.getByLabel('Password', { exact: true }).fill('Audit-only-2026!');
+    await click(page, 'Create account');
+    await expect(page).toHaveURL('/no-organization');
+    await expect(page.getByRole('heading', { name: 'No organization access' })).toBeVisible();
+    const [user] = await sql`SELECT id FROM users WHERE email=${email}`;
+    const memberships = await sql`SELECT id FROM organization_members WHERE user_id=${user.id}`;
+    expect(memberships).toHaveLength(0);
+    for (const route of ['/projects', '/dashboard', '/projects/commerce/services/storefront/configuration', '/settings/members', '/status']) {
+      await page.goto(route);
+      await expect(page).toHaveURL('/no-organization');
+      await expect(page.getByRole('heading', { name: 'No organization access' })).toBeVisible();
+    }
+    await page.getByRole('link', { name: 'Check access' }).click();
+    await expect(page).toHaveURL('/no-organization');
+    await sql`INSERT INTO organization_members (org_id,user_id,role) VALUES (${fixture.orgId},${user.id},'member')`;
+    await page.getByRole('link', { name: 'Check access' }).click();
+    await expect(page).toHaveURL('/projects');
+    await sql`DELETE FROM organization_members WHERE user_id=${user.id}`;
+    await page.goto('/projects');
+    await expect(page).toHaveURL('/no-organization');
+    await click(page, 'Sign out');
+    await expect(page).toHaveURL('/login');
+    expect((await context.cookies()).some((cookie) => cookie.name === 'bower_session')).toBe(false);
+    await page.goto('/login?next=%2Finvite%2Faudit-invite');
+    await page.getByLabel('Email address').fill(email);
+    await page.getByLabel('Password', { exact: true }).fill('Audit-only-2026!');
+    await click(page, 'Sign in');
+    await expect(page).toHaveURL('/invite/audit-invite');
+    await click(page, 'Accept invitation');
+    await expect(page).toHaveURL('/projects');
+    await expect(page.getByRole('heading', { name: 'Projects', exact: true })).toBeVisible();
+    await page.goto('/no-organization');
+    await expect(page).toHaveURL('/projects');
+    await context.clearCookies();
+    await page.goto('/no-organization');
+    await expect(page).toHaveURL('/login');
+  } finally {
+    await sql`DELETE FROM audit_log WHERE user_id IN (SELECT id FROM users WHERE email=${email})`;
+    await sql`DELETE FROM users WHERE email=${email}`;
+    await sql.end();
+  }
+});
+
 test('create service omits health checks and renders the real create audit payload', async ({ browser }) => {
   const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 2 });
   await context.addCookies([...authCookies, { name: 'bower_org', value: fixture.orgId, url: baseURL }]);

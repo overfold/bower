@@ -78,18 +78,47 @@ test('binds the Caddy admin API to loopback for route-sync reloads', () => {
   assert.doesNotMatch(config, /admin 0\.0\.0\.0:/)
 })
 
-test('uses the Bower task endpoint and matches its container port', () => {
+test('uses the Bower task endpoint and the configured route port, not published ports', () => {
   const config = renderCaddyfile([route], [{
     ...allocation,
     address: '',
     ports: [],
     endpoints: [
       { task: 'sidecar', address: '10.0.0.8', ports: [{ container_port: 8080, host_port: 39000 }] },
-      { task: 'web', address: '10.0.0.9', ports: [{ container_port: 8080, host_port: 32080 }] },
+      { task: 'web', address: '10.0.0.9', ports: [{ container_port: 9090, host_port: 32080 }] },
     ],
   }])
   assert.match(config, /reverse_proxy 10\.0\.0\.9:8080/)
-  assert.doesNotMatch(config, /10\.0\.0\.8|39000|32080/)
+  assert.doesNotMatch(config, /10\.0\.0\.8|39000|32080|:9090/)
+})
+
+test('routes healthy Linkding namespace endpoints without published ports', () => {
+  const linkdingRoute = { ...route, namespace: 'linkding-production', service: 'linkding', activeJob: 'linkding', port: 9090 }
+  const linkding = {
+    phase: 'running', health: 'healthy', job: 'linkding', namespace: 'linkding-production',
+    address: '10.64.1.105', ports: null,
+  }
+  for (const ports of [undefined, [], null]) {
+    const config = renderCaddyfile([linkdingRoute], [{
+      ...linkding, endpoints: [{ task: 'linkding', address: '10.64.1.105', ports }],
+    }])
+    assert.match(config, /reverse_proxy 10\.64\.1\.105:9090/)
+    assert.doesNotMatch(config, /No healthy upstream allocations/)
+  }
+
+  for (const overrides of [
+    { endpoints: [{ task: 'linkding' }] },
+    { endpoints: [{ task: 'other', address: '10.64.1.105' }] },
+    { health: 'unhealthy' },
+    { phase: 'starting' },
+    { namespace: 'other-production' },
+  ]) {
+    const config = renderCaddyfile([linkdingRoute], [{
+      ...linkding, endpoints: [{ task: 'linkding', address: '10.64.1.105' }], ...overrides,
+    }])
+    assert.match(config, /No healthy upstream allocations/)
+    assert.doesNotMatch(config, /reverse_proxy/)
+  }
 })
 
 test('does not invent a route for an unmatched port or ambiguous multi-task workload', () => {

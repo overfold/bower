@@ -659,6 +659,64 @@ test('route editing validates the target project/environment and persists the se
   assert.equal(written?.port, 8123)
 })
 
+test('protected route mutations return configuration errors before writes and accept the 32-character boundary', async () => {
+  const originalUrl = process.env.BOWER_PUBLIC_URL
+  const originalSecret = process.env.BOWER_ROUTE_AUTH_SECRET
+  let writes = 0
+  const dependencies = {
+    'next/cache': { revalidatePath() {} },
+    '@/lib/auth': { hashPassword: async () => 'fixture-hash' }, '@/lib/trellis-instance': {},
+    './shared': { requireProject: async () => access, recordAudit: async () => {}, text: (form: FormData, key: string) => String(form.get(key) ?? ''), integer: (form: FormData, key: string, fallback: number) => form.has(key) ? Number(form.get(key)) : fallback },
+    '@/lib/managed-proxy': { syncManagedProxy: async () => {} },
+    '@/lib/ingress-cluster': { assertIngressHostname: async () => {} },
+    '@/db': { db: {
+      select: () => query([{ id: 'route', environmentId: 'env', serviceId: 'service', slug: 'web', passwordHash: null }]),
+      insert: () => ({ values: () => { writes++; return { returning: async () => [{ id: 'route' }] } } }),
+      update: () => ({ set: () => { writes++; return { where: async () => {} } } }),
+    } },
+  }
+  const operations = load<typeof import('./actions/operations')>('src/lib/actions/operations.ts', dependencies)
+  const routes = load<typeof import('./actions/routes')>('src/lib/actions/routes.ts', {
+    ...dependencies, './operations': operations, '@/lib/domain-queries': {},
+  })
+  const mutations = [
+    (form: FormData) => operations.createRouteAction('project', form),
+    (form: FormData) => operations.updateRouteAction('project', 'route', form),
+    (form: FormData) => routes.updateRouteProtectionAction('project', 'route', form),
+  ]
+  try {
+    for (const mutate of mutations) {
+      for (const mode of ['password', 'bower_auth']) {
+        const form = new FormData()
+        for (const [key, value] of Object.entries({ domain: 'shop.acme.test', serviceId: 'service', environmentId: 'env', tlsMode: 'none', protectionMode: mode, routePassword: 'fixture-password' })) form.set(key, value)
+        for (const [url, secret] of [['https://bower.test', ''], ['https://bower.test', 'x'.repeat(31)], ['', 'x'.repeat(32)]]) {
+          process.env.BOWER_PUBLIC_URL = url
+          process.env.BOWER_ROUTE_AUTH_SECRET = secret
+          writes = 0
+          const result = await mutate(form)
+          assert.match(result?.error ?? '', /BOWER_PUBLIC_URL and a BOWER_ROUTE_AUTH_SECRET of at least 32 characters/)
+          assert.equal(writes, 0)
+        }
+        process.env.BOWER_PUBLIC_URL = 'https://bower.test'
+        process.env.BOWER_ROUTE_AUTH_SECRET = 'x'.repeat(32)
+        assert.equal(await mutate(form), undefined)
+        assert.equal(writes, 1)
+        process.env.BOWER_PUBLIC_URL = ''
+        process.env.BOWER_ROUTE_AUTH_SECRET = ''
+        form.set('protectionMode', 'none')
+        writes = 0
+        assert.equal(await mutate(form), undefined)
+        assert.equal(writes, 1)
+      }
+    }
+  } finally {
+    if (originalUrl === undefined) delete process.env.BOWER_PUBLIC_URL
+    else process.env.BOWER_PUBLIC_URL = originalUrl
+    if (originalSecret === undefined) delete process.env.BOWER_ROUTE_AUTH_SECRET
+    else process.env.BOWER_ROUTE_AUTH_SECRET = originalSecret
+  }
+})
+
 test('audit recording preserves automation attribution and infers legacy user/system actors', async () => {
   const writes: Record<string, unknown>[] = []
   const shared = load<typeof import('./actions/shared')>('src/lib/actions/shared.ts', {

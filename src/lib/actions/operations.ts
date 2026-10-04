@@ -40,7 +40,7 @@ export async function createRouteAction(projectId: string, formData: FormData) {
   if (!['none', 'password', 'bower_auth'].includes(protectionMode)) throw new Error('Invalid route protection mode.')
   if (protectionMode === 'password' && password.length < 8) throw new Error('Route passwords must be at least 8 characters.')
   if (protectionMode !== 'none' && (!process.env.BOWER_PUBLIC_URL || (process.env.BOWER_ROUTE_AUTH_SECRET?.length ?? 0) < 32)) {
-    throw new Error('BOWER_PUBLIC_URL and a BOWER_ROUTE_AUTH_SECRET of at least 32 characters are required for protected routes.')
+    return { error: 'Protected routes require BOWER_PUBLIC_URL and a BOWER_ROUTE_AUTH_SECRET of at least 32 characters. Ask your Bower operator to configure them and redeploy.' }
   }
   if (text(formData, 'tlsMode') === 'custom' && (!text(formData, 'tlsCertSecret') || !text(formData, 'tlsKeySecret'))) throw new Error('Custom TLS requires certificate and key secret names.')
   const [service] = await db.select().from(services)
@@ -104,7 +104,9 @@ export async function updateRouteAction(projectId: string, routeId: string, form
   if (!['none', 'password', 'bower_auth'].includes(protectionMode)) throw new Error('Invalid route protection mode.')
   if (protectionMode === 'password' && !before.passwordHash && password.length < 8) throw new Error('Route passwords must be at least 8 characters.')
   if (password && password.length < 8) throw new Error('Route passwords must be at least 8 characters.')
-  if (protectionMode !== 'none' && (!process.env.BOWER_PUBLIC_URL || (process.env.BOWER_ROUTE_AUTH_SECRET?.length ?? 0) < 32)) throw new Error('BOWER_PUBLIC_URL and a BOWER_ROUTE_AUTH_SECRET of at least 32 characters are required for protected routes.')
+  if (protectionMode !== 'none' && (!process.env.BOWER_PUBLIC_URL || (process.env.BOWER_ROUTE_AUTH_SECRET?.length ?? 0) < 32)) {
+    return { error: 'Protected routes require BOWER_PUBLIC_URL and a BOWER_ROUTE_AUTH_SECRET of at least 32 characters. Ask your Bower operator to configure them and redeploy.' }
+  }
   if (text(formData, 'tlsMode') === 'custom' && (!text(formData, 'tlsCertSecret') || !text(formData, 'tlsKeySecret'))) throw new Error('Custom TLS requires certificate and key secret names.')
   if (text(formData, 'tlsMode') === 'custom') {
     const secretRows = await db.select({ name: secretsMetadata.trellisSecretName }).from(secretsMetadata).where(eq(secretsMetadata.environmentId, before.environmentId)); const available = new Set(secretRows.map((item) => item.name))

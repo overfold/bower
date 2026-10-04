@@ -9,7 +9,7 @@ export default async function DeploymentsPage({ params }: { params: Promise<{ sl
   const user = await getCurrentUser()
   if (!user) redirect('/login')
   const ctx = await getUserOrganization(user.id)
-  if (!ctx) redirect('/login')
+  if (!ctx) redirect('/no-organization')
   const { slug } = await params
   const project = await getProjectBySlug(ctx.org.id, slug)
   if (!project) redirect('/projects')

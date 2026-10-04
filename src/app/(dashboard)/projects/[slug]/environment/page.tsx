@@ -33,7 +33,7 @@ export default async function EnvironmentPage({ params }: { params: Promise<{ sl
   const user = await getCurrentUser()
   if (!user) redirect('/login')
   const orgCtx = await getUserOrganization(user.id)
-  if (!orgCtx) redirect('/login')
+  if (!orgCtx) redirect('/no-organization')
   const project = await getProjectBySlug(orgCtx.org.id, slug)
   if (!project) notFound()
   const access = await requireProject(project.id)

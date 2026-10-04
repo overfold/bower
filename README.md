@@ -36,10 +36,11 @@ The manifest below targets a single-node cluster and runs Postgres alongside Bow
 
 2. Edit `bower.yml`. Replace the example Postgres password in both `POSTGRES_PASSWORD` and `DATABASE_URL`. For HTTPS, also set `BOWER_PUBLIC_URL` to your domain and point its DNS at the node.
 
-3. Create the encryption key, once, and apply the manifest:
+3. Create the two deployment secrets, once, and apply the manifest:
 
    ```bash
    openssl rand -hex 32 | trellisctl --namespace platform secrets set encryption-key --stdin
+   openssl rand -hex 32 | trellisctl --namespace platform secrets set route-auth-secret --stdin
    trellisctl --namespace platform jobs apply ./bower.yml --wait
    ```
 

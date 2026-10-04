@@ -9,8 +9,9 @@ import ts from 'typescript'
 function loadMigrations(failures: unknown[], connectionString: string | undefined = 'postgres://fixture') {
   const events: string[] = []
   const messages: string[] = []
+  const waits: number[] = []
   let attempts = 0
-  const filename = resolve('src/db/migrate.ts')
+  const filename = resolve('exec/migrate.mjs')
   const source = readFileSync(filename, 'utf8').replace('import.meta.url', '"file:///test/migrate.ts"')
   const { outputText } = ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: true, target: ts.ScriptTarget.ES2022 },
@@ -33,7 +34,7 @@ function loadMigrations(failures: unknown[], connectionString: string | undefine
       if (attempts <= failures.length) throw failures[attempts - 1]
     } },
     'node:timers/promises': { setTimeout: async (ms: number) => {
-      assert.equal(ms, 2000)
+      waits.push(ms)
       events.push('wait')
     } },
   }
@@ -47,7 +48,7 @@ function loadMigrations(failures: unknown[], connectionString: string | undefine
       return dependencies[name]
     },
   }, { filename })
-  return { ...loaded.exports as typeof import('./migrate'), events, messages }
+  return { ...loaded.exports as typeof import('../../exec/migrate.mjs'), events, messages, waits }
 }
 
 function connectionError(code: string) {
@@ -71,27 +72,30 @@ test('wrapped DNS and PostgreSQL readiness errors retry after closing each conne
     'open 2', 'migrate 2', 'close 2', 'wait',
     'open 3', 'migrate 3', 'close 3',
   ])
-  assert.ok(migration.messages.some(message => message.includes('attempt 2/10')))
+  assert.ok(migration.messages.some(message => message.includes('attempt 2)')))
+  assert.deepEqual(migration.waits, [2000, 4000])
   assert.equal(migration.messages.at(-1), 'Migrations complete.')
   assert.ok(migration.messages.every(message => !message.includes('postgres://fixture')))
 })
 
-test('the tenth migration attempt can succeed', async () => {
-  const migration = loadMigrations(Array.from({ length: 9 }, () => connectionError('ECONNREFUSED')))
+test('transient failures recover beyond the old budget with capped exponential backoff', async () => {
+  const migration = loadMigrations(Array.from({ length: 12 }, () => connectionError('ECONNREFUSED')))
   await migration.runMigrations()
-  assert.equal(migration.events.filter(event => event === 'wait').length, 9)
-  assert.equal(migration.events.at(-1), 'close 10')
+  assert.equal(migration.events.filter(event => event === 'wait').length, 12)
+  assert.equal(migration.events.at(-1), 'close 13')
+  assert.deepEqual(migration.waits, [2000, 4000, 8000, 16000, ...Array(8).fill(30000)])
   assert.equal(migration.messages.at(-1), 'Migrations complete.')
 })
 
-test('persistent connection failure stops at ten attempts and preserves the final error', async () => {
-  const failures = Array.from({ length: 10 }, () => connectionError('EAI_AGAIN'))
+test('a fatal error after a prolonged transient outage stops retries and preserves the error', async () => {
+  const fatal = connectionError('28P01')
+  const failures = [...Array.from({ length: 11 }, () => connectionError('EAI_AGAIN')), fatal]
   const migration = loadMigrations(failures)
-  await assert.rejects(migration.runMigrations(), error => error === failures[9])
-  assert.equal(migration.events.filter(event => event.startsWith('open ')).length, 10)
-  assert.equal(migration.events.filter(event => event.startsWith('close ')).length, 10)
-  assert.equal(migration.events.filter(event => event === 'wait').length, 9)
-  assert.equal(migration.events.at(-1), 'close 10')
+  await assert.rejects(migration.runMigrations(), error => error === fatal)
+  assert.equal(migration.events.filter(event => event.startsWith('open ')).length, 12)
+  assert.equal(migration.events.filter(event => event.startsWith('close ')).length, 12)
+  assert.equal(migration.events.filter(event => event === 'wait').length, 11)
+  assert.equal(migration.events.at(-1), 'close 12')
   assert.ok(!migration.messages.includes('Migrations complete.'))
 })
 

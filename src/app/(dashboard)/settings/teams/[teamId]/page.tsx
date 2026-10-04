@@ -15,7 +15,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
   const { teamId } = await params
   const preferredOrgId = (await cookies()).get(ORG_COOKIE_NAME)?.value ?? null
   const orgCtx = await getUserOrganization(user.id, preferredOrgId)
-  if (!orgCtx) redirect('/login')
+  if (!orgCtx) redirect('/no-organization')
   const team = (await getTeamsByOrg(orgCtx.org.id)).find((item) => item.id === teamId)
   if (!team) notFound()
   const [members, access, orgMembers] = await Promise.all([

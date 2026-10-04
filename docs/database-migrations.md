@@ -4,9 +4,13 @@ Bower uses [Drizzle](https://orm.drizzle.team/) for its PostgreSQL schema. The s
 
 ## Automatic migrations
 
-When `AUTO_MIGRATE=true`, Bower applies pending migrations on startup, before it starts serving traffic. Both the [`trellis.yml`](../trellis.yml) quick start and [`.env.example`](../.env.example) enable it.
+When `AUTO_MIGRATE=true`, Bower applies pending migrations on startup, before it launches Next.js or the front server. Both the [`trellis.yml`](../trellis.yml) quick start and [`.env.example`](../.env.example) enable it.
 
-Startup migrations retry transient failures up to ten times, two seconds apart, with a five-second connection timeout per attempt. Transient failures are DNS and connection errors and PostgreSQL-not-ready errors. Authentication, SQL, and other errors fail immediately. If the connection keeps failing after the last attempt, startup fails.
+If the database isn't reachable yet, Bower waits for it:
+
+- **Transient failures retry until the database is available.** These are DNS and connection errors and PostgreSQL-not-ready errors. Retries back off exponentially from two seconds up to 30 seconds, with a five-second connection timeout per attempt.
+- **Other failures stop startup immediately.** Authentication, SQL, and other errors exit with a nonzero status.
+- **While waiting, Bower reports not ready.** It logs each retry without the connection string, and stops normally on SIGTERM or SIGINT. A persistent DNS or configuration problem shows up as an unhealthy task with retry logs, not a restart loop.
 
 ## Manual migrations
 

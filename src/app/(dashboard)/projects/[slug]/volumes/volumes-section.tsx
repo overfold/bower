@@ -12,7 +12,7 @@ export default async function ProjectVolumesSection({ params }: {
   const user = await getCurrentUser()
   if (!user) redirect('/login')
   const org = await getUserOrganization(user.id)
-  if (!org) redirect('/login')
+  if (!org) redirect('/no-organization')
   const { slug } = await params
   const project = await getProjectBySlug(org.org.id, slug)
   if (!project) notFound()

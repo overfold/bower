@@ -25,10 +25,10 @@ export default async function DashboardLayout({
   const preferredOrgId = cookieStore.get(ORG_COOKIE_NAME)?.value ?? null
 
   const allOrgs = await getUserOrganizations(user.id)
-  if (allOrgs.length === 0) redirect('/login')
+  if (allOrgs.length === 0) redirect('/no-organization')
 
   const orgCtx = await getUserOrganization(user.id, preferredOrgId)
-  if (!orgCtx) redirect('/login')
+  if (!orgCtx) redirect('/no-organization')
 
   const [teams, userProjects, orgServices, instanceAdmin, deployments, members, orgTeams, notifications] = await Promise.all([
     getUserTeams(user.id, orgCtx.org.id),

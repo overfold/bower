@@ -12,7 +12,7 @@ export default async function MemberPage({ params }: { params: Promise<{ userId:
   const user = await getCurrentUser()
   if (!user) redirect('/login')
   const ctx = await getUserOrganization(user.id)
-  if (!ctx) redirect('/login')
+  if (!ctx) redirect('/no-organization')
   const { userId } = await params
   const members = await getOrgMembers(ctx.org.id)
   const member = members.find((row) => row.membership.userId === userId)

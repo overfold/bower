@@ -9,7 +9,7 @@ export default async function DeploymentsPage() {
   if (!user) redirect('/login')
 
   const orgCtx = await getUserOrganization(user.id)
-  if (!orgCtx) redirect('/login')
+  if (!orgCtx) redirect('/no-organization')
 
   const [allDeployments, projects] = await Promise.all([
     getDeploymentsForOrg(orgCtx.org.id, null),

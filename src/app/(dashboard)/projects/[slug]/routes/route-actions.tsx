@@ -63,7 +63,11 @@ export function AddRouteDialog({
     setError(null)
     setBusy(true)
     try {
-      await createManagedRouteAction(projectId, new FormData(event.currentTarget))
+      const result = await createManagedRouteAction(projectId, new FormData(event.currentTarget))
+      if (result?.error) {
+        setError(result.error)
+        return
+      }
       setOpen(false)
       setPrefix('')
       router.refresh()
@@ -271,7 +275,11 @@ function EditRouteDialog({
     setBusy(true)
     setError(null)
     try {
-      await updateManagedRouteAction(projectId, route.id, new FormData(event.currentTarget))
+      const result = await updateManagedRouteAction(projectId, route.id, new FormData(event.currentTarget))
+      if (result?.error) {
+        setError(result.error)
+        return
+      }
       onOpenChange(false)
       router.refresh()
     } catch (err) {

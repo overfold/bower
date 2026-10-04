@@ -30,19 +30,25 @@ Open `bower.yml` and review these settings:
   - Allow inbound TCP on ports 80 and 443.
 
   Caddy obtains the HTTPS certificate automatically. If you leave `BOWER_PUBLIC_URL` commented out, Bower is served over HTTP only at `http://<node-ip>`.
+- **Protected routes.** Routes protected by a password or a Bower login need both `BOWER_PUBLIC_URL` and `BOWER_ROUTE_AUTH_SECRET`. The manifest reads `BOWER_ROUTE_AUTH_SECRET` from the `route-auth-secret` secret you create in [step 2](#2-create-the-deployment-secrets). Public routes need neither.
 - **Database credentials.** Replace the example `POSTGRES_PASSWORD` and use the same password in `DATABASE_URL`, URL-encoded. If Postgres has already initialized its data directory, changing these values does not change its credentials.
 - **External database.** To use your own Postgres instead of the bundled one, remove the `db` task group and set `DATABASE_URL` to its connection string.
 - **Images and resources.** The manifest uses the `latest` Bower image with small CPU and memory allocations. Pin the image version (see [Container images](#container-images)) and adjust resources as needed. The ingress proxy images also default to `latest`; set `BOWER_CADDY_IMAGE` and `BOWER_PROXY_SYNC_IMAGE` to pin them.
 
-Keep the `platform` namespace. If you change it, you also need to update the database hostname, `BOWER_PROXY_NAMESPACE`, and the namespace in the commands below. The [configuration reference](configuration.md) lists every other setting.
+Keep the `platform` namespace. If you change it, you also need to update the database hostname, `BOWER_PROXY_NAMESPACE`, and the namespace in the secret and apply commands below. The [configuration reference](configuration.md) lists every other setting.
 
-## 2. Create the encryption key
+## 2. Create the deployment secrets
 
 ```bash
+# Encrypts server action payloads.
 openssl rand -hex 32 | trellisctl --namespace platform secrets set encryption-key --stdin
+# Signs access grants for password- and Bower-login-protected routes.
+openssl rand -hex 32 | trellisctl --namespace platform secrets set route-auth-secret --stdin
 ```
 
-Create this key only once, and keep it when you update Bower. Every Bower instance must use the same key.
+Create each secret only once, and keep both when you update Bower. Every Bower instance must use the same values. Changing `route-auth-secret` invalidates existing route-access grants. Never put secret values in the manifest or commit them to Git.
+
+If you only need public routes, you can skip `route-auth-secret` and remove its entry from the Bower task's `secrets` list in `bower.yml`.
 
 ## 3. Apply the manifest
 
@@ -74,13 +80,21 @@ Ingress can take a moment to become healthy, and HTTPS can take a little longer 
 
 ## Next steps
 
-- To protect application routes with a Bower login, set both `BOWER_PUBLIC_URL` and `BOWER_ROUTE_AUTH_SECRET`. See the [configuration reference](configuration.md).
+- Protected routes use the `BOWER_PUBLIC_URL` and `route-auth-secret` you set up above. See the [configuration reference](configuration.md) for details.
 - To deploy from CI or on registry pushes, see [CI/CD automation](automation.md).
 
 ## Updating Bower
 
 1. Change the Bower image tag in your saved `bower.yml`.
 2. Apply it again with the command from [step 3](#3-apply-the-manifest).
+
+Installations created before protected routes needed `route-auth-secret` don't have it yet. To enable protected routes, create the secret as in [step 2](#2-create-the-deployment-secrets), add this entry to the Bower task's `secrets` list, and apply the manifest again:
+
+```yaml
+- name: route-auth-secret
+  target: env
+  env: BOWER_ROUTE_AUTH_SECRET
+```
 
 With `AUTO_MIGRATE=true`, which the manifest sets, Bower applies pending database migrations on startup. Otherwise, run them before you start the new version. See [Database migrations](database-migrations.md).
 

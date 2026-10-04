@@ -24,7 +24,7 @@ export default async function NodePage({ params }: { params: Promise<{ nodeId: s
   const user = await getCurrentUser()
   if (!user) redirect('/login')
   const ctx = await getUserOrganization(user.id)
-  if (!ctx) redirect('/login')
+  if (!ctx) redirect('/no-organization')
   const { nodeId } = await params
   let node: TrellisNode | undefined
   let allocations: TrellisAllocation[] = []

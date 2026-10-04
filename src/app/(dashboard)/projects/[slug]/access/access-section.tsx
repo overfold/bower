@@ -15,7 +15,7 @@ export default async function AccessSection({ params }: { params: Promise<{ slug
   const user = await getCurrentUser()
   if (!user) redirect('/login')
   const orgCtx = await getUserOrganization(user.id)
-  if (!orgCtx) redirect('/login')
+  if (!orgCtx) redirect('/no-organization')
   const { slug } = await params
   const project = await getProjectBySlug(orgCtx.org.id, slug)
   if (!project) redirect('/projects')

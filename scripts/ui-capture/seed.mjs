@@ -39,6 +39,12 @@ try {
         password_hash: passwordHash,
         is_instance_admin: false,
       },
+      {
+        name: "Taylor Wilson",
+        email: "taylor.wilson.with.a.long.address@example.test",
+        password_hash: passwordHash,
+        is_instance_admin: false,
+      },
     ])} RETURNING *`;
     const [org] =
       await sql`INSERT INTO organizations (name,slug,trellis_api_url,trellis_api_token) VALUES ('Acme Cloud','acme-cloud','http://127.0.0.1:8128','audit-fake-token') RETURNING *`;

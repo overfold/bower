@@ -16,7 +16,7 @@ export default async function MembersSettingsPage() {
   const user = await getCurrentUser()
   if (!user) redirect('/login')
   const orgCtx = await getUserOrganization(user.id)
-  if (!orgCtx) redirect('/login')
+  if (!orgCtx) redirect('/no-organization')
 
   const showInstanceAdmin = await isInstanceAdmin(user.id)
   const invitations = await getInvitations(orgCtx.org.id)

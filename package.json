@@ -9,7 +9,7 @@
     "lint": "eslint",
     "test": "node --test proxy/*.test.mjs exec/*.test.mjs && node --import tsx --test src/**/*.test.ts",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/db/migrate.ts"
+    "db:migrate": "node exec/migrate.mjs"
   },
   "dependencies": {
     "@next/env": "16.3.4",

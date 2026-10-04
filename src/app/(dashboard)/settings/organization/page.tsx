@@ -9,7 +9,7 @@ export default async function OrganizationSettingsPage() {
   const user = await getCurrentUser()
   if (!user) redirect('/login')
   const orgCtx = await getUserOrganization(user.id)
-  if (!orgCtx) redirect('/login')
+  if (!orgCtx) redirect('/no-organization')
 
   return (
     <div className="space-y-6">

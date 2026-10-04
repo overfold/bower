@@ -28,6 +28,9 @@ COPY --from=builder --chown=bower:bower /app/entrypoint.sh ./entrypoint.sh
 COPY --from=builder --chown=bower:bower /app/exec ./exec
 COPY --from=builder --chown=bower:bower /app/node_modules/ws ./node_modules/ws
 COPY --from=builder --chown=bower:bower /app/node_modules/@next/env ./node_modules/@next/env
+# Startup migrations run outside Next's standalone dependency tracing.
+COPY --from=builder --chown=bower:bower /app/node_modules/drizzle-orm ./node_modules/drizzle-orm
+COPY --from=builder --chown=bower:bower /app/node_modules/postgres ./node_modules/postgres
 RUN chmod +x entrypoint.sh
 
 USER bower

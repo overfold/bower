@@ -8,7 +8,7 @@ const transientConnectionCodes = new Set([
   "CONNECT_TIMEOUT", "CONNECTION_CLOSED", "08001", "08006", "57P03",
 ]);
 
-function isTransientConnectionError(error: unknown): boolean {
+function isTransientConnectionError(error) {
   if (!(error instanceof Error)) return false;
   // Drizzle wraps connection errors in a query error with the original cause.
   return ("code" in error && transientConnectionCodes.has(String(error.code))) ||
@@ -23,27 +23,26 @@ export async function runMigrations() {
 
   console.log("Running migrations...");
 
-  const maxAttempts = 10;
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+  let retryDelay = 2000;
+  for (let attempt = 1; ; attempt++) {
     const migrationClient = postgres(connectionString, { max: 1, connect_timeout: 5 });
     try {
       await migrate(drizzle(migrationClient), { migrationsFolder: "./drizzle" });
       console.log("Migrations complete.");
       return;
     } catch (error) {
-      if (attempt === maxAttempts || !isTransientConnectionError(error)) throw error;
+      if (!isTransientConnectionError(error)) throw error;
       // Don't log the query or connection string: they may contain secrets.
-      console.warn(`Database unavailable during migrations (attempt ${attempt}/${maxAttempts}); retrying in 2 seconds.`);
+      console.warn(`Database unavailable during migrations (attempt ${attempt}); retrying in ${retryDelay / 1000} seconds.`);
     } finally {
       await migrationClient.end({ timeout: 5 });
     }
-    await delay(2000);
+    await delay(retryDelay);
+    retryDelay = Math.min(retryDelay * 2, 30000);
   }
 }
 
-const isDirectExecution =
-  import.meta.url === `file://${process.argv[1]}` ||
-  process.argv[1]?.endsWith("db/migrate.ts");
+const isDirectExecution = import.meta.url === `file://${process.argv[1]}`;
 
 if (isDirectExecution) {
   runMigrations().catch((err) => {
