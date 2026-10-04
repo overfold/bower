@@ -43,7 +43,7 @@ export function SecretActions({
       <AlertDialog open={open} onOpenChange={(next) => { if (!pending) { setOpen(next); if (next) setError(null) } }}>
       <AlertDialogContent>
         <AlertDialogHeader><AlertDialogTitle>Delete {secretName}?</AlertDialogTitle><AlertDialogDescription>This permanently removes the secret <span className="font-mono text-ink">{secretName}</span> from the project environment. Services that depend on it may stop working.</AlertDialogDescription></AlertDialogHeader>
-        {error ? <InlineNotice tone="error" className="mx-5">{error}</InlineNotice> : null}
+        {error ? <InlineNotice tone="danger" className="mx-5">{error}</InlineNotice> : null}
         <AlertDialogFooter><AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel><AlertDialogAction onClick={remove} disabled={pending} aria-busy={pending}>{pending ? 'Deleting…' : 'Delete secret'}</AlertDialogAction></AlertDialogFooter>
       </AlertDialogContent>
       </AlertDialog>

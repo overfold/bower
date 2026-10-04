@@ -111,7 +111,7 @@ export function ServiceEnvironmentDialog({
         <form onSubmit={submit}>
           <DialogBody>
             <div className="space-y-6">
-              {error && <InlineNotice tone="error">{error}</InlineNotice>}
+              {error && <InlineNotice tone="danger">{error}</InlineNotice>}
               <div className="space-y-2">
                 <Label>Service variables</Label>
                 <KeyValueEditor initialRows={recordToRows(envVars)} />

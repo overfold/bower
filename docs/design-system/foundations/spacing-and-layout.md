@@ -62,7 +62,7 @@ The capture suite checks a 390 × 844 viewport as its narrow layout and 1440 × 
 | Dialog header and body | `px-4 py-4`, `sm:px-5` |
 | Dialog footer | `px-4 py-3`, `sm:px-5`, `bg-sunken` |
 | Inline notice | `px-3.5 py-3` |
-| Toast | `p-4` |
+| Toast | `py-2.5 pl-3 pr-2`, `gap-2.5` |
 | Empty state | `px-6 py-14` |
 | Stat tile | `px-4 py-4`, `sm:px-5` |
 

@@ -64,7 +64,7 @@ export function AllocationStopButton({
             Stop allocation <ResourceId value={allocationId} />. A replacement may be created if the service still requires this replica.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        {error ? <InlineNotice tone="error" className="mx-5">{error}</InlineNotice> : null}
+        {error ? <InlineNotice tone="danger" className="mx-5">{error}</InlineNotice> : null}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={stopping}>Cancel</AlertDialogCancel>
           <AlertDialogAction onClick={stop} disabled={stopping} aria-busy={stopping}>

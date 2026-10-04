@@ -33,7 +33,7 @@ export function ClusterSettingsForm({ org }: ClusterSettingsFormProps) {
       const result = await updateOrganizationAction(formData)
       if (result?.error) setError(result.error)
       else if (result?.success) {
-        toast({ tone: 'success', title: 'Trellis settings saved.' })
+        toast({ tone: 'success', title: 'Trellis settings saved' })
         setDirty(false)
         router.refresh()
       } else setError('Trellis settings could not be saved. Please try again.')
@@ -51,7 +51,7 @@ export function ClusterSettingsForm({ org }: ClusterSettingsFormProps) {
           <CardTitle>Trellis connection</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
+          {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
           <div className="max-w-[720px] space-y-2">
             <Label htmlFor="trellisApiUrl" optional>Trellis API URL</Label>
             <Input id="trellisApiUrl" name="trellisApiUrl" defaultValue={org.trellisApiUrl} className="font-mono" />

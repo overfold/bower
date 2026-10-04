@@ -41,7 +41,7 @@ export default function RegisterPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
+        {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
         <div className="space-y-2">
           <Label htmlFor="name">Name</Label>
           <Input id="name" name="name" autoComplete="name" required />

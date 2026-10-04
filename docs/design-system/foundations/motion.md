@@ -30,6 +30,7 @@ The overlay enter and exit utilities (`animate-in`, `fade-in-0`, `zoom-in-95`, `
 
 - **Buttons** press down 1px on `:active` (`active:translate-y-px`) and transition their background, border, color, shadow, and transform.
 - **Tab underline** is a `motion.span` with a `layoutId`, so it slides between tabs instead of jumping.
+- **Toasts** fade and rise 6px in over 200ms (`animate-in fade-in-0 slide-in-from-bottom-[6px] ease-enter`) and fade out over 150ms. The toast stays in the list as `closing` until the exit finishes, and under reduced motion it is removed at once.
 - **Dialogs** use `AnimatePresence` for both enter and exit. Menus, selects, popovers, and tooltips use the `tw-animate-css` data-state classes (fade and a slight zoom, sliding in from the trigger's side).
 - **Loading:** `Skeleton` uses `animate-pulse` and stops under reduced motion. Spinners (`Loader2 animate-spin`) mean "work in progress right now". Use them only in pending buttons and in-progress status chips, never for completed history (A3 B13).
 - **Sign-in background:** `GrowingTrellis` draws vines once per visit, stores its growth state in `localStorage`, and renders the final state immediately under reduced motion.

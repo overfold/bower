@@ -59,7 +59,7 @@ There are two focus styles, both at or above 3:1 contrast (A2-A3, A3-T03, A4-Q17
 
 | Component | Role |
 | --- | --- |
-| Toasts | Container `aria-live="polite"`. Each toast is `role="status"`, or `role="alert"` for danger |
+| Toasts | A `section` labelled "Notifications" holding two always-mounted sibling regions: `aria-live="polite"` for most tones and `aria-live="assertive"` for danger. Toasts carry no role of their own, so nothing nests a competing live role. Hovering or focusing the stack pauses auto-dismiss, and danger toasts never auto-dismiss |
 | `InlineNotice`, `PageBanner` | `role="status"`, or `role="alert"` for danger |
 | `FieldError` | `role="alert"` |
 | `UnsavedChangesBar` | `role="status"` |

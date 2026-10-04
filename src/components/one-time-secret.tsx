@@ -18,9 +18,9 @@ export function OneTimeSecret({ label, value, description }: { label: string; va
       await navigator.clipboard.writeText(value)
       setCopied(true)
       window.setTimeout(() => setCopied(false), 2000)
-      toast({ title: `${label} copied.`, tone: 'success' })
+      toast({ title: `${label} copied`, tone: 'success' })
     } catch {
-      toast({ title: `Could not copy ${label.toLowerCase()}.`, tone: 'error' })
+      toast({ title: `Could not copy ${label.toLowerCase()}`, tone: 'danger' })
     }
   }
 

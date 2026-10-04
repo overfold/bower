@@ -51,7 +51,7 @@ Error copy says what happened and what to do next, in plain language. Don't show
 
 Bower depends on a live Trellis cluster. When it can't be reached:
 
-- **Organization-wide:** `TrellisReadErrorProvider` shows a `PageBanner` (warning tone), "Trellis is unavailable.", with the message, **Retry connection**, and **Check connection settings** (to `/settings/organization#connection`).
+- **Organization-wide:** `TrellisReadErrorProvider` shows a `PageBanner` (`warn` tone), "Trellis is unavailable.", with the message. **Retry connection** and **Check connection settings** (to `/settings/organization#connection`) sit in the banner's `action` slot, beside the text. The banner can't be dismissed: it shows exactly while Trellis is unreachable.
 - **Per section:** `TrellisReadError title message` renders a quiet block inside the card (`role="status"` when the banner already explains it, `alert` otherwise) with **Retry**.
 - **Never substitute a reassuring value.** Readiness reads "Unavailable · 2 desired". Health reads unknown. Needs attention says it couldn't check, not "All clear" (A1 P1-19, A2-M1).
 - **Not configured** (no cluster connection) reads "Not configured" in muted text, with a Configure link where the user can act (A1 P2-09).

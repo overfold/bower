@@ -46,7 +46,7 @@ export default async function RoutePasswordPage({
             <Button variant="primary" type="submit" className="w-full" size="md">Continue</Button>
           </form>
         ) : (
-          <InlineNotice tone="error" className="mt-6">This route authorization request is invalid.</InlineNotice>
+          <InlineNotice tone="danger" className="mt-6">This route authorization request is invalid.</InlineNotice>
         )}
         <p className="mt-6 text-center text-xs text-ink-muted">Protected by Bower</p>
       </section>

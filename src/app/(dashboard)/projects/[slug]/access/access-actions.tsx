@@ -108,7 +108,7 @@ export function GrantAccessDialog({ projectId, teams, members, existingTeamIds, 
           <DialogTitle>Grant project access</DialogTitle>
         </DialogHeader>
         <DialogBody className="space-y-4">
-          {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
+          {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
           <div className="space-y-2">
             <Label htmlFor="access-search">Search teams and members</Label>
             <div className="overflow-hidden rounded-lg border border-line-strong bg-surface">
@@ -227,7 +227,7 @@ export function RevokeAccessButton({ projectId, accessId, kind, name, email }: {
               : <>{email ? <span className="block">{email}</span> : null}{name} will lose their individual access to this project.</>}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        {error ? <InlineNotice tone="error" className="mx-5">{error}</InlineNotice> : null}
+        {error ? <InlineNotice tone="danger" className="mx-5">{error}</InlineNotice> : null}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
           <AlertDialogAction

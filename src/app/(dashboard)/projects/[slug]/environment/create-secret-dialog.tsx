@@ -64,7 +64,7 @@ export function CreateSecretDialog({
         {saved ? <><DialogBody><InlineNotice tone="success">Secret saved. It is now available for service bindings.</InlineNotice></DialogBody><DialogFooter><Button variant="primary" type="button" onClick={() => setOpen(false)}>Done</Button></DialogFooter></> :
         <form action={handleSubmit}>
           <DialogBody className="space-y-4">
-            {error && <InlineNotice tone="error">{error}</InlineNotice>}
+            {error && <InlineNotice tone="danger">{error}</InlineNotice>}
             <input type="hidden" name="environmentId" value={environmentId} />
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>

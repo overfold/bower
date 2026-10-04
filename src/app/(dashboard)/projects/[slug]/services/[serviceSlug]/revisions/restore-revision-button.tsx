@@ -12,7 +12,7 @@ export function RestoreRevisionButton({ serviceId, environmentId, deploymentId, 
   const [pending, startTransition] = useTransition()
   const { toast } = useFeedback()
   return <AlertDialog><TooltipProvider><Tooltip><TooltipTrigger asChild><AlertDialogTrigger asChild><Button size="icon" variant="ghost" loading={pending} aria-label="Roll back to this release"><RotateCcw /></Button></AlertDialogTrigger></TooltipTrigger><TooltipContent>Roll back to this release</TooltipContent></Tooltip></TooltipProvider><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Roll back to <span className="font-mono">{image}</span>?</AlertDialogTitle><AlertDialogDescription>This replaces the service with the exact configuration saved for this deployment.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><Button variant="primary" loading={pending} onClick={() => startTransition(async () => {
-    try { await rollbackServiceAction(serviceId, environmentId, deploymentId); toast({ tone: 'success', title: 'Rollback started.' }) }
-    catch (reason) { toast({ tone: 'error', title: 'Could not roll back', description: reason instanceof Error ? reason.message : 'The configuration could not be restored.' }) }
+    try { await rollbackServiceAction(serviceId, environmentId, deploymentId); toast({ tone: 'success', title: 'Rollback started' }) }
+    catch (reason) { toast({ tone: 'danger', title: 'Could not roll back', description: reason instanceof Error ? reason.message : 'The configuration could not be restored.' }) }
   })}>Roll back</Button></AlertDialogFooter></AlertDialogContent></AlertDialog>
 }

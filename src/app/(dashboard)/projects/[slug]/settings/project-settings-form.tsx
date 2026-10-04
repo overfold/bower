@@ -45,7 +45,7 @@ export function ProjectSettingsForm({ project }: Props) {
       const result = await updateProjectAction(project.id, formData)
       if (result?.error) setError(result.error)
       else if (result?.success) {
-        toast({ tone: 'success', title: 'Project settings saved.' })
+        toast({ tone: 'success', title: 'Project settings saved' })
         setDirty(false)
         router.refresh()
       } else setError('Project settings could not be saved. Please try again.')
@@ -65,7 +65,7 @@ export function ProjectSettingsForm({ project }: Props) {
             <CardTitle>Project details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
+            {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
             <div className="max-w-xl space-y-2">
               <Label htmlFor="name">Name</Label>
               <Input id="name" name="name" defaultValue={project.name} required />
@@ -142,7 +142,7 @@ export function ProjectDangerZone({ project, counts }: Props) {
                 <Label htmlFor="confirm-project-name">Type <span className="font-mono font-semibold text-ink">{project.slug}</span> to confirm</Label>
                 <Input id="confirm-project-name" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} autoComplete="off" />
               </div>
-              {deleteError ? <InlineNotice tone="error">{deleteError}</InlineNotice> : null}
+              {deleteError ? <InlineNotice tone="danger">{deleteError}</InlineNotice> : null}
               <AlertDialogFooter>
                 <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
                 <AlertDialogAction onClick={handleDelete} disabled={deleting || confirmation !== project.slug} aria-busy={deleting}>

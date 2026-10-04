@@ -34,7 +34,7 @@ export function OrgSettingsForm({ org }: OrgSettingsFormProps) {
       const result = await updateOrganizationAction(formData)
       if (result?.error) setError(result.error)
       else if (result?.success) {
-        toast({ tone: 'success', title: 'Organization settings saved.' })
+        toast({ tone: 'success', title: 'Organization settings saved' })
         setDirty(false)
         router.refresh()
       } else setError('Organization settings could not be saved. Please try again.')
@@ -52,7 +52,7 @@ export function OrgSettingsForm({ org }: OrgSettingsFormProps) {
           <CardTitle>Organization details</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
+          {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
           <div className="max-w-xl space-y-2">
             <Label htmlFor="name">Organization name</Label>
             <Input id="name" name="name" defaultValue={org.name} required />

@@ -181,6 +181,13 @@ This is the consolidated list of design decisions **currently in force**, groupe
 | Destructive buttons | Outlined to open, solid to confirm. Solid red never on a page | A3-C06, A5-M11 | — |
 | Disabled submit | Keep enabled and validate on click | A3-C07, A4-Q19 | Disabled until valid |
 | Validation errors | Inline under the field, replacing the hint. Banner only for server errors | A4-Q60 | Top banner |
+| Toast style | Neutral surface (`bg-surface border-line`), tone on the icon only, `rounded-lg`, compact padding, fit-content width up to 22rem | Toast redesign (Oct 2026) | Tinted `toneClasses` toast, `p-4`, `rounded-xl`, full width |
+| Toast timing | `danger` toasts stay until dismissed. Others leave after 5s, paused while the stack is hovered or focused | Toast redesign (Oct 2026) | Every toast auto-dismissed after 5s |
+| Toast live regions | Two always-mounted sibling regions, polite and assertive (danger). Toasts carry no role | Toast redesign (Oct 2026) | `role="alert"` toasts inside a polite container |
+| Toast titles | No closing period. Full-sentence descriptions end with one | Toast redesign (Oct 2026), content and copy | Mixed punctuation |
+| Page banner dismissal | Condition banners are not dismissible and show exactly while the condition holds. A banner may opt in with `dismissible` and an explicit `id`; there is no title fallback | Toast redesign (Oct 2026) | A1 P2-24 (every banner dismissible, remembered for the session by title) |
+| Page banner actions | In the `action` slot beside the text, as for `InlineNotice` | A2-H9 | Buttons nested inside the banner message |
+| Feedback tones | The shared `Tone` names only. No `error` or `warning` aliases | A1 P1-03 | `error` and `warning` aliases |
 | Placeholders | None in forms. Rules in hints. Search keeps "Search" | A3-C17 | — |
 | Optional fields | "(optional)" | A2-F4 | — |
 | Numeric fields | Fill the grid column, units as a suffix | A3-C19, A2-F2 | Fixed narrow width |

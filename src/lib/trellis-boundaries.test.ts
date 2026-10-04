@@ -751,3 +751,17 @@ test('combined member role save enforces authorization and last owner/admin prot
   assert.equal(writes[0].role, 'member')
   assert.equal(writes[1].isInstanceAdmin, false)
 })
+
+test('Trellis-unavailable banner shows while the condition holds, with its actions beside the text', () => {
+  const { TrellisReadErrorProvider } = load<typeof import('../components/trellis-read-error')>('src/components/trellis-read-error.tsx', { 'next/navigation': navigation })
+  assert.doesNotMatch(renderToStaticMarkup(createElement(TrellisReadErrorProvider, { message: null, children: createElement('main') })), /Trellis is unavailable/)
+
+  const html = renderToStaticMarkup(createElement(TrellisReadErrorProvider, { message: 'Connection refused.', children: createElement('main') }))
+  assert.match(html, /role="status"/)
+  assert.match(html, /bg-warn-50/)
+  assert.doesNotMatch(html, /Dismiss/)
+  const text = html.match(/<div class="min-w-0"><span class="font-semibold">Trellis is unavailable\.<\/span><span class="ml-1">Connection refused\.<\/span><\/div>/)
+  assert.ok(text, html)
+  const action = html.slice(text.index! + text[0].length)
+  assert.match(action, /^<div class="flex shrink-0[^"]*"><button[^>]*>Retry connection<\/button><a [^>]*href="\/settings\/organization#connection"[^>]*>Check connection settings<\/a><\/div>/)
+})

@@ -68,12 +68,12 @@ export function ApiKeysSection({ keys }: { keys: ApiKey[] }) {
             </DialogHeader>
               {newKey ? (<>
               <DialogBody>
-                <InlineNotice tone="warning" className="mb-4">Copy this key now. You won’t see it again.</InlineNotice>
+                <InlineNotice tone="warn" className="mb-4">Copy this key now. You won’t see it again.</InlineNotice>
                 <OneTimeSecret label="API key" value={newKey} />
               </DialogBody><DialogFooter><Button variant="primary" onClick={() => { setOpen(false); setNewKey(null) }}>Done</Button></DialogFooter></>) : (
                 <form onSubmit={handleCreate}>
                   <DialogBody className="space-y-4">
-                  {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
+                  {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
                   <div className="space-y-2">
                     <Label htmlFor="keyName">Name</Label>
                     <Input id="keyName" name="name" required />
@@ -130,7 +130,7 @@ function RevokeableRow({ apiKey }: { apiKey: ApiKey }) {
     try {
       await revokeApiKeyAction(apiKey.id)
       setOpen(false)
-      toast({ tone: 'success', title: 'API key revoked.' })
+      toast({ tone: 'success', title: 'API key revoked' })
     } catch (cause) {
       setError(actionErrorMessage(cause, 'Could not revoke API key.'))
     } finally {
@@ -153,7 +153,7 @@ function RevokeableRow({ apiKey }: { apiKey: ApiKey }) {
           <AlertDialogTrigger asChild><Button variant="ghost" size="sm" disabled={pending} aria-label={`Revoke ${apiKey.name}`}><Trash2 className="h-3.5 w-3.5 text-ink-muted" /></Button></AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader><AlertDialogTitle>Revoke {apiKey.name}?</AlertDialogTitle><AlertDialogDescription>Clients using API key <span className="font-mono text-ink">{apiKey.keyPrefix}…</span> will immediately lose access. This cannot be undone.</AlertDialogDescription></AlertDialogHeader>
-            {error ? <InlineNotice tone="error" className="mx-5">{error}</InlineNotice> : null}
+            {error ? <InlineNotice tone="danger" className="mx-5">{error}</InlineNotice> : null}
             <AlertDialogFooter><AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel><AlertDialogAction onClick={revoke} disabled={pending} aria-busy={pending}>{pending ? 'Revoking…' : 'Revoke API key'}</AlertDialogAction></AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

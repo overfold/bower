@@ -30,7 +30,6 @@ The dark theme is not fully verified (A4-Q38). Measured with the current tokens:
 | `src/app/(dashboard)/settings/teams/[teamId]/page.tsx` | The Danger zone title is `text-danger-500` (A5-M11 / Q44) | A neutral `CardTitle` (the project and member pages are red) |
 | `src/components/ui/card.tsx`, `CardHeader` | Card titles were decided at 14px (A2-A5, A4-Q20) | `text-sm` (13px). The lint mapping treats 14 → `sm`. `text-tile` (14px) exists for tile titles. Decide whether card titles should use `text-tile`, or update the decision |
 | `src/components/header-bar.tsx`, Search button | No `shadow-card` on buttons (A1 P3-06) | Has `shadow-card` |
-| `src/components/ui/feedback.tsx`, toast and banner dismiss | Use token colors (`bg-ink/5`) | `hover:bg-black/5` |
 | `service-tabs.tsx` | The focus ring has a 2px offset like `ProjectTabs` | The ring has no offset |
 | `src/app/(dashboard)/error.tsx` | The landing page is "Home" (A2-C10) | Copy says "return to the overview" and "Back to overview" |
 | `src/app/(dashboard)/not-found.tsx` | Page-size title (A2-H3) | `text-xl` (22px), not the 26px H1 |

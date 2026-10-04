@@ -106,7 +106,7 @@ export function ConfigurationForm({ serviceId, environmentId, config, limits, pr
       setVariableBaseline(variableService)
       for (const field of form.elements) if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) field.defaultValue = field.value
       setDirtyFields(new Set())
-      toast({ tone: 'success', title: 'Service configuration saved.' })
+      toast({ tone: 'success', title: 'Service configuration saved' })
       router.refresh()
     } catch (err) {
       setError(actionErrorMessage(err, 'Something went wrong.'))
@@ -117,7 +117,7 @@ export function ConfigurationForm({ serviceId, environmentId, config, limits, pr
 
   return (
     <form ref={formRef} onSubmit={handleSubmit} onInput={(event) => { const field = event.target; if (!formRef.current?.contains(field as Node)) return; if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) setFieldDirty(field.name || field.id, field.value !== field.defaultValue) }} className="space-y-4" aria-busy={saving}>
-      {error && <InlineNotice tone="error">{error}</InlineNotice>}
+      {error && <InlineNotice tone="danger">{error}</InlineNotice>}
       <div className="hidden">
         <input type="hidden" name="resourceTier" value="custom" />
         <input type="hidden" name="envVars" value={recordToLines(variableService.envVars)} />
@@ -225,7 +225,7 @@ export function ConfigurationForm({ serviceId, environmentId, config, limits, pr
         <div id="advanced-content" hidden={!advancedOpen} className={advancedOpen ? 'grid gap-5 p-4 md:grid-cols-2' : 'hidden'}>
           <div className="space-y-2"><Label htmlFor="runtime">Isolation</Label><Select name="runtime" value={runtime} onValueChange={(value) => { setRuntime(value as 'runc' | 'runsc'); setFieldDirty('runtime', value !== initialRuntime) }}><SelectTrigger id="runtime"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="runc">None</SelectItem><SelectItem value="runsc">Sandboxed</SelectItem></SelectContent></Select><p className="text-xs text-ink-muted">Sandboxed workloads use stronger process isolation for the whole service.</p></div>
           <div className="space-y-2"><Label htmlFor="apiAccess">Workload API access</Label><Select name="apiAccess" value={apiAccess} onValueChange={(value) => { setApiAccess(value); setFieldDirty('apiAccess', value !== initialAccess) }}><SelectTrigger id="apiAccess"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">None</SelectItem>{mayBypassMultitenancy ? <><SelectItem value="cluster:read">Cluster · read</SelectItem><SelectItem value="cluster:write">Cluster · write</SelectItem></> : null}</SelectContent></Select><p className="text-xs text-ink-muted">Cluster-wide API access can only be enabled by an instance admin.</p></div>
-          {apiAccess !== 'none' ? <div className="md:col-span-2"><InlineNotice tone="warning" icon={<ShieldAlert className="mt-0.5 h-4 w-4" />}>This service has cluster-wide workload API access.</InlineNotice></div> : null}
+          {apiAccess !== 'none' ? <div className="md:col-span-2"><InlineNotice tone="warn" icon={<ShieldAlert className="mt-0.5 h-4 w-4" />}>This service has cluster-wide workload API access.</InlineNotice></div> : null}
         </div>
       </section>
 
