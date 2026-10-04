@@ -33,6 +33,8 @@ This is a visual inventory, not a real-cluster integration test or a pixel-diff 
 
 Prefer settled screens and states that materially change the layout, available controls, or feedback. Do not multiply captures for token renames, equivalent select options, every viewport, or every filter combination. Transient loading animations, infrastructure-induced error boundaries, clipboard/download plumbing, and real deployment execution are outside this inventory; screenshots are not evidence that those behaviors work.
 
+Auth-page captures wait for the trellis lattice's introductory reveal to finish. They retain normal motion and fresh-visit vine growth rather than seeding a mature background or exercising the form to establish capture readiness.
+
 ## Local run
 
 Use a disposable local PostgreSQL database named with the suffix `_ui_audit`. **Seeding truncates that database's Bower users and organizations, cascading to their data.** The seed refuses remote hosts and database names without this suffix. Do not point it at a database you want to keep.

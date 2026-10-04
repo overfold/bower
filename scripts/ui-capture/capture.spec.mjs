@@ -943,6 +943,16 @@ for (const scenario of scenarios)
           ),
       );
     }
+    const trellisRails = page.locator('main > div[aria-hidden="true"] > svg > g > line');
+    if (await trellisRails.count()) {
+      // Capture the normal fresh-visit background after its introductory reveal,
+      // without advancing the slow vine growth or exercising the auth form.
+      await expect.poll(() => trellisRails.evaluateAll((rails) =>
+        rails.length > 0 && rails.every((rail) =>
+          Number.parseFloat(getComputedStyle(rail).strokeDashoffset) === 0,
+        ),
+      ), { timeout: 10_000, message: 'Auth trellis introductory reveal has settled' }).toBe(true);
+    }
     await page.screenshot({
       path: `${screenshots}/${scenario.name}.png`,
       fullPage: !scenario.setup || scenario.fullPage,
