@@ -1,81 +1,109 @@
 # Bower
 
-Bower is an opinionated deployment dashboard built on top of [Trellis](https://github.com/overfold/trellis). It adds application-platform abstractions — projects, environments, services, deployments, routes, volumes, secrets, teams, and an audit trail — while leaving scheduling, placement, and container lifecycle entirely to Trellis.
+A deployment dashboard for [Trellis](https://github.com/overfold/trellis).
+
+Bower adds application-platform concepts on top of Trellis: projects, environments, services, deployments, routes, volumes, secrets, teams, and an audit trail. Trellis still handles scheduling, placement, and the container lifecycle.
+
+- [Features](#features)
+- [Requirements](#requirements)
+- [Deploy on Trellis](#deploy-on-trellis)
+- [Local development](#local-development)
+- [Documentation](#documentation)
+- [Contributing](#contributing)
 
 ## Features
 
-- **Projects & environments** — logical grouping and inheritance scopes mapped to isolated Trellis namespaces
-- **Services** — opinionated application workloads mapped to Trellis jobs and task groups
-- **Deployments** — auditable history with plan diffs, canary step advancement, and automatic rollback on health failures
-- **Managed ingress** — per-namespace Caddy proxy; adding a route writes the config and reloads automatically
-- **Secrets** — backed by Trellis namespace secrets; Bower tracks metadata and rotation without storing values
-- **RBAC** — Owner, Admin, Deployer, and Viewer roles scoped per project
-- **Audit log** — every mutation recorded with actor, timestamp, and before/after state
-- **CI/CD hooks** — inbound deploy endpoint and registry webhooks with HMAC verification
+- **Projects and environments.** Group work and share settings. Each environment maps to its own Trellis namespace.
+- **Services.** Application workloads that map to Trellis jobs and task groups.
+- **Deployments.** History with plan diffs, step-by-step canary rollouts, and automatic rollback when health checks fail.
+- **Managed ingress.** One shared Caddy proxy per cluster. When you add a route, Bower updates the proxy and reloads it.
+- **Secrets.** Stored as Trellis namespace secrets. Bower tracks metadata and rotation but never stores the values.
+- **Access control.** Owner, Admin, Deployer, and Viewer roles, scoped per project.
+- **Audit log.** Records every change with who made it, when, and the state before and after.
+- **CI/CD hooks.** A deploy endpoint and registry webhooks, verified with HMAC signatures.
 
 ## Requirements
 
-- A running Trellis cluster with a credential that has `cluster/write` access
-- Node.js 20+ (local development only)
+- A running Trellis cluster and a credential with `cluster/write` access.
+- For local development: Node.js 22, npm, and PostgreSQL (for example, through Docker).
 
-## Quick start
+## Deploy on Trellis
 
-### On Trellis
+The root [`trellis.yml`](trellis.yml) deploys Bower, a bundled Postgres container, and shared ingress. You don't need to clone the repository.
 
-Bower includes a root [`trellis.yml`](trellis.yml). Download it and edit the deployment settings before applying it; no clone is required.
+This manifest targets a **single-node** cluster:
 
-The quick-start manifest includes a bundled Postgres container, uses private namespace networking for Bower and Postgres, and is intended for a single-node Trellis cluster. Shared ingress uses host networking on ports 80/443. For a multi-node or production deployment, use an external Postgres instance and adjust `DATABASE_URL` instead. The bundled database persists across container crashes, but its node-local data is not a substitute for a production database backup/HA strategy.
+- Bower and Postgres communicate over private namespace networking.
+- Ingress uses host networking on ports 80 and 443.
+- Postgres data survives container crashes but is stored on the node. It does not replace backups or high availability.
 
-#### 1. Download and configure the manifest
+For a multi-node or production deployment, use an external Postgres instance and set `DATABASE_URL` to its connection string.
+
+### 1. Download and edit the manifest
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/overfold/bower/main/trellis.yml -o bower.yml
-# Open bower.yml in your editor before applying it.
 ```
 
-Review these common settings:
+Open `bower.yml` and review these settings:
 
-- **Dashboard URL:** uncomment `BOWER_PUBLIC_URL` in the web task's `env` block and set it to your public origin, for example `https://bower.example.com`. Point the hostname's DNS A record at the ingress node, ensure any AAAA record reaches that node too, and allow inbound TCP ports 80/443. Caddy obtains the HTTPS certificate automatically. Leaving this setting commented out gives HTTP-only setup at `http://<node-ip>`; it does not enable HTTPS for the domain or bare IP.
-- **Database credentials:** replace the example `POSTGRES_PASSWORD` and update the password in `DATABASE_URL` to match (URL-encode it in the connection string). For an external database, remove the `db` task group and set `DATABASE_URL` to its connection string. Changing these values does not change credentials in an already initialized Postgres data directory.
-- **Images and resources:** the manifest uses `latest` Bower/proxy images and small CPU/memory allocations. Pin image versions and adjust resources as needed.
+- **Dashboard URL.** In the web task's `env` block, uncomment `BOWER_PUBLIC_URL` and set it to your public origin, such as `https://bower.example.com`. Then:
+  - Point the hostname's DNS A record at the ingress node, and make sure any AAAA record reaches it too.
+  - Allow inbound TCP on ports 80 and 443.
 
-Keep the `platform` namespace for the quick start. If you change it, also update the database DNS hostname, `BOWER_PROXY_NAMESPACE`, and the namespace used for the encryption secret and apply commands. See the [configuration reference](docs/configuration.md) for additional settings.
+  Caddy obtains the HTTPS certificate automatically. If you leave `BOWER_PUBLIC_URL` commented out, Bower is served over HTTP only at `http://<node-ip>`.
+- **Database credentials.** Replace the example `POSTGRES_PASSWORD` and use the same password in `DATABASE_URL`, URL-encoded. If Postgres has already initialized its data directory, changing these values does not change its credentials. To use an external database, remove the `db` task group and point `DATABASE_URL` at it.
+- **Images and resources.** The manifest uses the `latest` Bower and proxy images with small CPU and memory allocations. Pin image versions and adjust resources as needed.
 
-#### 2. Set the encryption key secret
+Keep the `platform` namespace. If you change it, you also need to update the database hostname, `BOWER_PROXY_NAMESPACE`, and the namespace in the commands below. The [configuration reference](docs/configuration.md) lists every other setting.
+
+### 2. Create the encryption key
 
 ```bash
-# Generate a stable 32-byte key and store it — it must be identical across all Bower instances.
 openssl rand -hex 32 | trellisctl --namespace platform secrets set encryption-key --stdin
 ```
 
-Generate this secret once; keep the existing key when updating an installation.
+Create this key only once, and keep it when you update Bower. Every Bower instance must use the same key.
 
-#### 3. Apply the edited manifest
+### 3. Apply the manifest
 
 ```bash
 trellisctl --namespace platform jobs apply ./bower.yml --wait
 ```
 
-`trellisctl` validates the local manifest and applies it through the normal plan/apply path. Keep this edited file for subsequent updates; applying directly from GitHub would use the repository's defaults rather than your settings.
+Keep your edited `bower.yml` for future updates. If you apply the manifest straight from GitHub, your settings are replaced by the repository defaults.
 
-#### 4. Finish setup
+### 4. Create the first account
 
-On first startup Bower creates a default organization backed by the allocation's Trellis workload identity (injected via `api_access`) and prints a single-use instance admin token to the container logs. Retrieve it with:
+On first startup, Bower:
+
+- creates a default organization that is already connected to the cluster, using the Trellis credentials injected through `api_access`;
+- creates the shared `platform/bower-ingress` job, which serves the dashboard and application routes on ports 80 and 443;
+- prints a single-use admin invitation link in its logs.
+
+Find the `Bower — First Run Setup` banner in the logs:
 
 ```bash
 trellisctl --namespace platform jobs logs bower --tail 50
 ```
 
-Look for the `Bower — First Run Setup` banner containing the invitation link. Open that link using your configured `BOWER_PUBLIC_URL` (or `http://<node-ip>` for HTTP-only setup) to create the first account. Bower creates a shared `platform/bower-ingress` job on startup; it owns ports 80/443 and serves both the dashboard and application routes across namespaces. Allow a short delay for ingress to become healthy and, for HTTPS, for certificate issuance. Port 3000 remains available for troubleshooting. The Trellis connection is already configured — no manual cluster setup required. Bower resolves the address, token, and cluster CA from each running allocation rather than storing them in Postgres. When Trellis replaces an allocation generation, the replacement therefore uses its newly injected token; multiple Bower replicas likewise use their own credentials.
+Open the invitation link at your `BOWER_PUBLIC_URL`, or at `http://<node-ip>` if you didn't set one, and create the first account. Ingress can take a moment to become healthy, and HTTPS can take a little longer while the certificate is issued. Port 3000 stays open for troubleshooting.
 
-For Bower-account-protected application routes, also configure `BOWER_PUBLIC_URL` and `BOWER_ROUTE_AUTH_SECRET`; see the [configuration reference](docs/configuration.md).
+If you want application routes that require a Bower login, set both `BOWER_PUBLIC_URL` and `BOWER_ROUTE_AUTH_SECRET`. See the [configuration reference](docs/configuration.md).
 
-### Local development
+### Container images
 
-#### 1. Start Postgres
+Tagged releases publish `ghcr.io/overfold/bower:<version>` and update `ghcr.io/overfold/bower:latest`. The container listens on port 3000 and runs as a non-root user.
+
+With `AUTO_MIGRATE=true`, which the quick-start manifest sets, the container applies pending database migrations on startup. Otherwise, run `npm run db:migrate` before you start a new version. For details, see [Database migrations](docs/database-migrations.md).
+
+## Local development
+
+### 1. Start Postgres
+
+Save this as `docker-compose.yml`, or use any local PostgreSQL that matches the `DATABASE_URL` in `.env.example`:
 
 ```yaml
-# docker-compose.yml
 services:
   db:
     image: postgres:16-alpine
@@ -95,60 +123,46 @@ volumes:
 docker compose up -d
 ```
 
-#### 2. Configure and run
+### 2. Configure and run Bower
 
 ```bash
 cp .env.example .env.local
 # Set NEXT_SERVER_ACTIONS_ENCRYPTION_KEY to the output of: openssl rand -hex 32
-# DATABASE_URL is already set to match the compose service above
-npm install
+npm ci
 npm run dev
 ```
 
-On first startup the dev server prints a single-use instance administrator invitation link. Open the link, create an account if needed, and accept the invitation; then add the Trellis API URL and operator token under **Organization → Cluster**.
+The default `DATABASE_URL` points at the compose service above. Because `AUTO_MIGRATE=true`, Bower runs pending migrations on startup.
 
-### Migrations
+Run `npm run dev` rather than `next dev`. `exec/server.mjs` sits in front of Next.js and handles terminal WebSockets.
 
-Both setup paths set `AUTO_MIGRATE=true`, which applies pending Drizzle migrations automatically on startup before the app begins serving traffic. No manual step is needed.
+### 3. Connect a cluster
 
-Startup migrations retry transient DNS/connection failures and PostgreSQL-not-ready errors up to ten attempts, with a two-second delay between attempts and a five-second connection timeout per attempt. Authentication, SQL, and other non-transient errors fail immediately. Persistent connection failures still fail startup after the retry budget is exhausted.
+The dev server prints a single-use admin invitation link on first startup. Open it, accept the invitation, and then add your Trellis API URL and operator token under **Organization → Cluster**.
 
-To run migrations manually instead, unset `AUTO_MIGRATE` and use `npm run db:migrate` with the appropriate `DATABASE_URL`:
+### Commands
 
-```bash
-# Local development (from the repo root)
-npm run db:migrate
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the development server at http://localhost:3000 |
+| `npm run build` | Create a production build |
+| `npm start` | Start the production server |
+| `npm run lint` | Run ESLint, including design-system rules |
+| `npx tsc --noEmit` | Type-check the project |
+| `npm test` | Run the test suite |
+| `npm run db:generate` | Generate a migration from schema changes |
+| `npm run db:migrate` | Apply pending migrations |
 
-# Against a Trellis-deployed Postgres
-DATABASE_URL="postgres://bower:bower@<node-ip>:5432/bower" npm run db:migrate
-```
+## Documentation
 
-Generate new migrations with `npm run db:generate` after changing the schema. Commit the generated SQL, snapshot, and journal together; review the SQL before applying it. An unchanged schema should report “No schema changes, nothing to migrate”.
+- [Configuration](docs/configuration.md): environment variables, defaults, and Trellis credentials
+- [Database migrations](docs/database-migrations.md): automatic and manual migrations, and schema changes
+- [Deployment strategies](docs/deployment-strategies.md): rolling, recreate, blue-green, canary, and automatic rollback
+- [Managed ingress](docs/managed-ingress.md): routes, domains, and how the Caddy proxy works
+- [CI/CD automation](docs/automation.md): the deploy API and registry webhooks
+- [Terminal](docs/terminal.md): the in-browser terminal and its WebSocket bridge
+- [Design system](docs/design-system/README.md): UI principles, tokens, components, and patterns
 
-The snapshot history contains a consolidated baseline at `drizzle/meta/0023_snapshot.json` for the schema after `0024_notification_read_states`. It covers the handwritten migrations after `0005`; their intermediate snapshots are intentionally absent. Snapshot filenames use journal indices, not SQL filename prefixes (the SQL numbering skips `0007`). The baseline was checked against a fresh database built from the existing SQL migrations, including column defaults, enums, indexes, and constraint names/definitions. Existing migration SQL and journal timestamps were preserved. Custom SQL functions and triggers remain owned by the handwritten migrations, not Drizzle snapshots.
+## Contributing
 
-## Commands
-
-```bash
-npm run dev          # Development server (http://localhost:3000)
-npm run build        # Production build
-npm start            # Production server
-npm run lint         # ESLint
-npm test             # Test suite
-npm run db:generate  # Generate a Drizzle migration from schema changes
-npm run db:migrate   # Apply pending migrations
-```
-
-## Container image
-
-Tagged releases publish `ghcr.io/overfold/bower:<version>` and update `ghcr.io/overfold/bower:latest`. The container listens on port 3000 and runs as a non-root user.
-
-When `AUTO_MIGRATE=true` is set, the container applies pending migrations on startup. Otherwise, run `npm run db:migrate` before starting the new container.
-
-## Further reading
-
-- [Configuration reference](docs/configuration.md) — all environment variables and defaults
-- [Deployment strategies](docs/deployment-strategies.md) — rolling, recreate, blue-green, canary, and auto-rollback
-- [Managed ingress](docs/managed-ingress.md) — how the per-namespace Caddy proxy works
-- [CI/CD automation](docs/automation.md) — deploy API and registry webhooks
-- [Design system](docs/design-system/README.md) — UI principles, tokens, components, patterns, and audit records
+[AGENTS.md](AGENTS.md) explains the repository layout, conventions, and the checks to run before you open a pull request. For UI changes, also follow the [design system guide](docs/design-system/README.md). CI runs `npm run lint` and `npm test`.
