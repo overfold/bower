@@ -11,9 +11,6 @@ Trellis schedules and runs containers. Bower adds the application layer on top: 
   </picture>
 </p>
 
-> [!NOTE]
-> Bower hasn't reached 1.0 yet. Read the [release notes](https://github.com/overfold/bower/releases) before you update.
-
 ## Features
 
 - **Projects and environments.** Group services and share settings. Each environment maps to its own Trellis namespace.
