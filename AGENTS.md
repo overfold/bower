@@ -15,7 +15,7 @@ Bower is a deployment dashboard for Trellis, built with Next.js App Router, Reac
 ## Local development
 
 - Use Node.js 22 (the version provisioned by `.agents/setup`) and npm with `package-lock.json`. Install dependencies with `npm ci`.
-- Follow [README.md](README.md#local-development) for PostgreSQL and `.env.local` setup; use `.env.example` and [docs/configuration.md](docs/configuration.md) as the configuration references. Do not overwrite an existing environment file or expose secrets.
+- Follow [CONTRIBUTING.md](CONTRIBUTING.md#local-development) for PostgreSQL and `.env.local` setup; use `.env.example` and [docs/configuration.md](docs/configuration.md) as the configuration references. Do not overwrite an existing environment file or expose secrets.
 - Run `npm run dev`, not bare `next dev`: `exec/server.mjs` fronts Next.js and handles terminal WebSockets. The default public port is 3000; the internal Next.js port is the public port + 1. Production uses `npm run build` then `npm start` through the same front server.
 - Schema changes use `npm run db:generate`; review generated SQL and metadata. `npm run db:migrate` requires `DATABASE_URL` in the process environment. `.env.example` enables `AUTO_MIGRATE`, so confirm the database is disposable/local before starting the app or applying migrations.
 - Do not use a live Trellis cluster or shared database for mutation tests without explicit authorization.
