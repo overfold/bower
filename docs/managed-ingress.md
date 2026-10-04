@@ -34,6 +34,10 @@ The proxy job is managed infrastructure — it appears in the Bower UI but is no
 | `custom` | Caddy reads a certificate and key from a Trellis secret you provide |
 | `none` | HTTP only |
 
+Bower provisions persistent Trellis-managed volumes for the Caddy task: `@/bower-ingress-data` at `/data` (certificates, private keys, and ACME account state) and `@/bower-ingress-config` at `/config` (autosaved configuration). These paths are scoped to the ingress namespace and remain stable across route changes and allocation replacements. They are node-local storage, not replicated backups; losing the node or its volume data still loses the stored certificates.
+
+Upgrading an older ingress job without these volumes causes a one-time allocation recreation, even if its routes are unchanged. Before deploying that upgrade, back up the existing Caddy `/data` and restore it into the new data volume on the ingress node if certificates must be preserved. Mounting a new volume does not copy the old container's files automatically. Without that migration, Caddy requests new certificates and existing ACME rate limits still apply.
+
 ## Access protection
 
 Protection is configured per route and enforced by the managed proxy before traffic reaches the service:

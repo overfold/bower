@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { resolve } from 'node:path'
@@ -266,15 +267,39 @@ test('shared ingress aggregates environments, skips unchanged applies, and survi
   assert.equal(JSON.parse(group.tasks[1].env!.BOWER_DASHBOARD).job, 'bower')
   assert.match(group.tasks[0].env!.BOWER_CADDYFILE, /Bower dashboard is starting/)
   assert.equal(group.tasks[0].secrets!.length, 0)
+  const expectedVolumes = [
+    { name: 'bower-ingress-data', host_path: '@/bower-ingress-data', container_path: '/data' },
+    { name: 'bower-ingress-config', host_path: '@/bower-ingress-config', container_path: '/config' },
+  ]
+  assert.deepEqual(JSON.parse(JSON.stringify(group.tasks[0].volumes)), expectedVolumes)
+  assert.equal(group.tasks[1].volumes, undefined)
   await sync.syncManagedProxy('project', 'env', 'org')
   assert.equal(applies, 1)
   assert.equal(secretWrites, 0)
-  definitions = []
+  // An existing pre-volume job must upgrade even when its routes and images
+  // are unchanged, then settle back into no-op reconciliation.
+  const env = group.tasks[1].env!
+  const legacyHash = createHash('sha256').update(JSON.stringify({
+    controllerRoutes: JSON.parse(env.BOWER_ROUTES),
+    options: { adminPort: env.CADDY_ADMIN_PORT, httpPort: env.CADDY_HTTP_PORT, httpsPort: env.CADDY_HTTPS_PORT,
+      dashboard: JSON.parse(env.BOWER_DASHBOARD) },
+    tls: [],
+  })).digest('hex')
+  delete group.tasks[0].volumes
+  group.labels!['bower/config-hash'] = legacyHash
   await sync.syncManagedProxy('project', 'env', 'org')
   assert.equal(applies, 2)
+  assert.notEqual(applied!.task_groups[0].labels!['bower/config-hash'], legacyHash)
+  assert.deepEqual(JSON.parse(JSON.stringify(applied!.task_groups[0].tasks[0].volumes)), expectedVolumes)
+  await sync.syncManagedProxy('project', 'env', 'org')
+  assert.equal(applies, 2)
+  definitions = []
+  await sync.syncManagedProxy('project', 'env', 'org')
+  assert.equal(applies, 3)
   assert.equal(deleted, true)
   assert.deepEqual(JSON.parse(applied!.task_groups[0].tasks[1].env!.BOWER_ROUTES), [])
   assert.equal(JSON.parse(applied!.task_groups[0].tasks[1].env!.BOWER_DASHBOARD).job, 'bower')
+  assert.deepEqual(JSON.parse(JSON.stringify(applied!.task_groups[0].tasks[0].volumes)), expectedVolumes)
 })
 
 test('shared ingress uses namespace-qualified TLS mounts and reapplies on certificate rotation', async () => {

@@ -8,7 +8,7 @@ import { hasTrellisConnection } from '@/lib/trellis-connection'
 import { getIngressCluster, ingressNamespace, ingressSecretName } from '@/lib/ingress-cluster'
 import { hostnamesOverlap } from '@/lib/domains'
 import { TrellisApiError } from '@/lib/trellis'
-import type { TrellisJobSpec } from '@/types/trellis'
+import type { TrellisJobSpec, TrellisVolume } from '@/types/trellis'
 
 function proxyPort(name: 'BOWER_PROXY_HTTP_PORT' | 'BOWER_PROXY_HTTPS_PORT', fallback: number) {
   const value = Number(process.env[name] || fallback)
@@ -80,7 +80,12 @@ async function syncClusterIngress(orgId: string, removedServiceId?: string, remo
       service: service.slug, activeJob: config.activeJobName || service.slug, strategy: config.deploymentStrategy })
   }
   const options = { adminPort: String(adminPort), httpPort: String(httpPort), httpsPort: String(httpsPort), dashboard }
-  const hash = createHash('sha256').update(JSON.stringify({ controllerRoutes, options, tls: [...customTls] })).digest('hex')
+  // Stable namespace-scoped storage survives route-driven allocation recreation.
+  const volumes: TrellisVolume[] = [
+    { name: 'bower-ingress-data', host_path: '@/bower-ingress-data', container_path: '/data' },
+    { name: 'bower-ingress-config', host_path: '@/bower-ingress-config', container_path: '/config' },
+  ]
+  const hash = createHash('sha256').update(JSON.stringify({ controllerRoutes, options, tls: [...customTls], volumes })).digest('hex')
   const spec: TrellisJobSpec = {
     name: 'bower-ingress', namespace,
     task_groups: [{ name: 'proxy', count: 1, api_access: { scope: 'cluster', access: 'read' },
@@ -89,6 +94,7 @@ async function syncClusterIngress(orgId: string, removedServiceId?: string, remo
       tasks: [{ name: 'caddy', image: process.env.BOWER_CADDY_IMAGE || 'ghcr.io/overfold/bower-proxy:latest',
         resources: { cpu: 100, memory: 134217728 },
         networking: { mode: 'host', ports: [{ port: httpPort }, { port: httpsPort }, { port: adminPort }] },
+        volumes,
         // Keep bootstrap config in the fenced job revision, not a separately
         // mutable secret that another replica could overwrite before apply.
         env: { BOWER_CADDYFILE: renderBootstrapCaddyfile(controllerRoutes, options) },
