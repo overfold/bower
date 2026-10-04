@@ -34,7 +34,7 @@ export function AccountSettingsForm({ user }: AccountSettingsFormProps) {
       const result = await updateAccountAction(formData)
       if (result?.error) setError(result.error)
       else if (result?.success) {
-        toast({ tone: 'success', title: 'Account updated.' })
+        toast({ tone: 'success', title: 'Account updated' })
         setDirty(false)
         router.refresh()
       } else setError('Account settings could not be saved. Please try again.')
@@ -52,7 +52,7 @@ export function AccountSettingsForm({ user }: AccountSettingsFormProps) {
           <CardTitle>Profile</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
+          {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
           <div className="max-w-xl space-y-2">
             <Label htmlFor="name">Name</Label>
             <Input id="name" name="name" defaultValue={user.name} required />

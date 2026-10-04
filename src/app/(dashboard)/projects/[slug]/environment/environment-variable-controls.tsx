@@ -22,13 +22,13 @@ export function EnvironmentVariableControls({ projectId, environmentId, names }:
     try {
       await updateEnvironmentVariablesAction(projectId, environmentId, new FormData(event.currentTarget))
       setDirty(false)
-      toast({ tone: 'success', title: 'Environment variables saved.' }); router.refresh()
+      toast({ tone: 'success', title: 'Environment variables saved' }); router.refresh()
     } catch (cause) { setError(actionErrorMessage(cause, 'Could not save environment variables.')) }
     finally { setSaving(false) }
   }
 
   return <form ref={formRef} onSubmit={submit} className="space-y-4 p-4">
-    {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
+    {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
     <p className="text-xs text-ink-muted">Existing values are hidden. Leave their value blank to keep it unchanged.</p>
     <KeyValueEditor key={editorVersion} initialRows={names.map((key) => ({ key, value: '' }))} preserveBlankValues onChange={() => setDirty(true)} />
     <UnsavedChangesBar dirty={dirty} pending={saving} onSave={() => formRef.current?.requestSubmit()} onDiscard={() => { setEditorVersion((value) => value + 1); setDirty(false); setError(null) }} />

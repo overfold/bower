@@ -10,6 +10,7 @@ import { Input } from '../components/ui/input'
 import { Textarea } from '../components/ui/textarea'
 import { PageHeading } from '../components/page-heading'
 import { PanelFooter } from '../components/ui/panel'
+import { createToastStore, InlineNotice, PageBanner, PageBannerView, ToastViewport, TOAST_DURATION_MS, TOAST_EXIT_MS, TOAST_LIMIT, useFeedback, type ToastEntry } from '../components/ui/feedback'
 import { statusDefinition } from './status'
 
 test('shared status vocabulary keeps product labels, tones, and progress semantics together', () => {
@@ -109,6 +110,154 @@ test('preview footers appear only for omitted rows except cluster detail', () =>
   assert.match(render(5, 6), /Showing 5 of 6/)
   assert.match(render(5, 6), /View all deployments →/)
   assert.match(render(3, 3, true), /Showing 3 of 3/)
+})
+
+test('danger toasts persist until dismissed, other tones auto-dismiss after their exit animation', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
+  const store = createToastStore()
+  const state = () => store.getSnapshot().map((toast) => `${toast.title}${toast.closing ? ' (closing)' : ''}`)
+  store.push({ tone: 'success', title: 'Logs copied' })
+  const danger = store.push({ tone: 'danger', title: 'Could not roll back' })
+
+  t.mock.timers.tick(TOAST_DURATION_MS - 1)
+  assert.deepEqual(state(), ['Logs copied', 'Could not roll back'])
+  t.mock.timers.tick(1)
+  assert.deepEqual(state(), ['Logs copied (closing)', 'Could not roll back'])
+  t.mock.timers.tick(TOAST_EXIT_MS)
+  assert.deepEqual(state(), ['Could not roll back'])
+
+  t.mock.timers.tick(10 * 60_000)
+  assert.deepEqual(state(), ['Could not roll back'])
+  store.dismiss(danger)
+  assert.deepEqual(state(), ['Could not roll back (closing)'])
+  t.mock.timers.tick(TOAST_EXIT_MS)
+  assert.deepEqual(state(), [])
+})
+
+test('hovering or focusing the toast stack pauses auto-dismiss and resumes with the remaining time', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
+  const store = createToastStore()
+  store.push({ tone: 'success', title: 'Password updated' })
+  t.mock.timers.tick(3000)
+  store.setPaused(true)
+  t.mock.timers.tick(60_000)
+  assert.equal(store.getSnapshot()[0].closing, false)
+
+  // A toast that arrives while paused waits too.
+  store.push({ tone: 'info', title: 'Rollback started' })
+  t.mock.timers.tick(60_000)
+  assert.deepEqual(store.getSnapshot().map((toast) => toast.closing), [false, false])
+
+  store.setPaused(false)
+  t.mock.timers.tick(TOAST_DURATION_MS - 3000 - 1)
+  assert.deepEqual(store.getSnapshot().map((toast) => toast.closing), [false, false])
+  t.mock.timers.tick(1)
+  assert.deepEqual(store.getSnapshot().map((toast) => toast.closing), [true, false])
+  t.mock.timers.tick(3000)
+  assert.deepEqual(store.getSnapshot().map((toast) => toast.title), ['Rollback started'])
+  assert.equal(store.getSnapshot()[0].closing, true)
+})
+
+test('toasts cap the visible stack, skip the exit under reduced motion, and clear timers on teardown', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
+  const store = createToastStore()
+  for (let index = 1; index <= TOAST_LIMIT + 2; index++) store.push({ tone: 'success', title: `Saved ${index}` })
+  assert.deepEqual(store.getSnapshot().map((toast) => toast.title), ['Saved 3', 'Saved 4', 'Saved 5', 'Saved 6'])
+
+  const reduced = createToastStore({ reducedMotion: () => true })
+  const id = reduced.push({ tone: 'danger', title: 'Restart failed' })
+  reduced.dismiss(id)
+  assert.deepEqual(reduced.getSnapshot(), [])
+
+  let notified = 0
+  store.subscribe(() => { notified++ })
+  store.destroy()
+  t.mock.timers.tick(TOAST_DURATION_MS * 2)
+  assert.equal(notified, 0)
+  assert.equal(store.getSnapshot().length, TOAST_LIMIT)
+})
+
+test('toasts render in sibling polite and assertive regions with no nested live roles', () => {
+  const toast = (tone: ToastEntry['tone'], title: string, description?: string): ToastEntry => ({ id: title, tone, title, description, closing: false })
+  const empty = renderToStaticMarkup(createElement(ToastViewport, { toasts: [], onDismiss() {} }))
+  assert.match(empty, /^<section aria-label="Status messages"[^>]*><div aria-live="polite"[^>]*><\/div><div aria-live="assertive"[^>]*><\/div><\/section>$/)
+
+  const html = renderToStaticMarkup(createElement(ToastViewport, {
+    toasts: [toast('success', 'Logs copied'), toast('danger', 'Could not roll back', 'The rollback could not be started.'), toast('info', 'Rollback started')],
+    onDismiss() {},
+  }))
+  assert.equal(html.match(/aria-live=/g)?.length, 2)
+  assert.doesNotMatch(html, /role="(alert|status)"/)
+  const polite = html.slice(html.indexOf('aria-live="polite"'), html.indexOf('aria-live="assertive"'))
+  const assertive = html.slice(html.indexOf('aria-live="assertive"'))
+  // The polite region is closed before the assertive one opens: siblings, not nested.
+  assert.equal(polite.match(/<div/g)?.length, polite.match(/<\/div>/g)?.length)
+  assert.match(polite, /Logs copied[\s\S]*Rollback started/)
+  assert.doesNotMatch(polite, /Could not roll back/)
+  assert.match(assertive, /Could not roll back[\s\S]*The rollback could not be started\./)
+
+  // Neutral surface, tone on the icon only.
+  assert.match(html, /border-line bg-surface/)
+  assert.doesNotMatch(html, /bg-(ok|danger|info)-50/)
+  assert.match(html, /class="lucide lucide-circle-check [^"]*text-ok-500"/)
+  assert.match(html, /class="lucide lucide-circle-alert [^"]*text-danger-500"/)
+  assert.match(html, /class="lucide lucide-info [^"]*text-info-500"/)
+  for (const title of ['Logs copied', 'Could not roll back', 'Rollback started']) {
+    assert.match(html, new RegExp(`<button type="button"[^>]*aria-label="Dismiss: ${title}"`))
+  }
+  assert.doesNotMatch(html, /black\/5/)
+})
+
+test('feedback tones are the shared Tone names, without error or warning aliases', () => {
+  // Type-level contract, checked by `npx tsc --noEmit`; never executed.
+  void (() => {
+    // @ts-expect-error 'error' is not a tone; use 'danger'.
+    InlineNotice({ tone: 'error', children: 'Failed' })
+    // @ts-expect-error 'warning' is not a tone; use 'warn'.
+    createElement(PageBanner, { tone: 'warning', title: 'Trellis is unavailable.' })
+    // @ts-expect-error 'error' is not a tone; use 'danger'.
+    useFeedback().toast({ tone: 'error', title: 'Restart failed' })
+  })
+  // InlineNotice keeps its tinted, in-flow style.
+  assert.match(renderToStaticMarkup(InlineNotice({ tone: 'danger', children: 'Failed' })), /bg-danger-50 text-danger-500" role="alert"/)
+  assert.match(renderToStaticMarkup(InlineNotice({ tone: 'warn', children: 'Careful' })), /bg-warn-50/)
+})
+
+test('page banners are not dismissible by default and require an id to become dismissible', () => {
+  const plain = renderToStaticMarkup(createElement(PageBanner, { title: 'Trellis is unavailable.' }, 'Connection refused.'))
+  assert.match(plain, /Trellis is unavailable\./)
+  assert.match(plain, /bg-warn-50/)
+  assert.doesNotMatch(plain, /<button/)
+
+  void (() => {
+    // @ts-expect-error A dismissible banner needs an explicit id.
+    createElement(PageBanner, { dismissible: true, title: 'Maintenance tonight' })
+  })
+  const withoutId = renderToStaticMarkup(createElement(PageBanner, { dismissible: true, title: 'Maintenance tonight' } as never))
+  assert.match(withoutId, /Maintenance tonight/)
+  assert.doesNotMatch(withoutId, /<button/)
+
+  // The server can't see sessionStorage, so a dismissible banner renders nothing
+  // there (and during hydration) rather than painting and then disappearing.
+  assert.equal(renderToStaticMarkup(createElement(PageBanner, { dismissible: true, id: 'maintenance', title: 'Maintenance tonight' })), '')
+
+  const dismissible = renderToStaticMarkup(createElement(PageBannerView, { title: 'Maintenance tonight', onDismiss() {} }))
+  assert.match(dismissible, /<button type="button"[^>]*aria-label="Dismiss: Maintenance tonight"/)
+  assert.match(dismissible, /hover:bg-ink\/5/)
+  assert.doesNotMatch(dismissible, /black\/5/)
+})
+
+test('page banner actions render beside the text, not inside the sentence', () => {
+  const html = renderToStaticMarkup(createElement(PageBanner, {
+    title: 'Trellis is unavailable.',
+    action: createElement('button', { type: 'button' }, 'Retry connection'),
+  }, 'Connection refused.'))
+  const text = html.match(/<div class="min-w-0"><span class="font-semibold">Trellis is unavailable\.<\/span><span class="ml-1">Connection refused\.<\/span><\/div>/)
+  assert.ok(text, html)
+  const after = html.slice(text.index! + text[0].length)
+  assert.match(after, /^<div class="flex shrink-0[^"]*"><button type="button">Retry connection<\/button><\/div>/)
+  // The text and action share a row that stacks on narrow screens.
+  assert.match(html, /flex-col[^"]*sm:flex-row[^"]*"><div class="min-w-0">/)
 })
 
 test('the notifications button names its unread count and caps the visible badge', async () => {

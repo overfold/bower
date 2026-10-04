@@ -59,7 +59,7 @@ export function VolumeMountEditor({ serviceId, environmentId, mounts: initial, v
       <DialogContent size="lg">
         <DialogHeader><DialogTitle>Attach volume</DialogTitle></DialogHeader>
         <DialogBody><div className="space-y-4">
-          {error && <InlineNotice tone="error">{error}</InlineNotice>}
+          {error && <InlineNotice tone="danger">{error}</InlineNotice>}
           <div className="space-y-2"><Label htmlFor="mount-volume">Project volume</Label><Select value={name} onValueChange={setName}><SelectTrigger id="mount-volume"><SelectValue /></SelectTrigger><SelectContent>{available.map((volume) => <SelectItem key={volume} value={volume}>{volume}</SelectItem>)}</SelectContent></Select></div>
           <div className="space-y-2"><Label htmlFor="mount-path">Mount path</Label><Input id="mount-path" value={path} onChange={(event) => setPath(event.target.value)} mono required /></div>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={readOnly} onChange={(event) => setReadOnly(event.target.checked)} />Read-only</label>
@@ -85,5 +85,5 @@ export function VolumeMountActions({ serviceId, environmentId, mount, mounts }: 
       catch (cause) { setError(actionErrorMessage(cause, 'Could not detach volume.')) }
     })
   }
-  return <AlertDialog open={open} onOpenChange={(next) => { if (!busy) setOpen(next) }}><RowActions name={mount.name}><RowActionSeparator /><AlertDialogTrigger asChild><RowActionItem className="text-danger-600 focus:text-danger-600">Detach</RowActionItem></AlertDialogTrigger></RowActions><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Detach {mount.name}?</AlertDialogTitle><AlertDialogDescription>The volume will no longer be mounted at <span className="font-mono text-ink">{mount.container_path}</span>. Its stored data will not be deleted.</AlertDialogDescription></AlertDialogHeader>{error ? <InlineNotice tone="error" className="mx-5">{error}</InlineNotice> : null}<AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel><AlertDialogAction disabled={busy} onClick={detach}>{busy ? 'Detaching…' : 'Detach volume'}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+  return <AlertDialog open={open} onOpenChange={(next) => { if (!busy) setOpen(next) }}><RowActions name={mount.name}><RowActionSeparator /><AlertDialogTrigger asChild><RowActionItem className="text-danger-600 focus:text-danger-600">Detach</RowActionItem></AlertDialogTrigger></RowActions><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Detach {mount.name}?</AlertDialogTitle><AlertDialogDescription>The volume will no longer be mounted at <span className="font-mono text-ink">{mount.container_path}</span>. Its stored data will not be deleted.</AlertDialogDescription></AlertDialogHeader>{error ? <InlineNotice tone="danger" className="mx-5">{error}</InlineNotice> : null}<AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel><AlertDialogAction disabled={busy} onClick={detach}>{busy ? 'Detaching…' : 'Detach volume'}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
 }

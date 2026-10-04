@@ -6,10 +6,10 @@ Declared in `@theme` (A3-T01, which overrides A2-A2). It is the prototype's 4 / 
 
 | Token | Value | Use |
 | --- | --- | --- |
-| `rounded-sm` | 4px | Checkboxes (so they never read as radio buttons), small inline icon buttons (search clear), text-link focus outline |
-| `rounded-md` | 6px | Chips and badges, tab count pills, avatars, segmented `TabsTrigger`, dismiss buttons in toasts |
-| `rounded-lg` | 8px | Buttons, icon buttons, inputs, selects, textareas, menu and select items, nav items, inline notices, segmented `TabsList` |
-| `rounded-xl` | 12px | Cards, dialogs, alert dialogs, menus, select popovers, popovers, toasts, the unsaved-changes bar, auth cards |
+| `rounded-sm` | 4px | Checkboxes (so they never read as radio buttons), small inline icon buttons (search clear, toast dismiss), text-link focus outline |
+| `rounded-md` | 6px | Chips and badges, tab count pills, avatars, segmented `TabsTrigger`, page banner dismiss buttons |
+| `rounded-lg` | 8px | Buttons, icon buttons, inputs, selects, textareas, menu and select items, nav items, inline notices, toasts, segmented `TabsList` |
+| `rounded-xl` | 12px | Cards, dialogs, alert dialogs, menus, select popovers, popovers, the unsaved-changes bar, auth cards |
 | `rounded-full` | — | Status dots, meters and their tracks, switches, the active tab underline, scrollbar thumbs |
 
 Rules:
@@ -27,7 +27,7 @@ Rules:
 | `border-brand-500` | A focused field (with a 3px `brand-100` halo) |
 | `border-danger-500` | An invalid field, in every state including focus |
 | `border-danger-200` | `danger` button, danger-zone card, danger tone |
-| Tone 200s | Chip, notice, and toast borders, via `toneClasses` |
+| Tone 200s | Chip, notice, and banner borders, via `toneClasses`. Toasts use `border-line` |
 
 Cards are **border only** (A3-T08).
 

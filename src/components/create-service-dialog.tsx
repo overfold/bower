@@ -70,7 +70,7 @@ export function CreateServiceDialog({ projectSlug, limits }: { projectSlug: stri
         </DialogHeader>
         <form onSubmit={handleSubmit} aria-busy={loading} onInvalid={(event) => { event.preventDefault(); const field = event.target as HTMLInputElement; setFieldErrors((current) => ({ ...current, [field.id]: field.validationMessage })); field.form?.querySelector<HTMLElement>(':invalid')?.focus() }} onInput={(event) => { const field = event.target as HTMLInputElement; if (field.validity?.valid) setFieldErrors((current) => { const next = { ...current }; delete next[field.id]; return next }) }}>
           <DialogBody className="space-y-4">
-            {error && <InlineNotice tone="error">{error}</InlineNotice>}
+            {error && <InlineNotice tone="danger">{error}</InlineNotice>}
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
               <Input id="name" name="name" required aria-invalid={Boolean(fieldErrors.name)} aria-describedby={fieldErrors.name ? 'service-name-error' : undefined} />

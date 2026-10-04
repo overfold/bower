@@ -67,7 +67,7 @@ Disabled styling is described in [Buttons](../components/buttons.md#disabled).
 | --- | --- |
 | Pending | `Button loading` (spinner, disabled, `aria-busy`). No page-level spinner |
 | Success, visible on the page | The change itself (a new row, a new status). Optionally a toast |
-| Success, not visible (copied, sent, saved elsewhere) | A success toast ("API key copied.") |
+| Success, not visible (copied, sent, saved elsewhere) | A success toast ("API key copied") |
 | Failure of a header or row action | A danger toast, so the layout doesn't shift (A1 P2-15) |
 | Failure inside a dialog | An `InlineNotice tone="danger"` at the top of the dialog body. The dialog stays open |
 | Field-level failure | Inline under the field (see [Forms](forms-and-saving.md#validation)) |

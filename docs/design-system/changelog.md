@@ -7,7 +7,24 @@ Changes to Bower's tokens, primitives, shared components, lint rules, and docume
 ## Unreleased
 
 **Added**
+- `toneIconClasses` in `src/lib/tone.ts`: icon-only tone colors for notices on a neutral surface.
+- `PageBanner` `action` slot, matching `InlineNotice` (A2-H9).
+- Toast enter and exit motion: fade and a 6px rise in, fade out, removal after the exit, none under reduced motion.
+- UI contracts for toast timing, live regions, tones, banner dismissal, banner actions, and dismiss labels.
 - `NotificationsMenu` (`src/components/notifications-menu.tsx`): a header bell listing deployment outcomes, with an unread count. Documented in [Navigation](components/navigation.md#notifications-menu) and [Status and feedback](components/status-and-feedback.md#notifications-menu-vs-toasts-and-banners). UI capture covers unread, open, read, empty, refresh-error, narrow, and dark states.
+
+**Changed**
+- Toasts use a neutral surface with the tone on the icon only, `rounded-lg`, `py-2.5 pl-3 pr-2`, and fit-content width up to 22rem. `InlineNotice` keeps its tinted style.
+- `danger` toasts stay until dismissed. Other toasts pause their 5s timer while the stack is hovered or focused, then resume with the remaining time.
+- The toast stack is a "Status messages" region with sibling polite and assertive live regions. Toasts no longer carry `role="alert"` or `role="status"`.
+- `PageBanner` is not dismissible by default. `dismissible` requires an explicit `id`, there is no title fallback, and a dismissed banner no longer flashes on load. The Trellis-unavailable banner can't be dismissed, and its actions moved to the `action` slot. Supersedes A1 P2-24 for condition banners.
+- Toast titles no longer end with a period.
+
+**Removed**
+- The `error` and `warning` tone aliases (`FeedbackTone`). Use `danger` and `warn`.
+
+**Fixed**
+- Toast and banner dismiss buttons use token hovers (`hover:bg-sunken`, `hover:bg-ink/5`) instead of `hover:bg-black/5` (known issue).
 
 ## 2026-10-04: Design system guide
 

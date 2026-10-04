@@ -58,7 +58,7 @@ export function CreateWebhookDialog({ projectId, services, environmentId }: Crea
           <>
             <DialogBody>
               <div className="space-y-3">
-                <InlineNotice tone="warning">Copy these values now. You won’t see them again.</InlineNotice>
+                <InlineNotice tone="warn">Copy these values now. You won’t see them again.</InlineNotice>
                 <OneTimeSecret label="Endpoint URL" value={endpoint} />
                 <OneTimeSecret label="Token" value={state.token} />
                 <div className="rounded-lg bg-sunken p-3 font-mono text-xs text-ink-soft">curl -X POST &apos;{endpoint}&apos; -H &apos;Authorization: Bearer {'<token>'}&apos;</div>
@@ -71,7 +71,7 @@ export function CreateWebhookDialog({ projectId, services, environmentId }: Crea
         ) : (
           <form action={formAction} onSubmit={() => setHideStaleError(false)}>
             <DialogBody className="space-y-4">
-              {state.error && !hideStaleError ? <InlineNotice tone="error">{state.error}</InlineNotice> : null}
+              {state.error && !hideStaleError ? <InlineNotice tone="danger">{state.error}</InlineNotice> : null}
               <input type="hidden" name="environmentId" value={environmentId} />
               <div className="space-y-2">
                 <Label htmlFor="wh-service">Service</Label>
@@ -154,7 +154,7 @@ export function DeleteWebhookButton({ projectId, hookId, serviceName }: {
             This will permanently delete the webhook endpoint for {serviceName}. Incoming deploy triggers will stop working.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        {error ? <InlineNotice tone="error" className="mx-5">{error}</InlineNotice> : null}
+        {error ? <InlineNotice tone="danger" className="mx-5">{error}</InlineNotice> : null}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
           <AlertDialogAction
@@ -210,7 +210,7 @@ export function CreateNotificationDialog({ projectId }: { projectId: string }) {
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <DialogBody className="space-y-4">
-            {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
+            {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
             <div className="space-y-2">
               <Label htmlFor="nc-name">Name</Label>
               <Input id="nc-name" name="name" required />
@@ -275,7 +275,7 @@ export function DeleteNotificationButton({ projectId, channelId, channelName }: 
             This notification channel will be permanently removed. Deployment notifications will stop being sent to it.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        {error ? <InlineNotice tone="error" className="mx-5">{error}</InlineNotice> : null}
+        {error ? <InlineNotice tone="danger" className="mx-5">{error}</InlineNotice> : null}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
           <AlertDialogAction

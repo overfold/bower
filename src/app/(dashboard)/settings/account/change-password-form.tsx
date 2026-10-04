@@ -37,7 +37,7 @@ export function ChangePasswordForm() {
       if (result?.fieldErrors) { setFieldErrors(result.fieldErrors); form.querySelector<HTMLElement>(`#${Object.keys(result.fieldErrors)[0]}`)?.focus() }
       else if (result?.error) setError(result.error)
       else if (result?.success) {
-        toast({ tone: 'success', title: 'Password updated.' })
+        toast({ tone: 'success', title: 'Password updated' })
         form.reset()
       } else setError('Password could not be updated. Please try again.')
     } catch {
@@ -54,7 +54,7 @@ export function ChangePasswordForm() {
           <CardTitle>Change password</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
+          {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
           <div className="space-y-2">
             <Label htmlFor="currentPassword">Current password</Label>
             <Input id="currentPassword" name="currentPassword" type="password" required className="max-w-xl" aria-invalid={Boolean(fieldErrors.currentPassword)} aria-describedby={fieldErrors.currentPassword ? 'current-password-error' : undefined} />

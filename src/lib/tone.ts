@@ -8,3 +8,14 @@ export const toneClasses: Record<Tone, string> = {
   danger: 'border-danger-200 bg-danger-50 text-danger-500',
   info: 'border-info-200 bg-info-50 text-info-500',
 }
+
+// Icon color only, for notices on a neutral surface (toasts). The icon shape
+// carries the tone too, so it is never conveyed by color alone.
+export const toneIconClasses: Record<Tone, string> = {
+  neutral: 'text-ink-muted',
+  brand: 'text-brand-500',
+  success: 'text-ok-500',
+  warn: 'text-warn-500',
+  danger: 'text-danger-500',
+  info: 'text-info-500',
+}

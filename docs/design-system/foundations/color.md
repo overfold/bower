@@ -85,7 +85,9 @@ Values are light / dark. In light mode, each 500 text on its 50 fill passes AA: 
 | `danger` | `border-danger-200 bg-danger-50 text-danger-500` | `bg-danger-500` | Failed, Failing, Unhealthy, Lost, Error, a meter at 100% |
 | `info` | `border-info-200 bg-info-50 text-info-500` | `bg-info-500` | **Rolled back**, and nothing else |
 
-The `InlineNotice` and toast APIs also accept `error` (meaning `danger`) and `warning` (meaning `warn`) as aliases. Prefer the canonical names in new code.
+There are no aliases: notices, toasts, and banners take these names (`danger`, not `error`; `warn`, not `warning`), and TypeScript rejects anything else.
+
+Toasts sit on a neutral surface and show their tone on the icon only, through `toneIconClasses` (`text-ok-500`, `text-danger-500`, `text-warn-500`, `text-info-500`, `text-brand-500`, and `text-ink-muted` for `neutral`). The icon shape carries the tone as well, so it is never conveyed by color alone.
 
 ## Overlays, transparency, and special values
 

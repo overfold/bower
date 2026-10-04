@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { deployServiceAction, restartServiceAction, rollbackServiceAction } from '@/lib/actions/services'
+import { actionErrorMessage } from '@/lib/action-error'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog, AlertDialogCancel, AlertDialogContent,
@@ -73,13 +74,14 @@ export function ServiceActions({ serviceId, serviceName, runningImage, environme
     return () => cancelAnimationFrame(frame)
   }, [params, pathname])
 
-  function run(action: () => Promise<void>, success: string) {
+  function run(action: () => Promise<{ error?: string }>, success: string) {
     return async () => {
       try {
-        await action()
-        toast({ tone: 'success', title: success })
+        const { error } = await action()
+        if (error) toast({ tone: 'danger', title: 'Service action failed', description: error })
+        else toast({ tone: 'success', title: success })
       } catch (reason) {
-        toast({ tone: 'error', title: 'Service action failed', description: reason instanceof Error ? reason.message : 'The service action could not be completed.' })
+        toast({ tone: 'danger', title: 'Service action failed', description: actionErrorMessage(reason, 'The service action could not be completed.') })
       }
     }
   }
@@ -105,7 +107,7 @@ export function ServiceActions({ serviceId, serviceName, runningImage, environme
             <DialogBody className="space-y-4"><div className="space-y-2"><label className="text-sm font-medium text-ink" htmlFor="service-rollback-release">Release</label><Select value={rollbackTarget} onValueChange={setRollbackTarget}><SelectTrigger id="service-rollback-release" aria-label="Rollback release" className="font-mono"><SelectValue /></SelectTrigger><SelectContent>{rollbackTargets.map((target) => <SelectItem key={target.id} value={target.id}><span className="font-mono">{deploymentImageTag(target.image)}</span><span className="ml-2 font-sans text-xs text-ink-muted"><Time value={target.createdAt} /></span></SelectItem>)}</SelectContent></Select></div><ConfigDiffPreview changes={selectedRollback?.changes ?? []} afterLabel="Selected release" /></DialogBody>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <Button variant="primary" loading={rollingBack} disabled={!rollbackTarget} onClick={() => startRollback(run(() => rollbackServiceAction(serviceId, environmentId, rollbackTarget), 'Rollback started.'))}>
+              <Button variant="primary" loading={rollingBack} disabled={!rollbackTarget} onClick={() => startRollback(run(() => rollbackServiceAction(serviceId, environmentId, rollbackTarget), 'Rollback started'))}>
                 Roll back
               </Button>
             </AlertDialogFooter>
@@ -117,7 +119,7 @@ export function ServiceActions({ serviceId, serviceName, runningImage, environme
         size="sm"
         disabled={restarting}
         aria-busy={restarting}
-        onClick={() => startRestart(run(() => restartServiceAction(serviceId, environmentId), 'Service restart started.'))}
+        onClick={() => startRestart(run(() => restartServiceAction(serviceId, environmentId), 'Service restart started'))}
       >
         <RefreshCw className={restarting ? 'animate-spin' : undefined} />
         Restart
@@ -136,7 +138,7 @@ export function ServiceActions({ serviceId, serviceName, runningImage, environme
         <AlertDialogContent size="lg">
           <AlertDialogHeader><AlertDialogTitle>Deploy this service?</AlertDialogTitle><AlertDialogDescription>{changes.length ? 'Review the saved changes that will be deployed.' : 'The saved configuration matches the currently running release.'}</AlertDialogDescription></AlertDialogHeader>
           {changes.length ? <DialogBody><ConfigDiffPreview changes={changes} afterLabel="After deploy" /></DialogBody> : null}
-          <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><Button variant="primary" loading={deploying} onClick={() => startDeploy(async () => { await run(() => deployServiceAction(serviceId, environmentId), 'Deployment started.')(); setConfirmDeploy(false) })}>Deploy</Button></AlertDialogFooter>
+          <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><Button variant="primary" loading={deploying} onClick={() => startDeploy(async () => { await run(() => deployServiceAction(serviceId, environmentId), 'Deployment started')(); setConfirmDeploy(false) })}>Deploy</Button></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>

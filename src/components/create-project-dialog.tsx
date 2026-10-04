@@ -80,7 +80,7 @@ export function CreateProjectDialog() {
         </DialogHeader>
         <form onSubmit={handleSubmit} aria-busy={loading}>
           <DialogBody className="space-y-4">
-            {error && <InlineNotice tone="error">{error}</InlineNotice>}
+            {error && <InlineNotice tone="danger">{error}</InlineNotice>}
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
               <Input key={requestedName} id="name" name="name" defaultValue={requestedName} required />

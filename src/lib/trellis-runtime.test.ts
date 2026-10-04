@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { allocationBelongsToService, managedProxyObservation, nodeAllocatable, nodeCapacity, observationFreshness, observedProxyStatus, pendingReasonCounts, trellisReadError } from './trellis-runtime'
+import { allocationBelongsToService, managedProxyObservation, nodeAllocatable, nodeCapacity, observationFreshness, observedProxyStatus, pendingReasonCounts, trellisReadError, trellisWriteError } from './trellis-runtime'
 import { cleanupTrellisResources } from './trellis-cleanup'
 import { TrellisApiError } from './trellis'
 import type { TrellisAllocation } from '@/types/trellis'
@@ -76,4 +76,9 @@ test('read errors retain useful status categories without leaking upstream detai
   assert.match(trellisReadError(new TrellisApiError(404, 'Not Found', 'sensitive body')), /404/)
   assert.match(trellisReadError(new TrellisApiError(422, 'Invalid', 'sensitive body')), /422/)
   assert.doesNotMatch(trellisReadError(new Error('https://user:secret@example')), /secret|example/)
+})
+
+test('write errors give the status without leaking upstream details', () => {
+  assert.equal(trellisWriteError(new TrellisApiError(401, 'Unauthorized', 'sensitive body')), 'Trellis denied this request. Check the cluster credentials.')
+  assert.equal(trellisWriteError(new TrellisApiError(422, 'Invalid', '{"error":"sensitive body"}')), 'Trellis rejected the request (422).')
 })

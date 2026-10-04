@@ -80,16 +80,39 @@ Three channels, one tone system:
 
 | Component | Placement | Use for | Dismiss |
 | --- | --- | --- | --- |
-| `InlineNotice tone action? icon?` | In the flow, at the top of the relevant card or dialog body | Context the user should read **here**: a failure reason at the top of a failed deployment, "You won't see this again" in a one-time secret dialog, a server error in a dialog | No |
-| Toast (`useFeedback().toast({ title, description?, tone })`) | Bottom right, stacked (at most 4), auto-dismissed after 5s | Results of an action: "API key copied.", "Couldn't restart Storefront". **Action errors in headers use toasts**, so buttons don't shift (A1 P2-15) | ✕ and timeout |
-| `PageBanner id tone title` | Full width across the top of the content | Organization- or page-wide conditions: "Trellis is unavailable." | ✕. Remembered for the session (`sessionStorage`, A1 P2-24) |
+| `InlineNotice tone action? icon?` | In the flow, at the top of the relevant card or dialog body | Context the user should read **here**: a failure reason at the top of a failed deployment, "You won't see this again." in a one-time secret dialog, a server error in a dialog | No |
+| Toast (`useFeedback().toast({ title, description?, tone })`) | Bottom right, one right-aligned stack (at most 4) | Results of an action: "API key copied", "Couldn't restart Storefront". **Action errors in headers use toasts**, so buttons don't shift (A1 P2-15) | ✕. `danger` stays until dismissed; other tones leave after 5s |
+| `PageBanner tone title action? dismissible? id?` | Full width across the top of the content | Organization- or page-wide conditions: "Trellis is unavailable." | None by default: the banner shows exactly while its condition holds. `dismissible` with an explicit `id` hides it for the session |
 
 Rules:
-- Tones: `success`, `info`, `warn`, `danger`, `neutral`, and `brand` (`error` and `warning` are accepted as aliases). `danger` uses `role="alert"`; the others use `role="status"`.
+- Tones: `success`, `info`, `warn`, `danger`, `neutral`, and `brand`. There are no `error` or `warning` aliases.
 - Each notice has a default tone icon (`CheckCircle2`, `CircleAlert`, `TriangleAlert`, `Info`).
-- A notice's action is a **button beside the text**, not a link inside the sentence (A2-H9).
+- A notice's action is a **button beside the text**, not a link inside the sentence (A2-H9). `InlineNotice` and `PageBanner` both take it as `action`. In a banner the action sits to the right of the text from `sm` up and wraps below it on narrow screens.
 - Show a warning **once** per dialog, under the description (A5-H3).
 - Toasts confirm. They don't carry information the user must act on later.
+- Titles have no closing period ("Password updated", "Could not roll back"). A description that is a full sentence ends with one (see [Content and copy](../patterns/content-and-copy.md#capitalization-and-punctuation)).
+
+### Toast anatomy
+
+```tsx
+const { toast } = useFeedback()
+toast({ tone: 'success', title: 'Logs copied' })
+toast({ tone: 'danger', title: 'Could not roll back', description: 'The rollback could not be started.' })
+```
+
+- **Surface:** `bg-surface border border-line text-ink rounded-lg shadow-raised`, `py-2.5 pl-3 pr-2`, `gap-2.5`, `items-start`. The tone shows on the **icon only**, through `toneIconClasses` in `src/lib/tone.ts`. `InlineNotice` and `PageBanner` keep the tinted `toneClasses`, because they sit in the flow.
+- **Text:** title `text-sm font-medium leading-snug text-ink`; description `mt-0.5 text-xs text-ink-muted`.
+- **Width:** `w-fit`, at most 22rem (and the full width on narrow screens), right-aligned so short confirmations stay short.
+- **Dismiss:** a 14px `X` in a 20px `rounded-sm` button, `text-ink-muted`, `hover:bg-sunken hover:text-ink`, the 2px `brand-500` focus ring, and `aria-label="Dismiss: {title}"`.
+- **Timing:** `danger` toasts stay until dismissed. Other tones leave after 5s. The timer pauses while the stack is hovered or contains focus, then resumes with the time that was left.
+- **Live regions:** the stack is a `section` labelled "Status messages" (not "Notifications", which names the header menu) holding two sibling regions that are always mounted: `aria-live="polite"` for most tones, then `aria-live="assertive"` for `danger`. Toasts carry no `role`. Both regions render as one column, with danger toasts at the bottom.
+- **Motion:** fade and a 6px rise in (200ms, `ease-enter`), fade out (150ms). Removal waits for the exit. Under reduced motion there is no movement, and a dismissed toast is removed at once.
+
+### Page banner dismissal
+
+A banner reports a live condition. Remembering a dismissal by title hid later recurrences of the same condition, so banners are **not dismissible by default**. Opt in with `dismissible` only for advisory banners the user may reasonably hide for the session, and pass a stable `id` (the session key is `bower.banner.{id}`). TypeScript rejects `dismissible` without an `id`. Because `sessionStorage` is client-only, a dismissible banner renders nothing on the server and during hydration, so a dismissed banner never flashes in and out on load.
+
+Contract: `src/lib/ui-contracts.test.ts` covers toast timing (danger persists, hover and focus pause), the sibling live regions, the absence of tone aliases, banner dismissal, the banner action slot, and dismiss labels. `src/lib/trellis-boundaries.test.ts` covers the Trellis banner.
 
 ### Notifications menu vs toasts and banners
 
@@ -97,8 +120,8 @@ The header's [notifications menu](navigation.md#notifications-menu) holds what t
 
 | Channel | Answers | Lifetime |
 | --- | --- | --- |
-| Toast | "Did my click work?" | Seconds. Gone after 5s |
-| `PageBanner` | "Is something wrong right now, everywhere?" | While the condition lasts, or until dismissed for the session |
+| Toast | "Did my click work?" | Seconds: gone after 5s, paused while hovered or focused. A `danger` toast stays until dismissed |
+| `PageBanner` | "Is something wrong right now, everywhere?" | While the condition lasts. Only an advisory banner that opts in with `dismissible` and an `id` can be hidden for the session |
 | Notifications menu | "What happened while I was away?" | A stored, per-user history, with unread state that survives reloads and devices |
 
 - Don't repeat a toast in the menu, or the reverse. A deployment you start gets a toast for the request, and the menu entry for its outcome.

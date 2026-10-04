@@ -68,7 +68,7 @@ function CreateTeamDialog() {
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <DialogBody className="space-y-3">
-            {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
+            {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
             <div className="space-y-2">
               <Label htmlFor="team-name">Team name</Label>
               <Input id="team-name" name="name" required />
@@ -114,7 +114,7 @@ function EditTeamDialog({ teamId, teamName, open, onOpenChange }: { teamId: stri
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <DialogBody className="space-y-3">
-            {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
+            {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
             <div className="space-y-2">
               <Label htmlFor={`team-name-${teamId}`}>Team name</Label>
               <Input id={`team-name-${teamId}`} name="name" defaultValue={teamName} required />
@@ -160,7 +160,7 @@ function DeleteTeamButton({ teamId, teamName, open, onOpenChange }: { teamId: st
             This removes the team and revokes all project access for its members.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        {error ? <InlineNotice tone="error" className="mx-5">{error}</InlineNotice> : null}
+        {error ? <InlineNotice tone="danger" className="mx-5">{error}</InlineNotice> : null}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
           <AlertDialogAction
@@ -271,7 +271,7 @@ export function AddTeamMemberDialog({ teamId, orgMembers, existingMemberIds }: {
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <DialogBody className="space-y-3">
-            {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
+            {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
             <div className="space-y-2">
               <Label htmlFor={`member-email-${teamId}`}>Search members</Label>
               <Input
@@ -360,7 +360,7 @@ export function RemoveTeamMemberButton({ teamId, membershipId, memberName }: { t
             This removes the member from this team. They will lose any project access granted through this team.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        {error ? <InlineNotice tone="error" className="mx-5">{error}</InlineNotice> : null}
+        {error ? <InlineNotice tone="danger" className="mx-5">{error}</InlineNotice> : null}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
           <AlertDialogAction

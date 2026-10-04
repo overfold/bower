@@ -89,7 +89,7 @@ export function MemberActionsMenu({
               : <><span className="block">{email}</span>This removes them from this organization and revokes access granted by its teams. This does not delete their account.</>}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        {error ? <InlineNotice tone="error" className="mx-5">{error}</InlineNotice> : null}
+        {error ? <InlineNotice tone="danger" className="mx-5">{error}</InlineNotice> : null}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
           <AlertDialogAction onClick={handleRemove} disabled={isPending} aria-busy={isPending}>

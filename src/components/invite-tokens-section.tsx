@@ -170,7 +170,7 @@ export function InviteTokensSection({
               {link ? (
                 <>
                   <DialogBody className="space-y-3">
-                    <InlineNotice tone="warning">Copy this link now. You won’t see it again.</InlineNotice>
+                    <InlineNotice tone="warn">Copy this link now. You won’t see it again.</InlineNotice>
                     <OneTimeSecret
                       label="Invitation link"
                       value={invitationUrl}
@@ -292,7 +292,7 @@ export function InviteTokensSection({
                       <Label htmlFor="invitation-note" optional>Note</Label>
                       <Input id="invitation-note" value={note} onChange={(event) => setNote(event.target.value)} />
                     </div>
-                    {error ? <InlineNotice tone="error">{error}</InlineNotice> : null}
+                    {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
                   </DialogBody>
                   <DialogFooter>
                     <Button onClick={() => setOpen(false)}>Cancel</Button>
@@ -377,7 +377,7 @@ function RevokeInvitationButton({ invitation }: { invitation: Invitation }) {
     try {
       await revokeInvitationAction(invitation.id)
       setOpen(false)
-      toast({ tone: 'success', title: 'Invitation revoked.' })
+      toast({ tone: 'success', title: 'Invitation revoked' })
     } catch (cause) {
       setError(actionErrorMessage(cause, 'Could not revoke invitation.'))
     } finally {
@@ -391,7 +391,7 @@ function RevokeInvitationButton({ invitation }: { invitation: Invitation }) {
       <AlertDialogTrigger asChild><Button variant="ghost" size="icon" disabled={pending} aria-label={`Revoke invitation ${target}`}><Trash2 /></Button></AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader><AlertDialogTitle>Revoke invitation?</AlertDialogTitle><AlertDialogDescription>The invitation {target} will stop accepting new members. Existing members keep their access.</AlertDialogDescription></AlertDialogHeader>
-        {error ? <InlineNotice tone="error" className="mx-5">{error}</InlineNotice> : null}
+        {error ? <InlineNotice tone="danger" className="mx-5">{error}</InlineNotice> : null}
         <AlertDialogFooter><AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel><AlertDialogAction onClick={revoke} disabled={pending} aria-busy={pending}>{pending ? 'Revoking…' : 'Revoke invitation'}</AlertDialogAction></AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

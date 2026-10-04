@@ -13,6 +13,12 @@ export function trellisReadError(error: unknown): string {
   return 'Unable to read Trellis data. Check the connection and credentials.'
 }
 
+/** Safe for presentation after Trellis rejects a write: never the upstream body. */
+export function trellisWriteError(error: TrellisApiError): string {
+  if (error.status === 403 || error.status === 401) return 'Trellis denied this request. Check the cluster credentials.'
+  return `Trellis rejected the request (${error.status}).`
+}
+
 export function allocationBelongsToService(allocation: TrellisAllocation, namespace: string, service: string, jobs: Array<string | null>) {
   return allocation.namespace === namespace
     && (allocation.labels?.['bower/service'] === service || jobs.includes(allocation.job))
