@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     throw error
   }
   if (!verified) {
-    const retry = new URL('/route-auth/password', request.url)
+    const retry = new URL('/route-auth/password', process.env.BOWER_PUBLIC_URL || request.url)
     retry.searchParams.set('route', routeId)
     retry.searchParams.set('returnTo', target.toString())
     retry.searchParams.set('error', 'invalid-password')

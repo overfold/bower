@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (route.protectionMode === 'password') {
-    const password = new URL('/route-auth/password', request.url)
+    const password = new URL('/route-auth/password', process.env.BOWER_PUBLIC_URL || request.url)
     password.searchParams.set('route', routeId)
     password.searchParams.set('returnTo', target.toString())
     return NextResponse.redirect(password)
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
   const sessionToken = request.cookies.get(SESSION_COOKIE_NAME)?.value
   const session = sessionToken ? await validateSession(sessionToken) : null
   if (!session) {
-    const login = new URL('/login', request.url)
+    const login = new URL('/login', process.env.BOWER_PUBLIC_URL || request.url)
     login.searchParams.set('next', `${request.nextUrl.pathname}${request.nextUrl.search}`)
     return NextResponse.redirect(login)
   }

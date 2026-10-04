@@ -6,15 +6,17 @@ import { createRequire } from 'node:module'
 import { resolve } from 'node:path'
 import { runInNewContext } from 'node:vm'
 import ts from 'typescript'
+import { NextRequest } from 'next/server'
 import * as bodyHelpers from './request-body'
 import * as filters from './webhook-filter'
 
 // Execute the real handlers, replacing only database/auth/deployment I/O.
-function load(path: string, dependencies: Record<string, unknown>): { POST: (request: Request, context?: unknown) => Promise<Response> } {
+function load(path: string, dependencies: Record<string, unknown>, env: Record<string, string> = {}): { POST: (request: Request, context?: unknown) => Promise<Response>, GET: (request: NextRequest) => Promise<Response> } {
   const filename = resolve(path); const require = createRequire(filename); const loaded = { exports: {} }
   const { outputText } = ts.transpileModule(readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: true, target: ts.ScriptTarget.ES2022 } })
   runInNewContext(outputText, {
     module: loaded, exports: loaded.exports, Request, Response, URL, Buffer, Uint8Array,
+    process: { env },
     require: (name: string) => name in dependencies ? dependencies[name] : require(name.startsWith('@/') ? resolve('src', name.slice(2)) : name),
   }, { filename })
   return loaded.exports as ReturnType<typeof load>
@@ -23,6 +25,46 @@ function load(path: string, dependencies: Record<string, unknown>): { POST: (req
 function query(rows: unknown[]) {
   return { from() { return this }, where() { return this }, limit: async () => rows }
 }
+
+test('route authentication redirects use the public Bower origin, not the internal Next listener', async () => {
+  const env = { BOWER_PUBLIC_URL: 'https://bower.trellis.twilightzone.dev' }
+  const target = 'https://app.test/branch?x=3&next=%2Fdetails'
+  const params = new URLSearchParams({ route: 'route-9', returnTo: target })
+  let protectionMode = 'password'
+  let valid = false
+  const dependencies = {
+    '@/lib/route-auth': {
+      getProtectedRoute: async () => ({ protectionMode, passwordHash: 'fixture-hash' }),
+      routeMatchesUrl: (_: unknown, url: URL) => url.hostname === 'app.test',
+      createPasswordRouteHandoff: () => 'handoff-fixture',
+    },
+    '@/lib/auth': { SESSION_COOKIE_NAME: 'bower_session', validateSession: async () => null, verifyPassword: async () => valid },
+    '@/lib/auth-abuse': { consumeAuthAttempt: async () => true },
+    '@/lib/request-body': bodyHelpers,
+  }
+  const authorize = load('src/app/api/route-auth/authorize/route.ts', dependencies, env)
+  const internal = `http://localhost:3001/api/route-auth/authorize?${params}`
+  const request = new NextRequest(internal, { headers: { host: 'bower.trellis.twilightzone.dev', 'x-forwarded-host': 'untrusted.test' } })
+  const password = await authorize.GET(request)
+  assert.equal(password.headers.get('location'), `${env.BOWER_PUBLIC_URL}/route-auth/password?${params}`)
+  protectionMode = 'bower_auth'
+  const login = await authorize.GET(request)
+  assert.equal(login.headers.get('location'), `${env.BOWER_PUBLIC_URL}/login?${new URLSearchParams({ next: `/api/route-auth/authorize?${params}` })}`)
+
+  protectionMode = 'password'
+  const handler = load('src/app/api/route-auth/password/route.ts', dependencies, env)
+  const formRequest = () => new Request('http://localhost:3001/api/route-auth/password', {
+    method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ route: 'route-9', returnTo: target, password: 'wrong-password' }),
+  })
+  const retry = await handler.POST(formRequest())
+  assert.equal(retry.status, 303)
+  assert.equal(retry.headers.get('location'), `${env.BOWER_PUBLIC_URL}/route-auth/password?${params}&error=invalid-password`)
+  valid = true
+  const accepted = await handler.POST(formRequest())
+  assert.equal(accepted.status, 303)
+  assert.equal(accepted.headers.get('location'), 'https://app.test/.bower/auth/callback?token=handoff-fixture')
+})
 
 function request(body: string | Buffer, headers: HeadersInit = {}, chunked = false) {
   return new Request('https://bower.test/api', {
