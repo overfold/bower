@@ -9,6 +9,18 @@ import { createExecBridge } from './bridge.mjs'
 
 const dev = process.argv.includes('--dev')
 nextEnv.loadEnvConfig(process.cwd(), dev)
+// Keep database waiting outside Next's one-shot instrumentation hook. Until
+// migrations succeed, no server is launched and the task is not ready. Default
+// signal handling lets SIGTERM/SIGINT stop both connection attempts and waits.
+if (process.env.AUTO_MIGRATE === 'true') {
+  const { runMigrations } = await import('./migrate.mjs')
+  try {
+    await runMigrations()
+  } catch (error) {
+    console.error('Migration failed:', error)
+    process.exit(1)
+  }
+}
 const port = Number(process.env.PORT || 3000)
 const internalPort = port + 1
 const secret = randomBytes(32).toString('hex')

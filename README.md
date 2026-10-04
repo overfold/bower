@@ -111,7 +111,7 @@ On first startup the dev server prints a single-use instance administrator invit
 
 Both setup paths set `AUTO_MIGRATE=true`, which applies pending Drizzle migrations automatically on startup before the app begins serving traffic. No manual step is needed.
 
-Startup migrations retry transient DNS/connection failures and PostgreSQL-not-ready errors up to ten attempts, with a two-second delay between attempts and a five-second connection timeout per attempt. Authentication, SQL, and other non-transient errors fail immediately. Persistent connection failures still fail startup after the retry budget is exhausted.
+The Bower startup process runs migrations before launching Next.js or the front server. Transient DNS/connection failures and PostgreSQL-not-ready errors retry until the database becomes available, with exponential delays starting at two seconds and capped at 30 seconds, and a five-second connection timeout per attempt. Each failed connection is closed before waiting. Bower remains not ready while waiting, logs each retry without the connection string, and can be stopped normally with SIGTERM/SIGINT. Authentication, SQL, and other non-transient errors fail startup immediately with a nonzero exit status. A persistent DNS/configuration problem therefore remains visible as an unhealthy task with retry logs rather than a restart loop.
 
 To run migrations manually instead, unset `AUTO_MIGRATE` and use `npm run db:migrate` with the appropriate `DATABASE_URL`:
 
