@@ -616,15 +616,15 @@ test('targeted rollback scopes the target and replays its spec rather than the l
       update: () => ({ set: () => ({ where: async () => {} }) }),
     } },
   })
-  await actions.rollbackServiceAction('service', 'env', 'selected-deployment')
+  assert.equal((await actions.rollbackServiceAction('service', 'env', 'selected-deployment')).error, undefined)
   assert.equal(applied.length, 2)
   for (const spec of applied) assert.equal(JSON.stringify(spec), JSON.stringify(selected))
   assert.deepEqual(targetSql?.params, ['selected-deployment', 'service', 'env', 'healthy'])
   targetAvailable = false; reads = 0
-  await assert.rejects(actions.rollbackServiceAction('service', 'env', 'foreign-deployment'), /no successful stored JobSpec/)
+  assert.match((await actions.rollbackServiceAction('service', 'env', 'foreign-deployment')).error ?? '', /no successful stored JobSpec/)
   assert.equal(applied.length, 2)
   role = 'viewer'
-  await assert.rejects(actions.rollbackServiceAction('service', 'env', 'selected-deployment'), /permissions/)
+  assert.equal((await actions.rollbackServiceAction('service', 'env', 'selected-deployment')).error, 'Insufficient permissions.')
   assert.equal(applied.length, 2)
 })
 
@@ -754,9 +754,9 @@ test('combined member role save enforces authorization and last owner/admin prot
 
 test('Trellis-unavailable banner shows while the condition holds, with its actions beside the text', () => {
   const { TrellisReadErrorProvider } = load<typeof import('../components/trellis-read-error')>('src/components/trellis-read-error.tsx', { 'next/navigation': navigation })
-  assert.doesNotMatch(renderToStaticMarkup(createElement(TrellisReadErrorProvider, { message: null, children: createElement('main') })), /Trellis is unavailable/)
+  assert.doesNotMatch(renderToStaticMarkup(TrellisReadErrorProvider({ message: null, children: createElement('main') })), /Trellis is unavailable/)
 
-  const html = renderToStaticMarkup(createElement(TrellisReadErrorProvider, { message: 'Connection refused.', children: createElement('main') }))
+  const html = renderToStaticMarkup(TrellisReadErrorProvider({ message: 'Connection refused.', children: createElement('main') }))
   assert.match(html, /role="status"/)
   assert.match(html, /bg-warn-50/)
   assert.doesNotMatch(html, /Dismiss/)
@@ -764,4 +764,33 @@ test('Trellis-unavailable banner shows while the condition holds, with its actio
   assert.ok(text, html)
   const action = html.slice(text.index! + text[0].length)
   assert.match(action, /^<div class="flex shrink-0[^"]*"><button[^>]*>Retry connection<\/button><a [^>]*href="\/settings\/organization#connection"[^>]*>Check connection settings<\/a><\/div>/)
+})
+
+test('service actions return safe messages for expected failures, since React redacts thrown errors in production', async () => {
+  let restart: () => Promise<unknown> = async () => {}
+  let role = 'admin'
+  const actions = load<typeof import('./actions/services')>('src/lib/actions/services.ts', {
+    'next/navigation': navigation, 'next/cache': { revalidatePath() {} },
+    '@/lib/auth': {}, '@/lib/queries': {},
+    '@/lib/actions/shared': { requireService: async () => ({ ...access, projectRole: role, service: { slug: 'web', name: 'Web' }, project: { slug: 'demo' } }), recordAudit: async () => {} },
+    '@/lib/managed-proxy': {}, '@/lib/deployment-reconciler': {}, '@/lib/deployment-runtime': {},
+    '@/lib/trellis-instance': { getTrellisClient: async () => ({ restartJob: () => restart() }) },
+    '@/db': { db: { select: () => query([{ config: { activeJobName: 'web' }, environment: { trellisNamespace: 'demo', name: 'Production' } }]) } },
+  })
+
+  assert.equal((await actions.restartServiceAction('service', 'env')).error, undefined)
+
+  restart = async () => { throw new TrellisApiError(422, 'Unprocessable', '{"error":"token=secret-value at https://user:pw@trellis.internal"}') }
+  assert.equal((await actions.restartServiceAction('service', 'env')).error, 'Trellis rejected the request (422).')
+
+  restart = async () => { throw new TrellisApiError(403, 'Forbidden', 'denied') }
+  assert.equal((await actions.restartServiceAction('service', 'env')).error, 'Trellis denied this request. Check the cluster credentials.')
+
+  role = 'viewer'
+  assert.equal((await actions.restartServiceAction('service', 'env')).error, 'Insufficient permissions.')
+
+  // Unexpected failures still throw, so their details never leave the server.
+  role = 'admin'
+  restart = async () => { throw new Error('connect ECONNREFUSED 10.0.0.4:5432') }
+  await assert.rejects(actions.restartServiceAction('service', 'env'), /ECONNREFUSED/)
 })

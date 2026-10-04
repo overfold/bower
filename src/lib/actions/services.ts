@@ -9,6 +9,8 @@ import { getCurrentUser } from '@/lib/auth'
 import { getProjectBySlug, getProjectEnvironment, getUserOrganization } from '@/lib/queries'
 import { getTrellisClient, getTrellisJobLimits } from '@/lib/trellis-instance'
 import { TrellisApiError } from '@/lib/trellis'
+import { trellisWriteError } from '@/lib/trellis-runtime'
+import { ActionError } from '@/lib/action-error'
 import { recordAudit, requireProject, requireService } from '@/lib/actions/shared'
 import { syncManagedProxy } from '@/lib/managed-proxy'
 import { createDeploymentSpec, notifyDeployment, recordDeploymentEvent } from '@/lib/deployment-runtime'
@@ -23,9 +25,19 @@ type AutomationActor = { actorType: 'api_key'; apiKeyId: string; userId: string 
 
 function deploymentApplyError(error: unknown) {
   if (error instanceof TrellisApiError && error.status === 409) {
-    return new Error('The Trellis job changed after Bower planned this deployment. Review the competing change and deploy again.')
+    return new ActionError('The Trellis job changed after Bower planned this deployment. Review the competing change and deploy again.')
   }
   return error
+}
+
+type ActionResult = { error?: string }
+
+// Failures the user can act on go back as a message. Anything else is rethrown:
+// React redacts it in production, and the client shows its own fallback.
+function actionFailure(error: unknown): { error: string } {
+  if (error instanceof ActionError) return { error: error.message }
+  if (error instanceof TrellisApiError) return { error: trellisWriteError(error) }
+  throw error
 }
 
 function slugify(name: string) {
@@ -128,8 +140,12 @@ export async function createServiceAction(projectSlug: string, formData: FormDat
   redirect(`/projects/${projectSlug}/services/${slug}`)
 }
 
-export async function deployServiceAction(serviceId: string, environmentId: string) {
-  const access = await requireService(serviceId); if (access.projectRole === 'viewer') throw new Error('Insufficient permissions.')
+export async function deployServiceAction(serviceId: string, environmentId: string): Promise<ActionResult> {
+  try { await deployService(serviceId, environmentId); return {} } catch (error) { return actionFailure(error) }
+}
+
+async function deployService(serviceId: string, environmentId: string) {
+  const access = await requireService(serviceId); if (access.projectRole === 'viewer') throw new ActionError('Insufficient permissions.')
   const { deployment } = await executeDeployment(serviceId, environmentId, 'manual', access.user.id)
   await recordAudit({ orgId: access.org.id, userId: access.user.id, action: 'service.deployed', resourceType: 'deployment', resourceId: deployment.id, details: { serviceId, environmentId } })
   revalidatePath(`/projects/${access.project.slug}`)
@@ -143,17 +159,21 @@ export async function deployServiceFromAutomation(serviceId: string, environment
   return executeDeployment(serviceId, environmentId, trigger, actor.userId ?? null, actor)
 }
 
-export async function rollbackServiceAction(serviceId: string, environmentId: string, targetDeploymentId?: string) {
-  const access = await requireService(serviceId); if (access.projectRole === 'viewer') throw new Error('Insufficient permissions.')
+export async function rollbackServiceAction(serviceId: string, environmentId: string, targetDeploymentId?: string): Promise<ActionResult> {
+  try { await rollbackService(serviceId, environmentId, targetDeploymentId); return {} } catch (error) { return actionFailure(error) }
+}
+
+async function rollbackService(serviceId: string, environmentId: string, targetDeploymentId?: string) {
+  const access = await requireService(serviceId); if (access.projectRole === 'viewer') throw new ActionError('Insufficient permissions.')
   const [last] = await db.select().from(deployments).where(and(eq(deployments.serviceId, serviceId), eq(deployments.environmentId, environmentId))).orderBy(desc(deployments.createdAt)).limit(1)
   let storedSpec = last?.previousJobSpec
   let target = null
   if (targetDeploymentId) {
     ;[target] = await db.select().from(deployments).where(and(eq(deployments.id, targetDeploymentId), eq(deployments.serviceId, serviceId), eq(deployments.environmentId, environmentId), eq(deployments.status, 'healthy'))).limit(1)
-    if (!target?.jobSpec) throw new Error('This deployment has no successful stored JobSpec available for rollback.')
+    if (!target?.jobSpec) throw new ActionError('This deployment has no successful stored JobSpec available for rollback.')
   }
   const [selectedConfigRow] = await db.select({ config: serviceConfigs, environment: environments }).from(serviceConfigs).innerJoin(environments, eq(environments.id, serviceConfigs.environmentId)).where(and(eq(serviceConfigs.serviceId, serviceId), eq(serviceConfigs.environmentId, environmentId))).limit(1)
-  if (!selectedConfigRow) throw new Error('Configuration not found.')
+  if (!selectedConfigRow) throw new ActionError('Configuration not found.')
   const configRow = 'config' in selectedConfigRow ? selectedConfigRow : { config: selectedConfigRow, environment: null }
   if (target) {
     const jobName = configRow.config.activeJobName || access.service.slug
@@ -165,17 +185,17 @@ export async function rollbackServiceAction(serviceId: string, environmentId: st
       client.getJobVersions(jobName, configRow.environment.trellisNamespace),
     ])
     if (target.trellisJobName === jobName && target.trellisVersion === runtime.version && target.trellisRevision === runtime.revision) {
-      throw new Error('The selected release is currently running and cannot be a rollback target.')
+      throw new ActionError('The selected release is currently running and cannot be a rollback target.')
     }
     if (!retained.some((version) => version.version === target.trellisVersion && version.revision === target.trellisRevision)) {
-      throw new Error('The selected release is no longer retained by Trellis.')
+      throw new ActionError('The selected release is no longer retained by Trellis.')
     }
     const [active] = await db.select().from(deployments).where(and(eq(deployments.serviceId, serviceId), eq(deployments.environmentId, environmentId), eq(deployments.trellisJobName, jobName), eq(deployments.trellisVersion, runtime.version), eq(deployments.trellisRevision, runtime.revision))).limit(1)
-    if (!active || target.createdAt >= active.createdAt) throw new Error('Only successful releases earlier than the currently running release can be restored.')
+    if (!active || target.createdAt >= active.createdAt) throw new ActionError('Only successful releases earlier than the currently running release can be restored.')
     }
     storedSpec = target.jobSpec
   }
-  if (!storedSpec) throw new Error('No stored previous JobSpec is available.')
+  if (!storedSpec) throw new ActionError('No stored previous JobSpec is available.')
   const spec = storedSpec as TrellisJobSpec; const config = configRow.config
   const image = spec.task_groups[0]?.tasks[0]?.image
   const [deployment] = await db.insert(deployments).values({ serviceId, environmentId, imageBefore: config.image, imageAfter: image || config.image, strategy: config.deploymentStrategy, status: 'planning', triggeredByUserId: access.user.id, triggerType: 'rollback', jobSpec: spec, previousJobSpec: last?.jobSpec ?? null, trellisJobName: spec.name }).returning()
@@ -207,10 +227,14 @@ export async function refreshDeploymentStatusesAction(projectId: string) {
   revalidatePath(`/projects/${access.project.slug}/deployments`)
 }
 
-export async function restartServiceAction(serviceId: string, environmentId: string) {
-  const access = await requireService(serviceId); if (access.projectRole === 'viewer') throw new Error('Insufficient permissions.')
+export async function restartServiceAction(serviceId: string, environmentId: string): Promise<ActionResult> {
+  try { await restartService(serviceId, environmentId); return {} } catch (error) { return actionFailure(error) }
+}
+
+async function restartService(serviceId: string, environmentId: string) {
+  const access = await requireService(serviceId); if (access.projectRole === 'viewer') throw new ActionError('Insufficient permissions.')
   const [row] = await db.select({ config: serviceConfigs, environment: environments }).from(serviceConfigs).innerJoin(environments, eq(environments.id, serviceConfigs.environmentId)).where(and(eq(serviceConfigs.serviceId, serviceId), eq(serviceConfigs.environmentId, environmentId))).limit(1)
-  if (!row) throw new Error('Service configuration not found.')
+  if (!row) throw new ActionError('Service configuration not found.')
   const jobName = (row.config.activeJobName as string | null) || access.service.slug
   const client = await getTrellisClient(access.org.id)
   await client.restartJob(jobName, row.environment.trellisNamespace)

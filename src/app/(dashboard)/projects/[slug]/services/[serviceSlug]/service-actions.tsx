@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { deployServiceAction, restartServiceAction, rollbackServiceAction } from '@/lib/actions/services'
+import { actionErrorMessage } from '@/lib/action-error'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog, AlertDialogCancel, AlertDialogContent,
@@ -73,13 +74,14 @@ export function ServiceActions({ serviceId, serviceName, runningImage, environme
     return () => cancelAnimationFrame(frame)
   }, [params, pathname])
 
-  function run(action: () => Promise<void>, success: string) {
+  function run(action: () => Promise<{ error?: string }>, success: string) {
     return async () => {
       try {
-        await action()
-        toast({ tone: 'success', title: success })
+        const { error } = await action()
+        if (error) toast({ tone: 'danger', title: 'Service action failed', description: error })
+        else toast({ tone: 'success', title: success })
       } catch (reason) {
-        toast({ tone: 'danger', title: 'Service action failed', description: reason instanceof Error ? reason.message : 'The service action could not be completed.' })
+        toast({ tone: 'danger', title: 'Service action failed', description: actionErrorMessage(reason, 'The service action could not be completed.') })
       }
     }
   }

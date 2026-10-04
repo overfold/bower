@@ -212,15 +212,15 @@ test('feedback tones are the shared Tone names, without error or warning aliases
   // Type-level contract, checked by `npx tsc --noEmit`; never executed.
   void (() => {
     // @ts-expect-error 'error' is not a tone; use 'danger'.
-    createElement(InlineNotice, { tone: 'error', children: 'Failed' })
+    InlineNotice({ tone: 'error', children: 'Failed' })
     // @ts-expect-error 'warning' is not a tone; use 'warn'.
     createElement(PageBanner, { tone: 'warning', title: 'Trellis is unavailable.' })
     // @ts-expect-error 'error' is not a tone; use 'danger'.
     useFeedback().toast({ tone: 'error', title: 'Restart failed' })
   })
   // InlineNotice keeps its tinted, in-flow style.
-  assert.match(renderToStaticMarkup(createElement(InlineNotice, { tone: 'danger', children: 'Failed' })), /bg-danger-50 text-danger-500" role="alert"/)
-  assert.match(renderToStaticMarkup(createElement(InlineNotice, { tone: 'warn', children: 'Careful' })), /bg-warn-50/)
+  assert.match(renderToStaticMarkup(InlineNotice({ tone: 'danger', children: 'Failed' })), /bg-danger-50 text-danger-500" role="alert"/)
+  assert.match(renderToStaticMarkup(InlineNotice({ tone: 'warn', children: 'Careful' })), /bg-warn-50/)
 })
 
 test('page banners are not dismissible by default and require an id to become dismissible', () => {

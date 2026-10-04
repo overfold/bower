@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Info } from 'lucide-react'
 import { useTransition } from 'react'
 import { restartServiceAction } from '@/lib/actions/services'
+import { actionErrorMessage } from '@/lib/action-error'
 import { StatusDot, Chip, Dot } from '@/components/status'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -25,6 +26,6 @@ export function ServiceStatus({ health, ready, replicas, serviceId, environmentI
   return <Popover><PopoverTrigger asChild><button type="button" aria-haspopup="dialog" className="group rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"><Chip tone="danger" className="transition-colors group-hover:bg-danger-200"><Dot tone="danger" />Failing<Info className="size-3" aria-hidden="true" /></Chip></button></PopoverTrigger><PopoverContent className="w-80 space-y-3 p-4">
     <div><p className="font-medium text-ink">Failing</p>{replacementBackoff ? <p className="mt-1 text-xs text-ink-muted">Restart pending · next attempt in <time dateTime={replacementBackoff.next_replacement_at}>{nextAttempt(replacementBackoff.next_replacement_at)}</time></p> : null}<p className="mt-1 text-xs text-ink-muted">{failures === null ? 'Failure count unavailable' : `${failures} ${failures === 1 ? 'replica is' : 'replicas are'} not ready`}</p></div>
     {replacementBackoff ? <div className="space-y-1 text-sm text-ink-soft"><p>{replacementBackoff.message || replacementBackoff.reason || 'Allocation failed'}</p><p><span className="font-medium text-ink">{replacementBackoff.failures}</span> failures</p></div> : <p className="text-sm text-ink-soft">No pending restart was reported. Review allocation logs for the latest failure.</p>}
-    <div className="flex gap-2"><Button size="sm" loading={pending} onClick={() => startTransition(async () => { try { await restartServiceAction(serviceId, environmentId); toast({ tone: 'success', title: 'Service restart started' }) } catch (error) { toast({ tone: 'danger', title: 'Restart failed', description: error instanceof Error ? error.message : undefined }) } })}>Restart now</Button>{logsHref ? <Button asChild size="sm" variant="ghost"><Link href={logsHref}>View logs</Link></Button> : <Button size="sm" variant="ghost" disabled>Logs unavailable</Button>}</div>
+    <div className="flex gap-2"><Button size="sm" loading={pending} onClick={() => startTransition(async () => { try { const { error } = await restartServiceAction(serviceId, environmentId); if (error) toast({ tone: 'danger', title: 'Restart failed', description: error }); else toast({ tone: 'success', title: 'Service restart started' }) } catch (reason) { toast({ tone: 'danger', title: 'Restart failed', description: actionErrorMessage(reason, 'The service could not be restarted.') }) } })}>Restart now</Button>{logsHref ? <Button asChild size="sm" variant="ghost"><Link href={logsHref}>View logs</Link></Button> : <Button size="sm" variant="ghost" disabled>Logs unavailable</Button>}</div>
   </PopoverContent></Popover>
 }
