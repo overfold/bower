@@ -6,7 +6,8 @@ Changes to Bower's tokens, primitives, shared components, lint rules, and docume
 
 ## Unreleased
 
-_Nothing yet._
+**Added**
+- `NotificationsMenu` (`src/components/notifications-menu.tsx`): a header bell listing deployment outcomes, with an unread count. Documented in [Navigation](components/navigation.md#notifications-menu) and [Status and feedback](components/status-and-feedback.md#notifications-menu-vs-toasts-and-banners). UI capture covers unread, open, read, empty, refresh-error, narrow, and dark states.
 
 ## 2026-10-04: Design system guide
 

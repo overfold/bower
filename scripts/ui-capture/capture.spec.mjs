@@ -720,6 +720,44 @@ state("public-not-found", "/invite/audit-invite/missing", async (page) => {
 }, { public: true });
 for (const [name, route] of [["overview", "/dashboard"], ["configuration", `${service}/configuration`]])
   state(`dark-${name}`, route, undefined, { dark: true });
+// Notifications: declared in this order because opening the menu marks its items read.
+const notificationsButton = (page, name = /^Notifications/) => page.getByRole("button", { name });
+const openNotifications = async (page) => {
+  await notificationsButton(page).click();
+  await expect(page.getByRole("menu", { name: "Notifications" })).toBeVisible();
+};
+const replaceNotificationFeed = async (page, response) => {
+  await page.route("**/api/notifications", (route) => route.fulfill(response));
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+};
+state("notifications-unread", "/dashboard", async (page) => {
+  await expect(notificationsButton(page, /^Notifications, \d+ unread$/)).toBeVisible();
+});
+state("notifications-open", "/dashboard", async (page) => {
+  const markedRead = page.waitForResponse((response) => response.request().method() === "POST");
+  await openNotifications(page);
+  const menu = page.getByRole("menu", { name: "Notifications" });
+  await expect(menu.getByRole("menuitem").filter({ hasText: "Unread:" }).first()).toBeVisible();
+  await expect(menu.getByRole("menuitem").filter({ hasText: "Failed" }).first()).toHaveAttribute("href", /\/projects\/[^/]+\/deployments\//);
+  await markedRead;
+});
+state("notifications-read", "/dashboard", async (page) => {
+  await expect(notificationsButton(page, "Notifications")).toBeVisible();
+});
+state("narrow-notifications-open", "/dashboard", openNotifications, { narrow: true });
+state("dark-notifications-open", "/dashboard", openNotifications, { dark: true });
+state("notifications-empty", "/dashboard", async (page) => {
+  await replaceNotificationFeed(page, { json: { items: [], unreadCount: 0, lastSeenAt: new Date().toISOString() } });
+  await openNotifications(page);
+  await expect(page.getByText("No deployment activity yet", { exact: true })).toBeVisible();
+});
+state("notifications-refresh-error", "/dashboard", async (page) => {
+  const failed = page.waitForResponse("**/api/notifications");
+  await replaceNotificationFeed(page, { status: 500, body: "Unavailable" });
+  await failed;
+  await openNotifications(page);
+  await expect(page.getByText("Couldn't refresh. Showing earlier results.", { exact: true })).toBeVisible();
+});
 state("narrow-new-service", `${project}/services`, (page) => click(page, "New service"), { narrow: true });
 state("narrow-invite-people", "/settings/members", (page) => click(page, "Invite people"), { narrow: true });
 state("service-deploy-confirmation", `${service}?action=deploy`, async (page) => {

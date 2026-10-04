@@ -91,6 +91,20 @@ Rules:
 - Show a warning **once** per dialog, under the description (A5-H3).
 - Toasts confirm. They don't carry information the user must act on later.
 
+### Notifications menu vs toasts and banners
+
+The header's [notifications menu](navigation.md#notifications-menu) holds what the user may need to act on **later**. Today that means deployment outcomes that happened while they were looking elsewhere.
+
+| Channel | Answers | Lifetime |
+| --- | --- | --- |
+| Toast | "Did my click work?" | Seconds. Gone after 5s |
+| `PageBanner` | "Is something wrong right now, everywhere?" | While the condition lasts, or until dismissed for the session |
+| Notifications menu | "What happened while I was away?" | A stored, per-user history, with unread state that survives reloads and devices |
+
+- Don't repeat a toast in the menu, or the reverse. A deployment you start gets a toast for the request, and the menu entry for its outcome.
+- Don't use the menu for conditions that are still happening (Trellis unavailable). That is a banner.
+- Rows use the shared status components (`DeploymentStatus`), never their own chips.
+
 ## `FieldError`
 
 `<FieldError>{message}</FieldError>` renders `text-xs text-danger-500` with `role="alert"`, or nothing when there is no message. Prefer the hint-replacement pattern in [Form controls](form-controls.md#field-anatomy) when the field has a hint.
