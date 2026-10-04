@@ -11,6 +11,7 @@ import { TrellisReadErrorProvider } from '@/components/trellis-read-error'
 import { getTrellisClient } from '@/lib/trellis-instance'
 import { trellisReadError } from '@/lib/trellis-runtime'
 import { shortDeploymentImage } from '@/lib/format'
+import { loadNotificationFeed } from '@/lib/deployment-notifications'
 
 export default async function DashboardLayout({
   children,
@@ -29,7 +30,7 @@ export default async function DashboardLayout({
   const orgCtx = await getUserOrganization(user.id, preferredOrgId)
   if (!orgCtx) redirect('/login')
 
-  const [teams, userProjects, orgServices, instanceAdmin, deployments, members, orgTeams] = await Promise.all([
+  const [teams, userProjects, orgServices, instanceAdmin, deployments, members, orgTeams, notifications] = await Promise.all([
     getUserTeams(user.id, orgCtx.org.id),
     getProjectsForUser(orgCtx.org.id, user.id, orgCtx.role as 'owner' | 'admin' | 'member'),
     getServicesForOrg(orgCtx.org.id),
@@ -37,6 +38,8 @@ export default async function DashboardLayout({
     getDeploymentsForOrg(orgCtx.org.id, 250),
     getOrgMembers(orgCtx.org.id),
     getTeamsByOrg(orgCtx.org.id),
+    // The menu shows a quiet error state and retries, so a failed feed never blocks the page.
+    loadNotificationFeed({ userId: user.id, orgId: orgCtx.org.id, orgRole: orgCtx.role }).catch(() => null),
   ])
   const accessibleProjectIds = new Set(userProjects.map((project) => project.id))
   const accessibleProjectSlugs = new Set(userProjects.map((project) => project.slug))
@@ -82,6 +85,7 @@ export default async function DashboardLayout({
           orgs={orgs}
           currentOrg={currentOrg}
           teams={teams}
+          notifications={notifications}
           projects={userProjects.map((project) => ({ id: project.id, name: project.name, slug: project.slug }))}
           user={{
             name: user.name,

@@ -6,9 +6,11 @@ import { usePathname } from 'next/navigation'
 import { ChevronRight, MoreHorizontal, Search } from 'lucide-react'
 import { CommandPalette } from '@/components/command-palette'
 import { MobileDrawer } from '@/components/mobile-drawer'
+import { NotificationsMenu } from '@/components/notifications-menu'
 import { OrgTeamPicker } from '@/components/org-team-picker'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { deriveBreadcrumbs } from '@/lib/breadcrumbs'
+import type { NotificationFeed } from '@/lib/notification-feed'
 
 interface OrgEntry {
   id: string
@@ -40,9 +42,11 @@ interface HeaderBarProps {
     email: string
     avatarUrl: string | null
   }
+  /** Null when the feed couldn't be loaded; the menu shows its error state and retries. */
+  notifications: NotificationFeed | null
 }
 
-export function HeaderBar({ orgs, currentOrg, teams, searchData, user, projects }: HeaderBarProps & {
+export function HeaderBar({ orgs, currentOrg, teams, searchData, user, projects, notifications }: HeaderBarProps & {
   projects: { id: string; name: string; slug: string }[]
 }) {
   const pathname = usePathname()
@@ -108,6 +112,7 @@ export function HeaderBar({ orgs, currentOrg, teams, searchData, user, projects 
           <span className="hidden sm:inline">Search</span>
           <kbd className="ml-auto hidden rounded-md border border-line bg-sunken px-1.5 py-px font-sans text-2xs md:inline">⌘K</kbd>
         </button>
+        <NotificationsMenu key={currentOrg.id} initial={notifications} />
       </header>
 
       <CommandPalette

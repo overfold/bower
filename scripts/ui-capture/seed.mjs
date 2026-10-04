@@ -177,6 +177,8 @@ try {
       "project.update",
     ])
       await sql`INSERT INTO audit_log (org_id,user_id,action,resource_type,resource_id,details) VALUES (${org.id},${owner.id},${action},${action.split(".")[0]},${project.id},${sql.json({ name: "Storefront", environment: "Production", before: "v2.3.0", after: "v2.4.1" })})`;
+    // The latest hourly deployment outcomes stay unread, so the header shows the notifications badge.
+    await sql`INSERT INTO notification_read_states (user_id,org_id,last_seen_at) VALUES (${owner.id},${org.id},now() - interval '150 minutes')`;
     await sql`INSERT INTO audit_log (org_id,action,resource_type,resource_id,details) VALUES (${org.id},'deployment.reconciled','deployment',${deploymentId},${sql.json({ name: "Storefront", before: { status: "deploying", image: "v2.3.0" }, after: { status: "healthy", image: "v2.4.1" } })})`;
     return {
       orgId: org.id,

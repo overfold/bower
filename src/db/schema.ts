@@ -710,3 +710,31 @@ export const projectUserAccess = pgTable(
     ),
   ]
 );
+
+// ---------------------------------------------------------------------------
+// In-app notifications
+// ---------------------------------------------------------------------------
+
+/** One "last seen" marker per user and organization. Notifications newer than it are unread. */
+export const notificationReadStates = pgTable(
+  "notification_read_states",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("notification_read_states_user_org_idx").on(
+      table.userId,
+      table.orgId
+    ),
+  ]
+);

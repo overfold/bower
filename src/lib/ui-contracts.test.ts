@@ -110,3 +110,23 @@ test('preview footers appear only for omitted rows except cluster detail', () =>
   assert.match(render(5, 6), /View all deployments →/)
   assert.match(render(3, 3, true), /Showing 3 of 3/)
 })
+
+test('the notifications button names its unread count and caps the visible badge', async () => {
+  process.env.DATABASE_URL ??= 'postgres://test:test@localhost:5432/test'
+  const { NotificationsMenu } = await import('../components/notifications-menu')
+  const feed = (unreadCount: number) => ({ items: [], unreadCount, lastSeenAt: '2026-10-04T08:00:00.000Z' })
+
+  const read = renderToStaticMarkup(createElement(NotificationsMenu, { initial: feed(0) }))
+  assert.match(read, /aria-label="Notifications"/)
+  assert.match(read, /aria-haspopup="menu"/)
+  assert.ok(!read.includes('bg-brand-500'), 'no badge without unread items')
+
+  const some = renderToStaticMarkup(createElement(NotificationsMenu, { initial: feed(3) }))
+  assert.match(some, /aria-label="Notifications, 3 unread"/)
+  assert.match(some, /<span aria-hidden="true"[^>]*>3<\/span>/)
+
+  const many = renderToStaticMarkup(createElement(NotificationsMenu, { initial: feed(12) }))
+  assert.match(many, /aria-label="Notifications, 12 unread"/)
+  assert.match(many, />9\+<\/span>/)
+  assert.match(many, /focus-visible:ring-2/)
+})
