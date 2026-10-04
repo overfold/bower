@@ -1,4 +1,4 @@
-name: ui-audit
+name: ui-capture
 
 on:
   workflow_dispatch:
@@ -35,13 +35,13 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: node --test scripts/ui-audit/reporter.test.mjs
+      - run: node --test scripts/ui-capture/reporter.test.mjs
       - run: npx playwright install --with-deps chromium webkit
       - run: npm run db:migrate
-      - run: node scripts/ui-audit/seed.mjs
+      - run: node scripts/ui-capture/seed.mjs
       - run: npm run build
       - name: Capture production UI
-        run: npx playwright test --config scripts/ui-audit/playwright.config.mjs
+        run: npx playwright test --config scripts/ui-capture/playwright.config.mjs
       - name: Enforce 30 MB artifact budget
         id: budget
         if: always()

@@ -49,7 +49,7 @@ Run checks appropriate to the change and report any failures or checks you could
 
 - Add regression coverage for changed behavior using the existing Node test runner and neighboring tests. Shared UI changes should exercise the relevant UI contracts, not just snapshot source strings.
 - For visual changes, render and inspect representative desktop/mobile states and light/dark themes, including affected loading, empty, error, disabled, or open-dialog states. Exercise changed interactions with DOM/accessibility checks; a successful build is not visual verification.
-- `scripts/ui-audit/` provides Playwright capture tests, a seed, and fake Trellis server for fixture-based UI checks. Inspect its configuration and seed before use: it requires a migrated local database ending in `_ui_audit`, and the seed **truncates data**. Never point it at persistent data or a real cluster. The capture suite requires a production build and generated `fixture.json`; it is separate from `npm test`.
+- `scripts/ui-capture/` provides Playwright capture tests, a seed, and fake Trellis server for fixture-based UI checks. Inspect its configuration and seed before use: it requires a migrated local database ending in `_ui_audit`, and the seed **truncates data**. Never point it at persistent data or a real cluster. The capture suite requires a production build and generated `fixture.json`; it is separate from `npm test`.
 
 ## Next.js version guidance
 

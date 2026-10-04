@@ -30,7 +30,7 @@ export default defineConfig({
     : [
         {
           cwd,
-          command: "node scripts/ui-audit/trellis.mjs",
+          command: "node scripts/ui-capture/trellis.mjs",
           url: "http://127.0.0.1:8128/v1/nodes",
           reuseExistingServer: false,
         },

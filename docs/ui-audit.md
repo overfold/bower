@@ -1,6 +1,6 @@
 # UI screenshot audit
 
-In GitHub, open **Actions → ui-audit → Run workflow**. Select the branch to capture. This workflow only runs manually; it does not deploy anything or require real Trellis credentials.
+In GitHub, open **Actions → ui-capture → Run workflow**. Select the branch to capture. This workflow only runs manually; it does not deploy anything or require real Trellis credentials.
 
 Download **bower-ui-audit-desktop-<run number>** or **bower-ui-audit-narrow-<run number>** from the run's artifacts. Each is self-contained: extract it and open `index.html` for a filterable gallery, with links to lossless PNGs. Each `captures.json` records that layout's expected scenarios and whether they were captured, failed, or missing. Failure screenshots and Playwright error context are uploaded separately as **bower-ui-audit-diagnostics-<run number>**. Seed metadata and redundant per-scenario result files are not included. Artifacts are retained for 14 days and uploaded even when capture fails, provided each output directory is at most **30 MB (30,000,000 bytes)**. The workflow fails and skips uploads if any exceeds that budget; the limit applies before ZIP compression.
 
@@ -38,9 +38,9 @@ export DATABASE_URL=postgres://bower:bower@127.0.0.1:5432/bower_ui_audit
 npm ci
 npx playwright install --with-deps chromium webkit
 npm run db:migrate
-node scripts/ui-audit/seed.mjs
+node scripts/ui-capture/seed.mjs
 npm run build
-npx playwright test --config scripts/ui-audit/playwright.config.mjs
+npx playwright test --config scripts/ui-capture/playwright.config.mjs
 ```
 
 Ports 3100/3101 and 8128 must be free. Playwright owns both servers and stops them after the run. The output directory defaults to `ui-audit-output/`, which is Git-ignored. Reseeding clears previous desktop/narrow captures and diagnostics (including legacy screenshots/results/galleries) to prevent stale captures from masking failures.
@@ -49,6 +49,6 @@ For externally supervised servers (such as orb services), set `UI_AUDIT_EXTERNAL
 
 ## Maintaining coverage
 
-`scripts/ui-audit/capture.spec.mjs` owns the page/flow scenario manifest and assertions. `reporter.mjs` generates each layout's inventory and gallery from Playwright results, preserving failure status across worker restarts. Add an independent scenario for each meaningful new state; wait for its expected content before capturing. `seed.mjs` owns Bower database data, and `trellis.mjs` owns fake runtime responses. Update these fixtures together when a screen's data contract changes. Playwright and its Chromium/WebKit revisions are pinned through `package-lock.json`. Chromium runs the capture scenarios; the monospace URL check also launches Linux WebKit, so both engines and their system dependencies must be installed.
+`scripts/ui-capture/capture.spec.mjs` owns the page/flow scenario manifest and assertions. `reporter.mjs` generates each layout's inventory and gallery from Playwright results, preserving failure status across worker restarts. Add an independent scenario for each meaningful new state; wait for its expected content before capturing. `seed.mjs` owns Bower database data, and `trellis.mjs` owns fake runtime responses. Update these fixtures together when a screen's data contract changes. Playwright and its Chromium/WebKit revisions are pinned through `package-lock.json`. Chromium runs the capture scenarios; the monospace URL check also launches Linux WebKit, so both engines and their system dependencies must be installed.
 
 The seed deliberately includes more than eight projects and ten members to expose filters, more than twenty deployments to expose pagination, multiple pending domains to expose DNS disclosures, an unused volume to enable attachment, and a successful retained predecessor matching the fake runtime's version/revision to enable targeted rollback. Every seeded project has Production, including empty projects. A system audit event contains object-valued before/after details. Keep these boundary conditions when adjusting fixtures. Removed UI states (such as the old expandable team cards) should be removed from the manifest, not retained as stale screenshots.

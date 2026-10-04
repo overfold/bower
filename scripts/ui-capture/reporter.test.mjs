@@ -7,7 +7,7 @@ import { spawnSync } from "node:child_process";
 import AuditReporter from "./reporter.mjs";
 
 test("workflow and local instructions install both audit browser engines with dependencies", async () => {
-  for (const file of ["../../.github/workflows/ui-audit.yml", "../../docs/ui-audit.md"]) {
+  for (const file of ["../../.github/workflows/ui-capture.yml", "../../docs/ui-audit.md"]) {
     const source = await readFile(new URL(file, import.meta.url), "utf8");
     const install = source.match(/npx playwright install ([^\n]+)/)?.[1].trim().split(/\s+/) ?? [];
     for (const argument of ["--with-deps", "chromium", "webkit"]) {
@@ -53,7 +53,7 @@ test("galleries split layouts and retain passed, failed and missing captures", a
 });
 
 test("workflow budget accepts 30 MB and rejects one byte over in each artifact", async () => {
-  const workflow = await readFile(new URL("../../.github/workflows/ui-audit.yml", import.meta.url), "utf8");
+  const workflow = await readFile(new URL("../../.github/workflows/ui-capture.yml", import.meta.url), "utf8");
   const script = workflow.match(/run: \|\n([\s\S]*?)      - name: Upload desktop/)[1].replace(/^          /gm, "");
   const cwd = await mkdtemp(path.join(tmpdir(), "ui-audit-budget-"));
   try {
