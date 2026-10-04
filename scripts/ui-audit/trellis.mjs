@@ -3,12 +3,13 @@ import { WebSocketServer } from "ws";
 import { encodeFrame } from "../../exec/protocol.mjs";
 const now = () => new Date().toISOString();
 const names = ["storefront", "checkout-api", "order-worker", "bower-proxy"];
-const allocations = (namespace = "commerce-production") =>
+const ingressNamespace = process.env.BOWER_PROXY_NAMESPACE || "platform";
+const allocations = (namespace) =>
   names.flatMap((job, i) =>
     Array.from({ length: i === 0 ? 2 : 1 }, (_, j) => ({
       id: `${job}-alloc-${j + 1}`,
       job,
-      namespace,
+      namespace: job === "bower-proxy" ? ingressNamespace : namespace || "commerce-production",
       group: "web",
       node_id: j ? "node-eu-west-02" : "node-eu-west-01",
       phase: i === 2 ? "failed" : "running",
@@ -37,7 +38,7 @@ const allocations = (namespace = "commerce-production") =>
         "bower/config-hash": "audit-config",
       },
     })),
-  );
+  ).filter((allocation) => !namespace || allocation.namespace === namespace);
 const spec = (name, namespace, version = "v2.4.1") => ({
   name,
   namespace,
@@ -179,7 +180,7 @@ const server = http.createServer(async (req, res) => {
   else if (p === "/v1/namespaces")
     data = ["commerce-production", "commerce-staging", "commerce-development"];
   else if (p.endsWith("/allocations"))
-    data = allocations(namespace).filter(
+    data = allocations(p.includes("/namespaces/") ? namespace : undefined).filter(
       (a) =>
         !url.searchParams.get("job") || a.job === url.searchParams.get("job"),
     );

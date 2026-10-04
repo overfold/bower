@@ -65,9 +65,11 @@ export function ServiceActions({ serviceId, serviceName, runningImage, environme
   const selectedRollback = rollbackTargets.find((target) => target.id === rollbackTarget)
   useEffect(() => {
     if (params.get('action') !== 'deploy') return
-    const frame = requestAnimationFrame(() => setConfirmDeploy(true))
-    const url = new URL(window.location.href); url.searchParams.delete('action')
-    window.history.replaceState(null, '', `${pathname}${url.search}`)
+    const frame = requestAnimationFrame(() => {
+      setConfirmDeploy(true)
+      const url = new URL(window.location.href); url.searchParams.delete('action')
+      window.history.replaceState(null, '', `${pathname}${url.search}`)
+    })
     return () => cancelAnimationFrame(frame)
   }, [params, pathname])
 

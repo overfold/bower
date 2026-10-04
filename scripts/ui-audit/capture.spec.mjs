@@ -288,7 +288,7 @@ for (const mode of ["Password", "Bower account"])
     `${project}/routes`,
     async (page) => {
       await click(page, "New route");
-      await page.getByLabel("Hostname prefix").fill("preview");
+      await page.getByLabel("Hostname", { exact: true }).fill("preview");
       await choose(page, "Access protection", mode);
     },
   );
@@ -504,11 +504,16 @@ state("member-actions", `/settings/members/${fixture.memberId}`, async (page) =>
   await expect(page.getByRole('heading', { name: 'Danger zone', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Actions for Sam Rivera', exact: true })).toHaveCount(0);
 });
-for (const [name, action] of [["remove-instance-admin", "Remove instance admin"], ["remove-organization-member", "Remove from organization"]])
-  state(name, `/settings/members/${fixture.memberId}`, async (page) => {
-    await click(page, action);
-    await expect(page.getByRole("alertdialog")).toBeVisible();
-  });
+state("remove-instance-admin", `/settings/members/${fixture.memberId}`, async (page) => {
+  await choose(page, "Instance role", "User");
+  await click(page, "Save");
+  await expect(page.getByRole("alertdialog")).toContainText("Remove Sam Rivera as instance administrator?");
+  await expect(page.getByRole("alertdialog").getByRole("button", { name: "Remove instance admin and save", exact: true })).toBeVisible();
+});
+state("remove-organization-member", `/settings/members/${fixture.memberId}`, async (page) => {
+  await click(page, "Remove from organization");
+  await expect(page.getByRole("alertdialog")).toBeVisible();
+});
 state("delete-project-confirmed-name", `${project}/settings`, async (page) => {
   await click(page, "Delete project");
   await page.locator("#confirm-project-name").fill("commerce");
@@ -592,7 +597,9 @@ state("recent-projects-navigation", "/status", async (page) => {
 });
 state("dashboard-live-health", "/dashboard", async (page) => {
   const allocationTile = page.locator("section").filter({ hasText: "Allocation health" }).first();
-  await expect(allocationTile).toContainText("4/5 healthy");
+  // Two Storefront replicas and Checkout are healthy; Order Worker fails.
+  // Shared ingress lives in platform, outside the project's workload health.
+  await expect(allocationTile).toContainText("3/4 healthy");
   await expect(allocationTile).toContainText("1 failing");
   const worker = page.getByRole("row").filter({ hasText: "order-worker-alloc-1" });
   await expect(worker).toContainText("Failing");
@@ -718,6 +725,11 @@ state("narrow-invite-people", "/settings/members", (page) => click(page, "Invite
 state("service-deploy-confirmation", `${service}?action=deploy`, async (page) => {
   await expect(page.getByRole("alertdialog")).toBeVisible();
   await expect(page.getByText("Deploy this service?", { exact: true })).toBeVisible();
+  await expect(page).toHaveURL((url) => !url.searchParams.has("action"));
+  await click(page, "Cancel");
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
+  await click(page, "Deploy");
+  await expect(page.getByRole("alertdialog")).toContainText("Deploy this service?");
 });
 
 // Only disposable local records are created. Revoke them even if a later wait
