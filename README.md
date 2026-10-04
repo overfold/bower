@@ -2,12 +2,14 @@
 
 A web dashboard for deploying and running applications on [Trellis](https://github.com/overfold/trellis).
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/dashboard-dark.png">
-  <img alt="The Bower home screen, showing failing services that need attention, cluster capacity, recent deployments, node health, and recent activity." src="docs/images/dashboard-light.png">
-</picture>
-
 Trellis schedules and runs containers. Bower adds the application layer on top: projects, environments, services, deployments, routes, volumes, secrets, teams, and an audit trail. Your team deploys and operates services from the dashboard, while Trellis keeps handling scheduling, placement, and the container lifecycle.
+
+<p>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/dashboard-dark.png">
+    <img alt="The Bower home screen, showing services that need attention, allocation health, cluster capacity, and recent deployment outcomes." src="docs/images/dashboard-light.png">
+  </picture>
+</p>
 
 > [!NOTE]
 > Bower hasn't reached 1.0 yet. Read the [release notes](https://github.com/overfold/bower/releases) before you update.
