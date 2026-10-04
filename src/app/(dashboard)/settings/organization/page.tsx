@@ -21,7 +21,7 @@ export default async function OrganizationSettingsPage() {
       <section id="details" className="scroll-mt-20"><OrgSettingsForm
         org={{ id: orgCtx.org.id, name: orgCtx.org.name, slug: orgCtx.org.slug }}
       /></section>
-      <section id="connection" className="scroll-mt-20"><ClusterSettingsForm org={{ trellisApiUrl: orgCtx.org.trellisApiUrl, trellisApiToken: orgCtx.org.trellisApiToken }} /></section>
+      {orgCtx.role !== 'member' && <section id="connection" className="scroll-mt-20"><ClusterSettingsForm org={{ trellisApiUrl: orgCtx.org.trellisApiUrl, tokenConfigured: Boolean(orgCtx.org.trellisApiToken), workloadIdentity: orgCtx.org.useTrellisWorkloadIdentity }} /></section>}
     </div>
   )
 }

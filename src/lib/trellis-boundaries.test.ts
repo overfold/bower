@@ -810,6 +810,7 @@ test('combined member role save enforces authorization and last owner/admin prot
   const tx = { update: () => ({ set: (value: Record<string, unknown>) => ({ where: async () => { writes.push(value) } }) }) }
   const actions = load<typeof import('./actions/settings')>('src/lib/actions/settings.ts', {
     'next/cache': { revalidatePath() {} }, 'next/headers': {}, '@/lib/invitations': {},
+    '@/lib/organization-members': {},
     '@/lib/auth': { getCurrentUser: async () => ({ id: 'requester' }) },
     '@/lib/queries': { getUserOrganization: async () => ({ ...context, role: orgRole }), isInstanceAdmin: async () => instanceAdmin },
     './shared': { recordAudit: async () => {} },

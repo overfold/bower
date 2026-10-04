@@ -12,7 +12,8 @@ import { updateOrganizationAction } from '@/lib/actions/settings'
 interface ClusterSettingsFormProps {
   org: {
     trellisApiUrl: string
-    trellisApiToken: string
+    tokenConfigured: boolean
+    workloadIdentity: boolean
   }
 }
 
@@ -34,6 +35,8 @@ export function ClusterSettingsForm({ org }: ClusterSettingsFormProps) {
       if (result?.error) setError(result.error)
       else if (result?.success) {
         toast({ tone: 'success', title: 'Trellis settings saved' })
+        const tokenInput = formRef.current?.elements.namedItem('trellisApiToken')
+        if (tokenInput instanceof HTMLInputElement) tokenInput.value = ''
         setDirty(false)
         router.refresh()
       } else setError('Trellis settings could not be saved. Please try again.')
@@ -59,7 +62,8 @@ export function ClusterSettingsForm({ org }: ClusterSettingsFormProps) {
           </div>
           <div className="max-w-[720px] space-y-2">
             <Label htmlFor="trellisApiToken" optional>Trellis API token</Label>
-            <Input id="trellisApiToken" name="trellisApiToken" type="password" defaultValue={org.trellisApiToken} autoComplete="off" mono />
+            <Input id="trellisApiToken" name="trellisApiToken" type="password" defaultValue="" autoComplete="new-password" mono />
+            <p className="text-xs text-ink-muted">{org.workloadIdentity ? 'Workload identity is enabled.' : org.tokenConfigured ? 'An API token is configured.' : 'No API token is configured.'} Leave blank to keep the current credentials, or enter a replacement token.</p>
           </div>
         </CardContent>
       </form>

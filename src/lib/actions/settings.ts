@@ -6,7 +6,8 @@ import { organizations, users, invitations, invitationTeams, organizationMembers
 import { createHash, randomBytes } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
-import { getCurrentUser, hashPassword, verifyPassword } from '@/lib/auth'
+import { getCurrentUser, hashPassword, verifyPassword, replacePasswordAndSessions, getSessionCookieConfig, PasswordWorkBusyError } from '@/lib/auth'
+import { revokeOrganizationMembership } from '@/lib/organization-members'
 import { getUserOrganization, isInstanceAdmin } from '@/lib/queries'
 import { recordAudit } from './shared'
 import { acceptInvitation, createInvitationToken, hashInvitationToken } from '@/lib/invitations'
@@ -189,7 +190,7 @@ export async function removeOrganizationMemberAction(
     if (owners.length <= 1) return { error: 'An organization must have at least one owner.' }
   }
 
-  await db.delete(organizationMembers).where(eq(organizationMembers.id, membershipId))
+  await revokeOrganizationMembership(membership)
   await recordAudit({
     orgId: ctx.org.id,
     userId: user.id,
@@ -235,10 +236,18 @@ export async function changePasswordAction(
 
   const userRows = await db.select().from(users).where(eq(users.id, user.id)).limit(1)
   if (userRows.length === 0) return { error: 'User not found.' }
-  if (!(await verifyPassword(currentPassword, userRows[0].passwordHash))) return { fieldErrors: { currentPassword: 'Current password is incorrect.' } }
-
-  const newHash = await hashPassword(newPassword)
-  await db.update(users).set({ passwordHash: newHash, updatedAt: new Date() }).where(eq(users.id, user.id))
+  if (Buffer.byteLength(newPassword, 'utf8') > 72) return { fieldErrors: { newPassword: 'Use no more than 72 UTF-8 bytes.' } }
+  try {
+    if (!(await verifyPassword(currentPassword, userRows[0].passwordHash))) return { fieldErrors: { currentPassword: 'Current password is incorrect.' } }
+    const newHash = await hashPassword(newPassword)
+    const session = await replacePasswordAndSessions(user.id, userRows[0].passwordHash, newHash)
+    if (!session) return { error: 'Your password changed during this request. Please try again.' }
+    const cookieStore = await cookies()
+    cookieStore.set(getSessionCookieConfig(session.token, session.expiresAt))
+  } catch (error) {
+    if (error instanceof PasswordWorkBusyError) return { error: error.message }
+    throw error
+  }
   const ctx = await getUserOrganization(user.id)
   if (ctx) await recordAudit({ orgId: ctx.org.id, userId: user.id, action: 'account.password.changed', resourceType: 'user', resourceId: user.id })
   return { success: true }

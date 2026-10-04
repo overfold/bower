@@ -15,6 +15,13 @@ import {
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
+// Shared authentication admission counters and short-lived password-work leases.
+export const authAbuseBuckets = pgTable("auth_abuse_buckets", {
+  key: text("key").primaryKey(),
+  count: integer("count").notNull().default(0),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+}, (table) => [index("auth_abuse_buckets_expiry_idx").on(table.expiresAt)]);
+
 // ---------------------------------------------------------------------------
 // Enums
 // ---------------------------------------------------------------------------

@@ -1,24 +1,33 @@
 import { hash, compare } from 'bcryptjs'
 import { randomUUID } from 'crypto'
 import { cookies } from 'next/headers'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { users, sessions } from '@/db/schema'
 import type { User, Session } from '@/types/auth'
+import { acquirePasswordWork, PasswordWorkBusyError } from '@/lib/auth-abuse'
+
+export { PasswordWorkBusyError }
 
 const BCRYPT_ROUNDS = 12
 const SESSION_COOKIE_NAME = 'bower_session'
 const SESSION_DURATION_DAYS = 30
 
 export async function hashPassword(password: string): Promise<string> {
-  return hash(password, BCRYPT_ROUNDS)
+  if (Buffer.byteLength(password, 'utf8') > 72) throw new Error('Password must not exceed 72 UTF-8 bytes.')
+  const release = await acquirePasswordWork()
+  if (!release) throw new PasswordWorkBusyError()
+  try { return await hash(password, BCRYPT_ROUNDS) } finally { await release() }
 }
 
 export async function verifyPassword(
   password: string,
   hashValue: string
 ): Promise<boolean> {
-  return compare(password, hashValue)
+  if (password.length > 4096) return false
+  const release = await acquirePasswordWork()
+  if (!release) throw new PasswordWorkBusyError()
+  try { return await compare(password, hashValue) } finally { await release() }
 }
 
 export function generateSessionToken(): string {
@@ -26,7 +35,8 @@ export function generateSessionToken(): string {
 }
 
 export async function createSession(
-  userId: string
+  userId: string,
+  expectedPasswordHash?: string,
 ): Promise<{ token: string; expiresAt: Date }> {
   const token = generateSessionToken()
   const now = new Date()
@@ -34,12 +44,30 @@ export async function createSession(
     now.getTime() + SESSION_DURATION_DAYS * 24 * 60 * 60 * 1000
   )
 
-  await db.insert(sessions).values({
-    userId,
-    token,
-    expiresAt,
+  await db.transaction(async (tx) => {
+    const [user] = await tx.select().from(users).where(eq(users.id, userId)).for('update')
+    if (!user || (expectedPasswordHash !== undefined && user.passwordHash !== expectedPasswordHash)) {
+      throw new Error('Credentials changed. Please sign in again.')
+    }
+    await tx.insert(sessions).values({ userId, token, expiresAt })
   })
 
+  return { token, expiresAt }
+}
+
+export async function replacePasswordAndSessions(userId: string, expectedHash: string, passwordHash: string) {
+  const token = generateSessionToken()
+  const expiresAt = new Date(Date.now() + SESSION_DURATION_DAYS * 24 * 60 * 60 * 1000)
+  const revoked = await db.transaction(async (tx) => {
+    const updated = await tx.update(users).set({ passwordHash, updatedAt: new Date() })
+      .where(and(eq(users.id, userId), eq(users.passwordHash, expectedHash))).returning({ id: users.id })
+    if (!updated.length) return null
+    const oldSessions = await tx.delete(sessions).where(eq(sessions.userId, userId)).returning({ token: sessions.token })
+    await tx.insert(sessions).values({ userId, token, expiresAt })
+    return oldSessions
+  })
+  if (!revoked) return null
+  await Promise.all(revoked.map((session) => revokeExecSession(session.token)))
   return { token, expiresAt }
 }
 
@@ -99,6 +127,10 @@ export async function validateSession(
 
 export async function deleteSession(token: string): Promise<void> {
   await db.delete(sessions).where(eq(sessions.token, token))
+  await revokeExecSession(token)
+}
+
+async function revokeExecSession(token: string): Promise<void> {
   // Immediately tear down terminals in this instance, including other tabs.
   // Other instances also check persisted session validity every 15 seconds.
   if (process.env.BOWER_EXEC_BRIDGE_URL && process.env.BOWER_EXEC_INTERNAL_SECRET) {

@@ -1,6 +1,6 @@
 'use server'
 
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { eq } from 'drizzle-orm'
 import { db } from '@/db'
@@ -12,8 +12,13 @@ import {
   deleteSession,
   getSessionCookieConfig,
   SESSION_COOKIE_NAME,
+  PasswordWorkBusyError,
 } from '@/lib/auth'
 import { ORG_COOKIE_NAME } from '@/lib/constants'
+import { consumeAuthAttempt } from '@/lib/auth-abuse'
+
+// Valid cost-12 hash: absent accounts perform the same bcrypt work as real ones.
+const DUMMY_PASSWORD_HASH = '$2b$12$R9h/cIPz0gi.URNNX3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW'
 
 export async function loginAction(
   formData: FormData
@@ -31,6 +36,10 @@ export async function loginAction(
   }
 
   const normalizedEmail = email.toLowerCase().trim()
+  if (email.length > 320 || password.length > 4096) return { error: 'Invalid email or password.' }
+  if (!(await consumeAuthAttempt(await headers(), `login:${normalizedEmail}`))) {
+    return { error: 'Too many authentication attempts. Please try again shortly.' }
+  }
 
   const userRows = await db
     .select()
@@ -38,18 +47,20 @@ export async function loginAction(
     .where(eq(users.email, normalizedEmail))
     .limit(1)
 
-  if (userRows.length === 0) {
-    return { error: 'Invalid email or password.' }
-  }
-
   const user = userRows[0]
-  const passwordValid = await verifyPassword(password, user.passwordHash)
+  let passwordValid: boolean
+  try {
+    passwordValid = await verifyPassword(password, user?.passwordHash ?? DUMMY_PASSWORD_HASH)
+  } catch (error) {
+    if (error instanceof PasswordWorkBusyError) return { error: error.message }
+    throw error
+  }
 
-  if (!passwordValid) {
+  if (!user || !passwordValid) {
     return { error: 'Invalid email or password.' }
   }
 
-  const { token, expiresAt } = await createSession(user.id)
+  const { token, expiresAt } = await createSession(user.id, user.passwordHash)
   const cookieStore = await cookies()
   cookieStore.set(getSessionCookieConfig(token, expiresAt))
 
@@ -77,9 +88,23 @@ export async function registerAction(
 
   const normalizedEmail = email.toLowerCase().trim()
   const trimmedName = name.trim()
+  if (email.length > 320 || name.length > 200) return { error: 'Name or email is too long.' }
+  if (!(await consumeAuthAttempt(await headers(), `register:${normalizedEmail}`))) {
+    return { error: 'Too many authentication attempts. Please try again shortly.' }
+  }
 
   if (password.length < 8) {
     return { error: 'Password must be at least 8 characters.' }
+  }
+  if (Buffer.byteLength(password, 'utf8') > 72) return { error: 'Password must not exceed 72 UTF-8 bytes.' }
+
+  // Hash before the existence check to avoid a fast existing-account path.
+  let passwordHash: string
+  try {
+    passwordHash = await hashPassword(password)
+  } catch (error) {
+    if (error instanceof PasswordWorkBusyError) return { error: error.message }
+    throw error
   }
 
   const existingUsers = await db
@@ -92,13 +117,14 @@ export async function registerAction(
     return { error: 'An account with this email already exists.' }
   }
 
-  const passwordHash = await hashPassword(password)
   const [newUser] = await db
     .insert(users)
     .values({ email: normalizedEmail, name: trimmedName, passwordHash })
+    .onConflictDoNothing({ target: users.email })
     .returning({ id: users.id })
+  if (!newUser) return { error: 'An account with this email already exists.' }
 
-  const { token, expiresAt } = await createSession(newUser.id)
+  const { token, expiresAt } = await createSession(newUser.id, passwordHash)
   const cookieStore = await cookies()
   cookieStore.set(getSessionCookieConfig(token, expiresAt))
 
