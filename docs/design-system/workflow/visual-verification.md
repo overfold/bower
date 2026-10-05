@@ -42,6 +42,9 @@ Use a disposable local PostgreSQL database named with the suffix `_ui_audit`. **
 
 ```bash
 export DATABASE_URL=postgres://bower:bower@127.0.0.1:5432/bower_ui_audit
+export BOWER_PUBLIC_URL=http://127.0.0.1:3100
+export BOWER_ROUTE_AUTH_SECRET="$(openssl rand -hex 32)"
+export NEXT_SERVER_ACTIONS_ENCRYPTION_KEY="$(openssl rand -base64 32)"
 npm ci
 npx playwright install --with-deps chromium webkit
 npm run db:migrate
@@ -49,6 +52,8 @@ node scripts/ui-capture/seed.mjs
 npm run build
 npx playwright test --config scripts/ui-capture/playwright.config.mjs
 ```
+
+The public URL and two auth secrets above are required because the capture suite runs a production build and exercises protected-route/auth flows. Keep them stable for the build and Playwright run; the generated local values are disposable and must not be reused for a real Bower installation.
 
 Ports 3100/3101 and 8128 must be free. Playwright owns both servers and stops them after the run. The output directory defaults to `ui-audit-output/`, which is Git-ignored. Reseeding clears previous desktop/narrow captures and diagnostics (including legacy screenshots/results/galleries) to prevent stale captures from masking failures.
 
