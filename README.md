@@ -39,7 +39,7 @@ The manifest below targets a single-node cluster and runs Postgres alongside Bow
 3. Create the two deployment secrets, once, and apply the manifest:
 
    ```bash
-   openssl rand -hex 32 | trellisctl --namespace platform secrets set encryption-key --stdin
+   openssl rand -base64 32 | trellisctl --namespace platform secrets set encryption-key --stdin
    openssl rand -hex 32 | trellisctl --namespace platform secrets set route-auth-secret --stdin
    trellisctl --namespace platform jobs apply ./bower.yml --wait
    ```
@@ -61,6 +61,7 @@ Bower connects to the cluster it runs on automatically. Keep your edited `bower.
 - [CI/CD automation](docs/automation.md): the deploy API and registry webhooks
 - [Terminal](docs/terminal.md): the in-browser terminal and its WebSocket bridge
 - [Database migrations](docs/database-migrations.md): automatic and manual migrations, and schema changes
+- [Operations](docs/operations.md): single-active-process contract, backup/restore, upgrades, failure signals, and credential remediation
 
 ## Contributing
 

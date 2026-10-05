@@ -143,6 +143,9 @@ export class TrellisClient {
       method,
       headers: fetchHeaders,
       body: hasBody ? JSON.stringify(options!.body) : undefined,
+      // Bound observations so an unreachable cluster surfaces as unavailable
+      // instead of holding the dashboard or reconciliation loop indefinitely.
+      ...(method === 'GET' ? { signal: AbortSignal.timeout(10_000) } : {}),
       ...(this.dispatcher ? { dispatcher: this.dispatcher } : {}),
     } as RequestInit & { dispatcher?: Dispatcher })
 

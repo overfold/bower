@@ -14,14 +14,15 @@ If the database isn't reachable yet, Bower waits for it:
 
 ## Manual migrations
 
-To control when migrations run, unset `AUTO_MIGRATE` and run `npm run db:migrate` before you start the new version. The command reads `DATABASE_URL` from the process environment:
+To control when migrations run, unset `AUTO_MIGRATE`, stop Bower, and run the target version's `npm run db:migrate` before you start it. The command reads `DATABASE_URL` from the process environment, not `.env.local`. In the published container, use `node exec/migrate.mjs` from `/app`; npm scripts are not guaranteed to be packaged. Follow the [upgrade and rollback runbook](operations.md#upgrade-and-rollback); migrations have no automatic down-migration path.
 
 ```bash
 # Local development (from the repository root)
 npm run db:migrate
 
-# Against a Trellis-deployed Postgres
-DATABASE_URL="postgres://bower:bower@<node-ip>:5432/bower" npm run db:migrate
+# Supply DATABASE_URL through protected environment injection on a trusted
+# host/container that can reach the private database. Do not publish port 5432.
+npm run db:migrate
 ```
 
 ## Changing the schema

@@ -1,6 +1,6 @@
 # Managed ingress
 
-Bower manages a reverse proxy per Trellis namespace, so services can be exposed via HTTP/HTTPS routes without manually authoring proxy jobs.
+Bower manages one shared reverse proxy per connected Trellis cluster, so services can be exposed via HTTP/HTTPS routes without manually authoring proxy jobs. Only one Bower installation should manage a cluster's ingress; see the [operating contract](operations.md#supported-operating-contract).
 
 ## Domains and routes
 
@@ -17,9 +17,9 @@ Existing routes created before domain management was introduced continue to run,
 When a route is created or updated, Bower:
 
 1. Validates that the hostname is covered by a verified organization domain and is not claimed by another project/environment
-2. Generates a Caddyfile for the route configuration and writes it as a Trellis namespace secret
-3. Deploys (or updates) a two-task task group in the namespace: a Caddy instance and a route-sync agent
-4. The sync agent uses `api_access: cluster/read` to watch healthy allocations via labels, renders upstream addresses, and reloads Caddy through its admin API. It queries only its environment's namespace; the credential itself is cluster-wide, so the managed proxy is trusted infrastructure.
+2. Generates bootstrap configuration in the fenced job revision, rather than a separately mutable Caddyfile secret
+3. Deploys (or updates) the shared `bower-ingress` job in `BOWER_PROXY_NAMESPACE` (default `platform`): a Caddy task and a route-sync task
+4. The sync agent uses `api_access: cluster/read` to discover healthy allocations in every routed namespace and the home dashboard namespace, renders namespace-qualified upstreams, and reloads Caddy through its admin API. The credential itself is cluster-wide, so the managed proxy is trusted infrastructure.
 5. The proxy is considered healthy only after route-sync has recently fetched Trellis state and Caddy has accepted the generated configuration
 
 The Caddy admin API is bound to loopback and is used only by the colocated route-sync task; it is never exposed on the node's external interfaces.
@@ -37,6 +37,8 @@ The proxy job is managed infrastructure — it appears in the Bower UI but is no
 Bower provisions persistent Trellis-managed volumes for the Caddy task: `@/bower-ingress-data` at `/data` (certificates, private keys, and ACME account state) and `@/bower-ingress-config` at `/config` (autosaved configuration). These paths are scoped to the ingress namespace and remain stable across route changes and allocation replacements. They are node-local storage, not replicated backups; losing the node or its volume data still loses the stored certificates.
 
 Upgrading an older ingress job without these volumes causes a one-time allocation recreation, even if its routes are unchanged. Before deploying that upgrade, back up the existing Caddy `/data` and restore it into the new data volume on the ingress node if certificates must be preserved. Mounting a new volume does not copy the old container's files automatically. Without that migration, Caddy requests new certificates and existing ACME rate limits still apply.
+
+The [operations runbook](operations.md) covers cold backups of both directories, node/volume locality, custom TLS originals and mirrored secrets, restore validation, and coordinated upgrades. Neither a PostgreSQL dump nor a Trellis desired-state backup contains the Caddy volume bytes.
 
 ## Access protection
 

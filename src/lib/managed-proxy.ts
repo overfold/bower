@@ -9,6 +9,7 @@ import { getIngressCluster, ingressNamespace, ingressSecretName } from '@/lib/in
 import { hostnamesOverlap } from '@/lib/domains'
 import { TrellisApiError } from '@/lib/trellis'
 import type { TrellisJobSpec, TrellisVolume } from '@/types/trellis'
+import { trellisReadError } from '@/lib/trellis-runtime'
 
 function proxyPort(name: 'BOWER_PROXY_HTTP_PORT' | 'BOWER_PROXY_HTTPS_PORT', fallback: number) {
   const value = Number(process.env[name] || fallback)
@@ -141,6 +142,6 @@ export async function reconcileManagedIngress() {
       if (seen.has(cluster.address)) continue
       seen.add(cluster.address)
       await syncManagedProxy('', '', org.id)
-    } catch (error) { console.error('Bower shared ingress reconciliation failed:', error) }
+    } catch (error) { console.error('Bower shared ingress reconciliation failed:', { orgId: org.id, message: trellisReadError(error) }) }
   }
 }

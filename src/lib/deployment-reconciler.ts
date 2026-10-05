@@ -10,6 +10,7 @@ import { deploymentConvergence, deploymentDeadlineReached, sameJobIdentity } fro
 import { TrellisApiError } from '@/lib/trellis'
 import { validateCanarySteps } from '@/lib/workload-input'
 import { releaseImagePins } from '@/lib/service-releases'
+import { trellisReadError } from '@/lib/trellis-runtime'
 
 const ACTIVE_STATUSES = ['pending', 'planning', 'deploying'] as const
 let reconciliationRunning = false
@@ -31,13 +32,13 @@ async function failDeployment(deployment: typeof deployments.$inferSelect, messa
 export async function reconcileProjectDeployments(projectId: string, orgId: string) {
   const active = (await getDeploymentsByProject(projectId, 100)).filter(({ deployment }) => ACTIVE_STATUSES.includes(deployment.status as typeof ACTIVE_STATUSES[number]))
   if (!active.length) return
-  const client = await getTrellisClient(orgId)
   for (const item of active) {
     const deployment = item.deployment
     const [env] = await db.select().from(environments).where(eq(environments.id, deployment.environmentId)).limit(1)
     const [config] = await db.select().from(serviceConfigs).where(and(eq(serviceConfigs.serviceId, deployment.serviceId), eq(serviceConfigs.environmentId, deployment.environmentId))).limit(1)
     if (!env || !config) continue
     try {
+      const client = await getTrellisClient(orgId)
       const jobName = deployment.trellisJobName || item.serviceSlug
       const elapsed = (Date.now() - new Date(deployment.startedAt).getTime()) / 1000
       const deadlineReached = deploymentDeadlineReached(deployment.startedAt, config.autoRollbackSeconds)
@@ -159,7 +160,7 @@ export async function reconcileProjectDeployments(projectId: string, orgId: stri
         continue
       }
       await recordDiagnosticOnce(deployment.id, 'reconciliation_error', 'Bower could not reconcile this deployment with Trellis.', {
-        message: error instanceof Error ? error.message : 'Unknown reconciliation error.',
+        message: trellisReadError(error),
       })
     }
   }
@@ -174,7 +175,12 @@ export async function reconcileAllDeployments() {
       .innerJoin(services, eq(services.id, deployments.serviceId))
       .innerJoin(projects, eq(projects.id, services.projectId))
       .where(inArray(deployments.status, [...ACTIVE_STATUSES]))
-    await Promise.allSettled(activeProjects.map(({ projectId, orgId }) => reconcileProjectDeployments(projectId, orgId)))
+    const results = await Promise.allSettled(activeProjects.map(({ projectId, orgId }) => reconcileProjectDeployments(projectId, orgId)))
+    for (const [index, result] of results.entries()) {
+      if (result.status === 'rejected') {
+        console.error('Bower deployment reconciliation failed:', { ...activeProjects[index], message: trellisReadError(result.reason) })
+      }
+    }
   } finally {
     reconciliationRunning = false
   }

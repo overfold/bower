@@ -7,11 +7,13 @@ All configuration is via environment variables. Copy `.env.example` at the repo 
 | Variable | Description |
 |---|---|
 | `DATABASE_URL` | PostgreSQL connection string, e.g. `postgres://bower:bower@localhost:5432/bower` |
-| `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` | 32-byte hex key used to encrypt server action payloads. Must be identical across all Bower instances in a multi-instance deployment. Generate with `openssl rand -hex 32`. |
+| `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` | Base64-encoded 32-byte AES key used to encrypt server action payloads. Keep stable across updates. Generate with `openssl rand -base64 32`. This is not database encryption. See the [operating contract and recovery guidance](operations.md). |
 | `BOWER_PUBLIC_URL` | Public origin of the Bower instance, such as `https://bower.example.com`. It must be reachable from managed ingress proxies and is required for protected routes. |
 | `BOWER_ROUTE_AUTH_SECRET` | Secret of at least 32 characters used to sign route-scoped access grants. Required, together with `BOWER_PUBLIC_URL`, for both password- and Bower-account-protected routes; not needed for public routes. Must be identical across all Bower instances and stable across updates. Generate with `openssl rand -hex 32`. Changing it invalidates existing route-access grants. |
 
 The native `trellis.yml` maps the `platform` secret `route-auth-secret` to `BOWER_ROUTE_AUTH_SECRET` in the Bower task. This is separate from `encryption-key` / `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`. Create both secrets before applying the default manifest; see [Create the deployment secrets](installation.md#2-create-the-deployment-secrets). Existing installations must add the route-auth secret mapping and redeploy to enable protected routes. Never store secret values in the manifest.
+
+Older instructions incorrectly generated the action key with `openssl rand -hex 32`. Next.js base64-decodes this value; 64 hex characters decode to 48 bytes, an invalid AES key length. Check the protected value's decoded length without logging it. Under approved maintenance, replace an invalid value with a valid base64-encoded 32-byte key (or base64-encode the original hex-decoded bytes in a protected workflow), preserve it in your recovery secret store, and restart Bower. Existing action references may fail and require a page reload. Do not change a valid key merely because of an upgrade. The route-auth secret remains a separate arbitrary signing string and its hex generation is valid.
 
 ## Trellis credentials
 
@@ -52,6 +54,8 @@ Ingress uses `recreate` updates so one node can reuse ports 80/443. Route-defini
 | Variable | Default | Description |
 |---|---|---|
 | `BOWER_RECONCILE_INTERVAL` | `5` | How often (in seconds) the background reconciler checks active rollouts, advances canary steps, and triggers auto-rollback. |
+
+Run one active Bower process; the reconciliation guards are process-local, not distributed locks. See [operations](operations.md#supported-operating-contract) for replica limitations, failure signals, backup/restore, and stop/start upgrades.
 
 ## Workload trust policy
 

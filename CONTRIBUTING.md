@@ -36,7 +36,7 @@ docker compose up -d
 
 ```bash
 cp .env.example .env.local
-# Set NEXT_SERVER_ACTIONS_ENCRYPTION_KEY to the output of: openssl rand -hex 32
+# Set NEXT_SERVER_ACTIONS_ENCRYPTION_KEY to the output of: openssl rand -base64 32
 npm ci
 npm run dev
 ```

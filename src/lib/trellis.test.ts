@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { createServer } from 'node:http'
 import { TrellisApiError, TrellisClient } from './trellis'
 
 test('Trellis validation responses preserve paths and categories in the presented error', () => {
@@ -202,4 +203,32 @@ test('rollback plans immutable digests without resolving old tags and conditiona
   await client.applyJobPlan(spec, 'production', unchanged)
   assert.equal(bodies.length, 4, 'digest planning still fences the original-spec apply')
   assert.deepEqual(bodies[3], { spec, resolved_images: newPins, expected_version: 9, expected_incarnation: 'inc' })
+})
+
+test('ordinary reads time out before headers and during body consumption, then recover', async (t) => {
+  let mode: 'healthy' | 'headers-stalled' | 'body-stalled' = 'healthy'
+  const server = createServer((_request, response) => {
+    if (mode === 'headers-stalled') return
+    response.writeHead(200, { 'Content-Type': 'application/json' })
+    if (mode === 'body-stalled') response.write('[')
+    else response.end('[]')
+  })
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  t.after(() => { server.closeAllConnections(); server.close() })
+  const address = server.address()
+  assert.ok(address && typeof address !== 'string')
+  const client = new TrellisClient(`http://127.0.0.1:${address.port}`, 'disposable-test-token')
+  // Keep the real cancellation path, shortening only the clock for this test.
+  const timeout = AbortSignal.timeout.bind(AbortSignal)
+  t.mock.method(AbortSignal, 'timeout', (milliseconds: number) => {
+    assert.equal(milliseconds, 10_000)
+    return timeout(500)
+  })
+  assert.deepEqual(await client.listNodes(), [])
+  mode = 'headers-stalled'
+  await assert.rejects(client.listNodes(), (error: unknown) => error instanceof Error && error.name === 'TimeoutError')
+  mode = 'body-stalled'
+  await assert.rejects(client.listNodes(), (error: unknown) => error instanceof Error && ['AbortError', 'TimeoutError'].includes(error.name))
+  mode = 'healthy'
+  assert.deepEqual(await client.listNodes(), [])
 })

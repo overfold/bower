@@ -68,6 +68,7 @@ export async function registerNodeInstrumentation() {
 
   const { reconcileAllDeployments } = await import('@/lib/deployment-reconciler')
   const { reconcileManagedIngress } = await import('@/lib/managed-proxy')
+  const { trellisReadError } = await import('@/lib/trellis-runtime')
   const seconds = Math.max(2, Number(process.env.BOWER_RECONCILE_INTERVAL || 5))
   let running = false
   const reconcile = async () => {
@@ -76,7 +77,7 @@ export async function registerNodeInstrumentation() {
     try {
       await reconcileManagedIngress()
       await reconcileAllDeployments()
-    } catch (error) { console.error('Bower reconciliation failed:', error) }
+    } catch (error) { console.error('Bower reconciliation failed:', trellisReadError(error)) }
     finally { running = false }
   }
   reconcile()

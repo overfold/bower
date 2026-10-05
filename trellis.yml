@@ -41,6 +41,10 @@ task_groups:
 
   - name: web
     count: 1
+    # Process-local reconciliation guards require one active Bower process.
+    # Stop/start upgrades interrupt the dashboard; see docs/operations.md.
+    update:
+      strategy: recreate
     api_access:
       scope: cluster
       access: write

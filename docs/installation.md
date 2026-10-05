@@ -41,12 +41,12 @@ Keep the `platform` namespace. If you change it, you also need to update the dat
 
 ```bash
 # Encrypts server action payloads.
-openssl rand -hex 32 | trellisctl --namespace platform secrets set encryption-key --stdin
+openssl rand -base64 32 | trellisctl --namespace platform secrets set encryption-key --stdin
 # Signs access grants for password- and Bower-login-protected routes.
 openssl rand -hex 32 | trellisctl --namespace platform secrets set route-auth-secret --stdin
 ```
 
-Create each secret only once, and keep both when you update Bower. Every Bower instance must use the same values. Changing `route-auth-secret` invalidates existing route-access grants. Never put secret values in the manifest or commit them to Git.
+Create each secret only once, and keep both when you update Bower. Back them up in a protected secret store; Trellis secret reads return metadata, not a recovery copy of the value. Run only one active Bower process; see the [supported operating contract](operations.md#supported-operating-contract). Changing `route-auth-secret` invalidates existing route-access grants. Never put secret values in the manifest or commit them to Git. For installations following the old hex action-key instructions, see [key remediation](configuration.md#required).
 
 If you only need public routes, you can skip `route-auth-secret` and remove its entry from the Bower task's `secrets` list in `bower.yml`.
 
@@ -85,8 +85,7 @@ Ingress can take a moment to become healthy, and HTTPS can take a little longer 
 
 ## Updating Bower
 
-1. Change the Bower image tag in your saved `bower.yml`.
-2. Apply it again with the command from [step 3](#3-apply-the-manifest).
+Follow the [backup, restore, and upgrade runbook](operations.md) before updating: take and rehearse a coordinated backup, preserve keys and ingress certificate state, pause producers, and stop the old Bower process before starting the new one. Pin matching Bower, Caddy, and proxy-sync images in your saved manifest. Use `recreate` for the web task group to avoid overlapping allocations; this is a maintenance-window upgrade, not a rolling HA upgrade.
 
 Installations created before protected routes needed `route-auth-secret` don't have it yet. To enable protected routes, create the secret as in [step 2](#2-create-the-deployment-secrets), add this entry to the Bower task's `secrets` list, and apply the manifest again:
 
