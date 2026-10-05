@@ -28,6 +28,11 @@ jobs:
       DATABASE_URL: postgres://bower:bower@127.0.0.1:5432/bower_ui_audit
       UI_AUDIT_OUTPUT: ui-audit-output
       NEXT_TELEMETRY_DISABLED: 1
+      # Production Bower now expects these values to be stable across build/start.
+      # These are isolated audit-only fixtures; never reuse them outside this job.
+      BOWER_PUBLIC_URL: http://127.0.0.1:3100
+      BOWER_ROUTE_AUTH_SECRET: ui-capture-route-auth-secret-000000000000
+      NEXT_SERVER_ACTIONS_ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

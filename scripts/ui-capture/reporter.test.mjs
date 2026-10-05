@@ -16,6 +16,14 @@ test("workflow and local instructions install both audit browser engines with de
   }
 });
 
+test("workflow provides stable production auth configuration for capture", async () => {
+  const workflow = await readFile(new URL("../../.github/workflows/ui-capture.yml", import.meta.url), "utf8");
+  const value = (name) => workflow.match(new RegExp("^\\s+" + name + ": (.+)$", "m"))?.[1]?.trim();
+
+  assert.equal(value("BOWER_PUBLIC_URL"), "http://127.0.0.1:3100");
+  assert.ok((value("BOWER_ROUTE_AUTH_SECRET") ?? "").length >= 32);
+  assert.equal(Buffer.from(value("NEXT_SERVER_ACTIONS_ENCRYPTION_KEY") ?? "", "base64").length, 32);
+});
 test("galleries split layouts and retain passed, failed and missing captures", async () => {
   const output = await mkdtemp(path.join(tmpdir(), "ui-audit-report-"));
   try {
