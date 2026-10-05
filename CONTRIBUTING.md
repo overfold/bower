@@ -66,6 +66,11 @@ Don't run mutation tests against a live Trellis cluster or a shared database unl
 
 For schema changes, see [Database migrations](docs/database-migrations.md).
 
+For the explicitly opt-in real-cluster install/deploy/HTTPS/recovery suite, see
+[Disposable real-Trellis acceptance](docs/acceptance-tests.md). It requires an
+authorized disposable cluster and creates its own database; it is not part of
+the normal test suite.
+
 ## Before you open a pull request
 
 - Run `npm run lint`, `npx tsc --noEmit`, and `npm test`. CI runs lint and tests on every pull request.
