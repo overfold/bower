@@ -59,7 +59,7 @@ async function LiveServiceHeader({ slug, serviceSlug, orgId, service, environmen
   if (config) {
     try { runtimeJob = await (await getTrellisClient(orgId)).getJob(activeJobName, environment.trellisNamespace) } catch { /* Runtime-dependent actions stay unavailable. */ }
   }
-  const current = runningRelease(environmentDeployments, runtimeJob ? { name: activeJobName, version: runtimeJob.version, revision: runtimeJob.revision } : null)
+  const current = runningRelease(environmentDeployments, runtimeJob ? { name: activeJobName, incarnation: runtimeJob.incarnation, version: runtimeJob.version, revision: runtimeJob.revision } : null)
   const changes = diffServiceConfig(savedConfig, runtimeJob?.spec ?? current?.jobSpec, current?.strategy)
   const rollbackTargets = earlierSuccessfulReleases(environmentDeployments, current)
   let replacementBackoff: TrellisReplacementBackoff | null = null

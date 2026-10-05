@@ -57,6 +57,30 @@ test('non-exec resources use encoded namespace paths without namespace headers',
   assert.deepEqual(JSON.parse(String(requests[3].options?.body)), { spec })
 })
 
+test('plan and apply requests forward explicit resolved image pins exactly', async (t) => {
+  const bodies: unknown[] = []
+  t.mock.method(globalThis, 'fetch', async (_url: string, options?: RequestInit) => {
+    bodies.push(JSON.parse(String(options?.body)))
+    return Response.json({})
+  })
+  const client = new TrellisClient('https://api', 'token')
+  const spec: TrellisJobSpec = {
+    name: 'web',
+    namespace: 'production',
+    task_groups: [{ name: 'web', count: 1, tasks: [{ name: 'web', image: 'registry.example/web:mutable' }] }],
+  }
+  const pins = { 'registry.example/web:mutable': 'registry.example/web@sha256:planned' }
+  await client.planJob(spec, 'production', pins)
+  await client.applyJob(spec, 'production', { expectedVersion: 7, expectedIncarnation: 'inc-a' }, pins)
+  assert.deepEqual(bodies, [
+    {
+      spec: { name: 'web', namespace: 'production', task_groups: [{ name: 'web', count: 1, tasks: [{ name: 'web', image: 'registry.example/web@sha256:planned' }] }] },
+      resolved_images: { 'registry.example/web@sha256:planned': 'registry.example/web@sha256:planned' },
+    },
+    { spec, resolved_images: pins, expected_version: 7, expected_incarnation: 'inc-a' },
+  ])
+})
+
 test('cluster settings are read with GET and never expose a write client method', async (t) => {
   const requests: Array<[string, string]> = []
   t.mock.method(globalThis, 'fetch', async (url: string, options?: RequestInit) => {
@@ -132,12 +156,50 @@ test('plan-derived applies fence competing writers with incarnation and version'
     return Response.json({ namespace: 'production', name: 'web', incarnation: 'inc-a', version: 5, revision: 3 }, { status: 202 })
   })
   const client = new TrellisClient('https://api', 'token')
-  const spec: TrellisJobSpec = { name: 'web', namespace: 'production', task_groups: [] }
-  const plan = { action: 'update' as const, namespace: 'production', job: 'web', base_incarnation: 'inc-a', base_version: 4, base_revision: 3, desired_allocations: 0, changes: [] }
+  const spec: TrellisJobSpec = {
+    name: 'web',
+    namespace: 'production',
+    task_groups: [{ name: 'web', count: 1, tasks: [{ name: 'web', image: 'registry.example/web:mutable' }] }],
+  }
+  const pins = { 'registry.example/web:mutable': 'registry.example/web@sha256:reviewed' }
+  const plan = { action: 'update' as const, namespace: 'production', job: 'web', base_incarnation: 'inc-a', base_version: 4, base_revision: 3, desired_allocations: 1, changes: [], resolved_images: pins }
   assert.deepEqual(await client.applyJobPlan(spec, 'production', plan), { namespace: 'production', name: 'web', incarnation: 'inc-a', version: 5, revision: 3 })
   await assert.rejects(client.applyJobPlan(spec, 'production', plan), (error: unknown) => error instanceof TrellisApiError && error.status === 409)
   assert.deepEqual(bodies, [
-    { spec, expected_version: 4, expected_incarnation: 'inc-a' },
-    { spec, expected_version: 4, expected_incarnation: 'inc-a' },
+    { spec, resolved_images: pins, expected_version: 4, expected_incarnation: 'inc-a' },
+    { spec, resolved_images: pins, expected_version: 4, expected_incarnation: 'inc-a' },
   ])
+})
+
+test('rollback plans immutable digests without resolving old tags and conditionally applies no-op plans', async (t) => {
+  const spec: TrellisJobSpec = { name: 'web', namespace: 'production', task_groups: [{ name: 'main', count: 1, tasks: [{ name: 'web', image: 'app:mutable' }] }] }
+  const oldPins = { 'app:mutable': 'app@sha256:old' }
+  const newPins = { 'app:mutable': 'app@sha256:new' }
+  const bodies: unknown[] = []
+  t.mock.method(globalThis, 'fetch', async (url: string, options?: RequestInit) => {
+    const body = JSON.parse(String(options?.body))
+    bodies.push(body)
+    if (url.endsWith('/plan')) assert.ok(body.spec.task_groups[0].tasks[0].image.includes('@sha256:'), 'deleted mutable tags must not be resolved while planning')
+    return Response.json(url.endsWith('/plan') ? {
+      action: 'none', namespace: 'production', job: 'web', base_incarnation: 'inc', base_version: 9, base_revision: 6,
+      desired_allocations: 1, changes: [], resolved_images: newPins,
+    } : { namespace: 'production', name: 'web', incarnation: 'inc', version: 10, revision: 7 })
+  })
+  const client = new TrellisClient('https://api', 'token')
+  const plan = await client.planJob(spec, 'production', oldPins)
+  assert.equal(plan.action, 'update')
+  assert.deepEqual(plan.resolved_images, oldPins)
+  assert.equal((await client.applyJobPlan(spec, 'production', plan)).version, 10)
+  assert.deepEqual(bodies, [
+    {
+      spec: { name: 'web', namespace: 'production', task_groups: [{ name: 'main', count: 1, tasks: [{ name: 'web', image: 'app@sha256:old' }] }] },
+      resolved_images: { 'app@sha256:old': 'app@sha256:old' },
+    },
+    { spec, resolved_images: oldPins, expected_version: 9, expected_incarnation: 'inc' },
+  ])
+  const unchanged = await client.planJob(spec, 'production', newPins)
+  assert.equal(unchanged.action, 'update')
+  await client.applyJobPlan(spec, 'production', unchanged)
+  assert.equal(bodies.length, 4, 'digest planning still fences the original-spec apply')
+  assert.deepEqual(bodies[3], { spec, resolved_images: newPins, expected_version: 9, expected_incarnation: 'inc' })
 })

@@ -7,7 +7,7 @@ import { baseServiceConfigs, environments, projectVolumes, secretsMetadata, serv
 import { getBaseServiceConfig } from '@/lib/queries'
 import { recordAudit, requireService } from '@/lib/actions/shared'
 import type { TrellisApiAccess, TrellisRuntime } from '@/types/trellis'
-import { parseKeyValueLines } from '@/lib/service-config-input'
+import { environmentVariableRecord, validateServiceVariableConflicts } from '@/lib/environment-variable-input'
 import { parseJsonInput, validateSecretBindings, validateVolumeMounts } from '@/lib/workload-input'
 import { assertWorkloadApiAccessAllowed } from '@/lib/workload-policy'
 
@@ -225,33 +225,15 @@ export async function updateServiceEnvironmentOverridesAction(serviceId: string,
   )).limit(1)
   if (!environment) throw new Error('Environment not found.')
 
-  let envRows: unknown
-  try { envRows = JSON.parse(String(formData.get('envVars') ?? '[]')) } catch { throw new Error('Service variables must be valid JSON.') }
-  if (!Array.isArray(envRows)) throw new Error('Service variables must be a list.')
-  const lines = envRows.map((entry) => {
-    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) throw new Error('Each service variable must have a name and value.')
-    const row = entry as Record<string, unknown>
-    if (typeof row.key !== 'string' || typeof row.value !== 'string') throw new Error('Each service variable must have a name and value.')
-    return `${row.key}=${row.value}`
-  }).join('\n')
-  const envVars = parseKeyValueLines(lines, 'env')
-  if (Object.keys(envVars).length !== envRows.length) throw new Error('Service variable names must be unique.')
+  const envVars = environmentVariableRecord(formData.get('envVars'))
   const secretBindings = validateSecretBindings(parseJsonInput(formData, 'secretBindings', []))
   const environmentEnv = environment.envVars && typeof environment.envVars === 'object' && !Array.isArray(environment.envVars)
     ? environment.envVars as Record<string, string>
     : {}
-  const conflictingEnvironmentVariable = Object.keys(envVars).find((name) => name in environmentEnv)
-  if (conflictingEnvironmentVariable) throw new Error(`${conflictingEnvironmentVariable} is already defined by the environment.`)
-  const conflictingSecretEnv = secretBindings.find((binding) => binding.target === 'env' && binding.env && binding.env in envVars)
-  if (conflictingSecretEnv) throw new Error(`Secret target ${conflictingSecretEnv.env} conflicts with a service variable.`)
-  const environmentSecretNames = new Set(Object.values(environmentEnv))
-  const duplicateEnvironmentSecret = secretBindings.find((binding) => environmentSecretNames.has(binding.name))
-  if (duplicateEnvironmentSecret) throw new Error(`Secret ${duplicateEnvironmentSecret.name} is already injected by the environment.`)
   const available = await db.select({ name: secretsMetadata.trellisSecretName }).from(secretsMetadata)
     .where(eq(secretsMetadata.environmentId, environmentId))
   const allowed = new Set(available.map((row) => row.name))
-  const missing = secretBindings.find((binding) => !allowed.has(binding.name))
-  if (missing) throw new Error(`Secret ${missing.name} does not exist in ${environment.name}.`)
+  validateServiceVariableConflicts(envVars, secretBindings, environmentEnv, allowed, environment.name)
 
   const base = await getBaseServiceConfig(serviceId)
   const overrides = { ...((before.overrides ?? {}) as Record<string, unknown>) }

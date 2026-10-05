@@ -474,17 +474,14 @@ test('version history keeps the deployment journal and omits the separate retain
       getDeploymentsByService: async () => [{ id: 'deployment', environmentId: 'env', trellisVersion: 12, trellisRevision: 7, trellisJobName: 'web', status: 'healthy', imageAfter: 'app:v2', triggerType: 'manual', createdAt: '2026-10-01T10:00:00Z' }],
     },
     '@/lib/actions/shared': { getProjectRole: async () => 'admin' },
-    '@/lib/trellis-instance': { getTrellisClient: async () => ({ getJobVersions: async () => [
-      { version: 5, revision: 3, spec: { name: 'web' }, created_at: '2026-09-30T10:00:00Z' },
-      { version: 6, revision: 3, spec: { name: 'web' }, created_at: '2026-09-30T11:00:00Z' },
-    ] }) },
+    '@/lib/trellis-instance': { getTrellisClient: async () => ({ getJob: async () => ({ incarnation: 'inc', version: 12, revision: 7 }) }) },
     '@/lib/trellis-runtime': { trellisReadError: () => 'unavailable' },
     '@/components/trellis-read-error': readError,
     './restore-revision-button': { RestoreRevisionButton: () => null },
     '../service-header': { ServiceHeader: () => null },
   })
   const html = renderToStaticMarkup(await page.default({ params: Promise.resolve({ slug: 'demo', serviceSlug: 'web', allocationId: '' }) }))
-  assert.match(html, /Only the most recent configurations can be restored/)
+  assert.match(html, /Earlier successful releases with stored image pins can be restored/)
   assert.doesNotMatch(html, /Retained Trellis versions/)
   assert.match(html, />7<\/span><\/td>/)
   assert.match(html, /Succeeded/)
@@ -620,6 +617,7 @@ test('audit before/after-only details render changes, not an empty-state or unch
 test('targeted rollback scopes the target and replays its spec rather than the latest previous spec', async () => {
   const selected = { name: 'web-blue', namespace: 'production', task_groups: [{ name: 'main', tasks: [{ image: 'app:v2' }] }] }
   const previous = { ...selected, name: 'web-green', task_groups: [{ name: 'main', tasks: [{ image: 'app:v3' }] }] }
+  const pins = { 'app:v2': 'app@sha256:selected' }
   let targetAvailable = true
   let role = 'admin'
   let reads = 0
@@ -631,11 +629,20 @@ test('targeted rollback scopes the target and replays its spec rather than the l
     '@/lib/actions/shared': { requireService: async () => ({ ...access, projectRole: role }), recordAudit: async () => {} },
     '@/lib/managed-proxy': {}, '@/lib/deployment-reconciler': {},
     '@/lib/deployment-runtime': { recordDeploymentEvent: async () => {}, notifyDeployment: async () => {}, createDeploymentSpec: async () => ({}) },
-    '@/lib/trellis-instance': { getTrellisClient: async () => ({ planJob: async (spec: unknown) => { applied.push(spec); return {} }, applyJobPlan: async (spec: unknown) => { applied.push(spec); return { incarnation: 'i', version: 7, revision: 9 } } }) },
+    '@/lib/trellis-instance': { getTrellisClient: async () => ({
+      getJob: async (name: string) => { assert.equal(name, 'web-green'); return { incarnation: 'green-inc', version: 6, revision: 8 } },
+      getJobVersions: async () => { throw new Error('Deleted-track rollback must not consult another track history') },
+      planJob: async (spec: unknown, namespace: string, images: unknown) => { assert.equal(namespace, 'production'); assert.deepEqual(images, pins); applied.push(spec); return { resolved_images: images } },
+      applyJobPlan: async (spec: unknown, _namespace: string, plan: { resolved_images: unknown }) => { assert.deepEqual(plan.resolved_images, pins); applied.push(spec); return { incarnation: 'i', version: 7, revision: 9 } },
+    }) },
     '@/db': { db: {
       select: () => {
         reads++
-        return Object.assign(query(reads === 1 ? [{ jobSpec: previous, previousJobSpec: previous }] : reads === 2 ? targetAvailable ? [{ jobSpec: selected }] : [] : [{ id: 'config', image: 'app:v4', deploymentStrategy: 'rolling' }], reads === 2 ? (sql) => { targetSql = new PgDialect().sqlToQuery(sql) } : undefined), { orderBy() { return this } })
+        const rows = reads === 1 ? [{ jobSpec: previous, previousJobSpec: previous }]
+          : reads === 2 ? targetAvailable ? [{ jobSpec: selected, planDiff: { resolved_images: pins }, trellisJobName: 'web-blue', createdAt: new Date(1) }] : []
+            : reads === 3 ? [{ config: { id: 'config', activeJobName: 'web-green', image: 'app:v4', deploymentStrategy: 'blue_green' }, environment: { trellisNamespace: 'production' } }]
+              : [{ createdAt: new Date(2) }]
+        return query(rows, reads === 2 ? (sql) => { targetSql = new PgDialect().sqlToQuery(sql) } : undefined)
       },
       insert: () => ({ values: () => ({ returning: async () => [{ id: 'rollback' }] }) }),
       update: () => ({ set: () => ({ where: async () => {} }) }),
@@ -941,4 +948,156 @@ test('service actions return safe messages for expected failures, since React re
   role = 'admin'
   restart = async () => { throw new Error('connect ECONNREFUSED 10.0.0.4:5432') }
   await assert.rejects(actions.restartServiceAction('service', 'env'), /ECONNREFUSED/)
+})
+
+test('both variable save paths preserve values and reject conflicts before writing', async () => {
+  const writes: Record<string, unknown>[] = []
+  let shared: Record<string, string> = { SHARED: 'shared-secret' }
+  let available = [{ name: 'token' }]
+  let reads = 0
+  const dependencies = {
+    'next/cache': { revalidatePath() {} },
+    '@/lib/actions/shared': { requireService: async () => access, recordAudit: async () => {} },
+    '@/lib/queries': { getBaseServiceConfig: async () => ({}) },
+    '@/lib/trellis-instance': { getTrellisJobLimits: async () => undefined },
+    '@/db': { db: {
+      select: () => query(++reads === 1 ? [{ id: 'config', runtime: 'runc', overrides: {} }] : reads === 2 ? [{ id: 'env', name: 'Production', envVars: shared }] : available),
+      update: () => ({ set: (value: Record<string, unknown>) => { writes.push(value); return { where: async () => {} } } }),
+    } },
+  }
+  const config = load<typeof import('./actions/base-service-config')>('src/lib/actions/base-service-config.ts', dependencies)
+  const editor = load<typeof import('./actions/service-settings')>('src/lib/actions/service-settings.ts', dependencies)
+  for (const saveConfig of [true, false]) {
+    const save = (vars: Record<string, string>, bindings: unknown[] = []) => {
+      reads = 0
+      const form = new FormData()
+      for (const [key, value] of Object.entries({ image: 'app:v1', replicas: '1', resourceTier: 'small', secretBindings: JSON.stringify(bindings) })) form.set(key, value)
+      form.set(saveConfig ? 'envVarsJson' : 'envVars', JSON.stringify(Object.entries(vars).map(([key, value]) => ({ key, value }))))
+      return saveConfig ? config.updateServiceConfigOverridesAction('service', 'env', form) : editor.updateServiceEnvironmentOverridesAction('service', 'env', form)
+    }
+    const values = { PADDED: '  keep  ', MULTILINE: 'first\nsecond=third', EMPTY: '' }
+    await save(values)
+    assert.deepEqual(writes.at(-1)?.envVars, values)
+    const before = writes.length
+    await assert.rejects(save({ SHARED: 'plain' }), /already defined/)
+    await assert.rejects(save({ TOKEN: 'plain' }, [{ name: 'token', target: 'env', env: 'TOKEN' }]), /conflicts with a service variable/)
+    await assert.rejects(save({}, [{ name: 'token', target: 'env', env: 'SHARED' }]), /conflicts with the environment/)
+    available = []
+    await assert.rejects(save({}, [{ name: 'token', target: 'env', env: 'TOKEN' }]), /does not exist/)
+    assert.equal(writes.length, before)
+    available = [{ name: 'token' }]
+    shared = { SHARED: 'shared-secret' }
+  }
+})
+
+test('audit, notification and post-apply event failures never fail an accepted deployment', async () => {
+  for (const failure of ['audit', 'notification', 'event', 'apply']) {
+    const writes: Record<string, unknown>[] = []
+    const events: string[] = []
+    const row = { project: { orgId: 'org' }, service: { slug: 'web', name: 'Web' }, environment: { name: 'Production', trellisNamespace: 'production' }, config: { image: 'app:mutable', deploymentStrategy: 'rolling' }, spec: { name: 'web', namespace: 'production', task_groups: [{ name: 'main', tasks: [{ image: 'app:mutable' }] }] } }
+    const actions = load<typeof import('./actions/services')>('src/lib/actions/services.ts', {
+      'next/navigation': navigation, 'next/cache': { revalidatePath() {} },
+      '@/lib/auth': {}, '@/lib/queries': {}, '@/lib/managed-proxy': {}, '@/lib/deployment-reconciler': {},
+      '@/lib/actions/shared': { requireService: async () => access, recordAudit: async () => { if (failure === 'audit') throw new Error('audit unavailable') } },
+      '@/lib/deployment-runtime': {
+        createDeploymentSpec: async () => row,
+        notifyDeployment: async (_row: unknown, status: string) => { if (failure === 'notification' && status === 'deploying') throw new Error('notification unavailable') },
+        recordDeploymentEvent: async (_id: string, type: string) => { events.push(type); if (failure === 'event' && type === 'apply_accepted') throw new Error('event unavailable') },
+      },
+      '@/lib/trellis-instance': { getTrellisClient: async () => ({
+        planJob: async () => ({ resolved_images: { 'app:mutable': 'app@sha256:reviewed' } }),
+        applyJobPlan: async () => { if (failure === 'apply') throw new TrellisApiError(409, 'Conflict', 'competing writer'); return { incarnation: 'inc', version: 4, revision: 3 } },
+      }) },
+      '@/db': { db: {
+        select: () => query([{ jobSpec: { task_groups: [{ tasks: [{ image: 'app:previous' }] }] }, planDiff: { resolved_images: { 'app:previous': 'app@sha256:previous' } } }]),
+        insert: () => ({ values: () => ({ returning: async () => [{ id: 'deployment' }] }) }),
+        update: () => ({ set: (value: Record<string, unknown>) => { writes.push(value); return { where: async () => {} } } }),
+      } },
+    })
+    const result = await actions.deployServiceAction('service', 'env')
+    if (failure === 'apply') {
+      assert.match(result.error ?? '', /changed after Bower planned/)
+      assert.equal(writes.at(-1)?.status, 'failed')
+    } else {
+      assert.equal(result.error, undefined)
+      assert.deepEqual(writes.filter((row) => row.status).map((row) => row.status), ['deploying'])
+      assert.equal(writes.at(-1)?.trellisIncarnation, 'inc')
+      assert.ok(!events.includes('failed'))
+    }
+    assert.deepEqual((writes[0].planDiff as { previous_resolved_images: unknown }).previous_resolved_images, { 'app:previous': 'app@sha256:previous' })
+  }
+})
+
+test('targeted rollback rejects the running release, newer releases and missing pins', async () => {
+  const spec = { name: 'web', namespace: 'production', task_groups: [{ name: 'main', tasks: [{ image: 'app:mutable' }] }] }
+  let target: Record<string, unknown> = { jobSpec: spec, trellisJobName: 'web', trellisIncarnation: 'inc', trellisVersion: 4, trellisRevision: 3, createdAt: new Date(1) }
+  let reads = 0
+  const actions = load<typeof import('./actions/services')>('src/lib/actions/services.ts', {
+    'next/navigation': navigation, 'next/cache': { revalidatePath() {} },
+    '@/lib/auth': {}, '@/lib/queries': {}, '@/lib/managed-proxy': {}, '@/lib/deployment-reconciler': {}, '@/lib/deployment-runtime': {},
+    '@/lib/actions/shared': { requireService: async () => access },
+    '@/lib/trellis-instance': { getTrellisClient: async () => ({ getJob: async () => ({ incarnation: 'inc', version: 4, revision: 3 }) }) },
+    '@/db': { db: { select: () => query(++reads === 1 ? [] : reads === 2 ? [target] : reads === 3 ? [{ config: { activeJobName: 'web' }, environment: { trellisNamespace: 'production' } }] : [{ createdAt: new Date(2) }]), insert: () => { throw new Error('Rollback must not write') } } },
+  })
+  assert.match((await actions.rollbackServiceAction('service', 'env', 'target')).error ?? '', /currently running/)
+  reads = 0; target = { ...target, trellisVersion: 2, createdAt: new Date(3) }
+  assert.match((await actions.rollbackServiceAction('service', 'env', 'target')).error ?? '', /earlier/)
+  reads = 0; target = { ...target, createdAt: new Date(1) }
+  assert.match((await actions.rollbackServiceAction('service', 'env', 'target')).error ?? '', /no stored image pins/)
+})
+
+test('automatic rollback reuses previous pins, and canary advancement reuses candidate pins', async () => {
+  for (const [canary, unpinned] of [[false, false], [true, false], [false, true]]) {
+    const image = canary ? 'app:candidate' : 'app:previous'
+    const pins = { [image]: `app@sha256:${canary ? 'candidate' : 'previous'}` }
+    const spec = { name: 'web', namespace: 'production', task_groups: [{ name: 'main', count: 1, tasks: [{ name: 'web', image }] }] }
+    const deployment = { id: 'deployment', status: 'deploying', strategy: canary ? 'canary' : 'rolling', serviceId: 'service', environmentId: 'env', startedAt: new Date(0), trellisJobName: 'web', trellisIncarnation: 'inc', trellisVersion: 3, trellisRevision: 2, jobSpec: spec, previousJobSpec: canary ? null : spec, planDiff: unpinned ? null : canary ? { resolved_images: pins } : { previous_resolved_images: pins } }
+    let reads = 0
+    let applied = false
+    const statuses: string[] = []
+    const reconciler = load<typeof import('./deployment-reconciler')>('src/lib/deployment-reconciler.ts', {
+      '@/lib/queries': { getDeploymentsByProject: async () => [{ deployment, serviceSlug: 'web' }] },
+      '@/lib/deployment-runtime': { createDeploymentSpec: async () => ({ spec }), recordDeploymentEvent: async () => {}, notifyDeployment: async () => {} },
+      '@/lib/deployment-convergence': { sameJobIdentity: () => true, deploymentConvergence: () => ({ converged: canary, active: [], groups: [] }), deploymentDeadlineReached: () => true },
+      '@/lib/managed-proxy': { syncManagedProxy: async () => {} },
+      '@/lib/trellis-instance': { getTrellisClient: async () => ({
+        getJob: async () => ({ incarnation: 'inc', version: 3, revision: 2 }),
+        planJob: async (planned: typeof spec, namespace: string, images: unknown) => {
+          assert.equal(namespace, 'production'); assert.deepEqual(images, pins)
+          assert.equal(planned.task_groups[0].tasks[0].image, image)
+          assert.equal(planned.task_groups[0].count, canary ? 2 : 1)
+          if (canary) assert.equal((planned.task_groups[0] as { labels?: Record<string, string> }).labels?.['trellis/weight'], '50')
+          return { base_incarnation: 'inc', base_version: 3, base_revision: 2, resolved_images: images }
+        },
+        applyJobPlan: async (_spec: unknown, _namespace: string, plan: { resolved_images: unknown }) => { assert.deepEqual(plan.resolved_images, pins); applied = true; return { incarnation: 'inc', version: 4, revision: 3 } },
+      }) },
+      '@/db': { db: {
+        select: () => query(++reads === 1 ? [{ trellisNamespace: 'production' }] : reads === 2 ? [{ id: 'config', replicas: 3, canarySteps: [10, 50, 100] }] : [{ type: 'canary_step', details: { weight: 10 } }]),
+        update: () => ({ set: (value: { status?: string }) => { if (value.status) statuses.push(value.status); return { where: async () => {} } } }),
+      } },
+    })
+    await reconciler.reconcileProjectDeployments('project', 'org')
+    assert.equal(applied, !unpinned)
+    if (unpinned) assert.deepEqual(statuses, ['failed'], 'legacy rollback without pins must not resolve a mutable tag')
+  }
+})
+
+test('base propagation and reset validate inherited variables before writing', async () => {
+  let reads = 0
+  const actions = load<typeof import('./actions/base-service-config')>('src/lib/actions/base-service-config.ts', {
+    'next/cache': { revalidatePath() {} },
+    '@/lib/actions/shared': { requireService: async () => access, recordAudit: async () => {} },
+    '@/lib/queries': { getBaseServiceConfig: async () => ({ envVars: { SHARED: 'plain' }, secretBindings: [] }) },
+    '@/lib/trellis-instance': { getTrellisJobLimits: async () => undefined },
+    '@/db': { db: {
+      select: () => query(++reads === 1 ? [{ id: 'config', environmentId: 'env', overrides: {} }] : reads === 2 ? [{ name: 'Production', envVars: { SHARED: 'shared-secret' } }] : []),
+      insert: () => { throw new Error('Invalid base must not be written') },
+      update: () => { throw new Error('Invalid inherited values must not be written') },
+    } },
+  })
+  const form = new FormData()
+  for (const [key, value] of Object.entries({ image: 'app:v1', replicas: '1', resourceTier: 'small', envVars: 'SHARED=plain' })) form.set(key, value)
+  await assert.rejects(actions.upsertBaseServiceConfigAction('service', form), /already defined/)
+  reads = 0
+  await assert.rejects(actions.resetServiceConfigOverridesAction('service', 'env'), /already defined/)
 })

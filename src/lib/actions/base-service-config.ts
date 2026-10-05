@@ -3,13 +3,14 @@
 import { and, eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/db'
-import { baseServiceConfigs, serviceConfigs } from '@/db/schema'
+import { baseServiceConfigs, environments, secretsMetadata, serviceConfigs } from '@/db/schema'
 import { getBaseServiceConfig } from '@/lib/queries'
 import { recordAudit, requireService } from '@/lib/actions/shared'
 import { parseServiceConfigInput } from '@/lib/service-config-input'
 import { getTrellisJobLimits } from '@/lib/trellis-instance'
 import { assertWorkloadApiAccessAllowed } from '@/lib/workload-policy'
 import { serviceConfigAuditState } from '@/lib/audit-details'
+import { validateServiceVariableConflicts } from '@/lib/environment-variable-input'
 
 function deepEqual(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b)
@@ -26,6 +27,25 @@ function preserveAdvancedOverrides(overrides: unknown) {
   return preserved
 }
 
+async function validateVariablesForEnvironment(
+  projectId: string,
+  environmentId: string,
+  envVars: Record<string, string>,
+  secretBindings: Parameters<typeof validateServiceVariableConflicts>[1],
+) {
+  const [environment] = await db.select().from(environments).where(and(
+    eq(environments.id, environmentId),
+    eq(environments.projectId, projectId),
+  )).limit(1)
+  if (!environment) throw new Error('Environment not found.')
+  const available = await db.select({ name: secretsMetadata.trellisSecretName }).from(secretsMetadata)
+    .where(eq(secretsMetadata.environmentId, environmentId))
+  const environmentEnv = environment.envVars && typeof environment.envVars === 'object' && !Array.isArray(environment.envVars)
+    ? environment.envVars as Record<string, string>
+    : {}
+  validateServiceVariableConflicts(envVars, secretBindings, environmentEnv, new Set(available.map((row) => row.name)), environment.name)
+}
+
 export async function upsertBaseServiceConfigAction(serviceId: string, formData: FormData) {
   const access = await requireService(serviceId)
   if (access.projectRole !== 'admin') throw new Error('Insufficient permissions.')
@@ -33,11 +53,21 @@ export async function upsertBaseServiceConfigAction(serviceId: string, formData:
   const values = parseServiceConfigInput(formData, await getTrellisJobLimits(access.org.id))
   const before = await getBaseServiceConfig(serviceId)
 
+  const allEnvConfigs = await db.select().from(serviceConfigs).where(eq(serviceConfigs.serviceId, serviceId))
+  for (const envConfig of allEnvConfigs) {
+    const overrides = (envConfig.overrides ?? {}) as Record<string, unknown>
+    await validateVariablesForEnvironment(
+      access.project.id,
+      envConfig.environmentId,
+      ('envVars' in overrides ? envConfig.envVars : values.envVars) as Record<string, string>,
+      ('secretBindings' in overrides ? envConfig.secretBindings : values.secretBindings) as Parameters<typeof validateServiceVariableConflicts>[1],
+    )
+  }
+
   await db.insert(baseServiceConfigs)
     .values({ serviceId, ...values })
     .onConflictDoUpdate({ target: baseServiceConfigs.serviceId, set: values })
 
-  const allEnvConfigs = await db.select().from(serviceConfigs).where(eq(serviceConfigs.serviceId, serviceId))
   for (const envConfig of allEnvConfigs) {
     const overrides = (envConfig.overrides ?? {}) as Record<string, unknown>
     const patch: Record<string, unknown> = { updatedAt: new Date() }
@@ -71,6 +101,7 @@ export async function updateServiceConfigOverridesAction(serviceId: string, envi
   if (!envConfig) throw new Error('Configuration not found.')
 
   const desired = parseServiceConfigInput(formData, await getTrellisJobLimits(access.org.id))
+  await validateVariablesForEnvironment(access.project.id, environmentId, desired.envVars, desired.secretBindings)
   const runtime = formData.has('runtime') ? String(formData.get('runtime')) : envConfig.runtime
   if (runtime !== 'runc' && runtime !== 'runsc') throw new Error('Runtime must be runc or runsc.')
   const existingApiAccess = envConfig.apiAccessScope && envConfig.apiAccessLevel ? `${envConfig.apiAccessScope}:${envConfig.apiAccessLevel}` : 'none'
@@ -123,6 +154,12 @@ export async function resetServiceConfigOverridesAction(serviceId: string, envir
   if (!envConfig) throw new Error('Configuration not found.')
 
   const preservedOverrides = preserveAdvancedOverrides(envConfig.overrides)
+  await validateVariablesForEnvironment(
+    access.project.id,
+    environmentId,
+    base.envVars as Record<string, string>,
+    base.secretBindings as Parameters<typeof validateServiceVariableConflicts>[1],
+  )
 
   await db.update(serviceConfigs).set({
     image: base.image,

@@ -233,6 +233,7 @@ export interface TrellisJob {
   allocations: TrellisAllocation[]
   replacement_backoff?: TrellisReplacementBackoff[]
   spec?: TrellisJobSpec
+  resolved_images?: Record<string, string>
 }
 
 export interface TrellisReplacementBackoff {
@@ -291,6 +292,7 @@ export interface TrellisPlan {
   base_revision?: number
   desired_allocations: number
   changes: TrellisPlanDiff[]
+  resolved_images: Record<string, string>
 }
 
 // -- Secrets (metadata only) ------------------------------------------------
@@ -314,12 +316,14 @@ export interface TrellisSetSecretRequest {
 
 export interface TrellisApplyJobRequest {
   spec: TrellisJobSpec
+  resolved_images?: Record<string, string>
   expected_version?: number
   expected_incarnation?: string
 }
 
 export interface TrellisPlanJobRequest {
   spec: TrellisJobSpec
+  resolved_images?: Record<string, string>
 }
 
 // -- Job revisions ----------------------------------------------------------
@@ -328,6 +332,7 @@ export interface TrellisJobVersion {
   version: number
   revision: number
   spec: TrellisJobSpec
+  resolved_images: Record<string, string>
   created_at: string // ISO 8601
 }
 

@@ -33,19 +33,15 @@ export default async function RevisionsPage({ params }: { params: Promise<{ slug
   const config = configs.find((entry) => entry.environment.id === environment.id)
   const jobName = config?.config.activeJobName || service.slug
   const client = await getTrellisClient(orgCtx.org.id)
-  const [runtime, retained] = config ? await Promise.all([
-    typeof client.getJob === 'function' ? client.getJob(jobName, environment.trellisNamespace).catch(() => null) : Promise.resolve(null),
-    client.getJobVersions(jobName, environment.trellisNamespace).catch(() => []),
-  ]) : [null, []]
-  const current = runningRelease(journal, runtime ? { name: jobName, version: runtime.version, revision: runtime.revision } : null)
+  const runtime = config ? await client.getJob(jobName, environment.trellisNamespace).catch(() => null) : null
+  const current = runningRelease(journal, runtime ? { name: jobName, incarnation: runtime.incarnation, version: runtime.version, revision: runtime.revision } : null)
   const rollbackIds = new Set(earlierSuccessfulReleases(journal, current).map((deployment) => deployment.id))
-  const retainedKeys = new Set(retained.map((version) => `${version.version}:${version.revision}`))
 
   return (
     <div className="space-y-6">
       <div>
         <SectionTitle>Deployments</SectionTitle>
-        <p className="mt-1 max-w-3xl text-sm text-ink-muted">Only the most recent configurations can be restored.</p>
+        <p className="mt-1 max-w-3xl text-sm text-ink-muted">Earlier successful releases with stored image pins can be restored.</p>
       </div>
 
       {journal.length === 0 ? (
@@ -57,7 +53,7 @@ export default async function RevisionsPage({ params }: { params: Promise<{ slug
           />
         </Panel>
       ) : (
-        <RevisionsToolbar items={journal.map((deployment) => ({ deployment, serviceName: service.name, serviceSlug: service.slug, projectName: project.name, projectSlug: project.slug, revision: deployment.trellisRevision, rollbackAction: role !== 'viewer' && rollbackIds.has(deployment.id) && retainedKeys.has(`${deployment.trellisVersion}:${deployment.trellisRevision}`) ? <RestoreRevisionButton serviceId={service.id} environmentId={environment.id} deploymentId={deployment.id} image={deployment.imageAfter} /> : null }))} />
+        <RevisionsToolbar items={journal.map((deployment) => ({ deployment, serviceName: service.name, serviceSlug: service.slug, projectName: project.name, projectSlug: project.slug, revision: deployment.trellisRevision, rollbackAction: role !== 'viewer' && rollbackIds.has(deployment.id) ? <RestoreRevisionButton serviceId={service.id} environmentId={environment.id} deploymentId={deployment.id} image={deployment.imageAfter} /> : null }))} />
       )}
 
     </div>

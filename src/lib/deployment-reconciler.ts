@@ -9,6 +9,7 @@ import type { TrellisJobSpec } from '@/types/trellis'
 import { deploymentConvergence, deploymentDeadlineReached, sameJobIdentity } from '@/lib/deployment-convergence'
 import { TrellisApiError } from '@/lib/trellis'
 import { validateCanarySteps } from '@/lib/workload-input'
+import { releaseImagePins } from '@/lib/service-releases'
 
 const ACTIVE_STATUSES = ['pending', 'planning', 'deploying'] as const
 let reconciliationRunning = false
@@ -74,7 +75,12 @@ export async function reconcileProjectDeployments(projectId: string, orgId: stri
         if (deployment.previousJobSpec) {
           const previous = deployment.previousJobSpec as TrellisJobSpec
           const previousImage = previous.task_groups[0]?.tasks[0]?.image
-          const plan = await client.planJob(previous, previous.namespace)
+          const previousPins = releaseImagePins(previous, { resolved_images: (deployment.planDiff as { previous_resolved_images?: Record<string, string> } | null)?.previous_resolved_images })
+          if (!previousPins) {
+            await failDeployment(deployment, 'Automatic rollback is unavailable because the previous release has no stored image pins.')
+            continue
+          }
+          const plan = await client.planJob(previous, previous.namespace, previousPins)
           if (previous.name === jobName && (plan.base_incarnation !== identity.incarnation || plan.base_version !== identity.version || plan.base_revision !== identity.revision)) {
             await failDeployment(deployment, 'The Trellis job changed while Bower was preparing automatic rollback; Bower did not overwrite it.', { plan })
             continue
@@ -112,14 +118,22 @@ export async function reconcileProjectDeployments(projectId: string, orgId: stri
         const nextWeight = steps.find((step) => step > previousWeight)
         if (nextWeight) {
           const replicas = Math.max(1, Math.ceil(config.replicas * nextWeight / 100))
-          const { spec } = await createDeploymentSpec(deployment.serviceId, deployment.environmentId, jobName, { replicas, labels: { 'trellis/weight': String(nextWeight), 'bower/canary': 'true' } })
-          const plan = await client.planJob(spec, env.trellisNamespace)
+          const nextSpec = {
+            ...spec,
+            task_groups: spec.task_groups.map((group) => ({
+              ...group, count: replicas,
+              labels: { ...group.labels, 'trellis/weight': String(nextWeight), 'bower/canary': 'true' },
+            })),
+          }
+          const pins = releaseImagePins(spec, deployment.planDiff)
+          if (!pins) throw new Error('The canary release has no stored image pins.')
+          const plan = await client.planJob(nextSpec, env.trellisNamespace, pins)
           if (plan.base_incarnation !== identity.incarnation || plan.base_version !== identity.version || plan.base_revision !== identity.revision) {
             await failDeployment(deployment, 'The Trellis job changed while Bower was preparing canary advancement; Bower did not overwrite it.', { plan })
             continue
           }
-          const applied = await client.applyJobPlan(spec, env.trellisNamespace, plan)
-          await db.update(deployments).set({ jobSpec: spec, trellisIncarnation: applied.incarnation, trellisVersion: applied.version, trellisRevision: applied.revision }).where(eq(deployments.id, deployment.id))
+          const applied = await client.applyJobPlan(nextSpec, env.trellisNamespace, plan)
+          await db.update(deployments).set({ jobSpec: nextSpec, trellisIncarnation: applied.incarnation, trellisVersion: applied.version, trellisRevision: applied.revision }).where(eq(deployments.id, deployment.id))
           await recordDeploymentEvent(deployment.id, 'canary_step', `Canary advanced to ${nextWeight}% at version ${applied.version}, revision ${applied.revision}.`, { weight: nextWeight, replicas, plan, applied })
           await syncManagedProxy(projectId, env.id, orgId)
           continue

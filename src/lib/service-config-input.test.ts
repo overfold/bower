@@ -83,6 +83,18 @@ test('env and labels use distinct key rules and retain empty, Unicode, and equal
   }
 })
 
+test('service configuration accepts lossless JSON variables while retaining legacy line input', () => {
+  const envVarsJson = JSON.stringify([
+    { key: 'PADDED', value: '  value  ' },
+    { key: 'MULTILINE', value: 'one\ntwo' },
+    { key: 'EQUALS', value: 'a=b' },
+  ])
+  assert.deepEqual(parseServiceConfigInput(form({ envVarsJson })).envVars, {
+    PADDED: '  value  ', MULTILINE: 'one\ntwo', EQUALS: 'a=b',
+  })
+  assert.deepEqual(parseServiceConfigInput(form({ envVars: 'LEGACY=value' })).envVars, { LEGACY: 'value' })
+})
+
 test('label value limits count UTF-8 bytes, not JavaScript characters, without imposing env value limits', () => {
   assert.equal(parseKeyValueLines(`team=${'é'.repeat(128)}`, 'label').team, 'é'.repeat(128))
   assert.equal(parseKeyValueLines(`team=${'a'.repeat(256)}`, 'label').team.length, 256)

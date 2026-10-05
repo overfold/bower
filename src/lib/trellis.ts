@@ -213,10 +213,12 @@ export class TrellisClient {
     spec: TrellisJobSpec,
     namespace: string,
     precondition?: { expectedVersion: number; expectedIncarnation?: string },
+    resolvedImages?: Record<string, string>,
   ): Promise<TrellisJobApplyResult> {
     return this.request<TrellisJobApplyResult>('POST', this.resourcePath(namespace, '/jobs'), {
       body: {
         spec,
+        ...(resolvedImages ? { resolved_images: resolvedImages } : {}),
         ...(precondition ? { expected_version: precondition.expectedVersion } : {}),
         ...(precondition?.expectedIncarnation ? { expected_incarnation: precondition.expectedIncarnation } : {}),
       },
@@ -235,16 +237,33 @@ export class TrellisClient {
     return this.applyJob(spec, namespace, {
       expectedVersion: plan.action === 'create' ? 0 : plan.base_version ?? 0,
       expectedIncarnation: plan.action === 'update' ? plan.base_incarnation : undefined,
-    })
+    }, plan.resolved_images)
   }
 
   async planJob(
     spec: TrellisJobSpec,
     namespace: string,
+    resolvedImages?: Record<string, string>,
   ): Promise<TrellisPlan> {
-    return this.request<TrellisPlan>('POST', this.resourcePath(namespace, '/jobs/plan'), {
-      body: { spec },
+    // Plan digest-authored images too: older Trellis planners ignore supplied
+    // pins, and resolving the original tag may now fail or select a new image.
+    const planningSpec = resolvedImages ? {
+      ...spec,
+      task_groups: spec.task_groups.map((group) => ({
+        ...group,
+        tasks: group.tasks.map((task) => ({ ...task, image: resolvedImages[task.image] ?? task.image })),
+      })),
+    } : spec
+    const plan = await this.request<TrellisPlan>('POST', this.resourcePath(namespace, '/jobs/plan'), {
+      body: {
+        spec: planningSpec,
+        ...(resolvedImages ? { resolved_images: Object.fromEntries(Object.values(resolvedImages).map((image) => [image, image])) } : {}),
+      },
     })
+    if (!resolvedImages) return plan
+    // Apply the original authored spec with its pins. Even a no-op digest plan
+    // needs a conditional apply to preserve the authored references correctly.
+    return { ...plan, resolved_images: resolvedImages, action: plan.action === 'none' ? 'update' : plan.action }
   }
 
   async deleteJob(name: string, namespace: string): Promise<void> {

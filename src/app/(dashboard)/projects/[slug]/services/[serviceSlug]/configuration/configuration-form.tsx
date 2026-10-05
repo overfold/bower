@@ -100,7 +100,7 @@ export function ConfigurationForm({ serviceId, environmentId, config, limits, pr
     try {
       const formData = new FormData(form)
       formData.set('cpu', String(Number(formData.get('cpu')) * 1000))
-      formData.set('envVars', recordToLines(variableService.envVars))
+      formData.set('envVarsJson', JSON.stringify(Object.entries(variableService.envVars).map(([key, value]) => ({ key, value }))))
       formData.set('secretBindings', JSON.stringify(variableService.secretBindings))
       await updateServiceConfigOverridesAction(serviceId, environmentId, formData)
       setVariableBaseline(variableService)
@@ -120,7 +120,7 @@ export function ConfigurationForm({ serviceId, environmentId, config, limits, pr
       {error && <InlineNotice tone="danger">{error}</InlineNotice>}
       <div className="hidden">
         <input type="hidden" name="resourceTier" value="custom" />
-        <input type="hidden" name="envVars" value={recordToLines(variableService.envVars)} />
+        <input type="hidden" name="envVarsJson" value={JSON.stringify(Object.entries(variableService.envVars).map(([key, value]) => ({ key, value })))} />
         <input type="hidden" name="labels" value={recordToLines(config?.labels)} />
         <input type="hidden" name="volumes" value={JSON.stringify(config?.volumes ?? [])} />
         <input type="hidden" name="secretBindings" value={JSON.stringify(variableService.secretBindings)} />

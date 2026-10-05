@@ -4,20 +4,13 @@ import { useId, useMemo, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { parseEnvText } from '@/lib/environment-variable-input'
+
+export { parseEnvText } from '@/lib/environment-variable-input'
 
 export type KeyValueRow = { id: string; key: string; value: string }
 
 const ENV_NAME = /^[A-Z_][A-Z0-9_]*$/
-
-export function parseEnvText(text: string): Array<{ key: string; value: string }> {
-  return text.split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !line.startsWith('#')).map((line) => {
-    const normalized = line.startsWith('export ') ? line.slice(7) : line
-    const separator = normalized.indexOf('=')
-    return separator < 0
-      ? { key: normalized.trim().toUpperCase(), value: '' }
-      : { key: normalized.slice(0, separator).trim().toUpperCase(), value: normalized.slice(separator + 1) }
-  })
-}
 
 export function KeyValueEditor({
   name = 'envVars',

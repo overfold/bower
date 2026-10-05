@@ -169,6 +169,13 @@ try {
       if (i === 0)
         await sql`INSERT INTO webhook_endpoints (service_id,environment_id,token_hash,token_prefix,signature_secret_hash,provider,deploy_mode,tag_filter) VALUES (${service.id},${environment.id},'audit-webhook-hash','wh_audit...','audit-signature-hash','ghcr','tag','^v.*')`;
     }
+    // The fake runtime and stored releases share an incarnation and durable
+    // artifact pins, including the predecessor whose old track may be gone.
+    await sql`UPDATE deployments SET trellis_incarnation = 'audit-incarnation',
+      plan_diff = jsonb_build_object('resolved_images', jsonb_build_object(
+        job_spec #>> '{task_groups,0,tasks,0,image}',
+        (job_spec #>> '{task_groups,0,tasks,0,image}') || '@sha256:' || repeat('a', 64)
+      )) WHERE job_spec IS NOT NULL`;
     await sql`INSERT INTO managed_proxies (environment_id,trellis_job_name,status,config_hash) VALUES (${environment.id},'bower-proxy','running','audit-config')`;
     for (const name of ["DATABASE_URL", "STRIPE_API_KEY"])
       await sql`INSERT INTO secrets_metadata (project_id,environment_id,name,trellis_secret_name,last_rotated_at) VALUES (${project.id},${environment.id},${name},${name === "DATABASE_URL" ? "database-url" : "stripe-api-key"},now())`;

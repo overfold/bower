@@ -1,6 +1,7 @@
 import type { BowerServiceConfig } from './job-builder'
 import type { TrellisJobLimits } from '@/types/trellis'
 import { parseJsonInput, validateCanarySteps, validateSecretBindings, validateVolumeMounts } from './workload-input'
+import { environmentVariableRecord } from './environment-variable-input'
 
 const TIERS = { small: [100, 134217728], medium: [250, 268435456], large: [500, 536870912], xl: [1000, 1073741824] } as const
 
@@ -73,7 +74,9 @@ export function parseServiceConfigInput(formData: FormData, limits?: TrellisJobL
     image, replicas, resourceTier: tier, cpu, memory,
     deploymentStrategy: parseDeploymentStrategy(String(formData.get('strategy') ?? 'rolling')),
     ...parseHealthCheckInput(formData),
-    envVars: parseKeyValueLines(String(formData.get('envVars') ?? ''), 'env'),
+    envVars: formData.has('envVarsJson')
+      ? environmentVariableRecord(formData.get('envVarsJson'))
+      : parseKeyValueLines(String(formData.get('envVars') ?? ''), 'env'),
     labels: parseKeyValueLines(String(formData.get('labels') ?? ''), 'label'),
     volumes: validateVolumeMounts(parseJsonInput(formData, 'volumes', [])),
     secretBindings: validateSecretBindings(parseJsonInput(formData, 'secretBindings', [])),
