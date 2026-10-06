@@ -6,11 +6,12 @@ const diffGrid = 'grid grid-cols-[minmax(6rem,0.7fr)_1fr_1fr] gap-3'
 
 /**
  * Before/after table for deploy and rollback dialogs. `flush` makes it span the dialog edge to edge
- * (no outer border or padding bands) when it is the body's only content.
+ * (no outer border): the dialog header, footer, or panel edges frame it. Pair it with `gap-0` on
+ * AlertDialogContent, whose default `gap-4` would otherwise leave an empty band above and below.
  */
 export function ConfigDiffPreview({ changes, afterLabel, beforeLabel = 'Running', flush = false }: { changes: ServiceConfigDiff[]; afterLabel: string; beforeLabel?: string; flush?: boolean }) {
   if (!changes.length) return <p className="px-4 py-3 text-sm text-ink-muted sm:px-5">No configuration differences.</p>
-  return <div className={flush ? 'border-y border-line' : 'overflow-hidden rounded-md border border-line'}>
+  return <div className={flush ? undefined : 'overflow-hidden rounded-md border border-line'}>
     <div className={`${diffGrid} bg-sunken px-4 py-2 text-xs font-semibold text-ink-muted sm:px-5`}><span>Field</span><span>{beforeLabel}</span><span>{afterLabel}</span></div>
     {changes.map((change) => <div key={change.key} className={`${diffGrid} border-t border-line px-4 py-2 text-sm sm:px-5`}>{change.kind === 'environment' ? <>
       <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"><span className="break-all font-mono text-xs text-ink">{change.variable}</span><Chip tone="neutral">{change.change}</Chip></span>

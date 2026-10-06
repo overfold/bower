@@ -237,11 +237,11 @@ state("allocation-failed-lifecycle", `${project}/services/order-worker/allocatio
   // ?tab= deep-links the tab; every earlier crash is toned, not just the last event.
   await expect(page.getByRole("tab", { name: "Lifecycle", exact: true })).toHaveAttribute("data-state", "active");
   await expect(page.getByText("Process exited with code 137; replacement scheduled")).toBeVisible();
-  await expect(page.getByText("Failed", { exact: true })).toHaveCount(2);
+  await expect(page.locator("#lifecycle").getByText("Failed", { exact: true })).toHaveCount(2);
   await expect(page.locator("#lifecycle li span.bg-danger-500")).toHaveCount(2);
 }, { fullPage: true });
 state("unplaceable-service-cause", `${project}/services/search-indexer`, async (page) => {
-  await expect(page.getByRole("alert")).toContainText("No node has 500m CPU free");
+  await expect(page.getByRole("alert").filter({ hasText: "No node has 500m CPU free" })).toBeVisible();
   await expect(page.getByText("Deploying", { exact: true })).toHaveCount(0);
 }, { fullPage: true });
 state("rolled-back-deployment-diagnostics", `${project}/deployments/${fixture.rolledBackDeploymentId}`, async (page) => {
@@ -645,7 +645,8 @@ state("dashboard-live-health", "/dashboard", async (page) => {
   // Two Storefront replicas and Checkout are healthy; Order Worker fails.
   // Shared ingress lives in platform, outside the project's workload health.
   await expect(allocationTile).toContainText("3/5 healthy");
-  await expect(allocationTile).toContainText("1 failing");
+  await expect(allocationTile).toContainText("1 blocked / awaiting placement");
+  await expect(allocationTile).toContainText("1 unhealthy");
   // One merged row per service: the worker's allocation and restart backoff are not listed twice.
   const worker = page.getByRole("row").filter({ hasText: "Order Worker" });
   await expect(worker).toHaveCount(1);
@@ -655,7 +656,9 @@ state("dashboard-live-health", "/dashboard", async (page) => {
   await expect(worker.getByRole("link", { name: "View logs", exact: true })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "Failing since", exact: true })).toBeVisible();
   // A stuck pending allocation is flagged too.
-  await expect(page.getByRole("row").filter({ hasText: "Search Indexer" })).toContainText("No node has 500m CPU free");
+  const indexer = page.getByRole("row").filter({ hasText: "Search Indexer" });
+  await expect(indexer).toContainText("No node has 500m CPU free");
+  await expect(indexer.getByRole("link", { name: "View allocation", exact: true })).toBeVisible();
 });
 state("project-deployments-scoped", `${project}/deployments`, async (page) => {
   await expect(page.getByRole("combobox", { name: "Filter by project" })).toHaveCount(0);
@@ -795,9 +798,9 @@ for (const [prefix, extra] of [["", {}], ["narrow-", { narrow: true }]]) {
     // The fake cluster rejects writes; no deployment or allocation is changed.
     await click(page, "Restart");
     const region = page.getByRole("region", { name: "Status messages" });
-    const dismiss = region.getByRole("button", { name: "Dismiss: Service action failed", exact: true });
+    const dismiss = region.getByRole("button", { name: "Dismiss: Restart failed", exact: true });
     await expect(dismiss).toBeVisible();
-    await expect(region.locator('[aria-live="assertive"]')).toContainText("Trellis rejected the request (405).");
+    await expect(region.locator('[aria-live="assertive"]')).toContainText("Trellis rejected the request (405): Audit fixture is read-only");
     await expect(region.getByRole("alert")).toHaveCount(0);
     await page.clock.fastForward(6000);
     await expect(dismiss).toBeVisible();

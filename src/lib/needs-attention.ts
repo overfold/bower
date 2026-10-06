@@ -81,7 +81,7 @@ export function needsAttentionRows({ deployments, allocations, jobs, targets, no
         cause: failure.cause, details: details.length ? details : undefined, since: failure.failingSince,
         lastFailureAt: failure.lastFailureAt && failure.lastFailureAt !== failure.failingSince ? failure.lastFailureAt : undefined,
         href: failure.allocationId ? `${serviceHref}/allocations/${encodeURIComponent(failure.allocationId)}` : serviceHref,
-        action: failure.allocationId ? 'View logs' : 'Open service',
+        action: failure.allocationId ? (failure.kind === 'unplaceable' ? 'View allocation' : 'View logs') : 'Open service',
         secondary: deploymentHref ? { href: deploymentHref, action: 'View deployment' } : undefined,
         severity: severity.failing,
       })

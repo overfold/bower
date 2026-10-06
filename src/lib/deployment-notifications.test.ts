@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { after, test } from 'node:test'
 import { randomUUID } from 'node:crypto'
 import { inArray } from 'drizzle-orm'
-import { notificationsButtonLabel, seenThrough, unreadBadgeText } from './notification-feed'
+import { mergeNotificationItems, notificationHref, notificationsButtonLabel, seenThrough, unreadBadgeText, type NotificationItem } from './notification-feed'
 import { statusDefinition } from './status'
 
 process.env.DATABASE_URL = process.env.BOWER_TEST_DATABASE_URL || 'postgres://test:test@localhost:5432/test'
@@ -20,6 +20,20 @@ test('notification statuses come from the shared status vocabulary and exclude i
   for (const status of ['pending', 'planning', 'deploying']) {
     assert.ok(![...FAILED_DEPLOYMENT_STATUSES, ...SUCCEEDED_DEPLOYMENT_STATUSES].includes(status as never), status)
   }
+})
+
+const deploymentItem = (id: string, occurredAt: string, status = 'failed'): NotificationItem => ({ kind: 'deployment', id, status, serviceName: 'Web', projectName: 'Shop', projectSlug: 'shop', environmentName: 'Production', triggeredByMe: false, occurredAt, unread: true })
+const serviceItem = (id: string, occurredAt: string): NotificationItem => ({ kind: 'service', id, status: 'failing', serviceName: 'Worker', serviceSlug: 'worker', projectName: 'Shop', projectSlug: 'shop', environmentName: 'Production', cause: 'Worker could not reach database', occurredAt, unread: true })
+
+test('service failures and deployments merge newest first and link to their own pages', () => {
+  const merged = mergeNotificationItems([
+    [deploymentItem('d1', '2026-10-03T10:00:00.000Z'), deploymentItem('d2', '2026-10-03T12:00:00.000Z', 'rolled_back')],
+    [serviceItem('s1', '2026-10-03T11:00:00.000Z')],
+  ], 2)
+  assert.deepEqual(merged.map((item) => item.id), ['d2', 's1'])
+  assert.equal(notificationHref(merged[0]), '/projects/shop/deployments/d2')
+  assert.equal(notificationHref(merged[1]), '/projects/shop/services/worker')
+  assert.equal(seenThrough(merged), '2026-10-03T12:00:00.000Z')
 })
 
 test('the unread badge caps at 9+ while the accessible name keeps the exact count', () => {

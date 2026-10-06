@@ -61,7 +61,8 @@ test('allocations stuck pending are flagged with Trellis’s reason, fresh ones 
   const stuck = needsAttentionRows({ deployments: [], allocations: [allocation({ id: 'p-1', phase: 'pending', health: 'unknown', reason: 'insufficient_cpu', message: 'No node has 2 CPU free', created_at: iso(10_000), last_transition_at: iso(10_000) })], jobs: [], targets: [target], now })
   assert.equal(stuck.length, 1)
   assert.equal(stuck[0].cause, 'No node has 2 CPU free')
-  assert.equal(stuck[0].action, 'View logs')
+  // Nothing has run, so there are no logs to view: the action opens the allocation.
+  assert.equal(stuck[0].action, 'View allocation')
   assert.equal(needsAttentionRows({ deployments: [], allocations: [allocation({ phase: 'pending', health: 'unknown', created_at: iso(5_000), last_transition_at: iso(5_000) })], jobs: [], targets: [target], now }).length, 0)
   const slow = needsAttentionRows({ deployments: [], allocations: [allocation({ phase: 'pending', health: 'unknown', created_at: iso(120_000), last_transition_at: iso(120_000) })], jobs: [], targets: [target], now })
   assert.equal(slow[0].cause, 'Awaiting placement')

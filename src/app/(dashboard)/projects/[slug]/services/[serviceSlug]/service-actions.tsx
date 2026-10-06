@@ -70,7 +70,7 @@ export function ServiceActions({ serviceId, serviceName, runningImage, environme
               Roll back…
             </Button>
           </AlertDialogTrigger>
-          <AlertDialogContent>
+          <AlertDialogContent className="gap-0">
             <AlertDialogHeader>
               <AlertDialogTitle>Roll back {serviceName}?</AlertDialogTitle>
               <AlertDialogDescription>
@@ -109,7 +109,7 @@ export function ServiceActions({ serviceId, serviceName, runningImage, environme
         {deploying ? 'Deploying...' : 'Deploy'}
       </Button>
       <AlertDialog open={confirmDeploy} onOpenChange={setConfirmDeploy}>
-        <AlertDialogContent size="lg">
+        <AlertDialogContent size="lg" className={changes.length ? "gap-0" : undefined}>
           <AlertDialogHeader><AlertDialogTitle>Deploy this service?</AlertDialogTitle><AlertDialogDescription>{changes.length ? 'Review the saved changes that will be deployed.' : 'The saved configuration matches the currently running release.'}</AlertDialogDescription></AlertDialogHeader>
           {changes.length ? <DialogBody className="px-0 py-0 sm:px-0"><ConfigDiffPreview changes={changes} afterLabel="After deploy" flush /></DialogBody> : null}
           <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><Button variant="primary" loading={deploying} onClick={() => startDeploy(async () => { await run(() => deployServiceAction(serviceId, environmentId), 'Deployment started', 'Deploy failed')(); setConfirmDeploy(false) })}>Deploy</Button></AlertDialogFooter>

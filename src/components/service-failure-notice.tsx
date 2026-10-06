@@ -18,7 +18,7 @@ export function ServiceFailureNotice({ failure, logsHref }: { failure: ServiceFa
     failure.nextAttemptAt ? <span key="next"><RestartCountdown at={failure.nextAttemptAt} /></span> : null,
     failure.failingSince ? <span key="since">Failing since <Time value={failure.failingSince} /></span> : null,
   ].filter(Boolean)
-  return <InlineNotice tone="danger" action={logsHref ? <Button asChild size="sm"><Link href={logsHref}>View logs</Link></Button> : undefined}>
+  return <InlineNotice tone="danger" action={logsHref ? <Button asChild size="sm"><Link href={logsHref}>{failure.kind === 'unplaceable' ? 'View allocation' : 'View logs'}</Link></Button> : undefined}>
     <p className="font-medium">{titles[failure.kind]}</p>
     <p className="mt-0.5 break-words">{failure.cause}</p>
     {failure.details.map((detail) => <p key={detail} className="mt-0.5 break-words text-xs text-ink-muted">{detail}</p>)}
