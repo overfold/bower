@@ -95,10 +95,12 @@ export async function updateServiceConfigOverridesAction(serviceId: string, envi
   const access = await requireService(serviceId)
   if (access.projectRole !== 'admin') throw new Error('Insufficient permissions.')
 
-  const [envConfig] = await db.select().from(serviceConfigs)
+  const [envConfigRow] = await db.select({ config: serviceConfigs }).from(serviceConfigs)
+    .innerJoin(environments, and(eq(environments.id, serviceConfigs.environmentId), eq(environments.projectId, access.service.projectId)))
     .where(and(eq(serviceConfigs.serviceId, serviceId), eq(serviceConfigs.environmentId, environmentId)))
     .limit(1)
-  if (!envConfig) throw new Error('Configuration not found.')
+  if (!envConfigRow) throw new Error('Configuration not found.')
+  const envConfig = envConfigRow.config
 
   const desired = parseServiceConfigInput(formData, await getTrellisJobLimits(access.org.id))
   await validateVariablesForEnvironment(access.project.id, environmentId, desired.envVars, desired.secretBindings)
@@ -148,10 +150,12 @@ export async function resetServiceConfigOverridesAction(serviceId: string, envir
   const base = await getBaseServiceConfig(serviceId)
   if (!base) throw new Error('No base configuration to reset to.')
 
-  const [envConfig] = await db.select().from(serviceConfigs)
+  const [envConfigRow] = await db.select({ config: serviceConfigs }).from(serviceConfigs)
+    .innerJoin(environments, and(eq(environments.id, serviceConfigs.environmentId), eq(environments.projectId, access.service.projectId)))
     .where(and(eq(serviceConfigs.serviceId, serviceId), eq(serviceConfigs.environmentId, environmentId)))
     .limit(1)
-  if (!envConfig) throw new Error('Configuration not found.')
+  if (!envConfigRow) throw new Error('Configuration not found.')
+  const envConfig = envConfigRow.config
 
   const preservedOverrides = preserveAdvancedOverrides(envConfig.overrides)
   await validateVariablesForEnvironment(
