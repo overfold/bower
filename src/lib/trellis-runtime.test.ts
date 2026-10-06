@@ -78,7 +78,24 @@ test('read errors retain useful status categories without leaking upstream detai
   assert.doesNotMatch(trellisReadError(new Error('https://user:secret@example')), /secret|example/)
 })
 
-test('write errors give the status without leaking upstream details', () => {
-  assert.equal(trellisWriteError(new TrellisApiError(401, 'Unauthorized', 'sensitive body')), 'Trellis denied this request. Check the cluster credentials.')
-  assert.equal(trellisWriteError(new TrellisApiError(422, 'Invalid', '{"error":"sensitive body"}')), 'Trellis rejected the request (422).')
+test('write errors name credentials problems generically and explain client errors with Trellis’s own short reason', () => {
+  assert.equal(trellisWriteError(new TrellisApiError(401, 'Unauthorized', '{"error":"bad token"}')), 'Trellis denied this request. Check the cluster credentials.')
+  assert.equal(trellisWriteError(new TrellisApiError(405, 'Method Not Allowed', '{"error":"job is not restartable while a deployment is in progress"}')), 'Trellis rejected the request (405): job is not restartable while a deployment is in progress')
+  assert.equal(trellisWriteError(new TrellisApiError(422, 'Invalid', '{"error":"memory   must be\\nat least 64 MiB"}')), 'Trellis rejected the request (422): memory must be at least 64 MiB')
+})
+
+test('write errors never show arbitrary bodies, server errors, secrets, addresses, or unbounded text', () => {
+  const hidden = (status: number, body: string) => assert.equal(trellisWriteError(new TrellisApiError(status, 'x', body)), `Trellis rejected the request (${status}).`)
+  hidden(422, 'sensitive plain-text body')
+  hidden(422, '{"detail":"no error field"}')
+  hidden(500, '{"error":"database exploded"}')
+  hidden(409, '{"error":"failed calling https://trellis.internal:8443/v1/jobs"}')
+  hidden(409, '{"error":"cannot reach 10.0.4.17"}')
+  hidden(400, '{"error":"Authorization: Bearer abcdef"}')
+  hidden(400, '{"error":"token=abc123"}')
+  hidden(400, '{"error":"image pull secret AKIAIOSFODNN7EXAMPLEAKIAIOSFODNN7EXAMPLE rejected"}')
+  hidden(400, '{"error":42}')
+  const long = trellisWriteError(new TrellisApiError(400, 'Bad', JSON.stringify({ error: `${'word '.repeat(100)}` })))
+  assert.ok(long.length <= 'Trellis rejected the request (400): '.length + 200, long)
+  assert.match(long, /…$/)
 })

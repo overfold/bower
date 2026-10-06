@@ -27,10 +27,10 @@ export function DeploymentDiagnosticActions({ serviceId, serviceName, environmen
     startTransition(async () => {
       try {
         const { error } = await deployServiceAction(serviceId, environmentId)
-        if (error) toast({ tone: 'danger', title: 'Could not redeploy', description: error })
+        if (error) toast({ tone: 'danger', title: 'Redeploy failed', description: error })
         else toast({ tone: 'success', title: 'Redeployment started' })
       } catch (reason) {
-        toast({ tone: 'danger', title: 'Could not redeploy', description: actionErrorMessage(reason, 'The deployment could not be started.') })
+        toast({ tone: 'danger', title: 'Redeploy failed', description: actionErrorMessage(reason, 'The deployment could not be started.') })
       }
     })
   }
@@ -38,13 +38,13 @@ export function DeploymentDiagnosticActions({ serviceId, serviceName, environmen
   return <div className="flex flex-wrap gap-2">
     {rollbackTarget ? <AlertDialog><AlertDialogTrigger asChild><Button variant={primaryRecovery ? 'primary' : 'default'} size="sm" disabled={pending}><RotateCcw />{primaryRecovery ? `Roll back to ${rollbackImage}` : 'Roll back…'}</Button></AlertDialogTrigger>
       <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Roll back {serviceName}?</AlertDialogTitle><AlertDialogDescription>{runningImage ? <>Running <span className="font-mono">{deploymentImageTag(runningImage)}</span>. </> : null}This replaces the current workload with the selected successful release.</AlertDialogDescription></AlertDialogHeader>
-        <DialogBody className="space-y-4"><div className="space-y-2"><label className="text-sm font-medium text-ink" htmlFor="deployment-rollback-release">Release</label><Select value={selected} onValueChange={setSelected}><SelectTrigger id="deployment-rollback-release" aria-label="Rollback release" className="font-mono"><SelectValue /></SelectTrigger><SelectContent>{rollbackTargets.map((target) => <SelectItem key={target.id} value={target.id}><span className="font-mono">{deploymentImageTag(target.image)}</span><span className="ml-2 font-sans text-xs text-ink-muted"><Time value={target.createdAt} /></span></SelectItem>)}</SelectContent></Select></div><ConfigDiffPreview changes={rollbackTarget.changes} afterLabel="Selected release" /></DialogBody>
+        <DialogBody className="px-0 py-0 sm:px-0"><div className="space-y-2 px-4 py-4 sm:px-5"><label className="text-sm font-medium text-ink" htmlFor="deployment-rollback-release">Release</label><Select value={selected} onValueChange={setSelected}><SelectTrigger id="deployment-rollback-release" aria-label="Rollback release" className="font-mono"><SelectValue /></SelectTrigger><SelectContent>{rollbackTargets.map((target) => <SelectItem key={target.id} value={target.id}><span className="font-mono">{deploymentImageTag(target.image)}</span><span className="ml-2 font-sans text-xs text-ink-muted"><Time value={target.createdAt} /></span></SelectItem>)}</SelectContent></Select></div><ConfigDiffPreview changes={rollbackTarget.changes} afterLabel="Selected release" flush /></DialogBody>
         <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction className={buttonVariants({ variant: 'primary' })} disabled={pending} onClick={() => startTransition(async () => {
           try {
             const { error } = await rollbackServiceAction(serviceId, environmentId, rollbackTarget.id)
-            if (error) toast({ tone: 'danger', title: 'Could not roll back', description: error })
+            if (error) toast({ tone: 'danger', title: 'Rollback failed', description: error })
             else toast({ tone: 'success', title: 'Rollback started' })
-          } catch (reason) { toast({ tone: 'danger', title: 'Could not roll back', description: actionErrorMessage(reason, 'The rollback could not be started.') }) }
+          } catch (reason) { toast({ tone: 'danger', title: 'Rollback failed', description: actionErrorMessage(reason, 'The rollback could not be started.') }) }
         })}>Roll back</AlertDialogAction></AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog> : null}

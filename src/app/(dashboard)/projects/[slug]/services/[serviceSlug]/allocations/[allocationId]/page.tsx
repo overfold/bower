@@ -16,17 +16,25 @@ import { AllocationStopButton } from './allocation-stop-button'
 import { AllocationLogs } from './allocation-logs'
 import type { TrellisAllocation } from '@/types/trellis'
 import { Time } from '@/components/time'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { TabsContent } from '@/components/ui/tabs'
+import { UrlTabs } from '@/components/url-tabs'
+import { InlineNotice } from '@/components/ui/feedback'
+import { DeploymentPoller } from '@/components/deployment-poller'
+import { allocationFields, allocationNotice, lifecycleEventTitle, lifecycleEventTone } from '@/lib/allocation-lifecycle'
 import { Timeline } from '@/components/timeline'
-import { statusLabel } from '@/lib/status'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+
+const allocationTabs = [{ value: 'logs', label: 'Logs' }, { value: 'details', label: 'Details' }, { value: 'lifecycle', label: 'Lifecycle' }]
 
 export default async function AllocationDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string; serviceSlug: string; allocationId: string }>
+  searchParams?: Promise<{ tab?: string }>
 }) {
   const { slug, serviceSlug, allocationId } = await params
+  const { tab } = (await searchParams) ?? {}
   const user = await getCurrentUser()
   if (!user) redirect('/login')
   const orgCtx = await getUserOrganization(user.id)
@@ -73,6 +81,7 @@ export default async function AllocationDetailPage({
     ?.tasks.map((task) => task.name) ?? []
   const logs = await Promise.allSettled(terminalTasks.map((task) => client.getAllocationLogs(allocationId, task, allocation.namespace)))
   const history = events.status === 'fulfilled' ? [...events.value].sort((a, b) => Date.parse(a.at) - Date.parse(b.at)) : []
+  const notice = allocationNotice(allocation)
   const stoppable = !['stopping', 'stopped', 'lost'].includes(allocation.phase)
   const groupSpec = allocationSpec?.task_groups.find((group) => group.name === allocation.group)
   const cpuLimit = groupSpec?.tasks.reduce((total, task) => total + (task.resources?.cpu ?? 0), 0) ?? 0
@@ -81,6 +90,7 @@ export default async function AllocationDetailPage({
 
   return (
     <div className="space-y-6">
+      <DeploymentPoller active={false} />
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <PageHeading
@@ -102,8 +112,9 @@ export default async function AllocationDetailPage({
         </div>
       </div>
 
-      <Tabs defaultValue="logs">
-      <TabsList aria-label="Allocation sections" className="w-full justify-start gap-1 rounded-none border-0 bg-transparent p-0"><TabsTrigger value="logs" className="rounded-none border-b-2 border-transparent px-3 py-2.5 data-[state=active]:border-brand-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none">Logs</TabsTrigger><TabsTrigger value="details" className="rounded-none border-b-2 border-transparent px-3 py-2.5 data-[state=active]:border-brand-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none">Details</TabsTrigger><TabsTrigger value="lifecycle" className="rounded-none border-b-2 border-transparent px-3 py-2.5 data-[state=active]:border-brand-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none">Lifecycle</TabsTrigger></TabsList>
+      {notice ? <InlineNotice tone={notice.tone}><p className="font-medium">{notice.title}</p><p className="mt-0.5 break-words">{notice.text}</p></InlineNotice> : null}
+
+      <UrlTabs tabs={allocationTabs} initial={tab ?? 'logs'} label="Allocation sections">
       <TabsContent value="details" forceMount className="space-y-4 data-[state=inactive]:hidden">
       <SectionTitle>Details</SectionTitle>
       <AllocationMetrics serviceId={service.id} allocationId={allocationId} cpuLimit={cpuLimit} memoryLimit={memoryLimit} initialMetrics={metrics.status === 'fulfilled' ? metrics.value : []} initialError={metrics.status === 'rejected' ? trellisReadError(metrics.reason) : null} />
@@ -116,8 +127,8 @@ export default async function AllocationDetailPage({
             <KeyValue label={explainedLabel('Job', 'The Trellis workload definition for this service.') as never} mono>{allocation.job}</KeyValue>
             <KeyValue label="Node" mono><NodeLink id={allocation.node_id} /></KeyValue>
             <KeyValue label="Revision">{allocation.job_revision}</KeyValue>
-            <KeyValue label={explainedLabel('Restarts', 'The Trellis allocation generation.') as never}>{allocation.generation}</KeyValue>
-            <KeyValue label={explainedLabel('Current try', 'The current Trellis allocation attempt.') as never}>{allocation.attempt}</KeyValue>
+            <KeyValue label={explainedLabel(allocationFields.generation.label, allocationFields.generation.hint) as never}>{allocation.generation}</KeyValue>
+            <KeyValue label={explainedLabel(allocationFields.attempt.label, allocationFields.attempt.hint) as never}>{allocation.attempt}</KeyValue>
             <KeyValue label="Created"><Time value={allocation.created_at} mode="absolute" /></KeyValue>
             <KeyValue label="Last transition"><Time value={allocation.last_transition_at} mode="absolute" /></KeyValue>
           </dl>
@@ -137,7 +148,7 @@ export default async function AllocationDetailPage({
           {events.status === 'rejected' ? <TrellisReadError title="Lifecycle events unavailable" message={trellisReadError(events.reason)} /> : history.length === 0 ? (
             <div className="p-5 text-sm text-ink-muted">No lifecycle events have been recorded.</div>
           ) : (
-            <Timeline items={history.map((event, index) => ({ id: `${event.at}-${event.phase}-${index}`, title: event.phase === 'placed' && allocation.node_id ? `Placed on ${allocation.node_id}` : ['failed', 'lost'].includes(event.phase) ? 'Failing' : statusLabel(event.phase) ?? event.phase.charAt(0).toUpperCase() + event.phase.slice(1), titleTooltip: event.reason || event.phase, description: event.message || 'Lifecycle transition', time: <Time value={event.at} mode="absolute" />, tone: index < history.length - 1 ? 'neutral' : ['failed', 'lost'].includes(event.phase) ? 'danger' : event.phase === 'running' ? 'success' : 'neutral' }))} />
+            <Timeline items={history.map((event, index) => ({ id: `${event.at}-${event.phase}-${index}`, title: lifecycleEventTitle(event, allocation.node_id), titleTooltip: event.reason || event.phase, description: event.message || 'Lifecycle transition', time: <Time value={event.at} mode="absolute" />, tone: lifecycleEventTone(event, index === history.length - 1) }))} />
           )}
         </Panel>
       </TabsContent>
@@ -145,7 +156,7 @@ export default async function AllocationDetailPage({
         <SectionTitle>Logs</SectionTitle>
         {logs.length ? <AllocationLogs serviceId={service.id} allocationId={allocationId} tasks={logs.map((result, index) => ({ name: terminalTasks[index], output: result.status === 'fulfilled' ? result.value : '', error: result.status === 'rejected' ? trellisReadError(result.reason) : null }))} /> : <Panel>{job.status === 'rejected' && versions.status === 'rejected' ? <TrellisReadError title="Task metadata unavailable" message={trellisReadError(job.reason)} /> : <div className="p-4 text-sm text-ink-muted">Task metadata is unavailable for this revision.</div>}</Panel>}
       </TabsContent>
-      </Tabs>
+      </UrlTabs>
     </div>
   )
 }

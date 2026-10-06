@@ -15,6 +15,7 @@ import { getProjectLiveServices } from '@/lib/service-health-query'
 import { formatReadyReplicas } from '@/lib/format'
 import { LastDeployFailed } from '@/components/last-deploy-failed'
 import { isUnsuccessfulDeployment } from '@/lib/status'
+import { DeploymentPoller } from '@/components/deployment-poller'
 import { getTrellisClient } from '@/lib/trellis-instance'
 import { ClickableTableRow } from '@/components/clickable-table-row'
 
@@ -40,6 +41,7 @@ export default async function ServicesPage({
 
   return (
     <div className="space-y-5">
+      <DeploymentPoller active={summaries.some(({ health }) => health === 'deploying')} />
       <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <SectionTitle>Services</SectionTitle>
       </div>

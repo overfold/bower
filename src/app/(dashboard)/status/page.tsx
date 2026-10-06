@@ -27,6 +27,7 @@ import { ResourceId } from '@/components/resource-id'
 import { ClickableTableRow } from '@/components/clickable-table-row'
 import { Time } from '@/components/time'
 import { RestartCountdown } from '@/components/restart-countdown'
+import { DeploymentPoller } from '@/components/deployment-poller'
 
 export default async function StatusPage() {
   const user = await getCurrentUser()
@@ -104,6 +105,7 @@ export default async function StatusPage() {
 
   return (
     <div className="space-y-6">
+      <DeploymentPoller active={false} />
       <PageHeading title="Status" description="Monitor cluster capacity, placement, restart cooldowns, and managed ingress." />
 
       <Panel aria-label="Cluster status summary">

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { deploymentImageTag, formatRatio, formatPercent, formatCpu, formatDate, formatDisplayToken, formatMemory, formatReadyReplicas, formatRelativeTime, formatTimestamp, timestampTitle } from './format'
+import { deploymentImageTag, formatRatio, formatPercent, formatCpu, formatDate, formatDisplayToken, formatMemory, formatReadyReplicas, formatRelativeTime, formatTimestamp, timestampTitle, formatCountdown, formatDeploymentDuration, formatLogTimestamp, triggerActor } from './format'
 
 const NOW = Date.parse('2026-01-02T00:00:00.000Z')
 
@@ -62,4 +62,27 @@ test('timestamps follow viewer timezone across midnight and include UTC in the t
   assert.match(formatTimestamp(value, 'Europe/Madrid'), /Oct 3, 2026, 01:30/)
   assert.match(timestampTitle(value, 'Europe/Madrid'), /Oct 2, 2026, 23:30 UTC/)
   assert.match(formatTimestamp('2026-01-02T23:30:00Z', 'Europe/Madrid'), /Jan 3, 2026, 00:30/)
+})
+
+test('countdowns tick down and never read as zero', () => {
+  assert.equal(formatCountdown(30), 'in 30s')
+  assert.equal(formatCountdown(0.2), 'in 1s')
+  assert.equal(formatCountdown(125), 'in 2m 05s')
+  assert.equal(formatCountdown(7260), 'in 2h 01m')
+})
+
+test('log timestamps render in the requested time zone and reject non-dates', () => {
+  assert.equal(formatLogTimestamp('2026-10-03T12:05:09Z', 'UTC'), 'Oct 3, 12:05:09')
+  assert.equal(formatLogTimestamp('2026-10-03T12:05:09Z', 'Asia/Tokyo'), 'Oct 3, 21:05:09')
+  assert.equal(formatLogTimestamp('not a date', 'UTC'), null)
+})
+
+test('unknown or zero-length durations show a dash and a manual deploy never says System', () => {
+  const start = new Date('2026-10-03T12:00:00Z')
+  assert.equal(formatDeploymentDuration(start, new Date(start)), '—')
+  assert.equal(formatDeploymentDuration(start, new Date('2026-10-03T12:01:30Z')), '1m 30s')
+  assert.equal(formatDeploymentDuration(start, null), '—')
+  assert.equal(triggerActor('manual', 'Ada'), 'Ada')
+  assert.equal(triggerActor('manual', null), 'Unknown user')
+  assert.equal(triggerActor('webhook', null), 'System')
 })

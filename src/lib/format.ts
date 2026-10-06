@@ -128,3 +128,11 @@ export function formatCountdown(seconds: number): string {
   if (total < 3600) return `in ${Math.floor(total / 60)}m ${String(total % 60).padStart(2, '0')}s`
   return `in ${Math.floor(total / 3600)}h ${String(Math.floor((total % 3600) / 60)).padStart(2, '0')}m`
 }
+
+const logTimestampOptions: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }
+
+/** A log line's timestamp in the given time zone (the viewer's by default), compact enough for a log gutter. */
+export function formatLogTimestamp(value: DateValue, timeZone?: string): string | null {
+  const date = validDate(value)
+  return date ? new Intl.DateTimeFormat('en-US', { ...logTimestampOptions, timeZone }).format(date) : null
+}

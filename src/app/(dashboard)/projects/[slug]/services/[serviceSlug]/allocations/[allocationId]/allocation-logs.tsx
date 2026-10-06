@@ -8,6 +8,7 @@ import { InlineNotice, useFeedback } from '@/components/ui/feedback'
 import { Panel, PanelHeader } from '@/components/ui/panel'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { formatLogTimestamp, timestampTitle } from '@/lib/format'
 
 export function AllocationLogs({ serviceId, allocationId, tasks }: { serviceId: string; allocationId: string; tasks: { name: string; output: string; error: string | null }[] }) {
   const [task, setTask] = useState(tasks[0]?.name ?? '')
@@ -18,6 +19,9 @@ export function AllocationLogs({ serviceId, allocationId, tasks }: { serviceId: 
   const [wrap, setWrap] = useState(false)
   const [query, setQuery] = useState('')
   const container = useRef<HTMLPreElement>(null)
+  // Server render and first paint use UTC; the viewer's own time zone applies after mount, as in Time.
+  const [localTime, setLocalTime] = useState(false)
+  useEffect(() => { const frame = requestAnimationFrame(() => setLocalTime(true)); return () => cancelAnimationFrame(frame) }, [])
   const { toast } = useFeedback()
 
   useEffect(() => {
@@ -39,6 +43,8 @@ export function AllocationLogs({ serviceId, allocationId, tasks }: { serviceId: 
 
   const lines = output.split('\n').filter((line) => !query || line.toLowerCase().includes(query.toLowerCase()))
   const needle = query.toLowerCase()
+  // Copy and Download use exactly what the filter shows, with the raw (UTC) timestamps intact.
+  const exported = query ? lines.join('\n') : output
   const matches = needle ? lines.reduce((count, line) => count + line.toLowerCase().split(needle).length - 1, 0) : 0
   function highlight(text: string) {
     if (!needle) return text
@@ -65,19 +71,19 @@ export function AllocationLogs({ serviceId, allocationId, tasks }: { serviceId: 
       <SearchInput aria-label="Search logs" value={query} onChange={(event) => setQuery(event.target.value)} />
       {query ? <span role="status" className="text-xs text-ink-muted">{matches} {matches === 1 ? 'match' : 'matches'}</span> : null}
       <Button size="sm" onClick={async () => {
-        try { await navigator.clipboard.writeText(output); toast({ tone: 'success', title: 'Logs copied' }) }
+        try { await navigator.clipboard.writeText(exported); toast({ tone: 'success', title: query ? 'Matching lines copied' : 'Logs copied' }) }
         catch { toast({ tone: 'danger', title: 'Could not copy logs' }) }
-      }}>Copy</Button>
+      }}>{query ? 'Copy matching lines' : 'Copy'}</Button>
       <Button size="sm" onClick={() => {
-        const url = URL.createObjectURL(new Blob([output], { type: 'text/plain' }))
-        const link = document.createElement('a'); link.href = url; link.download = `${task}-logs.txt`; link.click(); URL.revokeObjectURL(url)
-      }}>Download</Button>
+        const url = URL.createObjectURL(new Blob([exported], { type: 'text/plain' }))
+        const link = document.createElement('a'); link.href = url; link.download = `${task}-${query ? 'matching-' : ''}logs.txt`; link.click(); URL.revokeObjectURL(url)
+      }}>{query ? 'Download matching lines' : 'Download'}</Button>
     </div>
     {error ? <InlineNotice tone="danger" className="m-3">{error}</InlineNotice> : null}
     <pre ref={container} className={`h-[calc(100dvh-12rem)] min-h-64 overflow-auto p-4 font-mono text-xs leading-relaxed text-ink-soft ${wrap ? 'whitespace-pre-wrap break-all' : ''}`}>{output ? lines.length ? lines.map((line, index) => {
       const timestamp = line.match(/^(\d{4}-\d{2}-\d{2}T\S+)\s+(.*)$/)
       const level = /\bERROR\b/i.test(line) ? 'text-danger-500' : /\bWARN(?:ING)?\b/i.test(line) ? 'text-warn-500' : ''
-      return <span key={index} className={`block ${level}`}>{timestamp ? <><span className="text-ink-muted">{highlight(timestamp[1])} </span>{highlight(timestamp[2])}</> : highlight(line || '\u00a0')}</span>
+      return <span key={index} className={`block ${level}`}>{timestamp ? <><span className="text-ink-muted" title={timestampTitle(timestamp[1])}>{formatLogTimestamp(timestamp[1], localTime ? undefined : 'UTC') ?? highlight(timestamp[1])} </span>{highlight(timestamp[2])}</> : highlight(line || '\u00a0')}</span>
     }) : 'No matching log lines.' : 'No output'}</pre>
   </Panel>
 }

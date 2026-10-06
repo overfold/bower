@@ -15,6 +15,7 @@ import { StatusDot } from '@/components/status'
 import { Chip } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Rocket, Globe, Server, ChevronRight } from 'lucide-react'
+import { DeploymentPoller } from '@/components/deployment-poller'
 import { Time } from '@/components/time'
 import { withServiceHealth } from '@/lib/deployment-rows'
 import { tlsLabels } from '@/lib/labels'
@@ -73,6 +74,7 @@ export default async function ProjectOverviewPage({
 
   return (
     <div className="space-y-5">
+      <DeploymentPoller active={deployments.some((row) => ['pending', 'planning', 'deploying', 'rolling_back'].includes(row.deployment.status))} />
       <SectionTitle>Overview</SectionTitle>
       {settingUp ? <Panel>
         <PanelHeader title="Set up this project" />

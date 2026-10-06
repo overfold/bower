@@ -8,15 +8,23 @@ export type ServiceConfigDiff = {
   label: string
   before: ServiceConfigValue
   after: ServiceConfigValue
+  /** Set to false when that side's value is absent from the stored spec: "not recorded", which is not the same as "none". */
+  beforeRecorded?: false
+  afterRecorded?: false
 } | {
   kind: 'environment'
   key: string
   label: 'Environment'
   variable: string
   change: 'Added' | 'Changed' | 'Removed'
-  before: { present: boolean; masked: true }
-  after: { present: boolean; masked: true }
+  before: EnvironmentSide
+  after: EnvironmentSide
 }
+/** Plain variables carry their value; values bound from secrets are only ever marked masked. */
+export type EnvironmentSide = { present: boolean; masked: boolean; value?: string }
+
+/** Resources and health checks that Trellis omits from a spec rather than recording as empty. */
+const RECORDED_KEYS = new Set(['cpu', 'memory', 'health'])
 
 const sorted = (value: unknown): unknown => Array.isArray(value)
   ? value.map(sorted)
@@ -61,7 +69,7 @@ export function diffServiceConfig(saved: MergedServiceConfig | null, running: un
   return diffFields(rows, task.env, task.secrets, saved.envVars, saved.secretBindings)
 }
 
-/** Compare the exact stored release to the running workload, without exposing environment values. */
+/** Compare the exact stored release to the running workload. Plain environment values are shown; secret-bound ones never are. */
 export function diffJobSpecs(selected: unknown, running: unknown): ServiceConfigDiff[] {
   const before = (running as TrellisJobSpec | null)?.task_groups?.[0]
   const after = (selected as TrellisJobSpec | null)?.task_groups?.[0]
@@ -74,7 +82,7 @@ export function diffJobSpecs(selected: unknown, running: unknown): ServiceConfig
     ['cpu', 'CPU', oldTask.resources?.cpu, newTask.resources?.cpu],
     ['memory', 'Memory', oldTask.resources?.memory, newTask.resources?.memory],
     ['strategy', 'Strategy', before.update, after.update],
-    ['health', 'Health check', healthConfig(oldTask.health_check?.type, oldTask.health_check ?? {}), healthConfig(newTask.health_check?.type, newTask.health_check ?? {})],
+    ['health', 'Health check', oldTask.health_check ? healthConfig(oldTask.health_check.type, oldTask.health_check) : undefined, newTask.health_check ? healthConfig(newTask.health_check.type, newTask.health_check) : undefined],
     ['secrets', 'Secret bindings', bindings(oldTask.secrets), bindings(newTask.secrets)],
     ['volumes', 'Mounts', oldTask.volumes, newTask.volumes],
     ['networking', 'Networking', oldTask.networking, newTask.networking],
@@ -85,8 +93,18 @@ export function diffJobSpecs(selected: unknown, running: unknown): ServiceConfig
   ], oldTask.env, oldTask.secrets, newTask.env, newTask.secrets)
 }
 
+function environmentSide(present: boolean, secret: boolean, value: unknown): EnvironmentSide {
+  if (!present) return { present, masked: false }
+  if (secret || value === undefined || value === null) return { present, masked: true }
+  return { present, masked: false, value: String(value) }
+}
+
 function diffFields(rows: Array<[string, string, unknown, unknown]>, runningEnv: unknown, runningSecrets: unknown, savedEnv: unknown, savedSecrets: unknown): ServiceConfigDiff[] {
-  const result: ServiceConfigDiff[] = rows.filter(([, , before, after]) => !equal(before, after)).map(([key, label, before, after]) => ({ kind: 'config', key, label, before: sorted(before ?? null) as ServiceConfigValue, after: sorted(after ?? null) as ServiceConfigValue }))
+  const result: ServiceConfigDiff[] = rows.filter(([, , before, after]) => !equal(before, after)).map(([key, label, before, after]) => ({
+    kind: 'config', key, label, before: sorted(before ?? null) as ServiceConfigValue, after: sorted(after ?? null) as ServiceConfigValue,
+    ...(RECORDED_KEYS.has(key) && before === undefined ? { beforeRecorded: false as const } : {}),
+    ...(RECORDED_KEYS.has(key) && after === undefined ? { afterRecorded: false as const } : {}),
+  }))
   const runningKeys = environmentKeys(runningEnv, runningSecrets)
   const savedKeys = environmentKeys(savedEnv, savedSecrets)
   for (const key of [...new Set([...runningKeys, ...savedKeys])].sort()) {
@@ -99,7 +117,7 @@ function diffFields(rows: Array<[string, string, unknown, unknown]>, runningEnv:
     if (beforePresent !== afterPresent || !equal(runningValue, savedValue) || hasRunningSecret !== hasSavedSecret) result.push({
       kind: 'environment', key: `env.${key}`, label: 'Environment', variable: key,
       change: !beforePresent ? 'Added' : !afterPresent ? 'Removed' : 'Changed',
-      before: { present: beforePresent, masked: true }, after: { present: afterPresent, masked: true },
+      before: environmentSide(beforePresent, hasRunningSecret, runningValue), after: environmentSide(afterPresent, hasSavedSecret, savedValue),
     })
   }
   return result

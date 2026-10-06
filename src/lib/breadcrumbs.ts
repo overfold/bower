@@ -31,6 +31,8 @@ export function deriveBreadcrumbs(pathname: string, data: BreadcrumbData): { lab
   return segments.flatMap((segment, index) => {
     // Structural route segments do not have index pages in detail breadcrumbs.
     if (segments[0] === 'projects' && ((segments.length > 3 && index === 2 && segment === 'services') || (index === 4 && segment === 'allocations'))) return []
+    // /status/allocations has no index page (it would be read as a node id), so the segment is not a crumb.
+    if (segments[0] === 'status' && index === 1 && segment === 'allocations' && segments.length > 2) return []
     const label = segments[0] === 'projects' && index === 1 ? data.projects.find((project) => project.slug === segment)?.name ?? decodeURIComponent(segment)
       : segments[0] === 'projects' && segments[2] === 'services' && index === 3 ? data.services.find((service) => service.projectSlug === segments[1] && service.slug === segment)?.name ?? 'Service'
       : segments[index - 1] === 'deployments' ? data.deploymentLabels[segment] ?? 'Deployment'
