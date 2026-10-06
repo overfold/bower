@@ -71,7 +71,7 @@ const AlertDialogContent = React.forwardRef<
           >
             <motion.div
               className={cn(
-                'fixed left-1/2 top-1/2 z-50 grid gap-4 max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-line bg-surface shadow-pop',
+                'fixed left-1/2 top-1/2 z-50 grid gap-4 has-[[data-slot=dialog-body]]:gap-0 max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-line bg-surface shadow-pop',
                 { sm: 'max-w-md', md: 'max-w-xl', lg: 'max-w-2xl' }[size],
                 className,
               )}

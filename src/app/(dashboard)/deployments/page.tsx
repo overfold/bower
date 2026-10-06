@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
-import { getUserOrganization, getDeploymentsForOrg, getProjectsForUser } from '@/lib/queries'
+import { getUserOrganization, getDeploymentsForOrg, getProjectsForUser, withFailureMessages } from '@/lib/queries'
 import { PageHeading } from '@/components/page-heading'
 import { DeploymentFilters } from './deployment-filters'
 
@@ -16,7 +16,7 @@ export default async function DeploymentsPage() {
     getProjectsForUser(orgCtx.org.id, user.id, orgCtx.role),
   ])
   const visibleProjectSlugs = new Set(projects.map((project) => project.slug))
-  const visibleDeployments = allDeployments.filter((deployment) => visibleProjectSlugs.has(deployment.projectSlug))
+  const visibleDeployments = await withFailureMessages(allDeployments.filter((deployment) => visibleProjectSlugs.has(deployment.projectSlug)))
 
   const items = visibleDeployments.map((d) => ({
     deployment: {
@@ -35,6 +35,7 @@ export default async function DeploymentsPage() {
     projectName: d.projectName,
     projectSlug: d.projectSlug,
     userName: d.userName,
+    failureMessage: d.failureMessage,
   }))
 
   const projectNames = [...new Set(items.map((d) => d.projectName))].sort()

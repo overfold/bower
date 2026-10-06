@@ -10,8 +10,8 @@ Status is the most important information in Bower. It also drifted the most acro
 | --- | --- | --- |
 | `success` (green) | Working as intended | Healthy, Succeeded, Running, Active, Verified, Applied |
 | `danger` (red) | Broken, needs a fix | Failing, Failed, Unhealthy, Lost, Error, Stale heartbeat |
-| `warn` (amber) | Someone should look | Draining, Restart pending, Undeployed changes, Last deploy failed (marker) |
-| `info` (purple) | **Rolled back** only | Rolled back |
+| `warn` (amber) | Someone should look | Draining, Restart pending, Rolled back (the rollout failed and Bower restored the previous release), Undeployed changes, Last deploy failed (marker) |
+| `info` (purple) | Neutral information in notices | Informational notices only; no status uses it |
 | `neutral` + spinner | Happening now | Deploying, In progress, Pending, Starting, Placed |
 | `neutral` | Settled, not a problem | Stopped, Completed, Drained, Not deployed, Unknown, Superseded |
 
@@ -53,7 +53,7 @@ Rendered with `DeploymentStatus`.
 | Succeeded | `healthy`, `succeeded`. Never "Healthy" (A2-B3, A3-S02) |
 | Failed | `failed` |
 | In progress | `pending`, `planning`, `deploying`, `rolling_back` (spinner) |
-| Rolled back | `rolled_back` (`info`) |
+| Rolled back | `rolled_back` (`warn`). An automatic rollback means the rollout failed, so it notifies like a failure |
 
 A deployment that a later one replaced shows a **neutral "Superseded by …" notice** on its page (A5-C3).
 
@@ -66,7 +66,9 @@ One chip: **health while running, otherwise the phase** (A2-B6, `allocationStatu
 | Healthy / Unhealthy | Running, with health known |
 | Running | Running, health unknown |
 | Pending, Placed, Starting | Being scheduled or started (spinner) |
-| Failing | Failed, lost, or dead: the process exited. The same word as for a service (A4-Q09) |
+| Failed | Failed or dead: the allocation is terminal (`danger`) |
+| Lost | The node stopped reporting the allocation (`danger`). Kept distinct from Failed |
+| Failing | Service level only (`degraded`, `down`, `failing`): fewer replicas serve than desired. Never an allocation phase |
 | Stopped | Stopped on purpose (not a failure) |
 | Completed | A batch run that finished |
 
@@ -116,14 +118,15 @@ The cluster summary must reflect drains and failures, not just connectivity (A1 
 
 `src/components/needs-attention.tsx`, with rules in `src/lib/needs-attention.ts`. It appears on Home and, scoped to the project, on the project Overview (A4-Q06).
 
-- **Table columns:** Status · What · Cause · Time · (action). Hidden entirely when there are no rows (A3-L02).
-- **One row per symptom** (A4-Q02). **What** is the service's display name, with the specific ID (allocation, job, node) beneath in small mono (A4-Q03).
+- **Table columns:** Status · What · Cause · Since · (action). Hidden entirely when there are no rows (A3-L02). "Since" is when the problem began (the earliest failure signal), not the latest transition.
+- **One row per service, one cause, one time, one action.** **What** is the service's display name, with the allocation ID beneath in small mono (A4-Q03). A live failure takes precedence over the latest deployment outcome. The cause is the most specific one (restart backoff, then the allocation message, then the placement reason). Rows sort by severity: failing services, failed deployments, automatic rollbacks, draining nodes.
 - **What qualifies:**
-  - a failed deployment, **only if it is the service's newest** (A4-Q01)
-  - failing allocations of the current version
+  - a failed or automatically rolled-back deployment, **only if it is the service's newest** (A4-Q01), using the failure event's message
+  - failing, lost, or unhealthy allocations of the current version
+  - allocations stuck pending (a placement-failure reason from Trellis, or pending past one minute)
   - services with a restart pending
   - nodes that are draining **and still have allocations**
-- **One action per row**, as a small default button: View diagnostics, View logs, Review restart, View progress.
+- **One action per row**, as a small default button: View logs (View allocation when nothing has run, Open service when no allocation is known), View diagnostics, View progress.
 - When cluster data can't be read, say so ("Couldn't check the cluster"). Never "All clear" (A2-M1).
 
 ## Counts must agree

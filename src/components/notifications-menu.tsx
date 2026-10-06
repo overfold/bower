@@ -3,13 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Bell, Rocket } from 'lucide-react'
-import { DeploymentStatus } from '@/components/status'
+import { DeploymentStatus, StatusDot } from '@/components/status'
 import { Time } from '@/components/time'
 import { IconButton } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { EmptyState } from '@/components/ui/empty-state'
 import { markNotificationsSeenAction } from '@/lib/actions/notifications'
-import { notificationsButtonLabel, seenThrough, unreadBadgeText, type NotificationFeed } from '@/lib/notification-feed'
+import { notificationHref, notificationsButtonLabel, seenThrough, unreadBadgeText, type NotificationFeed } from '@/lib/notification-feed'
 import { cn } from '@/lib/utils'
 
 const REFRESH_INTERVAL_MS = 60_000
@@ -121,8 +121,8 @@ export function NotificationsMenu({ initial }: { initial: NotificationFeed | nul
         {feed && feed.items.length > 0 ? (
           <div className="max-h-[min(26rem,65vh)] overflow-y-auto p-1.5">
             {feed.items.map((item) => (
-              <DropdownMenuItem key={item.id} asChild className="items-start gap-2.5 px-2 py-2">
-                <Link href={`/projects/${item.projectSlug}/deployments/${item.id}`}>
+              <DropdownMenuItem key={`${item.kind}-${item.id}`} asChild className="items-start gap-2.5 px-2 py-2">
+                <Link href={notificationHref(item)}>
                   <span aria-hidden className={cn('mt-1.5 size-1.5 shrink-0 rounded-full', item.unread ? 'bg-brand-500' : 'bg-transparent')} />
                   <span className="min-w-0 flex-1">
                     <span className="flex items-baseline gap-2">
@@ -133,10 +133,13 @@ export function NotificationsMenu({ initial }: { initial: NotificationFeed | nul
                     <span className="mt-0.5 block truncate text-xs text-ink-muted" title={`${item.projectName} · ${item.environmentName}`}>
                       {item.projectName} · {item.environmentName}
                     </span>
-                    <span className="mt-1.5 flex items-center gap-2">
+                    {item.kind === 'service' ? <>
+                      <span className="mt-1.5 flex items-center gap-2"><StatusDot status={item.status} /></span>
+                      <span className="mt-1 block line-clamp-2 break-words text-xs text-ink-muted" title={item.cause}>{item.cause}</span>
+                    </> : <span className="mt-1.5 flex items-center gap-2">
                       <DeploymentStatus status={item.status} />
                       {item.triggeredByMe ? <span className="text-xs text-ink-muted">Your deploy</span> : null}
-                    </span>
+                    </span>}
                   </span>
                 </Link>
               </DropdownMenuItem>
@@ -153,8 +156,8 @@ export function NotificationsMenu({ initial }: { initial: NotificationFeed | nul
         ) : (
           <EmptyState
             icon={<Rocket className="size-4" />}
-            title="No deployment activity yet"
-            body="Failed deployments in your projects, and the results of deployments you start, appear here."
+            title="No activity yet"
+            body="Failures in your projects and the results of your deploys appear here."
           />
         )}
         <DropdownMenuSeparator className="mx-0 my-0" />

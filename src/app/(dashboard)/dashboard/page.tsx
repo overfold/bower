@@ -7,6 +7,8 @@ import {
   getServicesForOrg,
   getAuditLog,
   getOperationalTargetsForOrg,
+  getDeploymentFailureMessages,
+  withFailureMessages,
 } from '@/lib/queries'
 import { getTrellisClient } from '@/lib/trellis-instance'
 import { trellisReadError } from '@/lib/trellis-runtime'
@@ -31,11 +33,11 @@ import {
   Key,
 } from 'lucide-react'
 import type { TrellisAllocation, TrellisNode, TrellisJob } from '@/types/trellis'
-import { formatRelativeTime } from '@/lib/format'
+import { formatRelativeTime, triggerActor } from '@/lib/format'
 import { currentJobAllocations } from '@/lib/service-health'
 import { auditActionSentence, auditResourceName, auditActorDisplay, isHomeAuditEvent } from '@/lib/labels'
 import { NeedsAttention } from '@/components/needs-attention'
-import { needsAttentionRows } from '@/lib/needs-attention'
+import { latestFailedDeployments, needsAttentionRows } from '@/lib/needs-attention'
 
 const triggerMeta: Record<string, { icon: React.ComponentType<{ className?: string }>; label: string }> = {
   manual: { icon: UserIcon, label: 'Manual' },
@@ -121,8 +123,12 @@ export default async function DashboardPage() {
   const isDrained = (node: TrellisNode) => !allocationsError && node.status === 'draining' && !allocations.some((allocation) => allocation.node_id === node.id && !['stopped', 'failed', 'lost', 'completed', 'dead'].includes(allocation.phase))
   const drainingNodes = nodes.filter((node) => node.status === 'draining' && !isDrained(node)).length
   const drainedNodes = nodes.filter(isDrained).length
-  const attentionRows = needsAttentionRows({ deployments: visibleDeployments, allocations: currentAllocations, jobs, targets: visibleTargets, nodes, now: requestTime })
-  if (clusterError || allocationsError || jobsError) attentionRows.unshift({ id: 'cluster-error', status: 'unknown', serviceName: 'Cluster health', cause: 'Couldn’t check the cluster', href: '/status', action: 'Open status' })
+  const failureMessages = await getDeploymentFailureMessages(latestFailedDeployments(visibleDeployments, requestTime).map((row) => row.deployment.id))
+  const attentionRows = needsAttentionRows({ deployments: visibleDeployments.map((row) => ({ ...row, failureMessage: failureMessages.get(row.deployment.id) })), allocations: currentAllocations, jobs, targets: visibleTargets, nodes, now: requestTime })
+  if (clusterError || allocationsError || jobsError) attentionRows.unshift({ id: 'cluster-error', status: 'unknown', serviceName: 'Cluster health', cause: 'Couldn’t check the cluster', href: '/status', action: 'Open status', severity: -1 })
+  const recentRows = await withFailureMessages(recentDeployments)
+  // One notice per distinct cause, so a cluster outage reads as one problem, not three bare headings.
+  const unavailable = [...new Set([clusterError, allocationsError, metricsError].filter((message): message is string => Boolean(message)))].map((message) => ({ message, title: 'Cluster data unavailable' }))
   const resourceNames = new Map<string, string>(projectList.map((project) => [project.id, project.name]))
   for (const { service } of visibleServices) resourceNames.set(service.id, service.name)
   for (const row of visibleDeployments) resourceNames.set(row.deployment.id, row.serviceName)
@@ -152,10 +158,8 @@ export default async function DashboardPage() {
           status: row.deployment.status,
         }))}
       />
-      {(clusterError || allocationsError || metricsError) && <Panel>
-        {clusterError && <TrellisReadError title="Nodes unavailable" message={clusterError} />}
-        {allocationsError && <TrellisReadError title="Allocations unavailable" message={allocationsError} />}
-        {metricsError && <TrellisReadError title="Capacity data unavailable" message={metricsError} />}
+      {unavailable.length > 0 && <Panel>
+        {unavailable.map(({ title, message }) => <TrellisReadError key={message} title={title} message={message} />)}
       </Panel>}
 
       {/* Active deployments alert */}
@@ -186,7 +190,7 @@ export default async function DashboardPage() {
                   </span>
                   <span className="flex items-center gap-1.5 text-sm text-ink-muted">
                     <TriggerIcon className="h-3.5 w-3.5" />
-                    {meta.label} by {row.userName ?? 'System'}
+                    {meta.label} by {triggerActor(row.deployment.triggerType, row.userName)}
                   </span>
                   <span className="ml-auto text-sm text-ink-muted">
                     started {formatRelativeTime(row.deployment.createdAt)}
@@ -214,7 +218,7 @@ export default async function DashboardPage() {
                 body="Deploy a service to see deployment history here."
               />
             ) : (
-              <DeploymentsTable rows={recentDeployments} preset="home" />
+              <DeploymentsTable rows={recentRows} preset="home" />
             )}
             <PanelFooter shown={recentDeployments.length} total={visibleDeployments.length} href="/deployments">View all deployments</PanelFooter>
           </Panel>

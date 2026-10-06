@@ -12,6 +12,10 @@ import { PageHeading } from '../components/page-heading'
 import { PanelFooter } from '../components/ui/panel'
 import { createToastStore, InlineNotice, PageBanner, PageBannerView, ToastViewport, TOAST_DURATION_MS, TOAST_EXIT_MS, TOAST_LIMIT, useFeedback, type ToastEntry } from '../components/ui/feedback'
 import { statusDefinition } from './status'
+import { NeedsAttention } from '../components/needs-attention'
+import { ServiceFailureNotice } from '../components/service-failure-notice'
+import { LastDeployFailed } from '../components/last-deploy-failed'
+import { ConfigDiffPreview } from '../components/config-diff-preview'
 
 test('shared status vocabulary keeps product labels, tones, and progress semantics together', () => {
   for (const [status, label, tone, inProgress = false] of [
@@ -21,7 +25,8 @@ test('shared status vocabulary keeps product labels, tones, and progress semanti
     ['never', 'Not deployed', 'neutral'],
     ['succeeded', 'Succeeded', 'success'],
     ['failed', 'Failed', 'danger'],
-    ['rolled_back', 'Rolled back', 'info'],
+    ['rolled_back', 'Rolled back', 'warn'],
+    ['lost', 'Lost', 'danger'],
     ['draining', 'Draining', 'warn'],
     ['unhealthy', 'Unhealthy', 'danger'],
     ['backoff', 'Restart pending', 'warn'],
@@ -34,8 +39,10 @@ test('shared status vocabulary keeps product labels, tones, and progress semanti
 })
 
 test('allocation status distinguishes failures from intentional stops', () => {
-  assert.equal(allocationStatus('failed'), 'failing')
-  assert.equal(allocationStatus('lost'), 'failing')
+  assert.equal(allocationStatus('failed'), 'failed')
+  assert.equal(allocationStatus('dead'), 'failed')
+  assert.equal(allocationStatus('lost'), 'lost')
+  assert.equal(allocationStatus('running', 'unhealthy'), 'unhealthy')
   assert.equal(allocationStatus('stopped'), 'stopped')
   assert.equal(allocationStatus('completed'), 'completed')
 })
@@ -278,4 +285,65 @@ test('the notifications button names its unread count and caps the visible badge
   assert.match(many, /aria-label="Notifications, 12 unread"/)
   assert.match(many, />9\+<\/span>/)
   assert.match(many, /focus-visible:ring-2/)
+})
+
+test('deployment lists show unknown durations as a dash, never blame System for a manual deploy, and keep failure reasons out of the row', () => {
+  const base = { deployment: { id: 'dep', status: 'failed', triggerType: 'manual', imageAfter: 'app:v2', createdAt: new Date('2026-10-02T12:00:00Z'), startedAt: new Date('2026-10-02T12:00:00Z'), completedAt: new Date('2026-10-02T12:00:00Z') }, serviceName: 'Storefront', serviceSlug: 'storefront', projectName: 'Commerce', projectSlug: 'commerce' }
+  const html = renderToStaticMarkup(createElement(DeploymentsTable, { preset: 'project', rows: [{ ...base, userName: null, failureMessage: 'Image pull failed' }] }))
+  assert.match(html, />—<\/td>/)
+  assert.doesNotMatch(html, />0s</)
+  assert.match(html, /Unknown user/)
+  assert.doesNotMatch(html, />System</)
+  // The reason is reachable as a tooltip; it never makes history rows taller.
+  assert.match(html, /title="Image pull failed"/)
+  assert.doesNotMatch(html, /<p[^>]*>Image pull failed/)
+  const history = renderToStaticMarkup(createElement(DeploymentsTable, { preset: 'service-history', rows: [{ ...base, userName: 'Ada', revision: null }, { ...base, deployment: { ...base.deployment, id: 'dep-2' }, userName: 'Ada', revision: 4, version: 9 }] }))
+  assert.match(history, /Trellis never accepted this release/)
+  assert.match(history, /title="Trellis revision 4, job version 9"/)
+  assert.doesNotMatch(history, />v9</)
+})
+
+test('Needs attention shows one row per service with a since column and a single action', () => {
+  const html = renderToStaticMarkup(createElement(NeedsAttention, { rows: [{
+    id: 'service-worker', status: 'failing', serviceName: 'Order Worker', specificId: 'alloc-2', cause: 'Worker could not reach database',
+    since: '2026-10-02T11:00:00Z', href: '/projects/commerce/services/worker/allocations/alloc-2', action: 'View logs', severity: 0,
+  }, { id: 'deployment-dep', status: 'rolled_back', serviceName: 'Web', cause: 'Rolled back automatically: deadline elapsed', since: '2026-10-02T10:00:00Z', href: '/projects/commerce/deployments/dep', action: 'View diagnostics', severity: 2 }] }))
+  assert.match(html, />Since</)
+  assert.doesNotMatch(html, /Failing since|Last failure/)
+  assert.match(html, />View logs</)
+  assert.match(html, /Rolled back/)
+  assert.equal(html.match(/Order Worker/g)?.length, 1)
+  assert.equal(html.match(/<a /g)?.length, 2)
+})
+
+test('the failing service notice leads with the cause and keeps logs one click away', () => {
+  const html = renderToStaticMarkup(createElement(ServiceFailureNotice, { logsHref: '/logs', failure: { cause: 'Worker could not reach database', failures: 4, kind: 'restart_backoff', failingSince: '2026-10-02T11:00:00Z', nextAttemptAt: '2099-01-01T00:00:00Z' } }))
+  assert.match(html, /Restart pending/)
+  assert.match(html, /Worker could not reach database/)
+  assert.match(html, /href="\/logs"/)
+  assert.match(html, /role="alert"/)
+  assert.match(renderToStaticMarkup(createElement(ServiceFailureNotice, { failure: { cause: 'Awaiting placement: insufficient cpu', kind: 'unplaceable' }, logsHref: '/a' })), /View allocation/)
+})
+
+test('the last-deploy marker distinguishes a rollback from a failure', () => {
+  assert.match(renderToStaticMarkup(createElement(LastDeployFailed, { href: '/d', outcome: 'rolled_back' })), /Last deploy rolled back/)
+  assert.match(renderToStaticMarkup(createElement(LastDeployFailed, { href: '/d' })), /Last deploy failed/)
+})
+
+test('the config diff shows plain environment values, masks secrets, and marks unrecorded values', () => {
+  const html = renderToStaticMarkup(createElement(ConfigDiffPreview, { afterLabel: 'Selected release', changes: [
+    { kind: 'config', key: 'cpu', label: 'CPU', before: 500, after: null, afterRecorded: false },
+    { kind: 'config', key: 'health', label: 'Health check', before: null, after: null },
+    { kind: 'environment', key: 'env.PORT', label: 'Environment', variable: 'PORT', change: 'Changed', before: { present: true, masked: false, value: '8080' }, after: { present: true, masked: false, value: '9090' } },
+    { kind: 'environment', key: 'env.TOKEN', label: 'Environment', variable: 'TOKEN', change: 'Removed', before: { present: true, masked: true }, after: { present: false, masked: false } },
+  ] }))
+  assert.match(html, />8080</)
+  assert.match(html, />9090</)
+  assert.match(html, /••••••••/)
+  assert.match(html, /Not recorded/)
+  assert.match(html, />None</)
+  // The chip follows the variable name instead of sitting above it.
+  assert.ok(html.indexOf('>PORT<') < html.indexOf('>Changed<'))
+  // The table keeps its bordered, rounded frame inside the dialog body.
+  assert.match(html, /overflow-hidden rounded-md border border-line/)
 })

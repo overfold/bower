@@ -84,13 +84,14 @@ try {
     await sql`INSERT INTO organization_domains (org_id,domain,verification_token) VALUES (${org.id},'acme-staging.test','audit-staging')`;
     await sql`INSERT INTO project_volumes (project_id,environment_id,name,host_path) VALUES (${project.id},${environment.id},'uploads','@/commerce-uploads')`;
     await sql`INSERT INTO project_volumes (project_id,environment_id,name,host_path) VALUES (${project.id},${environment.id},'cache','@/commerce-cache')`;
-    let deploymentId, failedDeploymentId, rollbackDeploymentId;
+    let deploymentId, failedDeploymentId, rollbackDeploymentId, rolledBackDeploymentId;
     for (const [i, slug] of [
       "storefront",
       "checkout-api",
       "order-worker",
+      "search-indexer",
     ].entries()) {
-      const name = ["Storefront", "Checkout API", "Order Worker"][i];
+      const name = ["Storefront", "Checkout API", "Order Worker", "Search Indexer"][i];
       const [service] =
         await sql`INSERT INTO services (project_id,name,slug) VALUES (${project.id},${name},${slug}) RETURNING *`;
       const config = {
@@ -119,11 +120,12 @@ try {
       };
       await sql`INSERT INTO base_service_configs ${sql(config)}`;
       await sql`INSERT INTO service_configs ${sql({ ...config, project_id: project.id, environment_id: environment.id, active_job_name: slug })}`;
-      for (const [j, status] of [
+      // Search Indexer exists to show an unplaceable allocation, so it keeps a single release.
+      for (const [j, status] of (i === 3 ? ["healthy"] : [
         "healthy",
         "failed",
         "rolled_back",
-      ].entries()) {
+      ]).entries()) {
         const previous = {
           name: slug,
           namespace: "commerce-production",
@@ -135,24 +137,33 @@ try {
             },
           ],
         };
+        const startedAt = new Date(Date.now() - (j + 1) * 3600000);
+        const completedAt = new Date(startedAt.getTime() + 90000);
         const [deployment] =
-          await sql`INSERT INTO deployments ${sql({ service_id: service.id, environment_id: environment.id, image_before: `ghcr.io/acme/${slug}:v2.3.0`, image_after: config.image, strategy: config.deployment_strategy, status, trigger_type: j === 0 ? "webhook" : "manual", triggered_by_user_id: owner.id, trellis_job_name: slug, trellis_version: 3 - j, trellis_revision: 3 - j, job_spec: sql.json({ ...previous, task_groups: [{ ...previous.task_groups[0], tasks: [{ name: "app", image: config.image }] }] }), previous_job_spec: sql.json(previous), started_at: new Date(Date.now() - (j + 1) * 3600000), completed_at: new Date(Date.now() - (j + 1) * 3600000 + 90000), created_at: new Date(Date.now() - (j + 1) * 3600000) })} RETURNING *`;
-        for (const [type, message] of [
-          ["deployment.planned", "Deployment plan approved"],
-          [
-            status === "failed" ? "deployment.failed" : "deployment.completed",
-            status === "failed"
-              ? "Health check failed: /healthz returned 503"
-              : "All allocations passed health checks",
-          ],
-        ]) {
-          await sql`INSERT INTO deployment_events (deployment_id,type,message,details) VALUES (${deployment.id},${type},${message},${sql.json({ revision: 3 - j })})`;
-        }
+          await sql`INSERT INTO deployments ${sql({ service_id: service.id, environment_id: environment.id, image_before: `ghcr.io/acme/${slug}:v2.3.0`, image_after: config.image, strategy: config.deployment_strategy, status, trigger_type: j === 0 ? "webhook" : "manual", triggered_by_user_id: owner.id, trellis_job_name: slug, trellis_version: 3 - j, trellis_revision: 3 - j, job_spec: sql.json({ ...previous, task_groups: [{ ...previous.task_groups[0], tasks: [{ name: "app", image: config.image }] }] }), previous_job_spec: sql.json(previous), started_at: startedAt, completed_at: completedAt, created_at: startedAt })} RETURNING *`;
+        // Event types match what Bower records, and each falls inside the deployment's own window
+        // (started to completed). Failure events name the allocation involved.
+        const at = (seconds) => new Date(startedAt.getTime() + seconds * 1000);
+        const failingAllocation = { id: `${slug}-alloc-1`, phase: "failed", health: "unhealthy" };
+        const events = [
+          ["planning", "Generated Trellis JobSpec and requested a semantic plan.", 1, { revision: 3 - j }],
+          ...(status === "healthy"
+            ? [["healthy", "All allocations passed health checks", 90, { revision: 3 - j }]]
+            : status === "failed"
+              ? [["failed", "Health check failed: /healthz returned 503", 90, { allocations: [failingAllocation] }]]
+              : [
+                  ["scheduling_blocked", "Trellis could not schedule the new allocation.", 45, { allocations: [{ id: `${slug}-alloc-gone`, phase: "pending", reason: "insufficient_cpu", message: "No node has 500m CPU free" }] }],
+                  ["auto_rollback", "Deployment deadline elapsed; Trellis accepted the previous known-good JobSpec.", 90, { convergence: { active: [{ id: `${slug}-alloc-gone`, phase: "pending" }] } }],
+                ]),
+        ];
+        for (const [type, message, seconds, details] of events)
+          await sql`INSERT INTO deployment_events (deployment_id,type,message,details,created_at) VALUES (${deployment.id},${type},${message},${sql.json(details)},${at(seconds)})`;
         if (i === 0 && j === 0) deploymentId = deployment.id;
         if (i === 0 && j === 1) failedDeploymentId = deployment.id;
+        if (i === 0 && j === 2) rolledBackDeploymentId = deployment.id;
       }
       // More than one page of history, without altering the latest release.
-      for (let j = 0; j < 6; j++) {
+      for (let j = 0; j < (i === 3 ? 0 : 6); j++) {
         const retained = j === 1;
         const image = `ghcr.io/acme/${slug}:${retained ? 'v2.3.0' : `v2.2.${j}`}`;
         const [older] = await sql`INSERT INTO deployments ${sql({
@@ -198,6 +209,7 @@ try {
       memberId: admin.id,
       deploymentId,
       failedDeploymentId,
+      rolledBackDeploymentId,
       rollbackDeploymentId,
     };
   });

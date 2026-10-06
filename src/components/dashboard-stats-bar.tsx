@@ -180,7 +180,7 @@ export function DashboardStatsBar({
             <div className="flex shrink-0 items-center gap-3 pt-0.5 text-2xs text-ink-muted" aria-hidden="true">
               <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-ok-500" />Succeeded</span>
               <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-danger-500" />Failed</span>
-              <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-info-500" />Rolled back</span>
+              <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-warn-500" />Rolled back</span>
               {hasActiveDeployments ? <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-ink-faint" />In progress</span> : null}
             </div>
           </div>
@@ -204,7 +204,7 @@ export function DashboardStatsBar({
                   >
                     {day.healthy > 0 ? <span className="min-h-px bg-ok-500" style={{ flexGrow: day.healthy }} /> : null}
                     {day.failed > 0 ? <span className="min-h-px bg-danger-500" style={{ flexGrow: day.failed }} /> : null}
-                    {day.rolledBack > 0 ? <span className="min-h-px bg-info-500" style={{ flexGrow: day.rolledBack }} /> : null}
+                    {day.rolledBack > 0 ? <span className="min-h-px bg-warn-500" style={{ flexGrow: day.rolledBack }} /> : null}
                     {day.active > 0 ? <span className="min-h-px bg-ink-faint" style={{ flexGrow: day.active }} /> : null}
                   </div>
                 </div>

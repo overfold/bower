@@ -407,6 +407,7 @@ function pageDependencies(client: unknown) {
       getUserOrganization: async () => context, getProjectBySlug: async () => ({ id: 'project' }),
       getServiceBySlug: async () => ({ id: 'service', slug: 'web', name: 'Web' }), getProjectEnvironment: async () => environment,
       getServiceConfigsWithEnvironments: async () => [{ config: { id: 'config', activeJobName: 'web' }, environment }], getDeploymentsByService: async () => [],
+      withFailureMessages: async (rows: unknown[]) => rows,
     },
     '@/lib/actions/shared': { getProjectRole: async () => 'admin' },
     '@/lib/trellis-instance': { getTrellisClient: async () => client }, '@/components/trellis-read-error': readError,
@@ -471,6 +472,7 @@ test('version history keeps the deployment journal and omits the separate retain
       getProjectEnvironment: async () => environment,
       getServiceBySlug: async () => ({ id: 'service', slug: 'web', name: 'Web' }),
       getServiceConfigsWithEnvironments: async () => [{ config: { activeJobName: 'web' }, environment }],
+      withFailureMessages: async (rows: unknown[]) => rows,
       getDeploymentsByService: async () => [{ id: 'deployment', environmentId: 'env', trellisVersion: 12, trellisRevision: 7, trellisJobName: 'web', status: 'healthy', imageAfter: 'app:v2', triggerType: 'manual', createdAt: '2026-10-01T10:00:00Z' }],
     },
     '@/lib/actions/shared': { getProjectRole: async () => 'admin' },
@@ -483,7 +485,7 @@ test('version history keeps the deployment journal and omits the separate retain
   const html = renderToStaticMarkup(await page.default({ params: Promise.resolve({ slug: 'demo', serviceSlug: 'web', allocationId: '' }) }))
   assert.match(html, /Earlier successful releases with stored image pins can be restored/)
   assert.doesNotMatch(html, /Retained Trellis versions/)
-  assert.match(html, />7<\/span><\/td>/)
+  assert.match(html, /<td[^>]*title="Trellis revision 7, job version 12"[^>]*><span[^>]*>7<\/span><\/td>/)
   assert.match(html, /Succeeded/)
   assert.doesNotMatch(html, />5<\/td><td[^>]*>3</)
   assert.doesNotMatch(html, />6<\/td><td[^>]*>3</)

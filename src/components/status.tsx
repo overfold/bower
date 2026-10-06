@@ -57,10 +57,14 @@ export function AllocationStatus({ phase, health, className }: { phase: string; 
   return <StatusDot status={allocationStatus(phase, health)} className={className} />
 }
 
-/** Shared allocation presentation used by detail, service, node, and dashboard views. */
+/**
+ * Shared allocation presentation used by detail, service, node, and dashboard views. Terminal
+ * allocations read "Failed" (dead is a terminal failure) and "Lost" stays distinct; "Failing" is
+ * reserved for services that are not serving their desired replicas.
+ */
 export function allocationStatus(phase: string, health?: string | null): string {
   if (phase === 'running' && health) return health
-  if (phase === 'failed' || phase === 'lost' || phase === 'dead') return 'failing'
+  if (phase === 'failed' || phase === 'dead') return 'failed'
   return phase
 }
 

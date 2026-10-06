@@ -1,6 +1,6 @@
 import { redirect, notFound } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
-import { getUserOrganization, getProjectBySlug, getProjectEnvironment, getServiceBySlug, getServiceConfigsWithEnvironments, getDeploymentsByService } from '@/lib/queries'
+import { getUserOrganization, getProjectBySlug, getProjectEnvironment, getServiceBySlug, getServiceConfigsWithEnvironments, getDeploymentsByService, withFailureMessages } from '@/lib/queries'
 import { getProjectRole } from '@/lib/actions/shared'
 import { Panel, SectionTitle } from '@/components/ui/panel'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -53,7 +53,7 @@ export default async function RevisionsPage({ params }: { params: Promise<{ slug
           />
         </Panel>
       ) : (
-        <RevisionsToolbar items={journal.map((deployment) => ({ deployment, serviceName: service.name, serviceSlug: service.slug, projectName: project.name, projectSlug: project.slug, revision: deployment.trellisRevision, rollbackAction: role !== 'viewer' && rollbackIds.has(deployment.id) ? <RestoreRevisionButton serviceId={service.id} environmentId={environment.id} deploymentId={deployment.id} image={deployment.imageAfter} /> : null }))} />
+        <RevisionsToolbar items={(await withFailureMessages(journal.map((deployment) => ({ deployment })))).map(({ deployment, failureMessage }) => ({ failureMessage, deployment, serviceName: service.name, serviceSlug: service.slug, projectName: project.name, projectSlug: project.slug, userName: deployment.userName, revision: deployment.trellisRevision, version: deployment.trellisVersion, rollbackAction: role !== 'viewer' && rollbackIds.has(deployment.id) ? <RestoreRevisionButton serviceId={service.id} environmentId={environment.id} deploymentId={deployment.id} image={deployment.imageAfter} /> : null }))} />
       )}
 
     </div>

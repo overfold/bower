@@ -5,6 +5,7 @@ import { getAllocationMetricsAction } from '@/lib/actions/allocation-actions'
 import { Panel } from '@/components/ui/panel'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatCpu, formatMemory } from '@/lib/format'
+import { CPU_SAMPLE_ATTEMPTS, cpuMillicores as computeCpuMillicores } from '@/lib/cpu-usage'
 import { Time } from '@/components/time'
 import type { TrellisAllocationMetrics } from '@/types/trellis'
 
@@ -40,6 +41,7 @@ export function AllocationMetrics({
   const [metrics, setMetrics] = useState(initialMetrics)
   const [cpuMillicores, setCpuMillicores] = useState<number | null>(null)
   const [error, setError] = useState(Boolean(initialError))
+  const [cpuAttempts, setCpuAttempts] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -48,24 +50,12 @@ export function AllocationMetrics({
       try {
         const next = (await Promise.all((allocationIds ?? (allocationId ? [allocationId] : [])).map((id) => getAllocationMetricsAction(serviceId, id)))).flat()
         if (cancelled) return
-        const previousByTask = new Map(previousRef.current.map((item) => [`${item.allocation_id}/${item.task}`, item]))
-        let cpu = 0
-        let cpuSamples = 0
-
-        for (const item of next) {
-          const previous = previousByTask.get(`${item.allocation_id}/${item.task}`)
-          if (!previous) continue
-          const elapsedMs = Date.parse(item.collected_at) - Date.parse(previous.collected_at)
-          const cpuDeltaNs = item.cpu_usage_nanoseconds - previous.cpu_usage_nanoseconds
-          if (elapsedMs <= 0 || cpuDeltaNs < 0) continue
-          const elapsedNs = elapsedMs * 1_000_000
-          cpu += (cpuDeltaNs / elapsedNs) * 1000
-          cpuSamples += 1
-        }
+        const cpu = computeCpuMillicores(previousRef.current, next)
 
         previousRef.current = next
         setMetrics(next)
-        setCpuMillicores(cpuSamples > 0 ? cpu : null)
+        setCpuMillicores(cpu)
+        setCpuAttempts((attempts) => cpu === null ? attempts + 1 : 0)
         setError(false)
       } catch {
         if (!cancelled) setError(true)
@@ -93,12 +83,12 @@ export function AllocationMetrics({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-medium text-ink-muted">CPU usage</p>
-            {cpuMillicores === null && taskCount ? <Skeleton className="mt-2 h-7 w-28" aria-label="Sampling CPU usage" /> : <p className="nums mt-1.5 text-2xl font-semibold tracking-tight text-ink">{cpuMillicores === null ? (error ? 'Unavailable' : 'No samples') : <>{formatCpu(Math.max(0, cpuMillicores))}{cpuLimit ? ` / ${formatCpu(cpuLimit)}` : ''}</>}</p>}
+            {cpuMillicores === null && taskCount && cpuAttempts < CPU_SAMPLE_ATTEMPTS ? <Skeleton className="mt-2 h-7 w-28" aria-label="Sampling CPU usage" /> : <p className="nums mt-1.5 text-2xl font-semibold tracking-tight text-ink">{cpuMillicores === null ? (error ? 'Unavailable' : 'No CPU samples yet') : <>{formatCpu(Math.max(0, cpuMillicores))}{cpuLimit ? ` / ${formatCpu(cpuLimit)}` : ''}</>}</p>}
           </div>
         </div>
         <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-line" aria-label="CPU usage"><div className={`h-full rounded-full ${usageColor(cpuPercent)}`} style={{ width: `${Math.min(100, cpuPercent)}%` }} /></div>
         <p className="mt-3 text-2xs text-ink-muted">
-          {error ? (taskCount ? 'Latest sample unavailable; showing last known data.' : initialError || 'Metrics unavailable; retrying automatically.') : taskCount ? <>Across {taskCount} {taskCount === 1 ? 'task' : 'tasks'} · Updated <Time value={sampledAt} mode="live" /></> : 'No metrics samples returned; retrying automatically.'}
+          {error ? (taskCount ? 'Latest sample unavailable; showing last known data.' : initialError || 'Metrics unavailable; retrying automatically.') : taskCount ? <>Across {taskCount} {taskCount === 1 ? 'task' : 'tasks'} · Sampled <Time value={sampledAt} mode="live" /></> : 'No metrics samples returned; retrying automatically.'}
         </p>
       </Panel>
 
@@ -111,7 +101,7 @@ export function AllocationMetrics({
         </div>
         <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-line" aria-label="Memory usage"><div className={`h-full rounded-full ${usageColor(memoryPercent)}`} style={{ width: `${Math.min(100, memoryPercent)}%` }} /></div>
         <p className="mt-3 text-2xs text-ink-muted">
-          {error ? (taskCount ? 'Latest sample unavailable; showing last known data.' : initialError || 'Metrics unavailable; retrying automatically.') : taskCount ? <>Current resident usage · Updated <Time value={sampledAt} mode="live" /></> : 'No metrics samples returned; retrying automatically.'}
+          {error ? (taskCount ? 'Latest sample unavailable; showing last known data.' : initialError || 'Metrics unavailable; retrying automatically.') : taskCount ? <>Current resident usage · Sampled <Time value={sampledAt} mode="live" /></> : 'No metrics samples returned; retrying automatically.'}
         </p>
       </Panel>
     </div>

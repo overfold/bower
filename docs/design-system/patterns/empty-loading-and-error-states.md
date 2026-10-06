@@ -29,9 +29,9 @@ Rules:
 | Route navigation | `loading.tsx` with a **skeleton that matches the page's shape**, built from `page-skeletons.tsx` (`TablePageSkeleton`, `FormSkeleton`, `SettingsSkeleton`, `NodeSkeleton`, …) (A1 P2-16, A2-H3) |
 | Entity tabs (project, service) | The header and tabs stay rendered in the layout, and only the tab content shows a skeleton. Never blank the header (A2-H3) |
 | Slow parts of a page (live health, runtime headers) | An explicit `Suspense` boundary with a local skeleton (`ServiceHeaderSkeleton`) |
-| A stat or metric value not yet known | A `Skeleton` bar in place of the value, never "Sampling…" or a dash (A3-C21). A live footer reads "Updated 5s ago" |
+| A stat or metric value not yet known | A `Skeleton` bar in place of the value, never "Sampling…" or a dash (A3-C21). A live footer reads "Sampled 5s ago"; CPU shows "No CPU samples yet" after a few samples without a usable reading |
 | Button action | `Button loading` (spinner, disabled, `aria-busy`). No page spinner |
-| Deployment in progress | A neutral chip with a spinner. `DeploymentPoller` refreshes until it finishes |
+| Deployment in progress | A neutral chip with a spinner. `DeploymentPoller` refreshes every 5 seconds until it finishes (and every 15 seconds otherwise) |
 
 Skeletons use `Skeleton` (`bg-line`, pulse, `role="status"`), and their containers set `aria-busy="true"` with an `aria-label` ("Loading table").
 

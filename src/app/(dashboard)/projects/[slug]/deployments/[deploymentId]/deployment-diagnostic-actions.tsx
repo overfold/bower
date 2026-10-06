@@ -13,7 +13,7 @@ import { useFeedback } from '@/components/ui/feedback'
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog'
 import { DialogBody } from '@/components/ui/dialog'
 import { Time } from '@/components/time'
-import { ConfigDiffPreview } from '../../services/[serviceSlug]/service-actions'
+import { ConfigDiffPreview } from '@/components/config-diff-preview'
 import type { ServiceConfigDiff } from '@/lib/service-config-diff'
 
 export function DeploymentDiagnosticActions({ serviceId, serviceName, environmentId, primaryRecovery, runningImage, rollbackTargets, configurationHref }: { serviceId: string; serviceName: string; environmentId: string; primaryRecovery: boolean; runningImage?: string; rollbackTargets: { id: string; image: string; createdAt: Date | string; changes: ServiceConfigDiff[] }[]; configurationHref: string }) {
@@ -27,10 +27,10 @@ export function DeploymentDiagnosticActions({ serviceId, serviceName, environmen
     startTransition(async () => {
       try {
         const { error } = await deployServiceAction(serviceId, environmentId)
-        if (error) toast({ tone: 'danger', title: 'Could not redeploy', description: error })
+        if (error) toast({ tone: 'danger', title: 'Redeploy failed', description: error })
         else toast({ tone: 'success', title: 'Redeployment started' })
       } catch (reason) {
-        toast({ tone: 'danger', title: 'Could not redeploy', description: actionErrorMessage(reason, 'The deployment could not be started.') })
+        toast({ tone: 'danger', title: 'Redeploy failed', description: actionErrorMessage(reason, 'The deployment could not be started.') })
       }
     })
   }
@@ -42,9 +42,9 @@ export function DeploymentDiagnosticActions({ serviceId, serviceName, environmen
         <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction className={buttonVariants({ variant: 'primary' })} disabled={pending} onClick={() => startTransition(async () => {
           try {
             const { error } = await rollbackServiceAction(serviceId, environmentId, rollbackTarget.id)
-            if (error) toast({ tone: 'danger', title: 'Could not roll back', description: error })
+            if (error) toast({ tone: 'danger', title: 'Rollback failed', description: error })
             else toast({ tone: 'success', title: 'Rollback started' })
-          } catch (reason) { toast({ tone: 'danger', title: 'Could not roll back', description: actionErrorMessage(reason, 'The rollback could not be started.') }) }
+          } catch (reason) { toast({ tone: 'danger', title: 'Rollback failed', description: actionErrorMessage(reason, 'The rollback could not be started.') }) }
         })}>Roll back</AlertDialogAction></AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog> : null}

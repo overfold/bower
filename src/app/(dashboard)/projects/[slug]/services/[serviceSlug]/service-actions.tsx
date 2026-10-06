@@ -14,35 +14,9 @@ import { useFeedback } from '@/components/ui/feedback'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { ServiceConfigDiff } from '@/lib/service-config-diff'
 import { Time } from '@/components/time'
-import { deploymentImageTag, formatCpu, formatMemory } from '@/lib/format'
-import { Chip } from '@/components/status'
+import { deploymentImageTag } from '@/lib/format'
+import { ConfigDiffPreview } from '@/components/config-diff-preview'
 import { DialogBody } from '@/components/ui/dialog'
-
-export function ConfigDiffPreview({ changes, afterLabel }: { changes: ServiceConfigDiff[]; afterLabel: string }) {
-  if (!changes.length) return <p className="text-sm text-ink-muted">No configuration differences.</p>
-  return <div className="overflow-hidden rounded-md border border-line"><div className="grid grid-cols-[minmax(6rem,0.7fr)_1fr_1fr] gap-3 bg-sunken px-3 py-2 text-xs font-semibold text-ink-muted"><span>Field</span><span>Running</span><span>{afterLabel}</span></div>{changes.map((change) => <div key={change.key} className="grid grid-cols-[minmax(6rem,0.7fr)_1fr_1fr] gap-3 border-t border-line px-3 py-2 text-sm">{change.kind === 'environment' ? <><span><Chip tone="neutral">{change.change}</Chip><span className="mt-1 block break-all font-mono text-xs">{change.variable}</span></span><span className="font-mono text-xs text-ink-muted">{change.before.present ? '••••••••' : '—'}</span><span className="font-mono text-xs">{change.after.present ? '••••••••' : '—'}</span></> : <><span className="font-medium text-ink">{change.label}</span><span className={`min-w-0 break-words text-xs text-ink-muted ${change.key === 'image' ? 'font-mono' : ''}`}>{formatDiffValue(change, change.before)}</span><span className={`min-w-0 break-words text-xs text-ink ${change.key === 'image' ? 'font-mono' : ''}`}>{formatDiffValue(change, change.after)}</span></>}</div>)}</div>
-}
-
-function formatDiffValue(change: Extract<ServiceConfigDiff, { kind: 'config' }>, value: typeof change.before) {
-  if (value == null || value === '') return 'None'
-  if (change.key === 'image') return deploymentImageTag(String(value))
-  if (change.key === 'cpu') return formatCpu(Number(value))
-  if (change.key === 'memory') return formatMemory(Number(value))
-  if (change.key === 'health' && typeof value === 'object' && !Array.isArray(value)) {
-    const health = value as Record<string, ServiceConfigDiffValue>
-    const cadence = `every ${Number(health.interval) / 1e9}s · ${Number(health.timeout) / 1e9}s timeout · ${health.threshold} failures`
-    if (health.type === 'http') return `HTTP ${health.path ?? '/'}${health.port ? ` on port ${health.port}` : ''} · ${cadence}`
-    if (health.type === 'tcp') return `TCP port ${health.port} · ${cadence}`
-    return `Script ${Array.isArray(health.command) ? health.command.join(' ') : health.command} · ${cadence}`
-  }
-  if (change.key === 'secrets' && Array.isArray(value)) return value.map((item) => {
-    const binding = item as Record<string, ServiceConfigDiffValue>
-    return `${binding.name} → ${binding.target === 'env' ? binding.env : binding.path}`
-  }).join(', ') || 'None'
-  return typeof value === 'object' ? JSON.stringify(value) : String(value)
-}
-
-type ServiceConfigDiffValue = Extract<ServiceConfigDiff, { kind: 'config' }>['before']
 
 interface ServiceActionsProps {
   serviceId: string
@@ -74,14 +48,14 @@ export function ServiceActions({ serviceId, serviceName, runningImage, environme
     return () => cancelAnimationFrame(frame)
   }, [params, pathname])
 
-  function run(action: () => Promise<{ error?: string }>, success: string) {
+  function run(action: () => Promise<{ error?: string }>, success: string, failure: string) {
     return async () => {
       try {
         const { error } = await action()
-        if (error) toast({ tone: 'danger', title: 'Service action failed', description: error })
+        if (error) toast({ tone: 'danger', title: failure, description: error })
         else toast({ tone: 'success', title: success })
       } catch (reason) {
-        toast({ tone: 'danger', title: 'Service action failed', description: actionErrorMessage(reason, 'The service action could not be completed.') })
+        toast({ tone: 'danger', title: failure, description: actionErrorMessage(reason, 'The service action could not be completed.') })
       }
     }
   }
@@ -107,7 +81,7 @@ export function ServiceActions({ serviceId, serviceName, runningImage, environme
             <DialogBody className="space-y-4"><div className="space-y-2"><label className="text-sm font-medium text-ink" htmlFor="service-rollback-release">Release</label><Select value={rollbackTarget} onValueChange={setRollbackTarget}><SelectTrigger id="service-rollback-release" aria-label="Rollback release" className="font-mono"><SelectValue /></SelectTrigger><SelectContent>{rollbackTargets.map((target) => <SelectItem key={target.id} value={target.id}><span className="font-mono">{deploymentImageTag(target.image)}</span><span className="ml-2 font-sans text-xs text-ink-muted"><Time value={target.createdAt} /></span></SelectItem>)}</SelectContent></Select></div><ConfigDiffPreview changes={selectedRollback?.changes ?? []} afterLabel="Selected release" /></DialogBody>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <Button variant="primary" loading={rollingBack} disabled={!rollbackTarget} onClick={() => startRollback(run(() => rollbackServiceAction(serviceId, environmentId, rollbackTarget), 'Rollback started'))}>
+              <Button variant="primary" loading={rollingBack} disabled={!rollbackTarget} onClick={() => startRollback(run(() => rollbackServiceAction(serviceId, environmentId, rollbackTarget), 'Rollback started', 'Rollback failed'))}>
                 Roll back
               </Button>
             </AlertDialogFooter>
@@ -119,7 +93,7 @@ export function ServiceActions({ serviceId, serviceName, runningImage, environme
         size="sm"
         disabled={restarting}
         aria-busy={restarting}
-        onClick={() => startRestart(run(() => restartServiceAction(serviceId, environmentId), 'Service restart started'))}
+        onClick={() => startRestart(run(() => restartServiceAction(serviceId, environmentId), 'Service restart started', 'Restart failed'))}
       >
         <RefreshCw className={restarting ? 'animate-spin' : undefined} />
         Restart
@@ -138,7 +112,7 @@ export function ServiceActions({ serviceId, serviceName, runningImage, environme
         <AlertDialogContent size="lg">
           <AlertDialogHeader><AlertDialogTitle>Deploy this service?</AlertDialogTitle><AlertDialogDescription>{changes.length ? 'Review the saved changes that will be deployed.' : 'The saved configuration matches the currently running release.'}</AlertDialogDescription></AlertDialogHeader>
           {changes.length ? <DialogBody><ConfigDiffPreview changes={changes} afterLabel="After deploy" /></DialogBody> : null}
-          <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><Button variant="primary" loading={deploying} onClick={() => startDeploy(async () => { await run(() => deployServiceAction(serviceId, environmentId), 'Deployment started')(); setConfirmDeploy(false) })}>Deploy</Button></AlertDialogFooter>
+          <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><Button variant="primary" loading={deploying} onClick={() => startDeploy(async () => { await run(() => deployServiceAction(serviceId, environmentId), 'Deployment started', 'Deploy failed')(); setConfirmDeploy(false) })}>Deploy</Button></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>

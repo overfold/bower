@@ -26,25 +26,32 @@ These flows change what is running in production, so they follow the principles 
 - **Eligibility** (`src/lib/service-releases.ts`): a successful, retained release with a stored spec for this service and environment, other than the running one. The server re-checks eligibility and permissions, and applies that exact spec.
 - The release that is running now offers **no primary**: just "Roll back…" as a default button (A4-Q15).
 
-## Failed deployments
+## Failed and rolled-back deployments
 
-The deployment page for a failed deployment shows:
+The deployment page for a failed or automatically rolled-back deployment shows:
 
-1. A compact **danger notice** under the header with the failure message and the failing allocation's **last log lines** (5–10), plus "Open allocation". If no logs were captured, show a muted "No log output was captured." and keep "Open allocation" (A3 B23, A4-Q45).
-2. The primary action **"Roll back to {last good tag}"** when one exists. Otherwise there is no primary. "Redeploy" and "Edit configuration" are default buttons (A2-G7, A3-F21).
+1. A compact **notice** under the header: **danger** for Failed, **warn** for Rolled back ("Rolled back automatically: <reason>", plus the scheduling or backoff diagnostics that led to it). It carries the failing allocation's **last log lines** (5–10) and "Open allocation". The allocation comes from the failure event (or one marked failed or unhealthy), never from an arbitrary event. When there are no lines, the notice says why: "The allocation produced no log output." for an empty result, "The allocation is no longer available, so its logs have expired." once Trellis has collected it, or "No allocation was recorded for this failure." In the last two cases the button reads **Open service**, because the allocation page would 404 (A3 B23, A4-Q45).
+2. The primary action **"Roll back to {last good tag}"** when one exists, for a failed deployment. Otherwise there is no primary. "Redeploy" and "Edit configuration" are default buttons (A2-G7, A3-F21).
 3. If a **newer deployment exists**, a neutral notice reads "Superseded by v2.4.1 · succeeded 1h ago · View", and the page shows **no primary action**, because a rollback would downgrade a healthy service (A5-C3).
-4. A Timeline of events with toned dots. Payload details are collapsed and shown as key and value pairs (A1 P1-13).
+4. **Changes from previous successful release:** the same before/after table the rollback dialog uses (Field · Previous release · This deployment). It appears only when there is an earlier successful release and something changed.
+5. A Timeline of events. Each event's tone comes from its **type** (`src/lib/deployment-events.ts`), never from words in its message: `failed` and `reconciliation_error` are danger; `auto_rollback`, `scheduling_blocked`, and `replacement_backoff` are warning; `healthy` and `canary_complete` are success. Payload details are collapsed and shown as key and value pairs (A1 P1-13).
 
-A failed deployment appears in **Needs attention** only while it is the service's newest deployment (A4-Q01).
+**Before/after tables** (deploy and rollback dialogs, and the deployment page) are a bordered, rounded table inside the padded dialog body; an alert dialog that holds a `DialogBody` drops its default gap, so there is no extra band around the table. Plain environment variables show their values. Variables bound from secrets show `••••••••` and are never revealed. A value that the stored release did not record reads *Not recorded*, which is different from *None*: it does not mean the limit or health check would be removed. The Added/Changed/Removed chip follows the variable name.
+
+A failed or rolled-back deployment appears in **Needs attention** only while it is the service's newest deployment (A4-Q01). The service header shows the warning marker for either outcome ("Last deploy failed" or "Last deploy rolled back").
 
 ## Failing services
 
 - The status chip reads **"Failing ⓘ"** and opens a popover on click or keyboard (A3-L19, A5-H6):
-  - Title "Failing". Beneath it, "Restart pending · next attempt in 30s".
-  - The failure count, the last failure time, and the last message.
-  - Actions: **Restart now** and **View logs**.
-- The cause lives **only** in the popover. There is no extra banner on the Overview (A3-L20).
-- On the Status page, the "Restart pending" table lists Service · Failures · Last failure · Next restart, with "Restart now" per row (A4-Q51).
+  - Title "Failing". Beneath it, "Restart pending · next attempt in 30s". The countdown (`RestartCountdown`, built on `Time` live mode) shows seconds only under a minute, then whole minutes, and reads "restarting" once the time has passed, never "0s".
+  - Actions: **Restart now** (hidden from viewers) and **View logs**.
+- The cause is shown **once, in the Overview body**, as a one-line danger notice (`ServiceFailureNotice`): the cause, the restart countdown, and View logs. The popover holds the replica count, the countdown, and actions. A service whose allocations cannot be placed reads "Cannot be placed" with Trellis's reason rather than "Deploying". Failing rows in **Current allocations** show their reason or message beneath the status.
+- A service reports **Deploying** only while a deployment is in progress or its allocations are actually moving. An allocation that has waited for placement past one minute, or that has a placement-failure reason, counts as failing (`src/lib/service-health.ts`).
+- On the Status page, the "Restart pending" table lists Service · Failures · Last failure · Next restart, with "Restart now" per row (A4-Q51). Services Bower doesn't own show the job name with its namespace beneath.
+
+## Live data
+
+Pages that show health (Home, project Overview, Services, service pages, allocation pages, Status) refresh themselves while visible through `DeploymentPoller`: every 15 seconds, or every 5 while a deployment is in progress. It pauses in background tabs, offline, behind an open dialog, and while a form has unsaved changes, and backs off (to one minute) when refreshes are slow. Metric cards say "Sampled 5s ago", describing the sample, not the whole page.
 
 ## Restart and stop
 

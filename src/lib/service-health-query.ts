@@ -1,7 +1,7 @@
 import { getServiceSummaries } from '@/lib/queries'
 import { getTrellisClient } from '@/lib/trellis-instance'
 import { allocationBelongsToService, trellisReadError } from '@/lib/trellis-runtime'
-import { getReadyCount, getServiceHealth } from '@/lib/service-health'
+import { currentJobAllocations, getReadyCount, getServiceHealth } from '@/lib/service-health'
 import type { TrellisAllocation, TrellisJob } from '@/types/trellis'
 
 export async function getProjectLiveServices(orgId: string, projectId: string, environment: { id: string; trellisNamespace: string } | undefined) {
@@ -12,7 +12,10 @@ export async function getProjectLiveServices(orgId: string, projectId: string, e
   if (environment && summaries.some((row) => row.latestDeployment)) {
     try {
       const client = await getTrellisClient(orgId)
-      ;[allocations, jobs] = await Promise.all([client.listAllocations({ namespace: environment.trellisNamespace }), client.listJobs(environment.trellisNamespace)])
+      const [listedAllocations, listedJobs] = await Promise.all([client.listAllocations({ namespace: environment.trellisNamespace }), client.listJobs(environment.trellisNamespace)])
+      jobs = listedJobs
+      // The same revision filter as Home: allocations from superseded revisions must not affect health or Needs attention.
+      allocations = currentJobAllocations(listedAllocations, listedJobs.map((job) => ({ name: job.name, revision: job.revision, spec: { namespace: job.spec?.namespace ?? environment.trellisNamespace } })))
     } catch (cause) { error = trellisReadError(cause) }
   }
   return { error, jobs, services: summaries.map((row) => {

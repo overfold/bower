@@ -26,14 +26,8 @@ import { formatRelativeTime } from '@/lib/format'
 import { ResourceId } from '@/components/resource-id'
 import { ClickableTableRow } from '@/components/clickable-table-row'
 import { Time } from '@/components/time'
-
-function untilTime(value: string): string {
-  const seconds = Math.max(0, Math.ceil((new Date(value).getTime() - Date.now()) / 1000))
-  if (seconds < 60) return `${seconds}s`
-  if (seconds < 3600) return `${Math.ceil(seconds / 60)}m`
-  if (seconds < 86_400) return `${Math.ceil(seconds / 3600)}h`
-  return `${Math.ceil(seconds / 86_400)}d`
-}
+import { RestartCountdown } from '@/components/restart-countdown'
+import { DeploymentPoller } from '@/components/deployment-poller'
 
 export default async function StatusPage() {
   const user = await getCurrentUser()
@@ -111,6 +105,7 @@ export default async function StatusPage() {
 
   return (
     <div className="space-y-6">
+      <DeploymentPoller active={false} />
       <PageHeading title="Status" description="Monitor cluster capacity, placement, restart cooldowns, and managed ingress." />
 
       <Panel aria-label="Cluster status summary">
@@ -152,7 +147,7 @@ export default async function StatusPage() {
               <TableCell>{target ? <Link href={`/projects/${target.projectSlug}/services/${target.serviceSlug}`} className="font-medium text-link">{target.serviceName}</Link> : <Mono>{job}</Mono>}</TableCell>
               <TableCell className="nums">{backoff.failures}</TableCell>
               <TableCell><span className="whitespace-nowrap"><Time value={backoff.last_failure_at} mode="auto" /></span><p className="mt-1 max-w-sm text-xs text-ink-muted">{backoff.message || backoff.reason || 'Allocation failed'}</p></TableCell>
-              <TableCell><span className="whitespace-nowrap"><Time value={backoff.next_replacement_at} mode="auto" /></span><p className="mt-1 text-xs text-ink-muted">in {untilTime(backoff.next_replacement_at)}</p></TableCell>
+              <TableCell><span className="whitespace-nowrap"><RestartCountdown at={backoff.next_replacement_at} bare /></span></TableCell>
               <TableCell className="text-right">{canResetBackoff ? <ResetBackoffButton namespace={namespace} job={job} group={backoff.group} /> : <span className="text-xs text-ink-muted">Owner/admin required</span>}</TableCell>
             </TableRow>
           })}

@@ -43,4 +43,8 @@ const TabsContent = React.forwardRef<
 ))
 TabsContent.displayName = TabsPrimitive.Content.displayName
 
-export { Tabs, TabsList, TabsTrigger, TabsContent }
+/** Underline tabs for page sections (a variant of the pill tabs above): pass to TabsList and TabsTrigger. */
+const underlineTabsListClass = 'w-full justify-start gap-1 rounded-none border-0 bg-transparent p-0'
+const underlineTabsTriggerClass = 'rounded-none border-b-2 border-transparent px-3 py-2.5 data-[state=active]:border-brand-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none'
+
+export { Tabs, TabsList, TabsTrigger, TabsContent, underlineTabsListClass, underlineTabsTriggerClass }

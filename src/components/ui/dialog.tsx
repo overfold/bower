@@ -100,8 +100,9 @@ const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivEleme
   </div>
 )
 
+/** Inside an alert dialog the body supplies its own padding, so the content's default gap is removed (see AlertDialogContent). */
 const DialogBody = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn('scroll-vertical max-h-[62vh] min-h-0 overflow-y-auto overscroll-contain px-4 py-4 scroll-thin [--scroll-surface:var(--surface)] sm:px-5', className)} {...props} />
+  <div data-slot="dialog-body" className={cn('scroll-vertical max-h-[62vh] min-h-0 overflow-y-auto overscroll-contain px-4 py-4 scroll-thin [--scroll-surface:var(--surface)] sm:px-5', className)} {...props} />
 )
 
 const DialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (

@@ -491,6 +491,24 @@ export const deploymentEvents = pgTable("deployment_events", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [index("deployment_events_deployment_created_idx").on(table.deploymentId, table.createdAt)]);
 
+/**
+ * A service's failing period, opened when Bower first observes it failing and resolved when it is
+ * observed healthy again. The stable start time lets runtime failures notify once per incident, even
+ * though Trellis forgets old terminal allocations.
+ */
+export const serviceIncidents = pgTable("service_incidents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  serviceId: uuid("service_id").notNull().references(() => services.id, { onDelete: "cascade" }),
+  environmentId: uuid("environment_id").notNull().references(() => environments.id, { onDelete: "cascade" }),
+  startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+  cause: text("cause").notNull(),
+  lastObservedAt: timestamp("last_observed_at", { withTimezone: true }).notNull().defaultNow(),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+}, (table) => [
+  uniqueIndex("service_incidents_open_idx").on(table.serviceId, table.environmentId).where(sql`${table.resolvedAt} is null`),
+  index("service_incidents_started_idx").on(table.startedAt),
+]);
+
 // ---------------------------------------------------------------------------
 // Routing layer
 // ---------------------------------------------------------------------------

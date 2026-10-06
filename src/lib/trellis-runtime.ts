@@ -13,10 +13,31 @@ export function trellisReadError(error: unknown): string {
   return 'Unable to read Trellis data. Check the connection and credentials.'
 }
 
-/** Safe for presentation after Trellis rejects a write: never the upstream body. */
+const MAX_UPSTREAM_MESSAGE = 200
+/** Client errors where Trellis's own explanation is about the request, not about the cluster. */
+const EXPLAINED_STATUSES = new Set([400, 404, 405, 409, 410, 422, 429])
+// Anything that could carry a credential, address, or path to infrastructure disqualifies the whole message.
+const UNSAFE_UPSTREAM_TEXT = /https?:\/\/|\bwss?:\/\/|\bbearer\b|\b(?:token|secret|password|passwd|api[_-]?key|authorization)\b\s*[:=]|[A-Za-z0-9+/_-]{32,}={0,2}|\b\d{1,3}(?:\.\d{1,3}){3}\b|-----BEGIN/i
+
+/** A short, plain-text reason from Trellis's JSON `error` field, or null when it is missing or not safe to show. */
+export function safeUpstreamMessage(error: TrellisApiError): string | null {
+  if (!EXPLAINED_STATUSES.has(error.status)) return null
+  const raw = error.json?.error
+  if (typeof raw !== 'string') return null
+  const text = raw.replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim()
+  if (!text || UNSAFE_UPSTREAM_TEXT.test(text)) return null
+  return text.length > MAX_UPSTREAM_MESSAGE ? `${text.slice(0, MAX_UPSTREAM_MESSAGE - 1).trimEnd()}…` : text
+}
+
+/**
+ * Safe for presentation after Trellis rejects a write. Credentials problems stay generic. For client
+ * errors it adds Trellis's own short explanation when that passes `safeUpstreamMessage`; arbitrary
+ * bodies, URLs, and secret-looking text are never shown.
+ */
 export function trellisWriteError(error: TrellisApiError): string {
   if (error.status === 403 || error.status === 401) return 'Trellis denied this request. Check the cluster credentials.'
-  return `Trellis rejected the request (${error.status}).`
+  const reason = safeUpstreamMessage(error)
+  return reason ? `Trellis rejected the request (${error.status}): ${reason}` : `Trellis rejected the request (${error.status}).`
 }
 
 export function allocationBelongsToService(allocation: TrellisAllocation, namespace: string, service: string, jobs: Array<string | null>) {
