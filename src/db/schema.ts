@@ -297,6 +297,8 @@ export const environments = pgTable(
       table.projectId,
       table.slug
     ),
+    // Target for service_configs' composite FK.
+    unique("environments_id_project_id_key").on(table.id, table.projectId),
   ]
 );
 
@@ -318,6 +320,9 @@ export const services = pgTable(
   },
   (table) => [
     uniqueIndex("services_project_slug_idx").on(table.projectId, table.slug),
+    // Target for service_configs' composite FK, so a config cannot pair a
+    // service and environment from different projects.
+    unique("services_id_project_id_key").on(table.id, table.projectId),
   ]
 );
 
@@ -368,12 +373,11 @@ export const serviceConfigs = pgTable(
   "service_configs",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    serviceId: uuid("service_id")
-      .notNull()
-      .references(() => services.id, { onDelete: "cascade" }),
-    environmentId: uuid("environment_id")
-      .notNull()
-      .references(() => environments.id, { onDelete: "cascade" }),
+    // Denormalized from the service so composite FKs can require the service
+    // and environment to belong to the same project.
+    projectId: uuid("project_id").notNull(),
+    serviceId: uuid("service_id").notNull(),
+    environmentId: uuid("environment_id").notNull(),
     image: text("image").notNull(),
     replicas: integer("replicas").notNull().default(1),
     cpu: integer("cpu").notNull(),
@@ -412,6 +416,8 @@ export const serviceConfigs = pgTable(
       table.serviceId,
       table.environmentId
     ),
+    foreignKey({ name: "service_configs_service_project_fkey", columns: [table.serviceId, table.projectId], foreignColumns: [services.id, services.projectId] }).onDelete("cascade"),
+    foreignKey({ name: "service_configs_environment_project_fkey", columns: [table.environmentId, table.projectId], foreignColumns: [environments.id, environments.projectId] }).onDelete("cascade"),
     check("service_configs_runtime_check", sql`${table.runtime} IN ('runc', 'runsc')`),
     check("service_configs_api_scope_check", sql`${table.apiAccessScope} IS NULL OR ${table.apiAccessScope} = 'cluster'`),
     check("service_configs_api_level_check", sql`${table.apiAccessLevel} IS NULL OR ${table.apiAccessLevel} IN ('read', 'write')`),

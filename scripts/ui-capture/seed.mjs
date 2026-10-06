@@ -119,7 +119,7 @@ try {
         ),
       };
       await sql`INSERT INTO base_service_configs ${sql(config)}`;
-      await sql`INSERT INTO service_configs ${sql({ ...config, environment_id: environment.id, active_job_name: slug })}`;
+      await sql`INSERT INTO service_configs ${sql({ ...config, project_id: project.id, environment_id: environment.id, active_job_name: slug })}`;
       // Search Indexer exists to show an unplaceable allocation, so it keeps a single release.
       for (const [j, status] of (i === 3 ? ["healthy"] : [
         "healthy",
