@@ -2,27 +2,34 @@ import http from "node:http";
 import { WebSocketServer } from "ws";
 import { encodeFrame } from "../../exec/protocol.mjs";
 const now = () => new Date().toISOString();
-const names = ["storefront", "checkout-api", "order-worker", "bower-proxy"];
+const names = ["storefront", "checkout-api", "order-worker", "search-indexer", "bower-proxy"];
 const ingressNamespace = process.env.BOWER_PROXY_NAMESPACE || "platform";
+// A job lives in exactly one namespace; listing another namespace must not return it.
+const jobNamespace = (name) => (name === "bower-proxy" ? ingressNamespace : "commerce-production");
+const minutesAgo = (minutes) => new Date(Date.now() - minutes * 60000).toISOString();
 const allocations = (namespace) =>
   names.flatMap((job, i) =>
     Array.from({ length: i === 0 ? 2 : 1 }, (_, j) => ({
       id: `${job}-alloc-${j + 1}`,
       job,
-      namespace: job === "bower-proxy" ? ingressNamespace : namespace || "commerce-production",
+      namespace: jobNamespace(job),
       group: "web",
-      node_id: j ? "node-eu-west-02" : "node-eu-west-01",
-      phase: i === 2 ? "failed" : "running",
-      health: i === 2 ? "unhealthy" : "healthy",
+      // The unplaceable Search Indexer allocation has no node.
+      node_id: job === "search-indexer" ? "" : j ? "node-eu-west-02" : "node-eu-west-01",
+      phase: job === "search-indexer" ? "pending" : i === 2 ? "failed" : "running",
+      health: job === "search-indexer" ? "unknown" : i === 2 ? "unhealthy" : "healthy",
       draining: false,
       generation: 1,
       job_revision: 3,
-      created_at: new Date(Date.now() - 3600000).toISOString(),
-      last_transition_at: now(),
+      created_at: job === "search-indexer" ? minutesAgo(10) : minutesAgo(60),
+      // The crash-looping worker began failing 25 minutes ago; its backoff records the latest failure.
+      last_transition_at: job === "search-indexer" ? minutesAgo(10) : i === 2 ? minutesAgo(25) : now(),
       attempt: 1,
-      reason: i === 2 ? "exit_code" : "",
+      reason: job === "search-indexer" ? "insufficient_cpu" : i === 2 ? "exit_code" : "",
       message:
-        i === 2 ? "Process exited with code 1; replacement scheduled" : "",
+        job === "search-indexer"
+          ? "No node has 500m CPU free"
+          : i === 2 ? "Process exited with code 1; replacement scheduled" : "",
       ports: [{ host_port: 3000, container_port: 3000 }],
       endpoints: [
         {
@@ -72,8 +79,8 @@ const job = (name, namespace) => ({
   version: 3,
   revision: 3,
   desired: name === "storefront" ? 2 : 1,
-  running: name === "order-worker" ? 0 : name === "storefront" ? 2 : 1,
-  healthy: name === "order-worker" ? 0 : name === "storefront" ? 2 : 1,
+  running: ["order-worker", "search-indexer"].includes(name) ? 0 : name === "storefront" ? 2 : 1,
+  healthy: ["order-worker", "search-indexer"].includes(name) ? 0 : name === "storefront" ? 2 : 1,
   allocations: allocations(namespace).filter((a) => a.job === name),
   spec: spec(name, namespace),
   replacement_backoff:
@@ -129,9 +136,10 @@ const server = http.createServer(async (req, res) => {
       memory_capacity: 16 * 1073741824,
       cpu_allocatable: 7500,
       memory_allocatable: 15 * 1073741824,
-      cpu_usage: 0.23 + i * 0.12,
-      memory_used: (4 + i) * 1073741824,
-      memory_available: (12 - i) * 1073741824,
+      // The drained node runs nothing, so it is nearly idle.
+      cpu_usage: i === 2 ? 0.02 : 0.23 + i * 0.12,
+      memory_used: (i === 2 ? 1 : 4 + i) * 1073741824,
+      memory_available: (i === 2 ? 14 : 12 - i) * 1073741824,
       metrics_at: now(),
       last_heartbeat: now(),
       version: "0.14.2",
@@ -148,10 +156,15 @@ const server = http.createServer(async (req, res) => {
   else if (p === "/metrics") {
     res.end(
       [1, 2, 3]
-        .flatMap((i) => [
-          `trellis_node_cpu_allocated_millicores{node_id="node-eu-west-0${i}"} ${i * 500 + 500}`,
-          `trellis_node_memory_allocated_bytes{node_id="node-eu-west-0${i}"} ${i * 536870912}`,
-        ])
+        .flatMap((i) => {
+          // Allocated resources follow the allocations actually on the node (500m and 512 MiB each),
+          // so the drained node, which has none, reports none.
+          const active = allocations().filter((a) => a.node_id === `node-eu-west-0${i}` && ["placed", "starting", "running"].includes(a.phase)).length;
+          return [
+            `trellis_node_cpu_allocated_millicores{node_id="node-eu-west-0${i}"} ${active * 500}`,
+            `trellis_node_memory_allocated_bytes{node_id="node-eu-west-0${i}"} ${active * 536870912}`,
+          ];
+        })
         .join("\n"),
     );
     return;
@@ -184,17 +197,30 @@ const server = http.createServer(async (req, res) => {
       (a) =>
         !url.searchParams.get("job") || a.job === url.searchParams.get("job"),
     );
-  else if (p.includes("/allocations/") && p.endsWith("/events"))
-    data = ["pending", "placed", "starting", "running"].map((phase, i) => ({
-      phase,
-      message: [
-        "Allocation scheduled",
-        "Placed on node-eu-west-01",
-        "Image pulled; starting app",
-        "Health checks passed",
-      ][i],
-      at: new Date(Date.now() - (4 - i) * 60000).toISOString(),
-    }));
+  else if (p.includes("/allocations/") && p.endsWith("/events")) {
+    const id = p.split("/")[5];
+    const lifecycle = id.startsWith("order-worker")
+      ? // A crash loop: started, ran briefly, failed, was replaced, and failed again.
+        [
+          ["pending", "Allocation scheduled", 60],
+          ["placed", "Placed on node-eu-west-01", 59],
+          ["starting", "Image pulled; starting app", 58],
+          ["running", "Health checks passed", 50],
+          ["failed", "Process exited with code 137; replacement scheduled", 40],
+          ["pending", "Replacement allocation scheduled", 39],
+          ["starting", "Image pulled; starting app", 38],
+          ["failed", "Process exited with code 1; replacement scheduled", 25],
+        ]
+      : id.startsWith("search-indexer")
+        ? [["pending", "No node has 500m CPU free", 10]]
+        : [
+            ["pending", "Allocation scheduled", 4],
+            ["placed", "Placed on node-eu-west-01", 3],
+            ["starting", "Image pulled; starting app", 2],
+            ["running", "Health checks passed", 1],
+          ];
+    data = lifecycle.map(([phase, message, minutes]) => ({ phase, message, at: minutesAgo(minutes) }));
+  }
   else if (p.includes("/allocations/") && p.endsWith("/metrics"))
     data = [
       {
@@ -239,8 +265,16 @@ const server = http.createServer(async (req, res) => {
         },
       ],
     };
-  } else if (p.endsWith("/jobs")) data = names.map((n) => job(n, namespace));
-  else if (p.includes("/jobs/")) data = job(p.split("/")[5], namespace);
+  } else if (p.endsWith("/jobs")) data = names.filter((n) => jobNamespace(n) === namespace).map((n) => job(n, namespace));
+  else if (p.includes("/jobs/")) {
+    const name = p.split("/")[5];
+    if (!names.includes(name) || jobNamespace(name) !== namespace) {
+      res.writeHead(404);
+      res.end(JSON.stringify({ error: "Job not found in this namespace" }));
+      return;
+    }
+    data = job(name, namespace);
+  }
   else if (p.endsWith("/secrets"))
     data = ["database-url", "stripe-api-key"].map((name) => ({
       name,

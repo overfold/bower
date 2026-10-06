@@ -75,7 +75,15 @@ const pages = [
     "Health check failed",
   ],
   ["service-overview", service, "Storefront"],
-  ["service-failed", `${project}/services/order-worker`, "Order Worker"],
+  ["service-failed", `${project}/services/order-worker`, "Worker could not reach database"],
+  ["service-unplaceable", `${project}/services/search-indexer`, "Cannot be placed"],
+  [
+    "deployment-rolled-back-diagnostics",
+    `${project}/deployments/${fixture.rolledBackDeploymentId}`,
+    "Rolled back automatically",
+  ],
+  ["allocation-failed", `${project}/services/order-worker/allocations/order-worker-alloc-1`, "Process exited with code 1; replacement scheduled"],
+  ["allocation-pending", `${project}/services/search-indexer/allocations/search-indexer-alloc-1`, "Waiting for placement"],
   ...["advanced", "configuration", "mounts", "revisions"].map((tab) => [
     `service-${tab}`,
     `${service}/${tab}`,
@@ -220,9 +228,29 @@ for (const tab of ["Details", "Lifecycle"])
     if (tab === "Details") await expect(page.getByLabel("Sampling CPU usage")).toHaveCount(0);
   }, { fullPage: true });
 state("failing-service-cause", `${project}/services/order-worker`, async (page) => {
+  // The cause is in the page body and in the status popover.
+  await expect(page.getByRole("alert").getByText("Worker could not reach database", { exact: true })).toBeVisible();
   await click(page, "Failing");
-  await expect(page.getByText("Worker could not reach database", { exact: true })).toBeVisible();
+  await expect(page.getByRole("dialog").getByText("Worker could not reach database", { exact: true })).toBeVisible();
 });
+state("allocation-failed-lifecycle", `${project}/services/order-worker/allocations/order-worker-alloc-1?tab=lifecycle`, async (page) => {
+  // ?tab= deep-links the tab; every earlier crash is toned, not just the last event.
+  await expect(page.getByRole("tab", { name: "Lifecycle", exact: true })).toHaveAttribute("data-state", "active");
+  await expect(page.getByText("Process exited with code 137; replacement scheduled")).toBeVisible();
+  await expect(page.getByText("Failed", { exact: true })).toHaveCount(2);
+  await expect(page.locator("#lifecycle li span.bg-danger-500")).toHaveCount(2);
+}, { fullPage: true });
+state("unplaceable-service-cause", `${project}/services/search-indexer`, async (page) => {
+  await expect(page.getByRole("alert")).toContainText("No node has 500m CPU free");
+  await expect(page.getByText("Deploying", { exact: true })).toHaveCount(0);
+}, { fullPage: true });
+state("rolled-back-deployment-diagnostics", `${project}/deployments/${fixture.rolledBackDeploymentId}`, async (page) => {
+  await expect(page.getByRole("status").filter({ hasText: "Rolled back automatically" })).toBeVisible();
+  // The allocation was garbage-collected: say so, and do not link to a page that would 404.
+  await expect(page.getByText("The allocation is no longer available, so its logs have expired.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open service", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Changes from previous successful release", exact: true })).toBeVisible();
+}, { fullPage: true });
 state("terminal-fullscreen", allocation, async (page) => {
   await click(page, "Terminal");
   await expect(page.getByText("Connected", { exact: true })).toBeVisible();
@@ -378,12 +406,12 @@ state('search-clear-and-overflow-table', '/deployments', async (page) => {
   await expect(page.getByText('No deployments match these filters', { exact: true })).toBeVisible();
   await click(page, 'Clear search');
   await expect(search).toHaveValue('');
-  await expect(page.getByRole('heading', { name: '27 deployments' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '28 deployments' })).toBeVisible();
   const previous = page.getByRole('button', { name: '‹ Previous', exact: true });
   await expect(previous).toBeDisabled();
   expect(await previous.evaluate((button) => getComputedStyle(button).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
   await page.setViewportSize({ width: 390, height: 844 });
-  const region = page.getByRole('region', { name: '27 deployments' });
+  const region = page.getByRole('region', { name: '28 deployments' });
   await expect(region).toHaveAttribute('tabindex', '0');
   await region.focus();
   await expect(region).toBeFocused();
@@ -551,7 +579,7 @@ state("failed-deployment-rollback", `${project}/deployments/${fixture.failedDepl
 for (const [name, route] of [["organization", "/deployments"], ["project", `${project}/deployments`]])
   state(`${name}-deployments-page-two`, route, async (page) => {
     await click(page, "Next ›");
-    await expect(page.locator("body")).toContainText("21–27 of 27");
+    await expect(page.locator("body")).toContainText("21–28 of 28");
   });
 state("deployments-search-empty", "/deployments", async (page) => {
   await page.getByRole("searchbox", { name: "Search services, projects and images" }).fill("unmatched-audit-search");
@@ -616,10 +644,18 @@ state("dashboard-live-health", "/dashboard", async (page) => {
   const allocationTile = page.locator("section").filter({ hasText: "Allocation health" }).first();
   // Two Storefront replicas and Checkout are healthy; Order Worker fails.
   // Shared ingress lives in platform, outside the project's workload health.
-  await expect(allocationTile).toContainText("3/4 healthy");
+  await expect(allocationTile).toContainText("3/5 healthy");
   await expect(allocationTile).toContainText("1 failing");
-  const worker = page.getByRole("row").filter({ hasText: "order-worker-alloc-1" });
+  // One merged row per service: the worker's allocation and restart backoff are not listed twice.
+  const worker = page.getByRole("row").filter({ hasText: "Order Worker" });
+  await expect(worker).toHaveCount(1);
   await expect(worker).toContainText("Failing");
+  await expect(worker).toContainText("order-worker-alloc-1");
+  await expect(worker).toContainText("Worker could not reach database");
+  await expect(worker.getByRole("link", { name: "View logs", exact: true })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Failing since", exact: true })).toBeVisible();
+  // A stuck pending allocation is flagged too.
+  await expect(page.getByRole("row").filter({ hasText: "Search Indexer" })).toContainText("No node has 500m CPU free");
 });
 state("project-deployments-scoped", `${project}/deployments`, async (page) => {
   await expect(page.getByRole("combobox", { name: "Filter by project" })).toHaveCount(0);
@@ -822,7 +858,7 @@ state("dark-notifications-open", "/dashboard", openNotifications, { dark: true }
 state("notifications-empty", "/dashboard", async (page) => {
   await replaceNotificationFeed(page, { json: { items: [], unreadCount: 0, lastSeenAt: new Date().toISOString() } });
   await openNotifications(page);
-  await expect(page.getByText("No deployment activity yet", { exact: true })).toBeVisible();
+  await expect(page.getByText("No activity yet", { exact: true })).toBeVisible();
 });
 state("notifications-refresh-error", "/dashboard", async (page) => {
   const failed = page.waitForResponse("**/api/notifications");
