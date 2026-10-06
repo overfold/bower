@@ -100,9 +100,9 @@ const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivEleme
   </div>
 )
 
-/** `flush` removes the padding for content that frames itself edge to edge, such as a before/after table. */
-const DialogBody = ({ className, flush = false, ...props }: React.HTMLAttributes<HTMLDivElement> & { flush?: boolean }) => (
-  <div data-slot="dialog-body" className={cn('scroll-vertical max-h-[62vh] min-h-0 overflow-y-auto overscroll-contain scroll-thin [--scroll-surface:var(--surface)]', flush ? 'p-0' : 'px-4 py-4 sm:px-5', className)} {...props} />
+/** Inside an alert dialog the body supplies its own padding, so the content's default gap is removed (see AlertDialogContent). */
+const DialogBody = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+  <div data-slot="dialog-body" className={cn('scroll-vertical max-h-[62vh] min-h-0 overflow-y-auto overscroll-contain px-4 py-4 scroll-thin [--scroll-surface:var(--surface)] sm:px-5', className)} {...props} />
 )
 
 const DialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (

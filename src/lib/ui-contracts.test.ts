@@ -331,7 +331,7 @@ test('the last-deploy marker distinguishes a rollback from a failure', () => {
 })
 
 test('the config diff shows plain environment values, masks secrets, and marks unrecorded values', () => {
-  const html = renderToStaticMarkup(createElement(ConfigDiffPreview, { afterLabel: 'Selected release', flush: true, changes: [
+  const html = renderToStaticMarkup(createElement(ConfigDiffPreview, { afterLabel: 'Selected release', changes: [
     { kind: 'config', key: 'cpu', label: 'CPU', before: 500, after: null, afterRecorded: false },
     { kind: 'config', key: 'health', label: 'Health check', before: null, after: null },
     { kind: 'environment', key: 'env.PORT', label: 'Environment', variable: 'PORT', change: 'Changed', before: { present: true, masked: false, value: '8080' }, after: { present: true, masked: false, value: '9090' } },
@@ -344,6 +344,6 @@ test('the config diff shows plain environment values, masks secrets, and marks u
   assert.match(html, />None</)
   // The chip follows the variable name instead of sitting above it.
   assert.ok(html.indexOf('>PORT<') < html.indexOf('>Changed<'))
-  // Flush tables sit edge to edge: no outer rounded border band.
-  assert.doesNotMatch(html, /overflow-hidden rounded-md border/)
+  // The table keeps its bordered, rounded frame inside the dialog body.
+  assert.match(html, /overflow-hidden rounded-md border border-line/)
 })

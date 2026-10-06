@@ -7,7 +7,7 @@ Changes to Bower's tokens, primitives, shared components, lint rules, and docume
 ## Unreleased
 
 **Added**
-- `ServiceFailureNotice`, `RestartCountdown`, `UrlTabs`, and `ConfigDiffPreview` (now a shared component): a one-line failure cause in the service body, a restart countdown, deep-linkable tabs, and a flush before/after table with plain env values and *Not recorded* markers. `DialogBody flush` and the underline tab classes live on the primitives.
+- `ServiceFailureNotice`, `RestartCountdown`, `UrlTabs`, and `ConfigDiffPreview` (now a shared component): a one-line failure cause in the service body, a restart countdown, deep-linkable tabs, and a bordered before/after table with plain env values and *Not recorded* markers. The underline tab classes live on the primitive, and an alert dialog with a `DialogBody` drops its gap.
 - `Time` live mode counts down future times; `DeploymentPoller` now refreshes health pages while visible, pausing for dialogs and unsaved changes.
 - `toneIconClasses` in `src/lib/tone.ts`: icon-only tone colors for notices on a neutral surface.
 - `PageBanner` `action` slot, matching `InlineNotice` (A2-H9).

@@ -93,7 +93,7 @@ export default async function DeploymentDetailPage({ params }: { params: Promise
       <KeyValue label="Revision">{row.deployment.trellisRevision ?? '—'}</KeyValue>
     </dl></Panel>
     {unsuccessful && previousRelease && changesFromPrevious.length ? <Panel><PanelHeader title="Changes from previous successful release" hint={<span className="font-mono">{deploymentImageTag(previousRelease.imageAfter)}</span>} />
-      <ConfigDiffPreview changes={changesFromPrevious} beforeLabel="Previous release" afterLabel="This deployment" flush />
+      <div className="p-4"><ConfigDiffPreview changes={changesFromPrevious} beforeLabel="Previous release" afterLabel="This deployment" /></div>
     </Panel> : null}
     <Panel><PanelHeader title="Events" />
       {events.length ? <Timeline items={events.map((event) => {

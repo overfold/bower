@@ -78,7 +78,7 @@ export function ServiceActions({ serviceId, serviceName, runningImage, environme
                 {runningImage ? <span className="mt-1 block">Running <span className="font-mono text-ink">{deploymentImageTag(runningImage)}</span></span> : null}
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <DialogBody flush><div className="space-y-2 px-4 py-4 sm:px-5"><label className="text-sm font-medium text-ink" htmlFor="service-rollback-release">Release</label><Select value={rollbackTarget} onValueChange={setRollbackTarget}><SelectTrigger id="service-rollback-release" aria-label="Rollback release" className="font-mono"><SelectValue /></SelectTrigger><SelectContent>{rollbackTargets.map((target) => <SelectItem key={target.id} value={target.id}><span className="font-mono">{deploymentImageTag(target.image)}</span><span className="ml-2 font-sans text-xs text-ink-muted"><Time value={target.createdAt} /></span></SelectItem>)}</SelectContent></Select></div><ConfigDiffPreview changes={selectedRollback?.changes ?? []} afterLabel="Selected release" flush /></DialogBody>
+            <DialogBody className="space-y-4"><div className="space-y-2"><label className="text-sm font-medium text-ink" htmlFor="service-rollback-release">Release</label><Select value={rollbackTarget} onValueChange={setRollbackTarget}><SelectTrigger id="service-rollback-release" aria-label="Rollback release" className="font-mono"><SelectValue /></SelectTrigger><SelectContent>{rollbackTargets.map((target) => <SelectItem key={target.id} value={target.id}><span className="font-mono">{deploymentImageTag(target.image)}</span><span className="ml-2 font-sans text-xs text-ink-muted"><Time value={target.createdAt} /></span></SelectItem>)}</SelectContent></Select></div><ConfigDiffPreview changes={selectedRollback?.changes ?? []} afterLabel="Selected release" /></DialogBody>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <Button variant="primary" loading={rollingBack} disabled={!rollbackTarget} onClick={() => startRollback(run(() => rollbackServiceAction(serviceId, environmentId, rollbackTarget), 'Rollback started', 'Rollback failed'))}>
@@ -111,7 +111,7 @@ export function ServiceActions({ serviceId, serviceName, runningImage, environme
       <AlertDialog open={confirmDeploy} onOpenChange={setConfirmDeploy}>
         <AlertDialogContent size="lg">
           <AlertDialogHeader><AlertDialogTitle>Deploy this service?</AlertDialogTitle><AlertDialogDescription>{changes.length ? 'Review the saved changes that will be deployed.' : 'The saved configuration matches the currently running release.'}</AlertDialogDescription></AlertDialogHeader>
-          {changes.length ? <DialogBody flush><ConfigDiffPreview changes={changes} afterLabel="After deploy" flush /></DialogBody> : null}
+          {changes.length ? <DialogBody><ConfigDiffPreview changes={changes} afterLabel="After deploy" /></DialogBody> : null}
           <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><Button variant="primary" loading={deploying} onClick={() => startDeploy(async () => { await run(() => deployServiceAction(serviceId, environmentId), 'Deployment started', 'Deploy failed')(); setConfirmDeploy(false) })}>Deploy</Button></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
