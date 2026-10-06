@@ -109,6 +109,22 @@ export function shortDeploymentImage(image?: string | null) {
 export function formatDeploymentDuration(startedAt?: Date, completedAt?: Date | null) {
   if (!startedAt || !completedAt) return '—'
   const seconds = Math.max(0, Math.floor((completedAt.getTime() - startedAt.getTime()) / 1000))
+  // A zero-length run is not a measurement: it means the timestamps were not recorded apart.
+  if (seconds === 0) return '—'
   if (seconds < 60) return `${seconds}s`
   return `${Math.floor(seconds / 60)}m ${seconds % 60}s`
+}
+
+/** Automated triggers are the system; a manual or rollback trigger with no user lost its account. */
+export function triggerActor(triggerType: string, userName?: string | null): string {
+  if (userName) return userName
+  return ['manual', 'rollback'].includes(triggerType) ? 'Unknown user' : 'System'
+}
+
+/** A short countdown such as "in 30s" or "in 4m 05s"; the caller decides what to show once it reaches zero. */
+export function formatCountdown(seconds: number): string {
+  const total = Math.max(1, Math.ceil(seconds))
+  if (total < 60) return `in ${total}s`
+  if (total < 3600) return `in ${Math.floor(total / 60)}m ${String(total % 60).padStart(2, '0')}s`
+  return `in ${Math.floor(total / 3600)}h ${String(Math.floor((total % 3600) / 60)).padStart(2, '0')}m`
 }

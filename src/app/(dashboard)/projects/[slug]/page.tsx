@@ -7,6 +7,8 @@ import {
   getProjectEnvironment,
   getDeploymentsByProject,
   getRoutesByProject,
+  getDeploymentFailureMessages,
+  withFailureMessages,
 } from '@/lib/queries'
 import { Panel, PanelHeader, PanelFooter, SectionTitle } from '@/components/ui/panel'
 import { StatusDot } from '@/components/status'
@@ -14,6 +16,7 @@ import { Chip } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Rocket, Globe, Server, ChevronRight } from 'lucide-react'
 import { Time } from '@/components/time'
+import { withServiceHealth } from '@/lib/deployment-rows'
 import { tlsLabels } from '@/lib/labels'
 import { getProjectLiveServices } from '@/lib/service-health-query'
 import { CreateServiceDialog } from '@/components/create-service-dialog'
@@ -22,7 +25,7 @@ import { Button } from '@/components/ui/button'
 import { DeploymentsTable } from '@/components/deployments-table'
 import { formatReadyReplicas } from '@/lib/format'
 import { NeedsAttention } from '@/components/needs-attention'
-import { needsAttentionRows } from '@/lib/needs-attention'
+import { latestFailedDeployments, needsAttentionRows } from '@/lib/needs-attention'
 
 function imageTag(image: string | null): string {
   if (!image) return '-'
@@ -60,8 +63,10 @@ export default async function ProjectOverviewPage({
     : []
   // eslint-disable-next-line react-hooks/purity
   const requestTime = Date.now()
-  const attentionRows = needsAttentionRows({ deployments: deployments.map((row) => ({ ...row, projectSlug: slug })), allocations: services.flatMap((row) => row.allocations), jobs: live.jobs, targets: services.map(({ service, config }) => ({ namespace: environment?.trellisNamespace ?? '', job: config?.activeJobName ?? null, serviceName: service.name, serviceSlug: service.slug, projectSlug: slug })), now: requestTime })
-  if (live.error) attentionRows.unshift({ id: 'runtime-error', status: 'unknown', serviceName: 'Service health', cause: 'Couldn’t check service health', href: '/status', action: 'Open status' })
+  const failureMessages = await getDeploymentFailureMessages(latestFailedDeployments(deployments.map((row) => ({ ...row, projectSlug: slug })), requestTime).map((row) => row.deployment.id))
+  const attentionRows = needsAttentionRows({ deployments: deployments.map((row) => ({ ...row, projectSlug: slug, failureMessage: failureMessages.get(row.deployment.id) })), allocations: services.flatMap((row) => row.allocations), jobs: live.jobs, targets: services.map(({ service, config }) => ({ serviceId: service.id, environmentId: environment?.id, namespace: environment?.trellisNamespace ?? '', job: config?.activeJobName ?? null, serviceName: service.name, serviceSlug: service.slug, projectSlug: slug })), now: requestTime })
+  if (live.error) attentionRows.unshift({ id: 'runtime-error', status: 'unknown', serviceName: 'Service health', cause: 'Couldn’t check service health', href: '/status', action: 'Open status', severity: -1 })
+  const recentDeployments = withServiceHealth(await withFailureMessages(deployments.slice(0, 5).map((row) => ({ ...row, projectName: project.name, projectSlug: project.slug }))), new Map(services.map(({ service, health }) => [service.id, health])))
   const setupService = services.find(({ latestDeployment }) => latestDeployment?.status === 'healthy') ?? services[0]
   const deployed = services.some(({ latestDeployment }) => latestDeployment?.status === 'healthy')
   const settingUp = services.length === 0 || routeRows.length === 0
@@ -103,7 +108,7 @@ export default async function ProjectOverviewPage({
               />
             </div>
           ) : (
-            <DeploymentsTable preset="compact" rows={deployments.slice(0, 5).map((row) => ({ ...row, projectName: project.name, projectSlug: project.slug }))} />
+            <DeploymentsTable preset="compact" rows={recentDeployments} />
           )}
           <PanelFooter shown={Math.min(5, deployments.length)} total={deployments.length} href={`/projects/${slug}/deployments`}>View all deployments</PanelFooter>
         </Panel>

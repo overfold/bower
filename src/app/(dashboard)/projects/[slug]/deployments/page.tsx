@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
-import { getUserOrganization, getProjectBySlug, getDeploymentsByProject, getProjectEnvironment } from '@/lib/queries'
+import { getUserOrganization, getProjectBySlug, getDeploymentsByProject, getProjectEnvironment, withFailureMessages } from '@/lib/queries'
 import { DeploymentPoller } from '@/components/deployment-poller'
 import { SectionTitle } from '@/components/ui/panel'
 import { DeploymentFilters } from '../../../deployments/deployment-filters'
@@ -15,7 +15,7 @@ export default async function DeploymentsPage({ params }: { params: Promise<{ sl
   if (!project) redirect('/projects')
   const environment = await getProjectEnvironment(project.id)
   const rows = environment ? await getDeploymentsByProject(project.id, null, environment.id) : []
-  const items = rows.map((row) => ({ ...row, projectName: project.name, projectSlug: slug }))
+  const items = (await withFailureMessages(rows)).map((row) => ({ ...row, projectName: project.name, projectSlug: slug }))
 
   return (
     <div className="space-y-5">

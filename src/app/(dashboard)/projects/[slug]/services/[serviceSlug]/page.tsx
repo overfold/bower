@@ -1,7 +1,7 @@
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
-import { getUserOrganization, getProjectBySlug, getProjectEnvironment, getServiceBySlug, getServiceConfigsWithEnvironments, getDeploymentsByService } from '@/lib/queries'
+import { getUserOrganization, getProjectBySlug, getProjectEnvironment, getServiceBySlug, getServiceConfigsWithEnvironments, getDeploymentsByService, withFailureMessages } from '@/lib/queries'
 import { getTrellisClient } from '@/lib/trellis-instance'
 import { allocationBelongsToService, trellisReadError } from '@/lib/trellis-runtime'
 import { TrellisReadError } from '@/components/trellis-read-error'
@@ -19,6 +19,11 @@ import { ResourceId } from '@/components/resource-id'
 import { AllocationMetrics } from './allocations/[allocationId]/allocation-metrics'
 import { DeploymentsTable } from '@/components/deployments-table'
 import { ClickableTableRow } from '@/components/clickable-table-row'
+import { ServiceFailureNotice } from '@/components/service-failure-notice'
+import { currentJobAllocations, getServiceHealth } from '@/lib/service-health'
+import { allocationCause, isFailingAllocation, serviceFailure } from '@/lib/service-failure'
+import { withServiceHealth } from '@/lib/deployment-rows'
+import type { TrellisJob } from '@/types/trellis'
 
 export default async function ServiceDetailPage({
   params,
@@ -47,11 +52,17 @@ export default async function ServiceDetailPage({
   const selectedDeployments = deployments.filter((deployment) => deployment.environmentId === environment.id)
 
   const allocationRows: TrellisAllocation[] = []
+  let job: TrellisJob | null = null
   let allocationError: string | null = null
   try {
     const client = await getTrellisClient(orgCtx.org.id)
     if (selectedConfig) {
-      const allocations = await client.listAllocations({ namespace: environment.trellisNamespace })
+      const jobName = selectedConfig.config.activeJobName || service.slug
+      const [allocations, runtimeJob] = await Promise.all([
+        client.listAllocations({ namespace: environment.trellisNamespace }),
+        Promise.resolve().then(() => client.getJob(jobName, environment.trellisNamespace)).catch(() => null),
+      ])
+      job = runtimeJob
       allocationRows.push(...allocations.filter((allocation) => allocation.phase !== 'stopped'
         && allocationBelongsToService(allocation, environment.trellisNamespace, service.slug, [service.slug, selectedConfig.config.activeJobName])))
     }
@@ -63,6 +74,16 @@ export default async function ServiceDetailPage({
   const cpuLimit = (selectedConfig?.config.cpu ?? 0) * (selectedConfig?.config.replicas ?? 0)
   const memoryLimit = (selectedConfig?.config.memory ?? 0) * (selectedConfig?.config.replicas ?? 0)
 
+
+  const currentAllocations = job ? currentJobAllocations(allocationRows, [{ name: job.name, revision: job.revision, spec: { namespace: environment.trellisNamespace } }]) : allocationRows
+  const serviceHealth = !allocationError && selectedConfig ? getServiceHealth({ allocations: currentAllocations, desiredReplicas: selectedConfig.config.replicas, deploymentStatus: selectedDeployments[0]?.status, deployed: selectedDeployments.length > 0 }) : 'unknown'
+  const failure = ['down', 'degraded'].includes(serviceHealth)
+    ? serviceFailure({ allocations: currentAllocations, backoffs: (job?.replacement_backoff ?? []).filter((entry) => entry.job_revision === job?.revision) })
+    : null
+  const failureHref = failure?.allocationId ? `/projects/${slug}/services/${serviceSlug}/allocations/${encodeURIComponent(failure.allocationId)}` : undefined
+
+  const recentDeployments = withServiceHealth((await withFailureMessages(selectedDeployments.slice(0, 5).map((deployment) => ({ deployment })))).map(({ deployment, failureMessage }) => ({ deployment, failureMessage, userName: deployment.userName, serviceName: service.name, serviceSlug: service.slug, projectName: project.name, projectSlug: project.slug })), new Map([[service.id, serviceHealth]]))
+
   const hasActiveDeployment = selectedDeployments.some((d) =>
     ['pending', 'planning', 'deploying'].includes(d.status)
   )
@@ -71,6 +92,7 @@ export default async function ServiceDetailPage({
     <div className="space-y-6">
       <DeploymentPoller active={hasActiveDeployment} />
       <SectionTitle>Overview</SectionTitle>
+      {failure ? <ServiceFailureNotice failure={failure} logsHref={failureHref} /> : null}
 
       <AllocationMetrics serviceId={service.id} allocationIds={allocationRows.map((allocation) => allocation.id)} initialMetrics={metrics.flatMap((result) => result.status === 'fulfilled' ? result.value : [])} initialError={allocationError || (metrics.some((result) => result.status === 'rejected') ? 'Metrics unavailable.' : null)} cpuLimit={cpuLimit} memoryLimit={memoryLimit} />
 
@@ -93,7 +115,7 @@ export default async function ServiceDetailPage({
                     <TableHead>Allocation</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Node</TableHead>
-                    <TableHead className="text-right">Time</TableHead>
+                    <TableHead className="text-right">Created</TableHead>
                     <TableHead className="w-12"><span className="sr-only">View</span></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -108,7 +130,7 @@ export default async function ServiceDetailPage({
                       </TableCell>
                       <TableCell>
                         <AllocationStatus phase={allocation.phase} health={allocation.health} />
-                        {allocation.phase === 'pending' && <p className="mt-1 max-w-64 text-xs text-ink-muted">{allocation.message || allocation.reason || 'Awaiting placement'}</p>}
+                        {allocation.phase === 'pending' ? <p className="mt-1 max-w-64 text-xs text-ink-muted">{allocationCause(allocation) || 'Awaiting placement'}</p> : isFailingAllocation(allocation) && allocationCause(allocation) ? <p className="mt-1 max-w-64 text-xs text-danger-500">{allocationCause(allocation)}</p> : null}
                       </TableCell>
                       <TableCell><NodeLink id={allocation.node_id} /></TableCell>
                       <TableCell className="whitespace-nowrap text-right text-ink-muted"><Time value={allocation.created_at} /></TableCell>
@@ -135,7 +157,7 @@ export default async function ServiceDetailPage({
         ) : (
           <Panel>
             <PanelHeader title="Recent deployments" hint={`${selectedDeployments.length} deployments`} />
-            <DeploymentsTable preset="service-compact" rows={selectedDeployments.slice(0, 5).map((deployment) => ({ deployment, serviceName: service.name, serviceSlug: service.slug, projectName: project.name, projectSlug: project.slug }))} />
+            <DeploymentsTable preset="service-compact" rows={recentDeployments} />
             <PanelFooter shown={Math.min(5, selectedDeployments.length)} total={selectedDeployments.length} href={`/projects/${slug}/services/${serviceSlug}/revisions`}>View all deployments</PanelFooter>
           </Panel>
         )}

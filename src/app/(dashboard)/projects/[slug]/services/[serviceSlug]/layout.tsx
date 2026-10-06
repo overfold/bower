@@ -10,6 +10,8 @@ import type { TrellisReplacementBackoff } from '@/types/trellis'
 import { ServiceShell } from './service-shell'
 import { earlierSuccessfulReleases, runningRelease } from '@/lib/service-releases'
 import { Suspense } from 'react'
+import { isUnsuccessfulDeployment } from '@/lib/status'
+import { serviceFailure } from '@/lib/service-failure'
 import { ServiceHeaderSkeleton } from '@/components/page-skeletons'
 
 export default async function ServiceLayout({ children, params }: {
@@ -70,14 +72,18 @@ async function LiveServiceHeader({ slug, serviceSlug, orgId, service, environmen
     } catch { /* The status remains useful when runtime diagnostics are unavailable. */ }
   }
 
+  const failure = ['down', 'degraded'].includes(row?.health ?? '') ? serviceFailure({ allocations: row?.allocations ?? [], backoffs: runtimeJob?.replacement_backoff ?? (replacementBackoff ? [replacementBackoff] : []) }) : null
+  const logsAllocationId = failure?.allocationId ?? failingAllocation?.id
+
   return <ServiceHeader
       slug={slug} serviceSlug={serviceSlug} serviceName={service.name} serviceId={service.id}
-      environmentId={environment.id} hasConfig={Boolean(config)} image={row?.latestDeployment ? row.latestDeployment.status === 'failed' ? row.latestDeployment.imageBefore : row.latestDeployment.imageAfter : config?.image ?? null}
+      environmentId={environment.id} hasConfig={Boolean(config)} image={row?.latestDeployment ? isUnsuccessfulDeployment(row.latestDeployment.status) ? row.latestDeployment.imageBefore : row.latestDeployment.imageAfter : config?.image ?? null}
       route={route?.route.domain ?? null}
       health={row?.health ?? 'never'} ready={row?.ready ?? null} replicas={config?.replicas ?? 0}
-      canDeploy={canDeploy} failedDeploymentId={row?.latestDeployment?.status === 'failed' ? row.latestDeployment.id : undefined}
+      canDeploy={canDeploy} failedDeploymentId={row?.latestDeployment && isUnsuccessfulDeployment(row.latestDeployment.status) ? row.latestDeployment.id : undefined} failedDeploymentOutcome={row?.latestDeployment?.status === 'rolled_back' ? 'rolled_back' : 'failed'}
       changes={changes} rollbackTargets={rollbackTargets.map((deployment) => ({ id: deployment.id, image: deployment.imageAfter, createdAt: deployment.createdAt.toISOString(), changes: diffJobSpecs(deployment.jobSpec, runtimeJob?.spec ?? current?.jobSpec) }))}
       replacementBackoff={replacementBackoff}
-      logsHref={failingAllocation ? `/projects/${slug}/services/${serviceSlug}/allocations/${failingAllocation.id}` : undefined}
+      logsHref={logsAllocationId ? `/projects/${slug}/services/${serviceSlug}/allocations/${logsAllocationId}` : undefined}
+      failureCause={failure?.cause}
     />
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { formatRelativeTime, formatTimestamp, timestampTitle, type DateValue } from '@/lib/format'
+import { formatCountdown, formatRelativeTime, formatTimestamp, timestampTitle, type DateValue } from '@/lib/format'
 
 export function Time({ value, mode = 'relative' }: { value: DateValue; mode?: 'auto' | 'absolute' | 'relative' | 'live' }) {
   const [now, setNow] = useState<number | null>(null)
@@ -15,7 +15,8 @@ export function Time({ value, mode = 'relative' }: { value: DateValue; mode?: 'a
   if (!date || !Number.isFinite(date.getTime())) return <span>—</span>
   const absolute = formatTimestamp(date, now === null ? 'UTC' : undefined)
   const ageSeconds = now === null ? null : Math.max(0, Math.floor((now - date.getTime()) / 1000))
+  const remainingSeconds = now === null ? null : (date.getTime() - now) / 1000
   return <time dateTime={date.toISOString()} title={timestampTitle(date, now === null ? 'UTC' : undefined)} suppressHydrationWarning>
-    {mode === 'live' && ageSeconds !== null && ageSeconds < 60 ? `${ageSeconds}s ago` : mode !== 'absolute' && now !== null ? formatRelativeTime(date, now) : absolute}
+    {mode === 'live' && remainingSeconds !== null && remainingSeconds > 0 ? formatCountdown(remainingSeconds) : mode === 'live' && ageSeconds !== null && ageSeconds < 60 ? `${ageSeconds}s ago` : mode !== 'absolute' && now !== null ? formatRelativeTime(date, now) : absolute}
   </time>
 }

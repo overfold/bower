@@ -14,6 +14,7 @@ import { TrellisReadError } from '@/components/trellis-read-error'
 import { getProjectLiveServices } from '@/lib/service-health-query'
 import { formatReadyReplicas } from '@/lib/format'
 import { LastDeployFailed } from '@/components/last-deploy-failed'
+import { isUnsuccessfulDeployment } from '@/lib/status'
 import { getTrellisClient } from '@/lib/trellis-instance'
 import { ClickableTableRow } from '@/components/clickable-table-row'
 
@@ -60,7 +61,7 @@ export default async function ServicesPage({
             <TableBody>{summaries.map(({ service, config, latestDeployment, routeCount, ready, health }) => {
               const href = `/projects/${slug}/services/${service.slug}`
               return <ClickableTableRow key={service.id} href={href} label={`View service ${service.name}`}>
-                <TableCell><div className="flex flex-wrap items-center gap-2"><StatusDot status={health} />{latestDeployment?.status === 'failed' ? <LastDeployFailed href={`/projects/${slug}/deployments/${latestDeployment.id}`} /> : null}</div></TableCell>
+                <TableCell><div className="flex flex-wrap items-center gap-2"><StatusDot status={health} />{latestDeployment && isUnsuccessfulDeployment(latestDeployment.status) ? <LastDeployFailed href={`/projects/${slug}/deployments/${latestDeployment.id}`} outcome={latestDeployment.status === 'rolled_back' ? 'rolled_back' : 'failed'} /> : null}</div></TableCell>
                 <TableCell><Link href={href} className="text-link font-medium">{service.name}</Link></TableCell>
                 <TableCell className="font-mono text-xs">{config?.image ?? 'No image configured'}</TableCell>
                 <TableCell>{formatReadyReplicas(ready, config?.replicas ?? 0)}</TableCell>

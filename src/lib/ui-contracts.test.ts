@@ -21,7 +21,8 @@ test('shared status vocabulary keeps product labels, tones, and progress semanti
     ['never', 'Not deployed', 'neutral'],
     ['succeeded', 'Succeeded', 'success'],
     ['failed', 'Failed', 'danger'],
-    ['rolled_back', 'Rolled back', 'info'],
+    ['rolled_back', 'Rolled back', 'warn'],
+    ['lost', 'Lost', 'danger'],
     ['draining', 'Draining', 'warn'],
     ['unhealthy', 'Unhealthy', 'danger'],
     ['backoff', 'Restart pending', 'warn'],
@@ -34,8 +35,10 @@ test('shared status vocabulary keeps product labels, tones, and progress semanti
 })
 
 test('allocation status distinguishes failures from intentional stops', () => {
-  assert.equal(allocationStatus('failed'), 'failing')
-  assert.equal(allocationStatus('lost'), 'failing')
+  assert.equal(allocationStatus('failed'), 'failed')
+  assert.equal(allocationStatus('dead'), 'failed')
+  assert.equal(allocationStatus('lost'), 'lost')
+  assert.equal(allocationStatus('running', 'unhealthy'), 'unhealthy')
   assert.equal(allocationStatus('stopped'), 'stopped')
   assert.equal(allocationStatus('completed'), 'completed')
 })

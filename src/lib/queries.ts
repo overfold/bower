@@ -1,4 +1,4 @@
-import { eq, and, desc, sql } from 'drizzle-orm'
+import { eq, and, desc, inArray, sql } from 'drizzle-orm'
 import { cookies } from 'next/headers'
 import { db } from '@/db'
 import {
@@ -27,6 +27,8 @@ import {
   projectUserAccess,
 } from '@/db/schema'
 import { ORG_COOKIE_NAME } from '@/lib/constants'
+import { failureEvent } from '@/lib/deployment-events'
+import { isUnsuccessfulDeployment } from '@/lib/status'
 import { ingressNamespace } from '@/lib/ingress-cluster'
 import { redactAuditDetails, routeAuditState, serviceConfigAuditState } from '@/lib/audit-details'
 
@@ -224,9 +226,28 @@ export async function getProjectVolumes(projectId: string, environmentId: string
   )).orderBy(projectVolumes.name)
 }
 
+/** Deployments for one service, with the triggering user's name so lists don't attribute everything to System. */
 export async function getDeploymentsByService(serviceId: string, limit: number | null = 20) {
-  const query = db.select().from(deployments).where(eq(deployments.serviceId, serviceId)).orderBy(desc(deployments.createdAt))
-  return limit === null ? query : query.limit(limit)
+  const query = db.select({ deployment: deployments, userName: users.name }).from(deployments)
+    .leftJoin(users, eq(users.id, deployments.triggeredByUserId))
+    .where(eq(deployments.serviceId, serviceId)).orderBy(desc(deployments.createdAt))
+  const rows = await (limit === null ? query : query.limit(limit))
+  return rows.map(({ deployment, userName }) => ({ ...deployment, userName }))
+}
+
+/** The failure event's message for each deployment (the one its detail page shows). */
+export async function getDeploymentFailureMessages(deploymentIds: string[]) {
+  const messages = new Map<string, string>()
+  if (!deploymentIds.length) return messages
+  const events = await db.select({ deploymentId: deploymentEvents.deploymentId, type: deploymentEvents.type, message: deploymentEvents.message })
+    .from(deploymentEvents).where(inArray(deploymentEvents.deploymentId, deploymentIds)).orderBy(deploymentEvents.createdAt)
+  const byDeployment = new Map<string, typeof events>()
+  for (const event of events) byDeployment.set(event.deploymentId, [...(byDeployment.get(event.deploymentId) ?? []), event])
+  for (const [id, list] of byDeployment) {
+    const event = failureEvent(list)
+    if (event) messages.set(id, event.message)
+  }
+  return messages
 }
 
 export async function getDeploymentsByProject(projectId: string, limit: number | null = 50, environmentId?: string) {
@@ -623,4 +644,10 @@ export async function getMergedServiceConfig(serviceId: string, environmentId: s
     overriddenFields,
     isBase: false,
   }
+}
+
+/** Adds the failure event's message to each failed or rolled-back row, for lists that show a reason under the status. */
+export async function withFailureMessages<T extends { deployment: { id: string; status: string } }>(rows: T[]) {
+  const messages = await getDeploymentFailureMessages(rows.filter((row) => isUnsuccessfulDeployment(row.deployment.status)).map((row) => row.deployment.id))
+  return rows.map((row) => ({ ...row, failureMessage: messages.get(row.deployment.id) ?? null }))
 }

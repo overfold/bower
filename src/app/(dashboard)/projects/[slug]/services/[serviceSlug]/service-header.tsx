@@ -21,8 +21,8 @@ export async function ServiceHeader({
   hasConfig,
   image,
   route,
-  health, ready, replicas, canDeploy, failedDeploymentId,
-  changes, rollbackTargets, replacementBackoff, logsHref,
+  health, ready, replicas, canDeploy, failedDeploymentId, failedDeploymentOutcome,
+  changes, rollbackTargets, replacementBackoff, logsHref, failureCause,
 }: {
   slug: string
   serviceSlug: string
@@ -37,10 +37,12 @@ export async function ServiceHeader({
   replicas: number
   canDeploy: boolean
   failedDeploymentId?: string
+  failedDeploymentOutcome?: 'failed' | 'rolled_back'
   changes: ServiceConfigDiff[]
   rollbackTargets: { id: string; image: string; createdAt: string; changes: ServiceConfigDiff[] }[]
   replacementBackoff: TrellisReplacementBackoff | null
   logsHref?: string
+  failureCause?: string | null
 }) {
   const deployments = hasConfig ? await getDeploymentsByService(serviceId, 20) : []
 
@@ -49,7 +51,7 @@ export async function ServiceHeader({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <div>
-            <div className="flex flex-wrap items-center gap-3"><PageHeading as="h1" title={serviceName} /><ServiceStatus health={health} ready={ready} replicas={replicas} serviceId={serviceId} environmentId={environmentId} logsHref={logsHref} replacementBackoff={replacementBackoff} />{changes.length ? <Chip tone="warn">Undeployed changes</Chip> : null}{failedDeploymentId ? <LastDeployFailed href={`/projects/${slug}/deployments/${failedDeploymentId}`} /> : null}</div>
+            <div className="flex flex-wrap items-center gap-3"><PageHeading as="h1" title={serviceName} /><ServiceStatus health={health} ready={ready} replicas={replicas} serviceId={serviceId} environmentId={environmentId} logsHref={logsHref} replacementBackoff={replacementBackoff} canDeploy={canDeploy} cause={failureCause} />{changes.length ? <Chip tone="warn">Undeployed changes</Chip> : null}{failedDeploymentId ? <LastDeployFailed href={`/projects/${slug}/deployments/${failedDeploymentId}`} outcome={failedDeploymentOutcome} /> : null}</div>
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-ink-muted">
               {image ? <span className="font-mono"><ResourceId value={image} copy /></span> : <span>Not deployed</span>}
               <span>{formatReadyReplicas(ready, replicas)}</span>

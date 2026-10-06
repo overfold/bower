@@ -10,8 +10,8 @@ Status is the most important information in Bower. It also drifted the most acro
 | --- | --- | --- |
 | `success` (green) | Working as intended | Healthy, Succeeded, Running, Active, Verified, Applied |
 | `danger` (red) | Broken, needs a fix | Failing, Failed, Unhealthy, Lost, Error, Stale heartbeat |
-| `warn` (amber) | Someone should look | Draining, Restart pending, Undeployed changes, Last deploy failed (marker) |
-| `info` (purple) | **Rolled back** only | Rolled back |
+| `warn` (amber) | Someone should look | Draining, Restart pending, Rolled back (the rollout failed and Bower restored the previous release), Undeployed changes, Last deploy failed (marker) |
+| `info` (purple) | Neutral information in notices | Informational notices only; no status uses it |
 | `neutral` + spinner | Happening now | Deploying, In progress, Pending, Starting, Placed |
 | `neutral` | Settled, not a problem | Stopped, Completed, Drained, Not deployed, Unknown, Superseded |
 
@@ -53,7 +53,7 @@ Rendered with `DeploymentStatus`.
 | Succeeded | `healthy`, `succeeded`. Never "Healthy" (A2-B3, A3-S02) |
 | Failed | `failed` |
 | In progress | `pending`, `planning`, `deploying`, `rolling_back` (spinner) |
-| Rolled back | `rolled_back` (`info`) |
+| Rolled back | `rolled_back` (`warn`). An automatic rollback means the rollout failed, so it notifies like a failure |
 
 A deployment that a later one replaced shows a **neutral "Superseded by …" notice** on its page (A5-C3).
 
@@ -66,7 +66,9 @@ One chip: **health while running, otherwise the phase** (A2-B6, `allocationStatu
 | Healthy / Unhealthy | Running, with health known |
 | Running | Running, health unknown |
 | Pending, Placed, Starting | Being scheduled or started (spinner) |
-| Failing | Failed, lost, or dead: the process exited. The same word as for a service (A4-Q09) |
+| Failed | Failed or dead: the allocation is terminal (`danger`) |
+| Lost | The node stopped reporting the allocation (`danger`). Kept distinct from Failed |
+| Failing | Service level only (`degraded`, `down`, `failing`): fewer replicas serve than desired. Never an allocation phase |
 | Stopped | Stopped on purpose (not a failure) |
 | Completed | A batch run that finished |
 

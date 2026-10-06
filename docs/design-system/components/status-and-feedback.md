@@ -25,7 +25,7 @@ Always render statuses through these components. They read label, tone, and prog
 | --- | --- | --- |
 | `StatusDot status` | A chip with a tone dot and the label, or a spinner when `inProgress` | Live health of services, allocations, and nodes. Generic statuses |
 | `DeploymentStatus status` | A chip with the deployment vocabulary: in-progress statuses collapse to **"In progress"**, and `healthy` reads **"Succeeded"** | Deployment results everywhere |
-| `AllocationStatus phase health` | `StatusDot` for `allocationStatus(phase, health)`: health while running, otherwise the phase, with failed, lost, and dead collapsing to **"Failing"** | Allocation rows and headers (A2-B6, A4-Q9) |
+| `AllocationStatus phase health` | `StatusDot` for `allocationStatus(phase, health)`: health while running, otherwise the phase, with failed and dead collapsing to **"Failed"** and lost staying **"Lost"** ("Failing" is a service-level word) | Allocation rows and headers (A2-B6, A4-Q9) |
 | `Dot tone pulse?` | A 6px dot | Inside chips, legends, compact lists |
 
 Unknown values fall back to `label()` (sentence-cased) with a neutral tone. If a new status appears, **add it to `statuses`**, not to the page.

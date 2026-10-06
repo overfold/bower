@@ -21,8 +21,8 @@ export const statuses: Readonly<Record<string, StatusDefinition>> = {
   draining: { label: 'Draining', tone: 'warn' },
   drained: { label: 'Drained', tone: 'neutral' },
   failed: { label: 'Failed', tone: 'danger' },
-  rolled_back: { label: 'Rolled back', tone: 'info' },
-  'rolled-back': { label: 'Rolled back', tone: 'info' },
+  rolled_back: { label: 'Rolled back', tone: 'warn' },
+  'rolled-back': { label: 'Rolled back', tone: 'warn' },
   lost: { label: 'Lost', tone: 'danger' },
   unhealthy: { label: 'Unhealthy', tone: 'danger' },
   unknown: { label: 'Unknown', tone: 'neutral' },
@@ -32,6 +32,13 @@ export const statuses: Readonly<Record<string, StatusDefinition>> = {
   failing: { label: 'Failing', tone: 'danger' },
   backoff: { label: 'Restart pending', tone: 'warn' },
   never: { label: 'Not deployed', tone: 'neutral' },
+}
+
+/** Settled deployment outcomes where the rollout did not succeed. An automatic rollback is a failed rollout. */
+export const unsuccessfulDeploymentStatuses = ['failed', 'rolled_back'] as const
+
+export function isUnsuccessfulDeployment(status: string): boolean {
+  return (unsuccessfulDeploymentStatuses as readonly string[]).includes(status)
 }
 
 export function statusDefinition(value: string): StatusDefinition | undefined {
