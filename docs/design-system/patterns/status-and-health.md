@@ -118,14 +118,15 @@ The cluster summary must reflect drains and failures, not just connectivity (A1 
 
 `src/components/needs-attention.tsx`, with rules in `src/lib/needs-attention.ts`. It appears on Home and, scoped to the project, on the project Overview (A4-Q06).
 
-- **Table columns:** Status · What · Cause · Time · (action). Hidden entirely when there are no rows (A3-L02).
-- **One row per symptom** (A4-Q02). **What** is the service's display name, with the specific ID (allocation, job, node) beneath in small mono (A4-Q03).
+- **Table columns:** Status · What · Cause · Failing since · (actions). Hidden entirely when there are no rows (A3-L02). "Failing since" is when the problem began (the earliest failure signal), with the last failure beneath it only when it differs. It is not the latest transition.
+- **One row per service.** Allocation failures, restart backoff, allocations stuck waiting for placement, and the latest deployment outcome are merged into one row. **What** is the service's display name, with the allocation ID beneath in small mono (A4-Q03). The **cause** is the most specific one (restart backoff, then the allocation message, then the placement reason); other distinct messages sit beneath it in muted text. Rows sort by severity: failing services, failed deployments, automatic rollbacks, draining nodes.
 - **What qualifies:**
-  - a failed deployment, **only if it is the service's newest** (A4-Q01)
-  - failing allocations of the current version
+  - a failed or automatically rolled-back deployment, **only if it is the service's newest** (A4-Q01), using the failure event's message (rollbacks read "Rolled back automatically: …")
+  - failing, lost, or unhealthy allocations of the current version
+  - allocations stuck pending (a placement-failure reason from Trellis, or pending past one minute)
   - services with a restart pending
   - nodes that are draining **and still have allocations**
-- **One action per row**, as a small default button: View diagnostics, View logs, Review restart, View progress.
+- **A primary action per row**, as a small default button: View logs (or Open service when no allocation is known), View diagnostics, View progress. A ghost button adds the related deployment. There is no ambiguous "Review restart".
 - When cluster data can't be read, say so ("Couldn't check the cluster"). Never "All clear" (A2-M1).
 
 ## Counts must agree
