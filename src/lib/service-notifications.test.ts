@@ -39,7 +39,7 @@ async function seed() {
   const [project] = await db.insert(schema.projects).values({ orgId: org.id, name: 'Shop', slug: 'shop' }).returning()
   const [environment] = await db.insert(schema.environments).values({ projectId: project.id, name: 'Production', slug: 'production', trellisNamespace: 'ns' }).returning()
   const [service] = await db.insert(schema.services).values({ projectId: project.id, name: 'Web', slug: 'web' }).returning()
-  await db.insert(schema.serviceConfigs).values({ serviceId: service.id, environmentId: environment.id, image: 'registry.invalid/web:1', cpu: 100, memory: 128, resourceTier: 'small', replicas: 1, activeJobName: 'web' } as never)
+  await db.insert(schema.serviceConfigs).values({ projectId: project.id, serviceId: service.id, environmentId: environment.id, image: 'registry.invalid/web:1', cpu: 100, memory: 128, resourceTier: 'small', replicas: 1, activeJobName: 'web' } as never)
   await db.insert(schema.deployments).values({ serviceId: service.id, environmentId: environment.id, imageAfter: 'registry.invalid/web:1', strategy: 'rolling', triggerType: 'manual', status: 'healthy', triggeredByUserId: user.id })
   return { db, schema, user, org, project, environment, service }
 }
