@@ -958,11 +958,20 @@ test('auth routing recovers from stale cookies and accounts without organization
       await expect(page).toHaveURL('/no-organization');
       await expect(page.getByRole('heading', { name: 'No organization access' })).toBeVisible();
     }
+    // The URL already reads /no-organization, so wait for the redirect to land
+    // before changing membership underneath the in-flight navigation.
+    const bouncedBack = page.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return url.pathname === '/no-organization' && url.searchParams.has('_rsc');
+    });
     await page.getByRole('link', { name: 'Check access' }).click();
+    await bouncedBack;
     await expect(page).toHaveURL('/no-organization');
+    await expect(page.getByRole('heading', { name: 'No organization access' })).toBeVisible();
     await sql`INSERT INTO organization_members (org_id,user_id,role) VALUES (${fixture.orgId},${user.id},'member')`;
     await page.getByRole('link', { name: 'Check access' }).click();
     await expect(page).toHaveURL('/projects');
+    await expect(page.getByRole('heading', { name: 'Projects', exact: true })).toBeVisible();
     await sql`DELETE FROM organization_members WHERE user_id=${user.id}`;
     await page.goto('/projects');
     await expect(page).toHaveURL('/no-organization');
