@@ -30,10 +30,8 @@ export interface DeploymentsTableRow {
   revision?: string | number | null
   /** The Trellis job version. Redeploys of an unchanged spec share a revision but not a version. */
   version?: string | number | null
-  /** The failure event's message, shown under a Failed or Rolled back status. */
+  /** The failure event's message, reachable as the status cell's tooltip. */
   failureMessage?: string | null
-  /** The service's live health, when it differs from what the release outcome suggests. */
-  serviceHealth?: string | null
   rollbackAction?: React.ReactNode
 }
 
@@ -61,9 +59,9 @@ export function DeploymentsTable({ rows, preset }: { rows: DeploymentsTableRow[]
       const Trigger = trigger.icon
       const navigate = () => window.location.assign(href)
       return <TableRow key={row.deployment.id} interactive tabIndex={0} role="link" aria-label={`View ${row.serviceName} deployment`} className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500" onClick={navigate} onKeyDown={(event) => { if (event.key === 'Enter') navigate() }}>
-        {history ? row.revision != null && row.revision !== '' ? <TableCell title={`Trellis revision ${row.revision}${row.version != null ? `, job version ${row.version}` : ''}`}><Mono>{row.revision}</Mono>{row.version != null ? <span className="block font-mono text-2xs text-ink-muted">v{row.version}</span> : null}</TableCell> : <TableCell className="text-ink-muted" title="Trellis never accepted this release, so it has no revision.">—</TableCell> : showService ? <TableCell><Link href={href} onClick={(event) => event.stopPropagation()} className="relative z-10 block truncate font-medium text-link" title={row.serviceName}>{row.serviceName}</Link>{preset === 'organization' ? <p className="mt-0.5 text-2xs text-ink-muted">{row.projectName}</p> : null}</TableCell> : null}
+        {history ? row.revision != null && row.revision !== '' ? <TableCell title={`Trellis revision ${row.revision}${row.version != null ? `, job version ${row.version}` : ''}`}><Mono>{row.revision}</Mono></TableCell> : <TableCell className="text-ink-muted" title="Trellis never accepted this release, so it has no revision.">—</TableCell> : showService ? <TableCell><Link href={href} onClick={(event) => event.stopPropagation()} className="relative z-10 block truncate font-medium text-link" title={row.serviceName}>{row.serviceName}</Link>{preset === 'organization' ? <p className="mt-0.5 text-2xs text-ink-muted">{row.projectName}</p> : null}</TableCell> : null}
         <TableCell><span className="block truncate font-mono text-xs" title={row.deployment.imageAfter}>{!compact && row.deployment.imageBefore && row.deployment.imageBefore !== row.deployment.imageAfter ? <><span className="text-ink-muted">{deploymentImageTag(row.deployment.imageBefore)} → </span></> : null}{deploymentImageTag(row.deployment.imageAfter)}</span><span className="block truncate font-mono text-2xs text-ink-muted">{row.deployment.imageAfter.replace(/(@[^/]+|:[^/:]+)$/, '')}</span></TableCell>
-        <TableCell><DeploymentStatus status={row.deployment.status} />{row.failureMessage && ['failed', 'rolled_back'].includes(row.deployment.status) ? <p className="mt-1 line-clamp-2 max-w-64 whitespace-normal text-2xs text-ink-muted" title={row.failureMessage}>{row.failureMessage}</p> : null}{row.deployment.status === 'healthy' && row.serviceHealth && ['degraded', 'down'].includes(row.serviceHealth) ? <p className="mt-1 text-2xs text-danger-500">Service now failing</p> : null}</TableCell>
+        <TableCell title={row.failureMessage && ['failed', 'rolled_back'].includes(row.deployment.status) ? row.failureMessage : undefined}><DeploymentStatus status={row.deployment.status} /></TableCell>
         {!compact || history ? <TableCell><span className="flex items-center gap-1.5"><Trigger className="size-3.5 text-ink-faint" /><span><span className="block text-sm">{trigger.label}</span><span className="block text-2xs text-ink-muted">{triggerActor(row.deployment.triggerType, row.userName)}</span></span></span></TableCell> : null}
         {!compact || history ? <TableCell className="nums text-right">{formatDeploymentDuration(row.deployment.startedAt, row.deployment.completedAt)}</TableCell> : null}<TableCell className="whitespace-nowrap text-right text-ink-muted"><Time value={row.deployment.createdAt} mode={compact ? 'relative' : 'auto'} /></TableCell>
         {history ? <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>{row.rollbackAction}</TableCell> : null}

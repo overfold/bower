@@ -134,11 +134,10 @@ export function NotificationsMenu({ initial }: { initial: NotificationFeed | nul
                       {item.projectName} · {item.environmentName}
                     </span>
                     {item.kind === 'service' ? <>
-                      <span className="mt-1.5 flex items-center gap-2"><StatusDot status={item.status} /><span className="text-xs text-ink-muted">Service</span></span>
+                      <span className="mt-1.5 flex items-center gap-2"><StatusDot status={item.status} /></span>
                       <span className="mt-1 block line-clamp-2 break-words text-xs text-ink-muted" title={item.cause}>{item.cause}</span>
                     </> : <span className="mt-1.5 flex items-center gap-2">
                       <DeploymentStatus status={item.status} />
-                      {item.status === 'rolled_back' ? <span className="text-xs text-ink-muted">Rolled back automatically</span> : null}
                       {item.triggeredByMe ? <span className="text-xs text-ink-muted">Your deploy</span> : null}
                     </span>}
                   </span>
@@ -158,7 +157,7 @@ export function NotificationsMenu({ initial }: { initial: NotificationFeed | nul
           <EmptyState
             icon={<Rocket className="size-4" />}
             title="No activity yet"
-            body="Failed or rolled-back deployments and failing services in your projects, and the results of deployments you start, appear here."
+            body="Failures in your projects and the results of your deploys appear here."
           />
         )}
         <DropdownMenuSeparator className="mx-0 my-0" />

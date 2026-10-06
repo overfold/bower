@@ -287,44 +287,42 @@ test('the notifications button names its unread count and caps the visible badge
   assert.match(many, /focus-visible:ring-2/)
 })
 
-test('deployment lists show unknown durations as a dash, never blame System for a manual deploy, and explain failures', () => {
+test('deployment lists show unknown durations as a dash, never blame System for a manual deploy, and keep failure reasons out of the row', () => {
   const base = { deployment: { id: 'dep', status: 'failed', triggerType: 'manual', imageAfter: 'app:v2', createdAt: new Date('2026-10-02T12:00:00Z'), startedAt: new Date('2026-10-02T12:00:00Z'), completedAt: new Date('2026-10-02T12:00:00Z') }, serviceName: 'Storefront', serviceSlug: 'storefront', projectName: 'Commerce', projectSlug: 'commerce' }
   const html = renderToStaticMarkup(createElement(DeploymentsTable, { preset: 'project', rows: [{ ...base, userName: null, failureMessage: 'Image pull failed' }] }))
   assert.match(html, />—<\/td>/)
   assert.doesNotMatch(html, />0s</)
   assert.match(html, /Unknown user/)
   assert.doesNotMatch(html, />System</)
-  assert.match(html, /Image pull failed/)
+  // The reason is reachable as a tooltip; it never makes history rows taller.
+  assert.match(html, /title="Image pull failed"/)
+  assert.doesNotMatch(html, /<p[^>]*>Image pull failed/)
   const history = renderToStaticMarkup(createElement(DeploymentsTable, { preset: 'service-history', rows: [{ ...base, userName: 'Ada', revision: null }, { ...base, deployment: { ...base.deployment, id: 'dep-2' }, userName: 'Ada', revision: 4, version: 9 }] }))
   assert.match(history, /Trellis never accepted this release/)
-  assert.match(history, />4<\/span><span[^>]*>v9<\/span>/)
-  const live = renderToStaticMarkup(createElement(DeploymentsTable, { preset: 'compact', rows: [{ ...base, deployment: { ...base.deployment, status: 'healthy' }, serviceHealth: 'down' }] }))
-  assert.match(live, /Service now failing/)
+  assert.match(history, /title="Trellis revision 4, job version 9"/)
+  assert.doesNotMatch(history, />v9</)
 })
 
-test('Needs attention shows one merged row per service with failing-since and a secondary action', () => {
+test('Needs attention shows one row per service with a since column and a single action', () => {
   const html = renderToStaticMarkup(createElement(NeedsAttention, { rows: [{
-    id: 'service-worker', status: 'failing', serviceName: 'Order Worker', specificId: 'alloc-2', cause: 'Worker could not reach database', details: ['Process exited with code 1', '4 failures'],
-    since: '2026-10-02T11:00:00Z', lastFailureAt: '2026-10-02T11:30:00Z', href: '/projects/commerce/services/worker/allocations/alloc-2', action: 'View logs', secondary: { href: '/projects/commerce/deployments/dep', action: 'View deployment' }, severity: 0,
+    id: 'service-worker', status: 'failing', serviceName: 'Order Worker', specificId: 'alloc-2', cause: 'Worker could not reach database',
+    since: '2026-10-02T11:00:00Z', href: '/projects/commerce/services/worker/allocations/alloc-2', action: 'View logs', severity: 0,
   }, { id: 'deployment-dep', status: 'rolled_back', serviceName: 'Web', cause: 'Rolled back automatically: deadline elapsed', since: '2026-10-02T10:00:00Z', href: '/projects/commerce/deployments/dep', action: 'View diagnostics', severity: 2 }] }))
-  assert.match(html, />Failing since</)
-  assert.match(html, /Process exited with code 1/)
-  assert.match(html, /Last failure/)
+  assert.match(html, />Since</)
+  assert.doesNotMatch(html, /Failing since|Last failure/)
   assert.match(html, />View logs</)
-  assert.match(html, />View deployment</)
   assert.match(html, /Rolled back/)
   assert.equal(html.match(/Order Worker/g)?.length, 1)
-  assert.doesNotMatch(html, /Review restart/)
+  assert.equal(html.match(/<a /g)?.length, 2)
 })
 
 test('the failing service notice leads with the cause and keeps logs one click away', () => {
-  const html = renderToStaticMarkup(createElement(ServiceFailureNotice, { logsHref: '/logs', failure: { cause: 'Worker could not reach database', details: ['Process exited with code 1'], failures: 4, kind: 'restart_backoff', failingSince: '2026-10-02T11:00:00Z', nextAttemptAt: '2099-01-01T00:00:00Z' } }))
-  assert.match(html, /Failing, restart pending/)
+  const html = renderToStaticMarkup(createElement(ServiceFailureNotice, { logsHref: '/logs', failure: { cause: 'Worker could not reach database', failures: 4, kind: 'restart_backoff', failingSince: '2026-10-02T11:00:00Z', nextAttemptAt: '2099-01-01T00:00:00Z' } }))
+  assert.match(html, /Restart pending/)
   assert.match(html, /Worker could not reach database/)
-  assert.match(html, /4 failures/)
   assert.match(html, /href="\/logs"/)
   assert.match(html, /role="alert"/)
-  assert.match(renderToStaticMarkup(createElement(ServiceFailureNotice, { failure: { cause: 'Awaiting placement: insufficient cpu', details: [], kind: 'unplaceable' } })), /Cannot be placed/)
+  assert.match(renderToStaticMarkup(createElement(ServiceFailureNotice, { failure: { cause: 'Awaiting placement: insufficient cpu', kind: 'unplaceable' }, logsHref: '/a' })), /View allocation/)
 })
 
 test('the last-deploy marker distinguishes a rollback from a failure', () => {

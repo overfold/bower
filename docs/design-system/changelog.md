@@ -7,7 +7,7 @@ Changes to Bower's tokens, primitives, shared components, lint rules, and docume
 ## Unreleased
 
 **Added**
-- `ServiceFailureNotice`, `RestartCountdown`, `UrlTabs`, and `ConfigDiffPreview` (now a shared component): failure cause in the service body, a ticking restart countdown, deep-linkable tabs, and a flush before/after table with plain env values and *Not recorded* markers.
+- `ServiceFailureNotice`, `RestartCountdown`, `UrlTabs`, and `ConfigDiffPreview` (now a shared component): a one-line failure cause in the service body, a restart countdown, deep-linkable tabs, and a flush before/after table with plain env values and *Not recorded* markers. `DialogBody flush` and the underline tab classes live on the primitives.
 - `Time` live mode counts down future times; `DeploymentPoller` now refreshes health pages while visible, pausing for dialogs and unsaved changes.
 - `toneIconClasses` in `src/lib/tone.ts`: icon-only tone colors for notices on a neutral surface.
 - `PageBanner` `action` slot, matching `InlineNotice` (A2-H9).
@@ -17,7 +17,7 @@ Changes to Bower's tokens, primitives, shared components, lint rules, and docume
 
 **Changed**
 - Rolled back is `warn` (an automatic rollback is a failed rollout) and notifies everyone with project access; failing services notify once per incident. Allocation status reads Failed and Lost, with Failing reserved for services.
-- Needs attention is one row per service with "Failing since" and the failure event's message.
+- Needs attention is one row per service: one cause, a "Since" time, and one action.
 - Toasts use a neutral surface with the tone on the icon only, `rounded-lg`, `py-2.5 pl-3 pr-2`, and fit-content width up to 22rem. `InlineNotice` keeps its tinted style.
 - `danger` toasts stay until dismissed. Other toasts pause their 5s timer while the stack is hovered or focused, then resume with the remaining time.
 - The toast stack is a "Status messages" region with sibling polite and assertive live regions. Toasts no longer carry `role="alert"` or `role="status"`.

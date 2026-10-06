@@ -22,7 +22,6 @@ import { ClickableTableRow } from '@/components/clickable-table-row'
 import { ServiceFailureNotice } from '@/components/service-failure-notice'
 import { currentJobAllocations, getServiceHealth } from '@/lib/service-health'
 import { allocationCause, isFailingAllocation, serviceFailure } from '@/lib/service-failure'
-import { withServiceHealth } from '@/lib/deployment-rows'
 import type { TrellisJob } from '@/types/trellis'
 
 export default async function ServiceDetailPage({
@@ -82,7 +81,7 @@ export default async function ServiceDetailPage({
     : null
   const failureHref = failure?.allocationId ? `/projects/${slug}/services/${serviceSlug}/allocations/${encodeURIComponent(failure.allocationId)}` : undefined
 
-  const recentDeployments = withServiceHealth((await withFailureMessages(selectedDeployments.slice(0, 5).map((deployment) => ({ deployment })))).map(({ deployment, failureMessage }) => ({ deployment, failureMessage, userName: deployment.userName, serviceName: service.name, serviceSlug: service.slug, projectName: project.name, projectSlug: project.slug })), new Map([[service.id, serviceHealth]]))
+  const recentDeployments = (await withFailureMessages(selectedDeployments.slice(0, 5).map((deployment) => ({ deployment })))).map(({ deployment, failureMessage }) => ({ deployment, failureMessage, userName: deployment.userName, serviceName: service.name, serviceSlug: service.slug, projectName: project.name, projectSlug: project.slug }))
 
   const hasActiveDeployment = selectedDeployments.some((d) =>
     ['pending', 'planning', 'deploying'].includes(d.status)
@@ -130,7 +129,7 @@ export default async function ServiceDetailPage({
                       </TableCell>
                       <TableCell>
                         <AllocationStatus phase={allocation.phase} health={allocation.health} />
-                        {allocation.phase === 'pending' ? <p className="mt-1 max-w-64 text-xs text-ink-muted">{allocationCause(allocation) || 'Awaiting placement'}</p> : isFailingAllocation(allocation) && allocationCause(allocation) ? <p className="mt-1 max-w-64 text-xs text-danger-500">{allocationCause(allocation)}</p> : null}
+                        {allocation.phase === 'pending' ? <p className="mt-1 max-w-64 text-xs text-ink-muted">{allocationCause(allocation) || 'Awaiting placement'}</p> : isFailingAllocation(allocation) && allocationCause(allocation) ? <p className="mt-1 max-w-64 text-xs text-ink-muted">{allocationCause(allocation)}</p> : null}
                       </TableCell>
                       <TableCell><NodeLink id={allocation.node_id} /></TableCell>
                       <TableCell className="whitespace-nowrap text-right text-ink-muted"><Time value={allocation.created_at} /></TableCell>

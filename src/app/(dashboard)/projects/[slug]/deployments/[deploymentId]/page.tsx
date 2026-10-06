@@ -76,7 +76,6 @@ export default async function DeploymentDetailPage({ params }: { params: Promise
   const logState = failureLogState({ allocationId: failedAllocationIdValue, allocationsReadable, allocationFound, lines: failureLogs, error: failureLogError })
   const previousRelease = unsuccessful ? previousSuccessfulRelease(journal, deploymentId) : undefined
   const changesFromPrevious = previousRelease ? diffJobSpecs(row.deployment.jobSpec, previousRelease.jobSpec) : []
-  const diagnosticEvents = events.filter((event) => ['scheduling_blocked', 'replacement_backoff', 'reconciliation_error'].includes(event.type) && event.id !== failedEvent?.id)
   const serviceHref = `/projects/${slug}/services/${row.service.slug}`
 
   return <div className="space-y-5">
@@ -84,7 +83,6 @@ export default async function DeploymentDetailPage({ params }: { params: Promise
     {superseding ? <InlineNotice tone="neutral">Superseded by <span className="font-mono font-medium">{deploymentImageTag(superseding.imageAfter)}</span> · {deploymentStatusLabels[superseding.status].toLowerCase()} <Time value={superseding.completedAt ?? superseding.createdAt} /> · <Link className="font-medium underline" href={`/projects/${slug}/deployments/${superseding.id}`}>View</Link></InlineNotice> : null}
     {unsuccessful && <InlineNotice tone={rolledBack ? 'warn' : 'danger'}>
       <p className="font-medium">{rolledBack ? `Rolled back automatically: ${failedEvent?.message ?? 'the rollout did not converge.'}` : failedEvent?.message ?? 'The deployment failed.'}</p>
-      {rolledBack && diagnosticEvents.length ? <ul className="mt-1 list-disc pl-4 text-sm text-ink-soft">{diagnosticEvents.map((event) => <li key={event.id}>{event.message}</li>)}</ul> : null}
       {logState.kind === 'logs' ? <pre className="mt-2 max-h-52 overflow-auto rounded bg-sunken p-3 text-xs text-ink">{failureLogs.join('\n')}</pre> : <p className="mt-1 text-sm text-ink-muted">{logState.message}</p>}
       <div className="mt-2"><Button asChild size="sm"><Link href={logState.allocationHref && failedAllocationIdValue ? `${serviceHref}/allocations/${encodeURIComponent(failedAllocationIdValue)}` : serviceHref}>{logState.allocationHref && failedAllocationIdValue ? 'Open allocation' : 'Open service'}</Link></Button></div>
     </InlineNotice>}
@@ -94,8 +92,8 @@ export default async function DeploymentDetailPage({ params }: { params: Promise
       <KeyValue label="Duration">{row.deployment.completedAt ? formatDeploymentDuration(row.deployment.startedAt, row.deployment.completedAt) : 'In progress'}</KeyValue>
       <KeyValue label="Revision">{row.deployment.trellisRevision ?? '—'}</KeyValue>
     </dl></Panel>
-    {unsuccessful ? <Panel><PanelHeader title="Changes from previous successful release" hint={previousRelease ? <span className="font-mono">{deploymentImageTag(previousRelease.imageAfter)}</span> : undefined} />
-      {!previousRelease ? <p className="p-4 text-sm text-ink-muted">There is no earlier successful release to compare against.</p> : <ConfigDiffPreview changes={changesFromPrevious} beforeLabel="Previous release" afterLabel="This deployment" flush />}
+    {unsuccessful && previousRelease && changesFromPrevious.length ? <Panel><PanelHeader title="Changes from previous successful release" hint={<span className="font-mono">{deploymentImageTag(previousRelease.imageAfter)}</span>} />
+      <ConfigDiffPreview changes={changesFromPrevious} beforeLabel="Previous release" afterLabel="This deployment" flush />
     </Panel> : null}
     <Panel><PanelHeader title="Events" />
       {events.length ? <Timeline items={events.map((event) => {

@@ -121,12 +121,12 @@ export function triggerActor(triggerType: string, userName?: string | null): str
   return ['manual', 'rollback'].includes(triggerType) ? 'Unknown user' : 'System'
 }
 
-/** A short countdown such as "in 30s" or "in 4m 05s"; the caller decides what to show once it reaches zero. */
+/** A calm countdown: seconds only under a minute, then whole minutes ("in 4m"), then hours. The caller decides what to show at zero. */
 export function formatCountdown(seconds: number): string {
   const total = Math.max(1, Math.ceil(seconds))
   if (total < 60) return `in ${total}s`
-  if (total < 3600) return `in ${Math.floor(total / 60)}m ${String(total % 60).padStart(2, '0')}s`
-  return `in ${Math.floor(total / 3600)}h ${String(Math.floor((total % 3600) / 60)).padStart(2, '0')}m`
+  if (total < 3600) return `in ${Math.ceil(total / 60)}m`
+  return `in ${Math.ceil(total / 3600)}h`
 }
 
 const logTimestampOptions: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }

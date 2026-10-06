@@ -6,8 +6,8 @@ const diffGrid = 'grid grid-cols-[minmax(6rem,0.7fr)_1fr_1fr] gap-3'
 
 /**
  * Before/after table for deploy and rollback dialogs. `flush` makes it span the dialog edge to edge
- * (no outer border): the dialog header, footer, or panel edges frame it. Pair it with `gap-0` on
- * AlertDialogContent, whose default `gap-4` would otherwise leave an empty band above and below.
+ * (no outer border): the dialog header, footer, or panel edges frame it. Inside a dialog, put it in
+ * `<DialogBody flush>`, which also removes the alert dialog's gap above and below.
  */
 export function ConfigDiffPreview({ changes, afterLabel, beforeLabel = 'Running', flush = false }: { changes: ServiceConfigDiff[]; afterLabel: string; beforeLabel?: string; flush?: boolean }) {
   if (!changes.length) return <p className="px-4 py-3 text-sm text-ink-muted sm:px-5">No configuration differences.</p>
@@ -27,14 +27,14 @@ export function ConfigDiffPreview({ changes, afterLabel, beforeLabel = 'Running'
 
 /** Absent from the stored release: unknown, not an instruction to remove it. */
 function NotRecorded() {
-  return <span className="italic text-ink-muted" title="This release did not record a value, so the dialog cannot say what it would change.">Not recorded</span>
+  return <span className="text-ink-muted" title="This release did not record a value, so the dialog cannot say what it would change."><span aria-hidden>—</span><span className="sr-only">Not recorded</span></span>
 }
 
 function EnvironmentValue({ side, muted = false }: { side: EnvironmentSide; muted?: boolean }) {
   const tone = muted ? 'text-ink-muted' : 'text-ink'
   if (!side.present) return <span className="text-xs text-ink-muted">Not set</span>
   if (side.masked) return <span className={`font-mono text-xs ${tone}`} title="Bound from a secret; the value is never shown.">••••••••</span>
-  return <span className={`min-w-0 break-all font-mono text-xs ${tone}`}>{side.value === '' ? <span className="font-sans italic text-ink-muted">Empty</span> : side.value}</span>
+  return <span className={`min-w-0 break-all font-mono text-xs ${tone}`}>{side.value === '' ? <span className="font-sans text-ink-muted">Empty</span> : side.value}</span>
 }
 
 function formatDiffValue(change: Extract<ServiceConfigDiff, { kind: 'config' }>, value: typeof change.before) {

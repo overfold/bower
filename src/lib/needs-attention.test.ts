@@ -25,7 +25,7 @@ const target = { serviceId: 'svc-worker', namespace: 'production', job: 'worker'
 const job = (backoff: NonNullable<TrellisJob['replacement_backoff']>) => ({ name: 'worker', spec: { namespace: 'production' }, replacement_backoff: backoff }) as unknown as TrellisJob
 const backoff = { group: 'app', job_revision: 3, failures: 4, last_failure_at: iso(5_000), message: 'Worker could not reach database', next_replacement_at: iso(-30_000) }
 
-test('one row per service merges allocation, backoff, and deployment signals under the most specific cause', () => {
+test('one row per service shows the most specific cause, the earliest failure, and one action', () => {
   const rows = needsAttentionRows({
     deployments: [{ ...row('dep', 'failed', 3_600_000, 'svc-worker'), serviceName: 'Order Worker', failureMessage: 'Image pull failed' }],
     allocations: [allocation({ id: 'a-1', phase: 'failed', message: 'Process exited with code 1; replacement scheduled', last_transition_at: iso(300_000) }), allocation({ id: 'a-2', phase: 'failed', message: 'Process exited with code 1; replacement scheduled', last_transition_at: iso(2_000) })],
@@ -38,13 +38,8 @@ test('one row per service merges allocation, backoff, and deployment signals und
   assert.equal(merged.specificId, 'a-2')
   assert.equal(merged.action, 'View logs')
   assert.match(merged.href, /allocations\/a-2$/)
-  assert.deepEqual(merged.secondary, { href: '/projects/commerce/deployments/dep', action: 'View deployment' })
-  assert.ok(merged.details?.includes('Process exited with code 1; replacement scheduled'))
-  assert.ok(merged.details?.includes('4 failures'))
-  assert.ok(merged.details?.some((detail) => detail.includes('Image pull failed')))
   // Failing since is the earliest failure, not the latest transition.
   assert.equal(new Date(merged.since as string).getTime(), now - 300_000)
-  assert.equal(new Date(merged.lastFailureAt as string).getTime(), now - 2_000)
 })
 
 test('failed deployment rows use the failure message, and rollbacks read as automatic', () => {

@@ -67,8 +67,9 @@ test('timestamps follow viewer timezone across midnight and include UTC in the t
 test('countdowns tick down and never read as zero', () => {
   assert.equal(formatCountdown(30), 'in 30s')
   assert.equal(formatCountdown(0.2), 'in 1s')
-  assert.equal(formatCountdown(125), 'in 2m 05s')
-  assert.equal(formatCountdown(7260), 'in 2h 01m')
+  assert.equal(formatCountdown(125), 'in 3m')
+  assert.equal(formatCountdown(240), 'in 4m')
+  assert.equal(formatCountdown(7260), 'in 3h')
 })
 
 test('log timestamps render in the requested time zone and reject non-dates', () => {

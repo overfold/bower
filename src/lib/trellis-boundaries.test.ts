@@ -485,7 +485,7 @@ test('version history keeps the deployment journal and omits the separate retain
   const html = renderToStaticMarkup(await page.default({ params: Promise.resolve({ slug: 'demo', serviceSlug: 'web', allocationId: '' }) }))
   assert.match(html, /Earlier successful releases with stored image pins can be restored/)
   assert.doesNotMatch(html, /Retained Trellis versions/)
-  assert.match(html, />7<\/span><span[^>]*>v12<\/span><\/td>/)
+  assert.match(html, /<td[^>]*title="Trellis revision 7, job version 12"[^>]*><span[^>]*>7<\/span><\/td>/)
   assert.match(html, /Succeeded/)
   assert.doesNotMatch(html, />5<\/td><td[^>]*>3</)
   assert.doesNotMatch(html, />6<\/td><td[^>]*>3</)

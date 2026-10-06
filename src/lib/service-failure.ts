@@ -6,12 +6,8 @@ type FailureAllocation = Pick<TrellisAllocation, 'id' | 'phase' | 'health' | 'la
 export type ServiceFailure = {
   /** The most specific cause: restart backoff first, then the failing allocation, then a placement problem. */
   cause: string
-  /** Other distinct messages worth showing under the cause. */
-  details: string[]
   /** The earliest failure signal we can see (not the latest transition). ISO 8601. */
   failingSince?: string
-  /** The most recent failure signal. ISO 8601. */
-  lastFailureAt?: string
   failures?: number
   nextAttemptAt?: string
   /** The allocation whose page explains the failure. */
@@ -52,7 +48,6 @@ export function serviceFailure({ allocations, backoffs = [], now = Date.now() }:
   const allocationText = latestFailing ? allocationCause(latestFailing) : null
   const stuckText = stuck.map(allocationCause).find(Boolean) ?? null
   const cause = backoffCause || allocationText || stuckText || (stuck.length ? 'Awaiting placement' : 'Health checks are failing')
-  const details = [...new Set([allocationText, stuckText].filter((text): text is string => Boolean(text) && text !== cause))]
 
   const signals = [
     ...failing.map((allocation) => time(allocation.last_transition_at)),
@@ -65,9 +60,7 @@ export function serviceFailure({ allocations, backoffs = [], now = Date.now() }:
 
   return {
     cause,
-    details,
     failingSince: signals.length ? iso(Math.min(...signals)) : undefined,
-    lastFailureAt: signals.length ? iso(Math.max(...signals)) : undefined,
     failures: backoff?.failures,
     nextAttemptAt: backoff?.next_replacement_at,
     allocationId: latestFailing?.id ?? listed(backoff?.last_allocation_id) ?? stuck[0]?.id,

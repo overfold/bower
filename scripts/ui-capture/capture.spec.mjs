@@ -228,10 +228,10 @@ for (const tab of ["Details", "Lifecycle"])
     if (tab === "Details") await expect(page.getByLabel("Sampling CPU usage")).toHaveCount(0);
   }, { fullPage: true });
 state("failing-service-cause", `${project}/services/order-worker`, async (page) => {
-  // The cause is in the page body and in the status popover.
+  // The cause is in the page body; the status popover keeps replicas, the countdown and actions.
   await expect(page.getByRole("alert").getByText("Worker could not reach database", { exact: true })).toBeVisible();
   await click(page, "Failing");
-  await expect(page.getByRole("dialog").getByText("Worker could not reach database", { exact: true })).toBeVisible();
+  await expect(page.getByRole("dialog")).toContainText("replica is not ready");
 });
 state("allocation-failed-lifecycle", `${project}/services/order-worker/allocations/order-worker-alloc-1?tab=lifecycle`, async (page) => {
   // ?tab= deep-links the tab; every earlier crash is toned, not just the last event.
@@ -654,7 +654,7 @@ state("dashboard-live-health", "/dashboard", async (page) => {
   await expect(worker).toContainText("order-worker-alloc-1");
   await expect(worker).toContainText("Worker could not reach database");
   await expect(worker.getByRole("link", { name: "View logs", exact: true })).toBeVisible();
-  await expect(page.getByRole("columnheader", { name: "Failing since", exact: true })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Since", exact: true })).toBeVisible();
   // A stuck pending allocation is flagged too.
   const indexer = page.getByRole("row").filter({ hasText: "Search Indexer" });
   await expect(indexer).toContainText("No node has 500m CPU free");

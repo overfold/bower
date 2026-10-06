@@ -34,9 +34,7 @@ import {
 } from 'lucide-react'
 import type { TrellisAllocation, TrellisNode, TrellisJob } from '@/types/trellis'
 import { formatRelativeTime, triggerActor } from '@/lib/format'
-import { currentJobAllocations, getServiceHealth } from '@/lib/service-health'
-import { allocationBelongsToService } from '@/lib/trellis-runtime'
-import { withServiceHealth } from '@/lib/deployment-rows'
+import { currentJobAllocations } from '@/lib/service-health'
 import { auditActionSentence, auditResourceName, auditActorDisplay, isHomeAuditEvent } from '@/lib/labels'
 import { NeedsAttention } from '@/components/needs-attention'
 import { latestFailedDeployments, needsAttentionRows } from '@/lib/needs-attention'
@@ -128,16 +126,9 @@ export default async function DashboardPage() {
   const failureMessages = await getDeploymentFailureMessages(latestFailedDeployments(visibleDeployments, requestTime).map((row) => row.deployment.id))
   const attentionRows = needsAttentionRows({ deployments: visibleDeployments.map((row) => ({ ...row, failureMessage: failureMessages.get(row.deployment.id) })), allocations: currentAllocations, jobs, targets: visibleTargets, nodes, now: requestTime })
   if (clusterError || allocationsError || jobsError) attentionRows.unshift({ id: 'cluster-error', status: 'unknown', serviceName: 'Cluster health', cause: 'Couldn’t check the cluster', href: '/status', action: 'Open status', severity: -1 })
-  const healthByService = new Map<string, string>()
-  if (!allocationsError && !jobsError) for (const target of visibleTargets) {
-    healthByService.set(target.serviceId, getServiceHealth({ allocations: currentAllocations.filter((allocation) => allocationBelongsToService(allocation, target.namespace, target.serviceSlug, [target.serviceSlug, target.job])), desiredReplicas: target.replicas, deployed: true, now: requestTime }))
-  }
-  const recentRows = withServiceHealth(await withFailureMessages(recentDeployments), healthByService)
+  const recentRows = await withFailureMessages(recentDeployments)
   // One notice per distinct cause, so a cluster outage reads as one problem, not three bare headings.
-  const unavailable = [...([['Nodes', clusterError], ['Allocations', allocationsError], ['Capacity data', metricsError]] as [string, string | null][]).reduce((groups, [name, message]) => {
-    if (message) groups.set(message, [...(groups.get(message) ?? []), name])
-    return groups
-  }, new Map<string, string[]>())].map(([message, names]) => ({ message, title: `${new Intl.ListFormat('en', { style: 'long', type: 'conjunction' }).format(names)} unavailable` }))
+  const unavailable = [...new Set([clusterError, allocationsError, metricsError].filter((message): message is string => Boolean(message)))].map((message) => ({ message, title: 'Cluster data unavailable' }))
   const resourceNames = new Map<string, string>(projectList.map((project) => [project.id, project.name]))
   for (const { service } of visibleServices) resourceNames.set(service.id, service.name)
   for (const row of visibleDeployments) resourceNames.set(row.deployment.id, row.serviceName)

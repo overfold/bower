@@ -84,6 +84,5 @@ async function LiveServiceHeader({ slug, serviceSlug, orgId, service, environmen
       changes={changes} rollbackTargets={rollbackTargets.map((deployment) => ({ id: deployment.id, image: deployment.imageAfter, createdAt: deployment.createdAt.toISOString(), changes: diffJobSpecs(deployment.jobSpec, runtimeJob?.spec ?? current?.jobSpec) }))}
       replacementBackoff={replacementBackoff}
       logsHref={logsAllocationId ? `/projects/${slug}/services/${serviceSlug}/allocations/${logsAllocationId}` : undefined}
-      failureCause={failure?.cause}
     />
 }

@@ -10,15 +10,10 @@ export type AttentionRow = {
   serviceName: string
   specificId?: string
   cause: string
-  /** Secondary facts under the cause: other allocation messages, the latest deployment outcome. */
-  details?: string[]
   /** When the problem began (earliest relevant failure), not the latest transition. */
   since?: Date | string
-  /** The most recent failure, when it differs from `since`. */
-  lastFailureAt?: Date | string
   href: string
   action: string
-  secondary?: { href: string; action: string }
   severity: number
 }
 
@@ -39,7 +34,7 @@ function deploymentCause(status: string, message?: string | null) {
   return message || 'Deployment failed'
 }
 
-/** One row per service: runtime failure, placement problem, and the latest deployment outcome are merged. */
+/** One row per service. A live failure takes precedence over the latest deployment outcome: one cause, one time, one action. */
 export function needsAttentionRows({ deployments, allocations, jobs, targets, nodes = [], now }: { deployments: DeploymentRow[]; allocations: TrellisAllocation[]; jobs: TrellisJob[]; targets: Target[]; nodes?: TrellisNode[]; now: number }): AttentionRow[] {
   const targetFor = (namespace: string, job: string) => targets.find((target) => target.namespace === namespace && (target.job === job || target.serviceSlug === job))
   type Group = { target: Target; allocations: TrellisAllocation[]; backoffs: NonNullable<TrellisJob['replacement_backoff']>; deployment?: DeploymentRow }
@@ -73,16 +68,11 @@ export function needsAttentionRows({ deployments, allocations, jobs, targets, no
     const deploymentCauseText = deployment ? deploymentCause(deployment.deployment.status, deployment.failureMessage) : undefined
     const deploymentSince = deployment?.deployment.completedAt ?? deployment?.deployment.createdAt
     if (failure) {
-      const details = [...failure.details]
-      if (failure.failures && failure.failures > 1) details.push(`${failure.failures} failures`)
-      if (deploymentCauseText) details.push(`Latest deployment: ${deploymentCauseText}`)
       rows.push({
         id: `service-${target.namespace}-${target.projectSlug}-${target.serviceSlug}`, status: 'failing', serviceName: target.serviceName, specificId: failure.allocationId,
-        cause: failure.cause, details: details.length ? details : undefined, since: failure.failingSince,
-        lastFailureAt: failure.lastFailureAt && failure.lastFailureAt !== failure.failingSince ? failure.lastFailureAt : undefined,
+        cause: failure.cause, since: failure.failingSince,
         href: failure.allocationId ? `${serviceHref}/allocations/${encodeURIComponent(failure.allocationId)}` : serviceHref,
         action: failure.allocationId ? (failure.kind === 'unplaceable' ? 'View allocation' : 'View logs') : 'Open service',
-        secondary: deploymentHref ? { href: deploymentHref, action: 'View deployment' } : undefined,
         severity: severity.failing,
       })
     } else if (deployment && deploymentHref) {
