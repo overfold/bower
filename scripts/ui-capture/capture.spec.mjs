@@ -76,7 +76,7 @@ const pages = [
   ],
   ["service-overview", service, "Storefront"],
   ["service-failed", `${project}/services/order-worker`, "Worker could not reach database"],
-  ["service-unplaceable", `${project}/services/search-indexer`, "Cannot be placed"],
+  ["service-unplaceable", `${project}/services/search-indexer`, "No node has 500m CPU free"],
   [
     "deployment-rolled-back-diagnostics",
     `${project}/deployments/${fixture.rolledBackDeploymentId}`,
