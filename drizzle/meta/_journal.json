@@ -28,6 +28,7 @@
     { "idx": 23, "version": "7", "when": 1791158400000, "tag": "0024_notification_read_states", "breakpoints": true },
     { "idx": 24, "version": "7", "when": 1791158401000, "tag": "0025_auth_abuse", "breakpoints": true },
     { "idx": 25, "version": "7", "when": 1791244800000, "tag": "0026_service_config_project_integrity", "breakpoints": true },
-    { "idx": 26, "version": "7", "when": 1791310871996, "tag": "0027_service_incidents", "breakpoints": true }
+    { "idx": 26, "version": "7", "when": 1791310871996, "tag": "0027_service_incidents", "breakpoints": true },
+    { "idx": 27, "version": "7", "when": 1791324107020, "tag": "0028_allocation_metric_samples", "breakpoints": true }
   ]
 }

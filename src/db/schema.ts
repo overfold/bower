@@ -6,11 +6,15 @@ import {
   timestamp,
   boolean,
   integer,
+  smallint,
+  bigint,
+  real,
   jsonb,
   index,
   uniqueIndex,
   unique,
   foreignKey,
+  primaryKey,
   check,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
@@ -507,6 +511,26 @@ export const serviceIncidents = pgTable("service_incidents", {
 }, (table) => [
   uniqueIndex("service_incidents_open_idx").on(table.serviceId, table.environmentId).where(sql`${table.resolvedAt} is null`),
   index("service_incidents_started_idx").on(table.startedAt),
+]);
+
+/**
+ * Periodic CPU and memory readings for one Bower-managed allocation (tasks summed), sampled by the
+ * background metrics sampler and pruned after the retention window. A missing sample is a gap, never
+ * a zero. `cpu_millicores` is null on an allocation's first sample, which has no previous reading.
+ */
+export const allocationMetricSamples = pgTable("allocation_metric_samples", {
+  serviceId: uuid("service_id").notNull().references(() => services.id, { onDelete: "cascade" }),
+  environmentId: uuid("environment_id").notNull().references(() => environments.id, { onDelete: "cascade" }),
+  allocationId: text("allocation_id").notNull(),
+  nodeId: text("node_id").notNull(),
+  collectedAt: timestamp("collected_at", { withTimezone: true }).notNull(),
+  cpuMillicores: real("cpu_millicores"),
+  memoryBytes: bigint("memory_bytes", { mode: "number" }).notNull(),
+  taskCount: smallint("task_count").notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.allocationId, table.collectedAt] }),
+  index("allocation_metric_samples_service_idx").on(table.serviceId, table.environmentId, table.collectedAt),
+  index("allocation_metric_samples_collected_idx").on(table.collectedAt),
 ]);
 
 // ---------------------------------------------------------------------------
