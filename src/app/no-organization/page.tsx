@@ -24,8 +24,10 @@ export default async function NoOrganizationPage() {
           <p className="text-sm font-medium text-ink">Signed in as {user.name}</p>
           <p className="break-all text-xs text-ink-muted">{user.email}</p>
         </div>
+        {/* No prefetch: a cached /projects → /no-organization redirect would be
+            replayed after access is granted and bounce between the two pages. */}
         <Button asChild variant="primary" className="w-full">
-          <Link href="/projects">Check access</Link>
+          <Link href="/projects" prefetch={false}>Check access</Link>
         </Button>
         <form action={logoutAction}>
           <Button type="submit" variant="ghost" className="w-full">Sign out</Button>
