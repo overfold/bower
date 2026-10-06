@@ -22,7 +22,7 @@ import { diffJobSpecs } from '@/lib/service-config-diff'
 import { deploymentDetailState, failureLogState, previousSuccessfulRelease } from '@/lib/deployment-detail-state'
 import { deploymentEventTone, failedAllocationId, failureEvent } from '@/lib/deployment-events'
 import { isUnsuccessfulDeployment } from '@/lib/status'
-import { ConfigDiffPreview } from '../../services/[serviceSlug]/service-actions'
+import { ConfigDiffPreview } from '@/components/config-diff-preview'
 
 export default async function DeploymentDetailPage({ params }: { params: Promise<{ slug: string; deploymentId: string }> }) {
   const { slug, deploymentId } = await params

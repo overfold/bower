@@ -24,7 +24,6 @@ export function safeUpstreamMessage(error: TrellisApiError): string | null {
   if (!EXPLAINED_STATUSES.has(error.status)) return null
   const raw = error.json?.error
   if (typeof raw !== 'string') return null
-  // eslint-disable-next-line no-control-regex
   const text = raw.replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim()
   if (!text || UNSAFE_UPSTREAM_TEXT.test(text)) return null
   return text.length > MAX_UPSTREAM_MESSAGE ? `${text.slice(0, MAX_UPSTREAM_MESSAGE - 1).trimEnd()}…` : text

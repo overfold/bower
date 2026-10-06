@@ -13,7 +13,7 @@ import { useFeedback } from '@/components/ui/feedback'
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog'
 import { DialogBody } from '@/components/ui/dialog'
 import { Time } from '@/components/time'
-import { ConfigDiffPreview } from '../../services/[serviceSlug]/service-actions'
+import { ConfigDiffPreview } from '@/components/config-diff-preview'
 import type { ServiceConfigDiff } from '@/lib/service-config-diff'
 
 export function DeploymentDiagnosticActions({ serviceId, serviceName, environmentId, primaryRecovery, runningImage, rollbackTargets, configurationHref }: { serviceId: string; serviceName: string; environmentId: string; primaryRecovery: boolean; runningImage?: string; rollbackTargets: { id: string; image: string; createdAt: Date | string; changes: ServiceConfigDiff[] }[]; configurationHref: string }) {
