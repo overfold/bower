@@ -26,6 +26,7 @@
     { "idx": 21, "version": "7", "when": 1790877600000, "tag": "0022_invitation_uses", "breakpoints": true },
     { "idx": 22, "version": "7", "when": 1790985600000, "tag": "0023_audit_actors", "breakpoints": true },
     { "idx": 23, "version": "7", "when": 1791158400000, "tag": "0024_notification_read_states", "breakpoints": true },
-    { "idx": 24, "version": "7", "when": 1791158401000, "tag": "0025_auth_abuse", "breakpoints": true }
+    { "idx": 24, "version": "7", "when": 1791158401000, "tag": "0025_auth_abuse", "breakpoints": true },
+    { "idx": 25, "version": "7", "when": 1791310871996, "tag": "0026_service_incidents", "breakpoints": true }
   ]
 }

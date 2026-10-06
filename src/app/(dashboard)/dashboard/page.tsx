@@ -133,6 +133,11 @@ export default async function DashboardPage() {
     healthByService.set(target.serviceId, getServiceHealth({ allocations: currentAllocations.filter((allocation) => allocationBelongsToService(allocation, target.namespace, target.serviceSlug, [target.serviceSlug, target.job])), desiredReplicas: target.replicas, deployed: true, now: requestTime }))
   }
   const recentRows = withServiceHealth(await withFailureMessages(recentDeployments), healthByService)
+  // One notice per distinct cause, so a cluster outage reads as one problem, not three bare headings.
+  const unavailable = [...([['Nodes', clusterError], ['Allocations', allocationsError], ['Capacity data', metricsError]] as [string, string | null][]).reduce((groups, [name, message]) => {
+    if (message) groups.set(message, [...(groups.get(message) ?? []), name])
+    return groups
+  }, new Map<string, string[]>())].map(([message, names]) => ({ message, title: `${new Intl.ListFormat('en', { style: 'long', type: 'conjunction' }).format(names)} unavailable` }))
   const resourceNames = new Map<string, string>(projectList.map((project) => [project.id, project.name]))
   for (const { service } of visibleServices) resourceNames.set(service.id, service.name)
   for (const row of visibleDeployments) resourceNames.set(row.deployment.id, row.serviceName)
@@ -162,10 +167,8 @@ export default async function DashboardPage() {
           status: row.deployment.status,
         }))}
       />
-      {(clusterError || allocationsError || metricsError) && <Panel>
-        {clusterError && <TrellisReadError title="Nodes unavailable" message={clusterError} />}
-        {allocationsError && <TrellisReadError title="Allocations unavailable" message={allocationsError} />}
-        {metricsError && <TrellisReadError title="Capacity data unavailable" message={metricsError} />}
+      {unavailable.length > 0 && <Panel>
+        {unavailable.map(({ title, message }) => <TrellisReadError key={message} title={title} message={message} />)}
       </Panel>}
 
       {/* Active deployments alert */}

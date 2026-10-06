@@ -11,12 +11,13 @@ const databaseTest = { skip: !process.env.BOWER_TEST_DATABASE_URL }
 
 test('notification statuses come from the shared status vocabulary and exclude in-progress deployments', async () => {
   const { FAILED_DEPLOYMENT_STATUSES, SUCCEEDED_DEPLOYMENT_STATUSES } = await notificationsModule
-  assert.deepEqual(FAILED_DEPLOYMENT_STATUSES, ['failed'])
+  // An automatic rollback means the rollout failed, so it is in the failure audience.
+  assert.deepEqual(FAILED_DEPLOYMENT_STATUSES, ['failed', 'rolled_back'])
   assert.deepEqual(SUCCEEDED_DEPLOYMENT_STATUSES, ['healthy'])
   for (const status of [...FAILED_DEPLOYMENT_STATUSES, ...SUCCEEDED_DEPLOYMENT_STATUSES]) {
     assert.equal(statusDefinition(status)?.inProgress ?? false, false, status)
   }
-  for (const status of ['pending', 'planning', 'deploying', 'rolled_back']) {
+  for (const status of ['pending', 'planning', 'deploying']) {
     assert.ok(![...FAILED_DEPLOYMENT_STATUSES, ...SUCCEEDED_DEPLOYMENT_STATUSES].includes(status as never), status)
   }
 })
@@ -108,12 +109,13 @@ test('the feed is limited to accessible projects, failures, and the user\'s own 
     const othersFailure = await deploy(fixture, { project: 'granted', status: 'failed', by: other.id, at: minutes(5) })
     const myFailure = await deploy(fixture, { project: 'granted', status: 'failed', by: me.id, at: minutes(6) })
     const mySuccess = await deploy(fixture, { project: 'granted', status: 'healthy', by: me.id, at: minutes(7) })
+    // An automatic rollback is a failed rollout: it notifies like a failure.
+    const rolledBack = await deploy(fixture, { project: 'granted', status: 'rolled_back', by: other.id, at: minutes(9) })
     // None of these may appear, or be counted.
     await deploy(fixture, { project: 'granted', status: 'healthy', by: other.id, at: minutes(8) })
     await deploy(fixture, { project: 'granted', status: 'healthy', by: null, at: minutes(8) })
     await deploy(fixture, { project: 'granted', status: 'deploying', by: me.id, at: minutes(9), completed: false })
     await deploy(fixture, { project: 'granted', status: 'pending', by: me.id, at: minutes(9), completed: false })
-    await deploy(fixture, { project: 'granted', status: 'rolled_back', by: me.id, at: minutes(9) })
     await deploy(fixture, { project: 'granted', status: 'failed', by: other.id, at: new Date(firstVisit.getTime() - 15 * 24 * 60 * 60_000) })
     await deploy(fixture, { project: 'hidden', status: 'failed', by: other.id, at: minutes(10) })
     await deploy(fixture, { project: 'hidden', status: 'healthy', by: me.id, at: minutes(10) })
@@ -121,11 +123,11 @@ test('the feed is limited to accessible projects, failures, and the user\'s own 
 
     const now = minutes(20)
     const feed = await loadNotificationFeed({ userId: me.id, orgId: org.id, orgRole: 'member', now })
-    assert.deepEqual(feed.items.map((item) => item.id), [mySuccess, myFailure, othersFailure, seenBefore])
-    assert.deepEqual(feed.items.map((item) => item.unread), [true, true, true, false])
-    assert.equal(feed.unreadCount, 3)
+    assert.deepEqual(feed.items.map((item) => item.id), [rolledBack, mySuccess, myFailure, othersFailure, seenBefore])
+    assert.deepEqual(feed.items.map((item) => item.unread), [true, true, true, true, false])
+    assert.equal(feed.unreadCount, 4)
     assert.ok(feed.items.every((item) => item.projectSlug === 'granted'))
-    assert.deepEqual(feed.items.map((item) => item.triggeredByMe), [true, true, false, false])
+    assert.deepEqual(feed.items.map((item) => item.kind === 'deployment' && item.triggeredByMe), [false, true, true, false, false])
     assert.equal(feed.items[0].environmentName, 'Production')
 
     // An admin in the same organization sees failures in every project there, but not another organization's.
@@ -136,13 +138,13 @@ test('the feed is limited to accessible projects, failures, and the user\'s own 
 
     // The limit bounds the list but not the unread count.
     const limited = await loadNotificationFeed({ userId: me.id, orgId: org.id, orgRole: 'member', now, limit: 1 })
-    assert.deepEqual(limited.items.map((item) => item.id), [mySuccess])
-    assert.equal(limited.unreadCount, 3)
+    assert.deepEqual(limited.items.map((item) => item.id), [rolledBack])
+    assert.equal(limited.unreadCount, 4)
 
     await markNotificationsSeen(me.id, org.id, minutes(6), now)
     const partlyRead = await loadNotificationFeed({ userId: me.id, orgId: org.id, orgRole: 'member', now })
-    assert.equal(partlyRead.unreadCount, 1)
-    assert.deepEqual(partlyRead.items.filter((item) => item.unread).map((item) => item.id), [mySuccess])
+    assert.equal(partlyRead.unreadCount, 2)
+    assert.deepEqual(partlyRead.items.filter((item) => item.unread).map((item) => item.id), [rolledBack, mySuccess])
   } finally {
     await cleanup(fixture)
   }

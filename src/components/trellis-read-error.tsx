@@ -22,7 +22,7 @@ export function TrellisReadError({ title, message }: { title: string; message: s
   return (
     <div role={message === sharedError ? 'status' : 'alert'} className="p-4 text-sm text-ink-muted">
       <p className="font-medium text-ink">{title}</p>
-      {message !== sharedError ? <><p className="mt-1">{message}</p><Button variant="link" size="sm" onClick={() => router.refresh()} className="mt-2 px-0">Retry</Button></> : null}
+      {message !== sharedError ? <><p className="mt-1">{message}</p><Button variant="link" size="sm" onClick={() => router.refresh()} className="mt-2 px-0">Retry</Button></> : <p className="mt-1">Trellis is unreachable, so this can’t be shown. Use Retry connection in the notice above.</p>}
     </div>
   )
 }

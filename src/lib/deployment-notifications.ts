@@ -4,7 +4,8 @@ import { deployments, deploymentStatusEnum, environments, notificationReadStates
 import { getProjectsForUser } from '@/lib/queries'
 import { statusDefinition } from '@/lib/status'
 import type { Tone } from '@/lib/tone'
-import type { NotificationFeed } from '@/lib/notification-feed'
+import { mergeNotificationItems, type DeploymentNotification, type NotificationFeed } from '@/lib/notification-feed'
+import { loadServiceHealthNotifications } from '@/lib/service-notifications'
 
 /** The menu shows at most this many items. The unread count is not limited by it. */
 export const NOTIFICATION_LIMIT = 20
@@ -14,15 +15,18 @@ export const NOTIFICATION_WINDOW_DAYS = 14
 type DeploymentStatusValue = (typeof deploymentStatusEnum.enumValues)[number]
 
 // Classify settled deployment statuses through the shared status vocabulary, not a local map.
-function settledDeploymentStatuses(tone: Tone): DeploymentStatusValue[] {
+function settledDeploymentStatuses(...tones: Tone[]): DeploymentStatusValue[] {
   return deploymentStatusEnum.enumValues.filter((status) => {
     const definition = statusDefinition(status)
-    return definition !== undefined && !definition.inProgress && definition.tone === tone
+    return definition !== undefined && !definition.inProgress && tones.includes(definition.tone)
   })
 }
 
-/** Failed deployments notify everyone with access to the project. */
-export const FAILED_DEPLOYMENT_STATUSES = settledDeploymentStatuses('danger')
+/**
+ * Failed and automatically rolled-back deployments notify everyone with access to the project: a
+ * rollback means the rollout failed (danger and warn tones are the unsuccessful outcomes).
+ */
+export const FAILED_DEPLOYMENT_STATUSES = settledDeploymentStatuses('danger', 'warn')
 /** Successful deployments notify only the user who triggered them. */
 export const SUCCEEDED_DEPLOYMENT_STATUSES = settledDeploymentStatuses('success')
 
@@ -74,6 +78,8 @@ export async function loadNotificationFeed(input: {
   ])
   const projectIds = accessibleProjects.map((project) => project.id)
   if (projectIds.length === 0) return { items: [], unreadCount: 0, lastSeenAt: lastSeenAt.toISOString() }
+  // Runtime failures come from live Trellis state; they never block or fail the deployment feed.
+  const serviceNotifications = loadServiceHealthNotifications({ orgId: input.orgId, projects: accessibleProjects, lastSeenAt, now }).catch(() => ({ items: [], unreadCount: 0 }))
 
   // Millisecond precision matches the JavaScript timestamps that read markers are built from.
   const occurredAt = sql<Date>`date_trunc('milliseconds', coalesce(${deployments.completedAt}, ${deployments.createdAt}))`
@@ -111,10 +117,11 @@ export async function loadNotificationFeed(input: {
       .where(and(relevant, gt(occurredAt, timestamptz(lastSeenAt)))),
   ])
 
-  return {
-    items: rows.map((row) => {
+  const runtime = await serviceNotifications
+  const deploymentItems: DeploymentNotification[] = rows.map((row) => {
       const at = new Date(row.occurredAt)
       return {
+        kind: 'deployment' as const,
         id: row.id,
         status: row.status,
         serviceName: row.serviceName,
@@ -125,8 +132,11 @@ export async function loadNotificationFeed(input: {
         occurredAt: at.toISOString(),
         unread: at.getTime() > lastSeenAt.getTime(),
       }
-    }),
-    unreadCount: unread?.value ?? 0,
+    })
+
+  return {
+    items: mergeNotificationItems([deploymentItems, runtime.items], limit),
+    unreadCount: (unread?.value ?? 0) + runtime.unreadCount,
     lastSeenAt: lastSeenAt.toISOString(),
   }
 }
