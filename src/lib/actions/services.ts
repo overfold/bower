@@ -133,7 +133,7 @@ export async function createServiceAction(projectSlug: string, formData: FormDat
     ...healthCheck,
   })
   if (environment) await db.insert(serviceConfigs).values({
-    serviceId: service.id, environmentId: environment.id, image,
+    projectId: project.id, serviceId: service.id, environmentId: environment.id, image,
     replicas: replicas ?? Math.max(1, environment.defaultReplicas),
     cpu, memory,
     resourceTier: environment.resourceTier as 'small' | 'medium' | 'large' | 'xl' | 'custom',
@@ -158,7 +158,7 @@ async function deployService(serviceId: string, environmentId: string) {
 }
 
 export async function deployServiceFromAutomation(serviceId: string, environmentId: string, image: string, trigger: 'webhook' | 'manual', actor: AutomationActor) {
-  const [row] = await db.select({ config: serviceConfigs }).from(serviceConfigs).innerJoin(environments, eq(environments.id, serviceConfigs.environmentId)).where(and(eq(serviceConfigs.serviceId, serviceId), eq(serviceConfigs.environmentId, environmentId))).limit(1)
+  const [row] = await db.select({ config: serviceConfigs }).from(serviceConfigs).innerJoin(services, eq(services.id, serviceConfigs.serviceId)).innerJoin(environments, and(eq(environments.id, serviceConfigs.environmentId), eq(environments.projectId, services.projectId))).where(and(eq(serviceConfigs.serviceId, serviceId), eq(serviceConfigs.environmentId, environmentId))).limit(1)
   if (!row) throw new Error('Service environment not found.')
   const overrides = { ...((row.config.overrides ?? {}) as Record<string, unknown>), image }
   await db.update(serviceConfigs).set({ image, overrides, updatedAt: new Date() }).where(eq(serviceConfigs.id, row.config.id))
@@ -179,7 +179,7 @@ async function rollbackService(serviceId: string, environmentId: string, targetD
     ;[target] = await db.select().from(deployments).where(and(eq(deployments.id, targetDeploymentId), eq(deployments.serviceId, serviceId), eq(deployments.environmentId, environmentId), eq(deployments.status, 'healthy'))).limit(1)
     if (!target?.jobSpec) throw new ActionError('This deployment has no successful stored JobSpec available for rollback.')
   }
-  const [configRow] = await db.select({ config: serviceConfigs, environment: environments }).from(serviceConfigs).innerJoin(environments, eq(environments.id, serviceConfigs.environmentId)).where(and(eq(serviceConfigs.serviceId, serviceId), eq(serviceConfigs.environmentId, environmentId))).limit(1)
+  const [configRow] = await db.select({ config: serviceConfigs, environment: environments }).from(serviceConfigs).innerJoin(environments, eq(environments.id, serviceConfigs.environmentId)).where(and(eq(serviceConfigs.serviceId, serviceId), eq(serviceConfigs.environmentId, environmentId), eq(environments.projectId, access.service.projectId))).limit(1)
   if (!configRow) throw new ActionError('Configuration not found.')
   if (target) {
     const jobName = configRow.config.activeJobName || access.service.slug
@@ -238,7 +238,7 @@ export async function restartServiceAction(serviceId: string, environmentId: str
 
 async function restartService(serviceId: string, environmentId: string) {
   const access = await requireService(serviceId); if (access.projectRole === 'viewer') throw new ActionError('Insufficient permissions.')
-  const [row] = await db.select({ config: serviceConfigs, environment: environments }).from(serviceConfigs).innerJoin(environments, eq(environments.id, serviceConfigs.environmentId)).where(and(eq(serviceConfigs.serviceId, serviceId), eq(serviceConfigs.environmentId, environmentId))).limit(1)
+  const [row] = await db.select({ config: serviceConfigs, environment: environments }).from(serviceConfigs).innerJoin(environments, eq(environments.id, serviceConfigs.environmentId)).where(and(eq(serviceConfigs.serviceId, serviceId), eq(serviceConfigs.environmentId, environmentId), eq(environments.projectId, access.service.projectId))).limit(1)
   if (!row) throw new ActionError('Service configuration not found.')
   const jobName = (row.config.activeJobName as string | null) || access.service.slug
   const client = await getTrellisClient(access.org.id)
@@ -249,7 +249,7 @@ async function restartService(serviceId: string, environmentId: string) {
 
 export async function deleteServiceAction(serviceId: string, projectSlug: string): Promise<{ error?: string }> {
   const access = await requireService(serviceId); if (access.projectRole !== 'admin') return { error: 'Insufficient permissions.' }
-  const configs = await db.select({ config: serviceConfigs, environment: environments }).from(serviceConfigs).innerJoin(environments, eq(environments.id, serviceConfigs.environmentId)).where(eq(serviceConfigs.serviceId, serviceId))
+  const configs = await db.select({ config: serviceConfigs, environment: environments }).from(serviceConfigs).innerJoin(environments, eq(environments.id, serviceConfigs.environmentId)).where(and(eq(serviceConfigs.serviceId, serviceId), eq(environments.projectId, access.service.projectId)))
   const client = await getTrellisClient(access.org.id)
   try {
     for (const { config, environment } of configs) {

@@ -961,7 +961,7 @@ test('both variable save paths preserve values and reject conflicts before writi
     '@/lib/queries': { getBaseServiceConfig: async () => ({}) },
     '@/lib/trellis-instance': { getTrellisJobLimits: async () => undefined },
     '@/db': { db: {
-      select: () => query(++reads === 1 ? [{ id: 'config', runtime: 'runc', overrides: {} }] : reads === 2 ? [{ id: 'env', name: 'Production', envVars: shared }] : available),
+      select: () => query(++reads === 1 ? [{ config: { id: 'config', runtime: 'runc', overrides: {} } }] : reads === 2 ? [{ id: 'env', name: 'Production', envVars: shared }] : available),
       update: () => ({ set: (value: Record<string, unknown>) => { writes.push(value); return { where: async () => {} } } }),
     } },
   }
@@ -1090,7 +1090,7 @@ test('base propagation and reset validate inherited variables before writing', a
     '@/lib/queries': { getBaseServiceConfig: async () => ({ envVars: { SHARED: 'plain' }, secretBindings: [] }) },
     '@/lib/trellis-instance': { getTrellisJobLimits: async () => undefined },
     '@/db': { db: {
-      select: () => query(++reads === 1 ? [{ id: 'config', environmentId: 'env', overrides: {} }] : reads === 2 ? [{ name: 'Production', envVars: { SHARED: 'shared-secret' } }] : []),
+      select: () => query(++reads === 1 ? [{ config: { id: 'config', environmentId: 'env', overrides: {} } }] : reads === 2 ? [{ name: 'Production', envVars: { SHARED: 'shared-secret' } }] : []),
       insert: () => { throw new Error('Invalid base must not be written') },
       update: () => { throw new Error('Invalid inherited values must not be written') },
     } },

@@ -28,7 +28,7 @@ export async function createDeploymentSpec(serviceId: string, environmentId: str
   const [row] = await db.select({ config: serviceConfigs, service: services, environment: environments, project: projects })
     .from(serviceConfigs)
     .innerJoin(services, eq(services.id, serviceConfigs.serviceId))
-    .innerJoin(environments, eq(environments.id, serviceConfigs.environmentId))
+    .innerJoin(environments, and(eq(environments.id, serviceConfigs.environmentId), eq(environments.projectId, services.projectId)))
     .innerJoin(projects, eq(projects.id, services.projectId))
     .where(and(eq(serviceConfigs.serviceId, serviceId), eq(serviceConfigs.environmentId, environmentId))).limit(1)
   if (!row) throw new Error('Service configuration was not found.')

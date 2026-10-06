@@ -118,7 +118,7 @@ try {
         ),
       };
       await sql`INSERT INTO base_service_configs ${sql(config)}`;
-      await sql`INSERT INTO service_configs ${sql({ ...config, environment_id: environment.id, active_job_name: slug })}`;
+      await sql`INSERT INTO service_configs ${sql({ ...config, project_id: project.id, environment_id: environment.id, active_job_name: slug })}`;
       for (const [j, status] of [
         "healthy",
         "failed",

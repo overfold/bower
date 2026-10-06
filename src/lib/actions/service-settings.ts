@@ -3,7 +3,7 @@
 import { and, eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/db'
-import { baseServiceConfigs, environments, projectVolumes, secretsMetadata, serviceConfigs } from '@/db/schema'
+import { baseServiceConfigs, environments, projectVolumes, secretsMetadata, serviceConfigs, services } from '@/db/schema'
 import { getBaseServiceConfig } from '@/lib/queries'
 import { recordAudit, requireService } from '@/lib/actions/shared'
 import type { TrellisApiAccess, TrellisRuntime } from '@/types/trellis'
@@ -12,12 +12,12 @@ import { parseJsonInput, validateSecretBindings, validateVolumeMounts } from '@/
 import { assertWorkloadApiAccessAllowed } from '@/lib/workload-policy'
 
 async function getOwnedConfig(serviceId: string, environmentId: string) {
-  const [config] = await db.select().from(serviceConfigs).where(and(
-    eq(serviceConfigs.serviceId, serviceId),
-    eq(serviceConfigs.environmentId, environmentId),
-  )).limit(1)
-  if (!config) throw new Error('Service configuration not found.')
-  return config
+  const [row] = await db.select({ config: serviceConfigs }).from(serviceConfigs)
+    .innerJoin(services, eq(services.id, serviceConfigs.serviceId))
+    .innerJoin(environments, and(eq(environments.id, serviceConfigs.environmentId), eq(environments.projectId, services.projectId)))
+    .where(and(eq(serviceConfigs.serviceId, serviceId), eq(serviceConfigs.environmentId, environmentId))).limit(1)
+  if (!row) throw new Error('Service configuration not found.')
+  return row.config
 }
 
 export async function updateServiceVolumeMountsAction(serviceId: string, environmentId: string | null, formData: FormData) {

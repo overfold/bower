@@ -14,7 +14,7 @@ test('reconciliation records safe, deduplicated errors including missing credent
   const [project] = await db.insert(projects).values({ orgId: org.id, name: 'Operations', slug: 'operations' }).returning()
   const [environment] = await db.insert(environments).values({ projectId: project.id, name: 'Test', slug: 'test', trellisNamespace: 'operations-test' }).returning()
   const [service] = await db.insert(services).values({ projectId: project.id, name: 'Web', slug: 'web' }).returning()
-  await db.insert(serviceConfigs).values({ serviceId: service.id, environmentId: environment.id, image: 'unused', cpu: 100, memory: 128, resourceTier: 'small', autoRollbackSeconds: 3600 })
+  await db.insert(serviceConfigs).values({ projectId: project.id, serviceId: service.id, environmentId: environment.id, image: 'unused', cpu: 100, memory: 128, resourceTier: 'small', autoRollbackSeconds: 3600 })
   const [deployment] = await db.insert(deployments).values({
     serviceId: service.id, environmentId: environment.id, imageAfter: 'unused', strategy: 'rolling', triggerType: 'manual', status: 'deploying',
     jobSpec: { name: 'web', namespace: 'operations-test', task_groups: [{ name: 'web', count: 1, tasks: [] }] },

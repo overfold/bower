@@ -1,6 +1,6 @@
 'use server'
 
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/db'
 import { environments, serviceConfigs } from '@/db/schema'
@@ -16,7 +16,7 @@ async function getOwnedAllocation(serviceId: string, allocationId: string) {
   })
     .from(serviceConfigs)
     .innerJoin(environments, eq(environments.id, serviceConfigs.environmentId))
-    .where(eq(serviceConfigs.serviceId, serviceId))
+    .where(and(eq(serviceConfigs.serviceId, serviceId), eq(environments.projectId, access.service.projectId)))
   const client = await getTrellisClient(access.org.id)
   const results = await Promise.allSettled(configs.map((config) => client.listAllocations({ namespace: config.namespace })))
   const allocations = results.flatMap((result) => result.status === 'fulfilled' ? result.value : [])
