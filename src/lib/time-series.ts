@@ -1,4 +1,28 @@
+import type { Tone } from '@/lib/tone'
+
 export type TimeSeriesPoint = { t: number; value: number | null; peak?: number | null }
+
+/** A point in time worth marking on the chart, such as a deploy. */
+export type TimeSeriesMarker = { t: number; label: string; tone?: Tone }
+
+/**
+ * Groups markers by the bucket (point index) whose span contains them, in time order. A marker outside the
+ * plotted span is dropped, so what is drawn, read out and counted always agree.
+ */
+export function markersByBucket(points: TimeSeriesPoint[], markers: TimeSeriesMarker[] = []): Map<number, TimeSeriesMarker[]> {
+  const grouped = new Map<number, TimeSeriesMarker[]>()
+  if (!points.length) return grouped
+  const width = points.length > 1 ? points[1].t - points[0].t : 60_000
+  if (!(width > 0)) return grouped
+  for (const marker of [...markers].sort((a, b) => a.t - b.t)) {
+    const index = Math.floor((marker.t - points[0].t) / width)
+    if (index < 0 || index >= points.length) continue
+    const list = grouped.get(index)
+    if (list) list.push(marker)
+    else grouped.set(index, [marker])
+  }
+  return grouped
+}
 
 /** Consecutive index ranges of non-null values. A null breaks the line: nothing is interpolated across a gap. */
 export function seriesRuns(points: TimeSeriesPoint[]): Array<{ start: number; end: number }> {
@@ -48,13 +72,15 @@ export function seriesGeometry(points: TimeSeriesPoint[], max: number, width = 1
   return { line: line.trim(), area: area.trim() }
 }
 
-export function summarizeSeries({ label, rangeLabel, points, format, limit, limitLabel = 'Limit' }: {
+export function summarizeSeries({ label, rangeLabel, points, format, limit, limitLabel = 'Limit', deploys = 0 }: {
   label: string
   rangeLabel: string
   points: TimeSeriesPoint[]
   format: (value: number) => string
   limit?: number
   limitLabel?: string
+  /** Deploy markers inside the window. */
+  deploys?: number
 }): string {
   const values = points.flatMap((point) => point.value === null ? [] : [point.value])
   if (!values.length) return `${label} over the ${rangeLabel}: no samples yet.`
@@ -62,6 +88,7 @@ export function summarizeSeries({ label, rangeLabel, points, format, limit, limi
   const gaps = seriesRuns(points).length - 1 + (points[0]?.value === null ? 1 : 0) + (points.at(-1)?.value === null ? 1 : 0)
   const parts = [`latest ${format(latest)}`, `lowest ${format(Math.min(...values))}`, `highest ${format(Math.max(...values))}`]
   if (gaps > 0) parts.push(`${gaps} ${gaps === 1 ? 'gap' : 'gaps'} without data`)
+  if (deploys > 0) parts.push(`${deploys} ${deploys === 1 ? 'deploy' : 'deploys'}`)
   if (limit) parts.push(`${limitLabel.toLowerCase()} ${format(limit)}${values.some((value) => value > limit) ? ', exceeded' : ''}`)
   return `${label} over the ${rangeLabel}: ${parts.join(', ')}.`
 }

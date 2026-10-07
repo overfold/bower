@@ -801,6 +801,74 @@ for (const [prefix, extra] of [["", {}], ["dark-", { dark: true }], ["narrow-", 
     })).toBe(true);
   }, extra);
 }
+// Deploy markers: the seed starts the latest Storefront release 45 minutes ago, inside every range. Hover the marker's own
+// bucket to read it out; the group's accessible name counts the deploys.
+const hoverDeploy = async (page, chart) => {
+  const line = chart.locator('svg line[y1="0"][y2="100"]').first();
+  await expect(line).toBeAttached();
+  const x = Number(await line.getAttribute("x1")) / 1000;
+  const box = await chart.boundingBox();
+  await page.mouse.move(box.x + box.width * x, box.y + box.height / 2);
+  await expect(page.getByText(/Deployed v2\.4\.1 \(Healthy\)/).first()).toBeVisible();
+};
+for (const [prefix, extra] of [["", {}], ["dark-", { dark: true }], ["narrow-", { narrow: true, fullPage: true }], ["narrow-dark-", { narrow: true, dark: true, fullPage: true }]])
+  state(`${prefix}service-metrics-history-deploy`, service, async (page) => {
+    await showHistory(page);
+    const cpu = page.getByRole("group", { name: /^CPU usage over the/ });
+    expect(await cpu.getAttribute("aria-label")).toMatch(/, 1 deploy[,.]/);
+    await expect(page.getByText("Deploy", { exact: true }).first()).toBeVisible();
+    await hoverDeploy(page, cpu);
+  }, extra);
+// The same history for one allocation, in the Details tab below the live tiles. The stopped allocation is still listed by
+// the fake Trellis and has stored samples up to the moment it was replaced; Checkout API's allocation has none.
+const detailsOf = (route) => `${route}?tab=details`;
+const stoppedAllocation = `${service}/allocations/storefront-alloc-0`;
+for (const [prefix, extra] of [["", {}], ["dark-", { dark: true }], ["narrow-", { narrow: true, fullPage: true }], ["narrow-dark-", { narrow: true, dark: true, fullPage: true }]]) {
+  state(`${prefix}allocation-metrics-history`, detailsOf(allocation), async (page) => {
+    await expect(page.getByLabel("Sampling CPU usage")).toHaveCount(0);
+    await showHistory(page);
+    await expect(page.getByText("This allocation, last hour")).toBeVisible();
+    const cpu = page.getByRole("group", { name: /^CPU usage over the/ });
+    // The allocation's limit is the per-replica 500m, not the service's 1 core.
+    expect(await cpu.getAttribute("aria-label")).toMatch(/cpu limit 0\.5 cores/);
+    expect(await cpu.getAttribute("aria-label")).toMatch(/, 1 deploy[,.]/);
+    await hoverDeploy(page, cpu);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  }, extra);
+  state(`${prefix}allocation-metrics-history-stopped`, detailsOf(stoppedAllocation), async (page) => {
+    await expect(page.getByText("Stopped", { exact: true }).first()).toBeVisible();
+    await showHistory(page);
+    // 45 minutes of the last hour are after it stopped: a gap, never a flat line.
+    expect(await page.getByRole("group", { name: /^CPU usage over the/ }).getAttribute("aria-label")).toMatch(/gap without data/);
+    await hoverDeploy(page, page.getByRole("group", { name: /^CPU usage over the/ }));
+  }, extra);
+  state(`${prefix}allocation-metrics-history-empty`, detailsOf(`${project}/services/checkout-api/allocations/checkout-api-alloc-1`), async (page) => {
+    await expect(page.getByText("No samples yet")).toHaveCount(2);
+    await historyPanel(page).evaluate((heading) => { heading.style.scrollMarginTop = "72px"; heading.scrollIntoView({ block: "start" }); });
+  }, extra);
+}
+state("allocation-metrics-history-stopped-6h", detailsOf(stoppedAllocation), async (page) => {
+  await showHistory(page, "6h");
+  await expect(page.getByText("This allocation, last 6 hours")).toBeVisible();
+  expect(await page.getByRole("group", { name: /^CPU usage over the last 6 hours/ }).getAttribute("aria-label")).toMatch(/gaps? without data/);
+});
+state("allocation-metrics-history-keyboard", detailsOf(allocation), async (page) => {
+  await showHistory(page, "6h");
+  const cpu = page.getByRole("group", { name: /^CPU usage over the last 6 hours/ });
+  await cpu.focus();
+  await page.keyboard.press("End");
+  await page.keyboard.press("ArrowLeft");
+  // Markers add no tab stop: the plot is still the only focusable element of its chart.
+  await expect(cpu).toBeFocused();
+  await expect(page.locator('[role="group"][aria-label^="CPU usage over"] [tabindex]')).toHaveCount(0);
+  await expect(page.getByText(/^Latest/)).toHaveCount(1);
+});
+state("allocation-metrics-history-error", detailsOf(allocation), async (page) => {
+  await interceptActions(page, (route) => route.fulfill({ status: 500, body: "" }));
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Retry" })).toHaveCount(2);
+  await historyPanel(page).evaluate((heading) => { heading.style.scrollMarginTop = "72px"; heading.scrollIntoView({ block: "start" }); });
+});
 state("service-metrics-history-24h", service, async (page) => {
   await showHistory(page, "24h");
   await page.getByRole("group", { name: /^CPU usage/ }).focus();

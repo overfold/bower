@@ -12,6 +12,8 @@ import { Panel, PanelHeader, KeyValue, SectionTitle } from '@/components/ui/pane
 import { AllocationStatus, Chip } from '@/components/status'
 import { ExecDialog } from '@/components/exec-dialog'
 import { AllocationMetrics } from './allocation-metrics'
+import { MetricsHistoryCharts } from '@/components/metrics-history-charts'
+import { availableMetricsRanges, metricsRetentionHours } from '@/lib/metrics-series'
 import { AllocationStopButton } from './allocation-stop-button'
 import { AllocationLogs } from './allocation-logs'
 import type { TrellisAllocation } from '@/types/trellis'
@@ -118,6 +120,7 @@ export default async function AllocationDetailPage({
       <TabsContent value="details" forceMount className="space-y-4 data-[state=inactive]:hidden">
       <SectionTitle>Details</SectionTitle>
       <AllocationMetrics serviceId={service.id} allocationId={allocationId} cpuLimit={cpuLimit} memoryLimit={memoryLimit} initialMetrics={metrics.status === 'fulfilled' ? metrics.value : []} initialError={metrics.status === 'rejected' ? trellisReadError(metrics.reason) : null} />
+      <MetricsHistoryCharts serviceId={service.id} environmentId={selectedConfig.environment.id} allocationId={allocationId} ranges={availableMetricsRanges(metricsRetentionHours())} cpuLimit={selectedConfig.config.cpu ?? 0} memoryLimit={selectedConfig.config.memory ?? 0} />
 
       <Panel id="details" className="scroll-mt-20">
         <PanelHeader title="Allocation details" />

@@ -6,9 +6,10 @@ import { Button } from '@/components/ui/button'
 import { InlineNotice } from '@/components/ui/feedback'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
-import { niceCeil, seriesGeometry, summarizeSeries, type TimeSeriesPoint } from '@/lib/time-series'
+import { markersByBucket, niceCeil, seriesGeometry, summarizeSeries, type TimeSeriesMarker, type TimeSeriesPoint } from '@/lib/time-series'
+import { toneStrokeClasses } from '@/lib/tone'
 
-export type { TimeSeriesPoint }
+export type { TimeSeriesMarker, TimeSeriesPoint }
 
 export type TimeSeriesChartProps = {
   /** Series name, used in the accessible summary ("CPU usage"). */
@@ -22,6 +23,8 @@ export type TimeSeriesChartProps = {
   limitLabel?: string
   /** Unit sizes the y-axis may count in (default 1), e.g. 1000 millicores per core or MiB and GiB for bytes. */
   axisUnits?: number[]
+  /** Moments to mark with a thin vertical line (deploys). They are named in the readout and counted in the summary; they take no focus. */
+  markers?: TimeSeriesMarker[]
   state?: 'ready' | 'loading' | 'error'
   error?: string
   onRetry?: () => void
@@ -33,9 +36,10 @@ const PLOT_HEIGHT = 'h-40'
 /**
  * Hand-rolled SVG line/area chart for one metric over time. A null value is a
  * gap: the line breaks and is never interpolated across it. Hover or focus the
- * plot (arrow keys, Home, End, Escape) to read one bucket.
+ * plot (arrow keys, Home, End, Escape) to read one bucket, which also names any
+ * marker it contains.
  */
-export function TimeSeriesChart({ label, rangeLabel, points, formatValue, limit, limitLabel = 'Limit', axisUnits, state = 'ready', error, onRetry, className }: TimeSeriesChartProps) {
+export function TimeSeriesChart({ label, rangeLabel, points, formatValue, limit, limitLabel = 'Limit', axisUnits, markers, state = 'ready', error, onRetry, className }: TimeSeriesChartProps) {
   const readoutId = useId()
   const [active, setActive] = useState<number | null>(null)
 
@@ -68,7 +72,10 @@ export function TimeSeriesChart({ label, rangeLabel, points, formatValue, limit,
   const shown = active ?? latestIndex
   const shownPoint = points[shown]
   const limitTop = limit ? 100 - Math.min(max, limit) / max * 100 : null
-  const summary = summarizeSeries({ label, rangeLabel, points, format: formatValue, limit, limitLabel })
+  const markerGroups = markersByBucket(points, markers)
+  const deploys = [...markerGroups.values()].reduce((total, group) => total + group.length, 0)
+  const shownMarkers = markerGroups.get(shown) ?? []
+  const summary = summarizeSeries({ label, rangeLabel, points, format: formatValue, limit, limitLabel, deploys })
   const left = (index: number) => lastIndex > 0 ? index / lastIndex * 100 : 50
 
   const move = (next: number) => setActive(Math.min(lastIndex, Math.max(0, next)))
@@ -96,13 +103,22 @@ export function TimeSeriesChart({ label, rangeLabel, points, formatValue, limit,
           {shownPoint.value === null
             ? 'No data'
             : <><span className="font-mono text-ink">{formatValue(shownPoint.value)}</span>{shownPoint.peak != null ? <> · peak <span className="font-mono text-ink">{formatValue(shownPoint.peak)}</span></> : null}</>}
+          {shownMarkers.map((marker, index) => <span key={`${marker.t}-${index}`}>{' · '}<span className="text-ink">{marker.label}</span></span>)}
         </p>
-        {limit ? (
-          <p className="flex items-center gap-1.5 text-2xs text-ink-muted">
-            <span className={cn('h-0 w-4 border-t-2 border-dashed', exceeded ? 'border-danger-500' : 'border-warn-500')} aria-hidden="true" />
-            {limitLabel} <span className="font-mono">{formatValue(limit)}</span>
-          </p>
-        ) : null}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          {deploys > 0 ? (
+            <p className="flex items-center gap-1.5 text-2xs text-ink-muted">
+              <span className="h-3 w-px bg-ink-muted" aria-hidden="true" />
+              {deploys === 1 ? 'Deploy' : 'Deploys'} <span className="font-mono">{deploys}</span>
+            </p>
+          ) : null}
+          {limit ? (
+            <p className="flex items-center gap-1.5 text-2xs text-ink-muted">
+              <span className={cn('h-0 w-4 border-t-2 border-dashed', exceeded ? 'border-danger-500' : 'border-warn-500')} aria-hidden="true" />
+              {limitLabel} <span className="font-mono">{formatValue(limit)}</span>
+            </p>
+          ) : null}
+        </div>
       </div>
 
       <div className="mt-2 flex gap-2">
@@ -125,6 +141,7 @@ export function TimeSeriesChart({ label, rangeLabel, points, formatValue, limit,
         >
           <svg className="absolute inset-0 h-full w-full overflow-visible" viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">
             {[0, 50, 100].map((y) => <line key={y} x1="0" x2="1000" y1={y} y2={y} className="stroke-line" strokeWidth="1" vectorEffect="non-scaling-stroke" />)}
+            {[...markerGroups].map(([index, group]) => <line key={index} x1={Math.round(left(index) * 1000) / 100} x2={Math.round(left(index) * 1000) / 100} y1="0" y2="100" className={toneStrokeClasses[group.at(-1)?.tone ?? 'neutral']} strokeWidth="1" vectorEffect="non-scaling-stroke" />)}
             <path d={area} className="fill-brand-500 opacity-10" />
             {limitTop !== null ? <line x1="0" x2="1000" y1={limitTop} y2={limitTop} className={exceeded ? 'stroke-danger-500' : 'stroke-warn-500'} strokeWidth="1.5" strokeDasharray="6 4" vectorEffect="non-scaling-stroke" /> : null}
             <path d={line} fill="none" className="stroke-brand-500" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />

@@ -19,3 +19,13 @@ export const toneIconClasses: Record<Tone, string> = {
   danger: 'text-danger-500',
   info: 'text-info-500',
 }
+
+// Stroke color for thin chart annotations (deploy markers) drawn in SVG.
+export const toneStrokeClasses: Record<Tone, string> = {
+  neutral: 'stroke-ink-muted',
+  brand: 'stroke-brand-500',
+  success: 'stroke-ok-500',
+  warn: 'stroke-warn-500',
+  danger: 'stroke-danger-500',
+  info: 'stroke-info-500',
+}

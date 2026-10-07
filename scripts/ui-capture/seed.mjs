@@ -138,7 +138,8 @@ try {
             },
           ],
         };
-        const startedAt = new Date(Date.now() - (j + 1) * 3600000);
+        // The latest release rolled out 45 minutes ago, so every history range shows a deploy marker just before the CPU spike.
+        const startedAt = new Date(Date.now() - (j === 0 ? 45 * 60000 : (j + 1) * 3600000));
         const completedAt = new Date(startedAt.getTime() + 90000);
         const [deployment] =
           await sql`INSERT INTO deployments ${sql({ service_id: service.id, environment_id: environment.id, image_before: `ghcr.io/acme/${slug}:v2.3.0`, image_after: config.image, strategy: config.deployment_strategy, status, trigger_type: j === 0 ? "webhook" : "manual", triggered_by_user_id: owner.id, trellis_job_name: slug, trellis_version: 3 - j, trellis_revision: 3 - j, job_spec: sql.json({ ...previous, task_groups: [{ ...previous.task_groups[0], tasks: [{ name: "app", image: config.image }] }] }), previous_job_spec: sql.json(previous), started_at: startedAt, completed_at: completedAt, created_at: startedAt })} RETURNING *`;
@@ -172,7 +173,7 @@ try {
           strategy: "rolling", status: j === 0 ? "failed" : "healthy", trigger_type: "manual",
           trellis_job_name: retained ? slug : null, trellis_version: retained ? 2 : null, trellis_revision: retained ? 2 : null,
           job_spec: retained ? sql.json({ name: slug, namespace: "commerce-production", task_groups: [{ name: "web", count: i === 0 ? 2 : 1, tasks: [{ name: "app", image }] }] }) : null,
-          created_at: new Date(Date.now() - (j + 4) * 86400000), completed_at: new Date(Date.now() - (j + 4) * 86400000 + 90000),
+          started_at: new Date(Date.now() - (j + 4) * 86400000), created_at: new Date(Date.now() - (j + 4) * 86400000), completed_at: new Date(Date.now() - (j + 4) * 86400000 + 90000),
         })} RETURNING id`;
         if (i === 0 && retained) rollbackDeploymentId = older.id;
       }
@@ -181,23 +182,25 @@ try {
       if (i === 0)
         await sql`INSERT INTO webhook_endpoints (service_id,environment_id,token_hash,token_prefix,signature_secret_hash,provider,deploy_mode,tag_filter) VALUES (${service.id},${environment.id},'audit-webhook-hash','wh_audit...','audit-signature-hash','ghcr','tag','^v.*')`;
     }
-    // Metric history for Storefront only, so Checkout API shows the empty state. Two allocations at the sampler's
+    // Metric history for Storefront only, so Checkout API shows the empty state. Three allocations (one stopped) at the sampler's
     // 30 s cadence for 24 h, with a short and a long gap (a failed sample writes no row), the first CPU of an
     // allocation null, and one stretch above the 1 core limit (500m x 2 replicas).
     const interval = 30_000;
     const end = Math.floor(Date.now() / interval) * interval;
     const sampleRows = [];
-    for (const [allocationIndex, startHoursAgo] of [[0, 24], [1, 2]]) {
-      const nodeId = allocationIndex ? "node-eu-west-02" : "node-eu-west-01";
-      for (let t = end - startHoursAgo * 3600_000; t <= end; t += interval) {
+    // storefront-alloc-0 is the replica the 45 minute old release replaced: it stopped when the release started and
+    // is still listed by the fake Trellis, so its allocation page shows history of an allocation that is no longer running.
+    for (const [allocationIndex, startHoursAgo, stoppedMinutesAgo, allocationId] of [[0, 24, 0, "storefront-alloc-1"], [1, 2, 0, "storefront-alloc-2"], [2, 6, 45, "storefront-alloc-0"]]) {
+      const nodeId = allocationIndex === 1 ? "node-eu-west-02" : "node-eu-west-01";
+      for (let t = end - startHoursAgo * 3600_000; t <= end - stoppedMinutesAgo * 60_000; t += interval) {
         const minutesAgo = (end - t) / 60_000;
         if ((minutesAgo > 20 && minutesAgo < 30) || (minutesAgo > 190 && minutesAgo < 230)) continue;
         const phase = t / 60_000;
         const spike = minutesAgo > 36 && minutesAgo < 44 ? 700 : 0;
         const first = t === end - startHoursAgo * 3600_000;
-        const cpu = 160 + 70 * Math.sin(phase / 23 + allocationIndex) + 30 * Math.sin(phase / 3.1) + spike + (allocationIndex ? 40 : 90);
-        const memory = (180 + (24 * 60 - minutesAgo) * 0.12 + 20 * Math.sin(phase / 41) + allocationIndex * 60) * 1048576;
-        sampleRows.push({ service_id: storefrontId, environment_id: environment.id, allocation_id: `storefront-alloc-${allocationIndex + 1}`, node_id: nodeId, collected_at: new Date(t), cpu_millicores: first ? null : Math.round(cpu * 10) / 10, memory_bytes: Math.round(memory), task_count: 1 });
+        const cpu = allocationIndex === 2 ? 110 + 40 * Math.sin(phase / 17) + 20 * Math.sin(phase / 2.7) : 160 + 70 * Math.sin(phase / 23 + allocationIndex) + 30 * Math.sin(phase / 3.1) + spike + (allocationIndex ? 40 : 90);
+        const memory = (allocationIndex === 2 ? 150 + (6 * 60 - (minutesAgo - stoppedMinutesAgo)) * 0.1 + 12 * Math.sin(phase / 29) : 180 + (24 * 60 - minutesAgo) * 0.12 + 20 * Math.sin(phase / 41) + allocationIndex * 60) * 1048576;
+        sampleRows.push({ service_id: storefrontId, environment_id: environment.id, allocation_id: allocationId, node_id: nodeId, collected_at: new Date(t), cpu_millicores: first ? null : Math.round(cpu * 10) / 10, memory_bytes: Math.round(memory), task_count: 1 });
       }
     }
     for (let i = 0; i < sampleRows.length; i += 2000)

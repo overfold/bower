@@ -19,7 +19,9 @@ import { ServiceFailureNotice } from '../components/service-failure-notice'
 import { LastDeployFailed } from '../components/last-deploy-failed'
 import { ConfigDiffPreview } from '../components/config-diff-preview'
 import { TimeSeriesChart } from '../components/ui/time-series-chart'
-import { niceCeil, seriesGeometry, seriesRuns, summarizeSeries } from './time-series'
+import { markersByBucket, niceCeil, seriesGeometry, seriesRuns, summarizeSeries } from './time-series'
+import { deploymentMarkers } from './deploy-markers'
+import { toneStrokeClasses } from './tone'
 import { formatCpu } from './format'
 
 test('shared status vocabulary keeps product labels, tones, and progress semantics together', () => {
@@ -424,4 +426,72 @@ test('time series loading, empty and error states keep the plot height', () => {
   assert.match(failed, /role="alert"/)
   assert.match(failed, /Metrics history is unavailable\./)
   assert.match(failed, />Retry</)
+})
+
+const T0 = Date.UTC(2026, 9, 7, 12, 0)
+const minute = (n: number, seconds = 0) => T0 + n * 60_000 + seconds * 1000
+
+test('time series markers draw one thin semantic-toned line per bucket and are counted in the summary', () => {
+  const none = renderChart({})
+  assert.doesNotMatch(none, /<line[^>]*y1="0" y2="100"/)
+  assert.doesNotMatch(none, /deploys?\b/i)
+  const html = renderChart({ markers: [{ t: minute(2, 30), label: 'Deployed v2 (Failed)', tone: 'danger' }, { t: minute(5), label: 'Deployed v3 (Healthy)', tone: 'success' }, { t: minute(5, 20), label: 'Deployed v4 (Healthy)' }] })
+  // Bucket 2 sits at 2/7 of the plot, bucket 5 at 5/7; two markers in one bucket share one line.
+  const lines = [...html.matchAll(/<line x1="([\d.]+)" x2="[\d.]+" y1="0" y2="100" class="([^"]+)" stroke-width="1"/g)].map((match) => [Number(match[1]), match[2]])
+  assert.deepEqual(lines, [[285.71, toneStrokeClasses.danger], [714.29, toneStrokeClasses.neutral]])
+  assert.match(html, /<line [^>]*stroke-danger-500/)
+  assert.match(html, /aria-label="CPU usage over the last hour: latest 0.5 cores[^"]*, 3 deploys\./)
+  assert.match(html, /Deploys <span class="font-mono">3<\/span>/)
+  // Lines are thin, drawn under the data line, and stay out of the dashed limit styling.
+  assert.ok(html.indexOf('y1="0" y2="100"') < html.indexOf('fill="none"'))
+  assert.doesNotMatch(html.match(/<line [^>]*y1="0" y2="100"[^>]*>/)?.[0] ?? '', /dasharray/)
+  assert.equal(summarizeSeries({ label: 'x', rangeLabel: 'y', points: chartPoints([1, 2]), format: String, deploys: 1 }), 'x over the y: latest 2, lowest 1, highest 2, 1 deploy.')
+})
+
+test('time series markers outside the plotted span are neither drawn nor counted', () => {
+  const points = chartPoints([1, 2, 3, 4])
+  const grouped = markersByBucket(points, [{ t: minute(-1), label: 'before' }, { t: minute(0), label: 'first' }, { t: minute(3, 59), label: 'last' }, { t: minute(4), label: 'after' }])
+  assert.deepEqual([...grouped].map(([index, group]) => [index, group.map((marker) => marker.label)]), [[0, ['first']], [3, ['last']]])
+  const html = renderChart({ values: [1, 2, 3, 4], markers: [{ t: minute(-1), label: 'before' }, { t: minute(4), label: 'after' }] })
+  assert.doesNotMatch(html, /y1="0" y2="100"|deploy/i)
+})
+
+test('time series readout names the deployments in the active bucket and markers never take focus', () => {
+  // With no pointer or keyboard, the readout shows the latest bucket, so a marker there is named.
+  const html = renderChart({ values: [100, 200, 300], markers: [{ t: minute(2, 10), label: 'Deployed v2.4.1 (Healthy)', tone: 'success' }, { t: minute(2, 40), label: 'Deployed v2.4.2 (Failed)', tone: 'danger' }] })
+  const readout = html.match(/<p id="[^"]+" class="nums[^"]*"[^>]*>(.*?)<\/p>/)?.[1] ?? ''
+  assert.match(readout, /Deployed v2\.4\.1 \(Healthy\)/)
+  assert.match(readout, /Deployed v2\.4\.2 \(Failed\)/)
+  const elsewhere = renderChart({ values: [100, 200, 300], markers: [{ t: minute(0, 10), label: 'Deployed v1 (Healthy)' }] })
+  assert.doesNotMatch(elsewhere.match(/<p id="[^"]+" class="nums[^"]*"[^>]*>(.*?)<\/p>/)?.[1] ?? '', /Deployed v1/, 'a marker in another bucket is not in the latest readout')
+  // The plot stays the one tab stop; the lines are decoration inside the aria-hidden svg.
+  assert.equal(html.match(/tabindex=/g)?.length, 1)
+  assert.match(html, /<svg[^>]*aria-hidden="true">.*y1="0" y2="100".*<\/svg>/)
+  const source = readFileSync(resolve('src/components/ui/time-series-chart.tsx'), 'utf8')
+  assert.doesNotMatch(source, /marker[^\n]*(?:onClick|onKeyDown|tabIndex)/i)
+  assert.doesNotMatch(source, /#[0-9a-f]{3,8}\b|\brgb\(|\bhsl\(/i)
+})
+
+test('client components keep server-only modules out of their bundle', () => {
+  // metrics-series reaches the sampler (and through it the Trellis runtime); a client component may import only its types.
+  const source = readFileSync(resolve('src/components/metrics-history-charts.tsx'), 'utf8')
+  assert.match(source, /^'use client'/)
+  for (const [, specifier] of source.matchAll(/^import (?!type\b)[^\n]* from '([^']+)'/gm)) assert.doesNotMatch(specifier, /metrics-series|metrics-sampler|trellis/)
+})
+
+test('deploy markers take their label and tone from the shared deployment status vocabulary', () => {
+  const markers = deploymentMarkers([
+    { id: '1', startedAt: 10, status: 'healthy', image: 'ghcr.io/acme/web:v2.4.1' },
+    { id: '2', startedAt: 20, status: 'failed', image: 'ghcr.io/acme/web:v2.4.2' },
+    { id: '3', startedAt: 30, status: 'rolled_back', image: 'ghcr.io/acme/web@sha256:abc' },
+    { id: '4', startedAt: 40, status: 'deploying', image: 'web' },
+    { id: '5', startedAt: 50, status: 'something-new', image: 'ghcr.io/acme/web:v9' },
+  ])
+  assert.deepEqual(markers.map((marker) => [marker.t, marker.label, marker.tone]), [
+    [10, 'Deployed v2.4.1 (Healthy)', 'success'],
+    [20, 'Deployed v2.4.2 (Failed)', 'danger'],
+    [30, 'Deployed sha256:abc (Rolled back)', 'warn'],
+    [40, 'Deployed latest (Deploying)', 'neutral'],
+    [50, 'Deployed v9', 'neutral'],
+  ])
 })
