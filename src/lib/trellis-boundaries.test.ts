@@ -413,6 +413,7 @@ function pageDependencies(client: unknown) {
     '@/lib/trellis-instance': { getTrellisClient: async () => client }, '@/components/trellis-read-error': readError,
     './service-header': { ServiceHeader: () => null }, './service-actions': { ServiceActions: () => null },
     './allocations/[allocationId]/allocation-metrics': { AllocationMetrics: () => null },
+    './service-metrics-charts': { ServiceMetricsCharts: () => null },
     '@/components/deployment-poller': { DeploymentPoller: () => null }, '@/components/exec-dialog': { ExecDialog: () => null },
     './allocation-stop-button': { AllocationStopButton: () => null },
   }

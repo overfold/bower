@@ -17,6 +17,8 @@ import type { TrellisAllocation } from '@/types/trellis'
 import { Time } from '@/components/time'
 import { ResourceId } from '@/components/resource-id'
 import { AllocationMetrics } from './allocations/[allocationId]/allocation-metrics'
+import { ServiceMetricsCharts } from './service-metrics-charts'
+import { availableMetricsRanges, metricsRetentionHours } from '@/lib/metrics-series'
 import { DeploymentsTable } from '@/components/deployments-table'
 import { ClickableTableRow } from '@/components/clickable-table-row'
 import { ServiceFailureNotice } from '@/components/service-failure-notice'
@@ -94,6 +96,8 @@ export default async function ServiceDetailPage({
       {failure ? <ServiceFailureNotice failure={failure} logsHref={failureHref} /> : null}
 
       <AllocationMetrics serviceId={service.id} allocationIds={allocationRows.map((allocation) => allocation.id)} initialMetrics={metrics.flatMap((result) => result.status === 'fulfilled' ? result.value : [])} initialError={allocationError || (metrics.some((result) => result.status === 'rejected') ? 'Metrics unavailable.' : null)} cpuLimit={cpuLimit} memoryLimit={memoryLimit} />
+
+      {selectedConfig ? <ServiceMetricsCharts serviceId={service.id} environmentId={environment.id} ranges={availableMetricsRanges(metricsRetentionHours())} cpuLimit={cpuLimit} memoryLimit={memoryLimit} /> : null}
 
       <div className="space-y-5">
         <SectionTitle>Current allocations</SectionTitle>

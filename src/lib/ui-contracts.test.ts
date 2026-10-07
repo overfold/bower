@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { DeploymentsTable, type DeploymentsTablePreset } from '../components/deployments-table'
@@ -16,6 +18,9 @@ import { NeedsAttention } from '../components/needs-attention'
 import { ServiceFailureNotice } from '../components/service-failure-notice'
 import { LastDeployFailed } from '../components/last-deploy-failed'
 import { ConfigDiffPreview } from '../components/config-diff-preview'
+import { TimeSeriesChart } from '../components/ui/time-series-chart'
+import { niceCeil, seriesGeometry, seriesRuns, summarizeSeries } from './time-series'
+import { formatCpu } from './format'
 
 test('shared status vocabulary keeps product labels, tones, and progress semantics together', () => {
   for (const [status, label, tone, inProgress = false] of [
@@ -346,4 +351,77 @@ test('the config diff shows plain environment values, masks secrets, and marks u
   assert.ok(html.indexOf('>PORT<') < html.indexOf('>Changed<'))
   // The table keeps its bordered, rounded frame inside the dialog body.
   assert.match(html, /overflow-hidden rounded-md border border-line/)
+})
+
+const chartPoints = (values: Array<number | null>) => values.map((value, index) => ({ t: Date.UTC(2026, 9, 7, 12, index), value, peak: value === null ? null : value * 1.5 }))
+const renderChart = (props: Partial<Parameters<typeof TimeSeriesChart>[0]> & { values?: Array<number | null> }) => {
+  const { values = [100, 200, null, null, 300, 400, null, 500], ...rest } = props
+  return renderToStaticMarkup(createElement(TimeSeriesChart, { label: 'CPU usage', rangeLabel: 'last hour', points: chartPoints(values), formatValue: formatCpu, ...rest }))
+}
+
+test('time series gaps break the line instead of interpolating, and a lone sample still draws', () => {
+  assert.deepEqual(seriesRuns(chartPoints([1, 2, null, null, 3, null, 4])), [{ start: 0, end: 1 }, { start: 4, end: 4 }, { start: 6, end: 6 }])
+  assert.deepEqual(seriesRuns(chartPoints([null, null])), [])
+  const { line, area } = seriesGeometry(chartPoints([100, 200, null, 300, 400]), 400)
+  assert.equal(line, 'M0 75 L250 50 M750 25 L1000 0')
+  assert.equal(line.match(/M/g)?.length, 2)
+  assert.equal(area.match(/Z/g)?.length, 2)
+  assert.match(seriesGeometry(chartPoints([null, 100, null]), 100).line, /^M500 0 h0$/)
+  const html = renderChart({})
+  const path = html.match(/<path d="(M[^"]+)" fill="none"/)?.[1] ?? ''
+  assert.equal(path.match(/M/g)?.length, 3, 'two nulls and a trailing null produce three separate runs')
+  assert.equal(path, 'M0 80 L142.86 60 M571.43 40 L714.29 20 M1000 0 h0', 'each run is its own subpath; nothing joins across a null')
+})
+
+test('time series axis ends on a readable value that includes the limit', () => {
+  for (const [value, expected] of [[0, 1], [0.7, 1], [130, 200], [230, 250], [480, 500], [501, 1000]] as const) assert.equal(niceCeil(value), expected)
+  // Binary quantities count in their largest reached unit, so the axis reads 1 GB rather than 953.7 MB.
+  const [MB, GB] = [1048576, 1073741824]
+  assert.equal(niceCeil(GB * 0.9, [MB, GB]), 1000 * MB)
+  assert.equal(niceCeil(GB, [MB, GB]), GB)
+  assert.equal(niceCeil(GB * 1.2, [MB, GB]), GB * 2)
+  assert.equal(niceCeil(300 * MB, [MB, GB]), 500 * MB)
+  assert.equal(niceCeil(1150, [1, 1000]), 2000)
+  assert.equal(niceCeil(480, [1, 1000]), 500)
+  const html = renderChart({ values: [100, 200], limit: 1000, limitLabel: 'CPU limit' })
+  assert.match(html, />1 core</)
+  assert.match(html, /CPU limit/)
+})
+
+test('time series exposes an accessible summary, a keyboard-focusable plot, and a readout', () => {
+  const html = renderChart({ limit: 450, limitLabel: 'CPU limit' })
+  const label = html.match(/role="group" tabindex="0" aria-label="([^"]+)"/)?.[1]
+  assert.equal(label, 'CPU usage over the last hour: latest 0.5 cores, lowest 0.1 cores, highest 0.5 cores, 2 gaps without data, cpu limit 0.45 cores, exceeded.')
+  assert.match(html, /aria-describedby="[^"]+"/)
+  assert.match(html, /aria-live="off"/)
+  assert.match(html, /Latest/)
+  assert.equal(summarizeSeries({ label: 'Memory usage', rangeLabel: 'last 6 hours', points: chartPoints([null, null]), format: String }), 'Memory usage over the last 6 hours: no samples yet.')
+  assert.doesNotMatch(summarizeSeries({ label: 'x', rangeLabel: 'y', points: chartPoints([1, 2]), format: String, limit: 5 }), /gap|exceeded/)
+})
+
+test('time series uses semantic tokens only and respects reduced motion', () => {
+  const ok = renderChart({ limit: 1000 })
+  assert.match(ok, /stroke-brand-500/)
+  assert.match(ok, /stroke-line/)
+  assert.match(ok, /stroke-warn-500/)
+  assert.doesNotMatch(ok, /stroke-danger-500/)
+  assert.match(renderChart({ limit: 300 }), /stroke-danger-500/)
+  const source = readFileSync(resolve('src/components/ui/time-series-chart.tsx'), 'utf8')
+  assert.doesNotMatch(source, /#[0-9a-f]{3,8}\b|\brgb\(|\bhsl\(|text-\[\d/i)
+  for (const line of source.split('\n').filter((text) => /\btransition-/.test(text))) assert.match(line, /motion-reduce:transition-none/)
+})
+
+test('time series loading, empty and error states keep the plot height', () => {
+  const loading = renderChart({ state: 'loading', points: [] })
+  assert.match(loading, /role="status"/)
+  assert.match(loading, /animate-pulse[^"]*motion-reduce:animate-none/)
+  assert.match(loading, /h-40/)
+  const empty = renderChart({ values: [null, null, null] })
+  assert.match(empty, /No samples yet/)
+  assert.match(empty, /h-40/)
+  assert.doesNotMatch(empty, /<svg/)
+  const failed = renderChart({ state: 'error', error: 'Metrics history is unavailable.', onRetry: () => {} })
+  assert.match(failed, /role="alert"/)
+  assert.match(failed, /Metrics history is unavailable\./)
+  assert.match(failed, />Retry</)
 })

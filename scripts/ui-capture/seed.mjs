@@ -84,7 +84,7 @@ try {
     await sql`INSERT INTO organization_domains (org_id,domain,verification_token) VALUES (${org.id},'acme-staging.test','audit-staging')`;
     await sql`INSERT INTO project_volumes (project_id,environment_id,name,host_path) VALUES (${project.id},${environment.id},'uploads','@/commerce-uploads')`;
     await sql`INSERT INTO project_volumes (project_id,environment_id,name,host_path) VALUES (${project.id},${environment.id},'cache','@/commerce-cache')`;
-    let deploymentId, failedDeploymentId, rollbackDeploymentId, rolledBackDeploymentId;
+    let deploymentId, failedDeploymentId, rollbackDeploymentId, rolledBackDeploymentId, storefrontId;
     for (const [i, slug] of [
       "storefront",
       "checkout-api",
@@ -94,6 +94,7 @@ try {
       const name = ["Storefront", "Checkout API", "Order Worker", "Search Indexer"][i];
       const [service] =
         await sql`INSERT INTO services (project_id,name,slug) VALUES (${project.id},${name},${slug}) RETURNING *`;
+      if (i === 0) storefrontId = service.id;
       const config = {
         service_id: service.id,
         image: `ghcr.io/acme/${slug}:v2.4.1`,
@@ -180,6 +181,27 @@ try {
       if (i === 0)
         await sql`INSERT INTO webhook_endpoints (service_id,environment_id,token_hash,token_prefix,signature_secret_hash,provider,deploy_mode,tag_filter) VALUES (${service.id},${environment.id},'audit-webhook-hash','wh_audit...','audit-signature-hash','ghcr','tag','^v.*')`;
     }
+    // Metric history for Storefront only, so Checkout API shows the empty state. Two allocations at the sampler's
+    // 30 s cadence for 24 h, with a short and a long gap (a failed sample writes no row), the first CPU of an
+    // allocation null, and one stretch above the 1 core limit (500m x 2 replicas).
+    const interval = 30_000;
+    const end = Math.floor(Date.now() / interval) * interval;
+    const sampleRows = [];
+    for (const [allocationIndex, startHoursAgo] of [[0, 24], [1, 2]]) {
+      const nodeId = allocationIndex ? "node-eu-west-02" : "node-eu-west-01";
+      for (let t = end - startHoursAgo * 3600_000; t <= end; t += interval) {
+        const minutesAgo = (end - t) / 60_000;
+        if ((minutesAgo > 20 && minutesAgo < 30) || (minutesAgo > 190 && minutesAgo < 230)) continue;
+        const phase = t / 60_000;
+        const spike = minutesAgo > 36 && minutesAgo < 44 ? 700 : 0;
+        const first = t === end - startHoursAgo * 3600_000;
+        const cpu = 160 + 70 * Math.sin(phase / 23 + allocationIndex) + 30 * Math.sin(phase / 3.1) + spike + (allocationIndex ? 40 : 90);
+        const memory = (180 + (24 * 60 - minutesAgo) * 0.12 + 20 * Math.sin(phase / 41) + allocationIndex * 60) * 1048576;
+        sampleRows.push({ service_id: storefrontId, environment_id: environment.id, allocation_id: `storefront-alloc-${allocationIndex + 1}`, node_id: nodeId, collected_at: new Date(t), cpu_millicores: first ? null : Math.round(cpu * 10) / 10, memory_bytes: Math.round(memory), task_count: 1 });
+      }
+    }
+    for (let i = 0; i < sampleRows.length; i += 2000)
+      await sql`INSERT INTO allocation_metric_samples ${sql(sampleRows.slice(i, i + 2000))}`;
     // The fake runtime and stored releases share an incarnation and durable
     // artifact pins, including the predecessor whose old track may be gone.
     await sql`UPDATE deployments SET trellis_incarnation = 'audit-incarnation',

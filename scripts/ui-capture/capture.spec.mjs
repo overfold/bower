@@ -774,6 +774,67 @@ state("invitation-named-context", "/invite/audit-invite", async (page) => {
 state("public-not-found", "/invite/audit-invite/missing", async (page) => {
   await expect(page.getByRole("heading", { name: "Page not found", exact: true })).toBeVisible();
 }, { public: true });
+// Usage history on the service page. Seeded samples include a gap, a stretch above the CPU limit and a null first
+// CPU sample; Checkout API has none. Server actions are POSTs carrying a Next-Action header, which these hold or fail.
+const historyPanel = (page) => page.getByRole("heading", { name: "Usage history", exact: true });
+const showHistory = async (page, range) => {
+  if (range) await page.getByRole("tab", { name: range, exact: true }).click();
+  await expect(page.getByRole("group", { name: /^CPU usage over the .*latest/ })).toBeVisible();
+  await expect(page.getByRole("group", { name: /^Memory usage over the .*latest/ })).toBeVisible();
+  await historyPanel(page).evaluate((heading) => { heading.style.scrollMarginTop = "72px"; heading.scrollIntoView({ block: "start" }); });
+};
+const interceptActions = (page, handle) => page.route("**/*", (route) =>
+  route.request().method() === "POST" && route.request().headers()["next-action"] ? handle(route) : route.continue());
+for (const [prefix, extra] of [["", {}], ["dark-", { dark: true }], ["narrow-", { narrow: true, fullPage: true }], ["narrow-dark-", { narrow: true, dark: true, fullPage: true }]]) {
+  state(`${prefix}service-metrics-history`, service, async (page) => {
+    await showHistory(page);
+    const cpu = page.getByRole("group", { name: /^CPU usage over the/ });
+    expect(await cpu.getAttribute("aria-label")).toMatch(/gaps? without data.*cpu limit 1 core, exceeded\./);
+    // Hover the plot, about 40 minutes back inside the seeded spike above the limit, to capture the readout state.
+    const box = await cpu.boundingBox();
+    await page.mouse.move(box.x + box.width * 0.33, box.y + box.height / 2);
+    await expect(page.getByText(/peak/).first()).toBeVisible();
+    // The page's tab bar and deployments table scroll on their own; the history section itself must fit the viewport.
+    expect(await page.evaluate(() => {
+      const section = [...document.querySelectorAll("h2")].find((h) => h.textContent === "Usage history")?.parentElement?.parentElement;
+      return !!section && section.scrollWidth <= section.clientWidth && section.getBoundingClientRect().right <= window.innerWidth;
+    })).toBe(true);
+  }, extra);
+}
+state("service-metrics-history-24h", service, async (page) => {
+  await showHistory(page, "24h");
+  await page.getByRole("group", { name: /^CPU usage/ }).focus();
+  await page.keyboard.press("Home");
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByRole("group", { name: /^CPU usage over the last 24 hours/ })).toBeFocused();
+});
+state("service-metrics-history-keyboard", service, async (page) => {
+  await showHistory(page, "6h");
+  const cpu = page.getByRole("group", { name: /^CPU usage over the last 6 hours/ });
+  await cpu.focus();
+  await page.keyboard.press("End");
+  await page.keyboard.press("ArrowLeft");
+  await expect(cpu).toBeFocused();
+  await expect(page.getByText(/^Latest/)).toHaveCount(1);
+});
+for (const [prefix, extra] of [["", {}], ["dark-", { dark: true }], ["narrow-", { narrow: true }]])
+state(`${prefix}service-metrics-history-empty`, `${project}/services/checkout-api`, async (page) => {
+  await expect(page.getByText("No samples yet")).toHaveCount(2);
+  await historyPanel(page).evaluate((heading) => { heading.style.scrollMarginTop = "72px"; heading.scrollIntoView({ block: "start" }); });
+}, extra);
+state("service-metrics-history-loading", service, async (page) => {
+  // The page is already loaded; reload with the series request held open so the loading state stays on screen.
+  await interceptActions(page, () => new Promise(() => {}));
+  await page.reload();
+  await expect(page.getByRole("status", { name: "Loading CPU usage history" })).toBeVisible();
+  await historyPanel(page).evaluate((heading) => { heading.style.scrollMarginTop = "72px"; heading.scrollIntoView({ block: "start" }); });
+});
+state("service-metrics-history-error", service, async (page) => {
+  await interceptActions(page, (route) => route.fulfill({ status: 500, body: "" }));
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Retry" })).toHaveCount(2);
+  await historyPanel(page).evaluate((heading) => { heading.style.scrollMarginTop = "72px"; heading.scrollIntoView({ block: "start" }); });
+});
 for (const [prefix, extra] of [["", {}], ["dark-", { dark: true }]])
   state(`${prefix}toast-success`, "/settings/account", async (page) => {
     await page.clock.install();
@@ -1143,6 +1204,8 @@ for (const scenario of scenarios)
     );
     if (!scenario.public) await expect(page).not.toHaveURL(/\/login/);
     await expect(page.locator('[aria-busy="true"][aria-label^="Loading"]')).toHaveCount(0);
+    if (!scenario.name.includes("metrics-history-loading"))
+      await expect(page.getByRole("status", { name: /^Loading .* history$/ })).toHaveCount(0);
     if (scenario.ready)
       await expect(page.locator("body")).toContainText(scenario.ready);
     if (scenario.setup) await scenario.setup(page);
