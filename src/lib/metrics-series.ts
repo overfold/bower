@@ -35,6 +35,12 @@ export type MetricsSeries = {
   points: MetricsSeriesPoint[]
 }
 
+/** A deployment that started inside the window, reduced to what a chart marker needs. */
+export type MetricsDeployment = { id: string; startedAt: number; status: string; image: string }
+
+/** The series plus the deployments that started inside its window, so a chart can mark them. */
+export type MetricsHistory = MetricsSeries & { deployments: MetricsDeployment[] }
+
 export function isMetricsRange(value: unknown): value is MetricsRange {
   return typeof value === 'string' && Object.hasOwn(METRICS_RANGES, value)
 }

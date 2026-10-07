@@ -7,6 +7,27 @@ const ingressNamespace = process.env.BOWER_PROXY_NAMESPACE || "platform";
 // A job lives in exactly one namespace; listing another namespace must not return it.
 const jobNamespace = (name) => (name === "bower-proxy" ? ingressNamespace : "commerce-production");
 const minutesAgo = (minutes) => new Date(Date.now() - minutes * 60000).toISOString();
+// The replica the latest Storefront release replaced: stopped 45 minutes ago, kept by Trellis until terminal retention expires.
+const stoppedStorefrontAllocation = () => ({
+  id: "storefront-alloc-0",
+  job: "storefront",
+  namespace: "commerce-production",
+  group: "web",
+  node_id: "node-eu-west-01",
+  phase: "stopped",
+  health: "unknown",
+  draining: false,
+  generation: 1,
+  job_revision: 2,
+  created_at: minutesAgo(360),
+  last_transition_at: minutesAgo(45),
+  attempt: 1,
+  reason: "replaced",
+  message: "Replaced by a newer release",
+  ports: [{ host_port: 3000, container_port: 3000 }],
+  endpoints: [],
+  labels: { "bower/service": "storefront", "bower/project": "commerce", "bower/environment": "production", "bower/config-hash": "audit-config" },
+});
 const allocations = (namespace) =>
   names.flatMap((job, i) =>
     Array.from({ length: i === 0 ? 2 : 1 }, (_, j) => ({
@@ -45,7 +66,7 @@ const allocations = (namespace) =>
         "bower/config-hash": "audit-config",
       },
     })),
-  ).filter((allocation) => !namespace || allocation.namespace === namespace);
+  ).concat([stoppedStorefrontAllocation()]).filter((allocation) => !namespace || allocation.namespace === namespace);
 const spec = (name, namespace, version = "v2.4.1") => ({
   name,
   namespace,

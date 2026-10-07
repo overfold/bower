@@ -399,6 +399,7 @@ type Page = { default: (props: { params: Promise<{ slug: string; serviceSlug: st
 const props = { params: Promise.resolve({ slug: 'demo', serviceSlug: 'web', allocationId: 'a' }) }
 const readError = load('src/components/trellis-read-error.tsx', { 'next/navigation': navigation })
 const environment = { id: 'env', trellisNamespace: 'production' }
+const historyProps: Array<Record<string, unknown>> = []
 function pageDependencies(client: unknown) {
   return {
     'next/navigation': navigation,
@@ -406,14 +407,14 @@ function pageDependencies(client: unknown) {
     '@/lib/queries': {
       getUserOrganization: async () => context, getProjectBySlug: async () => ({ id: 'project' }),
       getServiceBySlug: async () => ({ id: 'service', slug: 'web', name: 'Web' }), getProjectEnvironment: async () => environment,
-      getServiceConfigsWithEnvironments: async () => [{ config: { id: 'config', activeJobName: 'web' }, environment }], getDeploymentsByService: async () => [],
+      getServiceConfigsWithEnvironments: async () => [{ config: { id: 'config', activeJobName: 'web', cpu: 250, memory: 536870912, replicas: 3 }, environment }], getDeploymentsByService: async () => [],
       withFailureMessages: async (rows: unknown[]) => rows,
     },
     '@/lib/actions/shared': { getProjectRole: async () => 'admin' },
     '@/lib/trellis-instance': { getTrellisClient: async () => client }, '@/components/trellis-read-error': readError,
     './service-header': { ServiceHeader: () => null }, './service-actions': { ServiceActions: () => null },
     './allocations/[allocationId]/allocation-metrics': { AllocationMetrics: () => null },
-    './service-metrics-charts': { ServiceMetricsCharts: () => null },
+    '@/components/metrics-history-charts': { MetricsHistoryCharts: (props: unknown) => { historyProps.push(props as Record<string, unknown>); return null } },
     '@/components/deployment-poller': { DeploymentPoller: () => null }, '@/components/exec-dialog': { ExecDialog: () => null },
     './allocation-stop-button': { AllocationStopButton: () => null },
   }
@@ -1103,4 +1104,56 @@ test('base propagation and reset validate inherited variables before writing', a
   await assert.rejects(actions.upsertBaseServiceConfigAction('service', form), /already defined/)
   reads = 0
   await assert.rejects(actions.resetServiceConfigOverridesAction('service', 'env'), /already defined/)
+})
+
+test('the service and allocation pages share one usage-history component, scoped and limited per page', async () => {
+  const allocation = { id: 'a', namespace: 'production', job: 'web', group: 'main', job_revision: 1, phase: 'stopped', health: 'unknown', created_at: '2026-09-30T00:00:00Z', last_transition_at: '2026-09-30T00:00:00Z' }
+  const client = {
+    listAllocations: async () => [allocation], getJob: async () => { throw new Error('offline') },
+    getAllocationEvents: async () => [], getAllocationMetrics: async () => [], getJobVersions: async () => [], getAllocationLogs: async () => '',
+  }
+  historyProps.length = 0
+  const servicePage = load<Page>(`${servicePath}/page.tsx`, pageDependencies(client))
+  renderToStaticMarkup(await servicePage.default(props))
+  const [serviceHistory] = historyProps.splice(0)
+  assert.equal(serviceHistory.serviceId, 'service')
+  assert.equal(serviceHistory.environmentId, 'env')
+  assert.equal(serviceHistory.allocationId, undefined, 'the service page shows the total')
+  assert.equal(serviceHistory.cpuLimit, 750, 'per-replica limit times replicas')
+  assert.equal(serviceHistory.memoryLimit, 3 * 536870912)
+
+  const allocationPage = load<Page>(`${servicePath}/allocations/[allocationId]/page.tsx`, { ...pageDependencies(client), './allocation-metrics': { AllocationMetrics: () => null }, './allocation-logs': { AllocationLogs: () => null } })
+  // A stopped allocation whose job spec can no longer be read still shows its stored history.
+  renderToStaticMarkup(await allocationPage.default(props))
+  const [allocationHistory] = historyProps.splice(0)
+  assert.equal(allocationHistory.serviceId, 'service')
+  assert.equal(allocationHistory.environmentId, 'env')
+  assert.equal(allocationHistory.allocationId, 'a')
+  assert.equal(allocationHistory.cpuLimit, 250, 'per-replica limit, not multiplied by replicas')
+  assert.equal(allocationHistory.memoryLimit, 536870912)
+  assert.deepEqual(allocationHistory.ranges, serviceHistory.ranges)
+
+  for (const path of [`${servicePath}/page.tsx`, `${servicePath}/allocations/[allocationId]/page.tsx`]) {
+    const source = readFileSync(resolve(path), 'utf8')
+    assert.match(source, /from '@\/components\/metrics-history-charts'/)
+    assert.doesNotMatch(source, /getServiceMetricsSeries|TimeSeriesChart/, 'range state and refresh live in the shared component only')
+  }
+})
+
+test('the shared history component scopes its query to the allocation and titles itself by scope', () => {
+  const requests: unknown[] = []
+  const charts = load<typeof import('../components/metrics-history-charts')>('src/components/metrics-history-charts.tsx', {
+    '@/lib/actions/metrics-actions': { getServiceMetricsSeries: async (input: unknown) => { requests.push(input); return null } },
+  })
+  const base = { serviceId: 'service', environmentId: 'env', ranges: ['1h', '6h', '24h'] as const, cpuLimit: 0, memoryLimit: 0 }
+  const total = renderToStaticMarkup(createElement(charts.MetricsHistoryCharts, { ...base, ranges: [...base.ranges] }))
+  const single = renderToStaticMarkup(createElement(charts.MetricsHistoryCharts, { ...base, ranges: [...base.ranges], allocationId: 'a' }))
+  assert.match(total, /Summed across this environment&#x27;s allocations, last hour/)
+  assert.match(single, /This allocation, last hour/)
+  for (const html of [total, single]) {
+    assert.match(html, /Usage history/)
+    assert.match(html, /aria-label="History range"/)
+    assert.equal(html.match(/role="tab"/g)?.length, 3)
+  }
+  assert.equal(renderToStaticMarkup(createElement(charts.MetricsHistoryCharts, { ...base, ranges: [] })), '')
 })
