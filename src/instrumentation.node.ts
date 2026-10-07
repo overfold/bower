@@ -83,4 +83,7 @@ export async function registerNodeInstrumentation() {
   reconcile()
   globalThis.bowerDeploymentMonitor = setInterval(reconcile, seconds * 1000)
   globalThis.bowerDeploymentMonitor.unref()
+
+  const { startMetricsSampler } = await import('@/lib/metrics-sampler')
+  await startMetricsSampler().catch((error) => console.error('Bower metrics sampler failed to start:', error instanceof Error ? error.message : 'unknown error'))
 }

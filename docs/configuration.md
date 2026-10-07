@@ -57,6 +57,17 @@ Ingress uses `recreate` updates so one node can reuse ports 80/443. Route-defini
 
 Run one active Bower process; the reconciliation guards are process-local, not distributed locks. See [operations](operations.md#supported-operating-contract) for replica limitations, failure signals, backup/restore, and stop/start upgrades.
 
+## Metrics history
+
+| Variable | Default | Description |
+|---|---|---|
+| `BOWER_METRICS_INTERVAL` | `30` | How often (in seconds) Bower samples CPU and memory for every running Bower-managed allocation and stores one row per allocation (tasks summed) in its own database. `0` disables sampling; any other value is clamped to 10-300. |
+| `BOWER_METRICS_RETENTION_HOURS` | `24` | How long samples are kept. Values are clamped to 1-168, and Bower logs a warning at startup when it clamps. |
+
+Samples come from Trellis allocation metrics, so Trellis is unchanged. A failed read leaves a gap rather than a zero, and an allocation's first sample has no CPU value because CPU is computed from two readings. Old samples are deleted every 10 minutes in batches of 10,000 rows, including while sampling is disabled. Sampling uses its own timer, separate from the reconciler.
+
+Sampling follows the same contract as reconciliation: run one active Bower process. Its previous-reading state is process-local, and a second active process would write duplicate samples at slightly different timestamps.
+
 ## Workload trust policy
 
 Bower project admins are tenant administrators, not Trellis cluster operators. Only Bower instance admins are eligible to act as cluster operators. Project admins can manage workloads inside their project's namespace, including namespace networking. Trellis API tokens are always cluster-wide, even for read-only access. By default nobody can use Bower to mount arbitrary absolute host paths or grant application workloads any API credentials; those capabilities escape the namespace boundary.
