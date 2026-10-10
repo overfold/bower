@@ -26,7 +26,7 @@ type AutomationActor = { actorType: 'api_key'; apiKeyId: string; userId: string 
 
 function deploymentApplyError(error: unknown) {
   if (error instanceof TrellisApiError && error.status === 409) {
-    return new ActionError('The Trellis job changed after Bower planned this deployment. Review the competing change and deploy again.')
+    return new ActionError('The Trellis job or cluster settings changed after Bower planned this deployment. Review the change and deploy again.')
   }
   return error
 }
@@ -74,7 +74,7 @@ async function executeDeployment(serviceId: string, environmentId: string, trigg
   try {
     const client = await getTrellisClient(row.project.orgId)
     const plan = await client.planJob(spec, row.environment.trellisNamespace)
-    await db.update(deployments).set({ planDiff: { ...plan, previous_resolved_images: releaseImagePins(previous?.jobSpec, previous?.planDiff) } }).where(eq(deployments.id, deployment.id))
+    await db.update(deployments).set({ jobSpec: plan.spec ?? spec, planDiff: { ...plan, previous_resolved_images: releaseImagePins(previous?.jobSpec, previous?.planDiff) } }).where(eq(deployments.id, deployment.id))
     await recordDeploymentEvent(deployment.id, 'deploying', `Applying ${jobName}.`, { plan })
     applied = await client.applyJobPlan(spec, row.environment.trellisNamespace, plan)
   } catch (error) {
@@ -205,7 +205,7 @@ async function rollbackService(serviceId: string, environmentId: string, targetD
   try {
     const client = await getTrellisClient(access.org.id)
     const plan = await client.planJob(spec, spec.namespace, storedPins)
-    await db.update(deployments).set({ planDiff: { ...plan, previous_resolved_images: fallbackPins } }).where(eq(deployments.id, deployment.id))
+    await db.update(deployments).set({ jobSpec: plan.spec ?? spec, planDiff: { ...plan, previous_resolved_images: fallbackPins } }).where(eq(deployments.id, deployment.id))
     applied = await client.applyJobPlan(spec, spec.namespace, plan)
   } catch (error) {
     const reported = deploymentApplyError(error)

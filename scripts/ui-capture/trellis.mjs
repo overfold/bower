@@ -18,6 +18,7 @@ const stoppedStorefrontAllocation = () => ({
   health: "unknown",
   draining: false,
   generation: 1,
+  job_incarnation: "audit-incarnation",
   job_revision: 2,
   created_at: minutesAgo(360),
   last_transition_at: minutesAgo(45),
@@ -41,7 +42,9 @@ const allocations = (namespace) =>
       health: job === "search-indexer" ? "unknown" : i === 2 ? "unhealthy" : "healthy",
       draining: false,
       generation: 1,
+      job_incarnation: "audit-incarnation",
       job_revision: 3,
+      tasks: ["app"],
       created_at: job === "search-indexer" ? minutesAgo(10) : minutesAgo(60),
       // The crash-looping worker began failing 25 minutes ago; its backoff records the latest failure.
       last_transition_at: job === "search-indexer" ? minutesAgo(10) : i === 2 ? minutesAgo(25) : now(),

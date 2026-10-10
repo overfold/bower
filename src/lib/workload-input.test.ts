@@ -18,6 +18,15 @@ test('volume mounts enforce Trellis identifiers, exact shapes, booleans, and saf
   assert.throws(() => validateVolumeMounts([
     { name: 'data', container_path: '/one' }, { name: 'data', container_path: '/two' },
   ]), /duplicated/)
+  assert.throws(() => validateVolumeMounts([
+    { name: 'data', container_path: '/data' }, { name: 'cache', container_path: '/data' },
+  ]), /duplicated/)
+  for (const container_path of ['/run/trellis-secrets', '/run/trellis-secrets/tls/key.pem']) {
+    assert.throws(() => validateVolumeMounts([{ name: 'data', container_path }]), /reserved/)
+  }
+  assert.deepEqual(validateVolumeMounts([{ name: 'data', container_path: '/run/trellis-secrets-backup' }]), [
+    { name: 'data', container_path: '/run/trellis-secrets-backup' },
+  ])
 })
 
 test('secret bindings enforce target-specific Trellis shapes and Bower env names', () => {

@@ -20,7 +20,13 @@ function harness(options: { allocations: () => TrellisAllocation[]; metrics: (id
   const sampler = createMetricsSampler({
     timeoutMs: 50,
     listOrgs: async () => (options.orgs ?? ['org']).map((id) => ({ id })),
-    getClient: async () => ({ listAllocations: async () => options.allocations(), getAllocationMetrics: (id: string) => options.metrics(id) }),
+    getClient: async () => ({
+      listAllocations: async (filters?: { label?: string }) => {
+        const [key, value] = (filters?.label ?? '').split(':')
+        return options.allocations().filter((entry) => Object.hasOwn(entry.labels, key) && (value === undefined || entry.labels[key] === value))
+      },
+      getAllocationMetrics: (id: string) => options.metrics(id),
+    }),
     loadServiceTargets: async () => options.targets ?? new Map([[serviceTargetKey('demo-production', 'web'), target]]),
     insertSamples: async (batch) => { rows.push(...batch) },
     log: (_message, detail) => logs.push(detail),

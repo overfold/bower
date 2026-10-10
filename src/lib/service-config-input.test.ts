@@ -14,10 +14,10 @@ function form(values: Record<string, string> = {}) {
 
 test('resource input boundaries use integral millicores and bytes, not rounded megabytes or zero defaults', () => {
   assert.deepEqual(parseResourceInputs('175', '1.25'), { cpu: 175, memory: 1_310_720 })
-  assert.deepEqual(parseResourceInputs('1', '0.00000095367431640625'), { cpu: 1, memory: 1 })
+  assert.deepEqual(parseResourceInputs('10', '0.00000095367431640625'), { cpu: 10, memory: 1 })
   // Admission maxima belong to cluster policy, not a fixed Bower tier ceiling.
   assert.deepEqual(parseResourceInputs('1500', '1025'), { cpu: 1500, memory: 1_074_790_400 })
-  for (const cpu of ['', '0', '-1', '0.5', '175.25', 'NaN', 'Infinity', '9007199254740992']) {
+  for (const cpu of ['', '0', '1', '9', '-1', '0.5', '175.25', 'NaN', 'Infinity', '9007199254740992']) {
     assert.throws(() => parseResourceInputs(cpu, '128'), /CPU/, cpu)
   }
   for (const memory of ['', '0', '-1', '0.0000001', '1.1', 'NaN', 'Infinity', '9007199254740992']) {
@@ -95,11 +95,13 @@ test('service configuration accepts lossless JSON variables while retaining lega
   assert.deepEqual(parseServiceConfigInput(form({ envVars: 'LEGACY=value' })).envVars, { LEGACY: 'value' })
 })
 
-test('label value limits count UTF-8 bytes, not JavaScript characters, without imposing env value limits', () => {
-  assert.equal(parseKeyValueLines(`team=${'é'.repeat(128)}`, 'label').team, 'é'.repeat(128))
+test('label value limits count Unicode code points, not bytes or UTF-16 units, without imposing env value limits', () => {
+  assert.equal(parseKeyValueLines(`team=${'é'.repeat(256)}`, 'label').team, 'é'.repeat(256))
+  assert.equal(parseKeyValueLines(`team=${'🌳'.repeat(256)}`, 'label').team, '🌳'.repeat(256))
   assert.equal(parseKeyValueLines(`team=${'a'.repeat(256)}`, 'label').team.length, 256)
-  assert.throws(() => parseKeyValueLines(`team=${'é'.repeat(129)}`, 'label'), /256 UTF-8 bytes/)
-  assert.throws(() => parseKeyValueLines(`team=${'a'.repeat(257)}`, 'label'), /256 UTF-8 bytes/)
+  for (const value of ['é'.repeat(257), '🌳'.repeat(257), 'a'.repeat(257), 'e\u0301'.repeat(129)]) {
+    assert.throws(() => parseKeyValueLines(`team=${value}`, 'label'), /256 Unicode code points/)
+  }
   assert.equal(parseKeyValueLines(`LONG=${'é'.repeat(257)}`, 'env').LONG, 'é'.repeat(257))
   assert.throws(() => parseServiceConfigInput(form({ envVars: 'BAD-NAME=value' })), /variable name/)
   assert.throws(() => parseServiceConfigInput(form({ labels: '1route=value' })), /label name/)

@@ -96,7 +96,7 @@ export function createMetricsSampler(deps: MetricsSamplerDeps) {
 
   async function sampleOrg(orgId: string) {
     const client = await deps.getClient(orgId)
-    const listed = await withTimeout(client.listAllocations({ label: 'bower/managed=true' }), deps.timeoutMs)
+    const listed = await withTimeout(client.listAllocations({ label: 'bower/managed:true' }), deps.timeoutMs)
     const targets = await deps.loadServiceTargets(orgId)
     const live = listed.filter((allocation) => allocation.phase === 'running' && allocation.labels?.['bower/managed'] === 'true')
     const mapped = live.flatMap((allocation) => {

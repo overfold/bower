@@ -11,8 +11,10 @@ export function positiveInteger(value: number, field: string) {
 }
 
 export function parseResourceInputs(cpu: string, memoryMB: string) {
+  const millicores = positiveInteger(Number(cpu), 'CPU (millicores)')
+  if (millicores < 10) throw new Error('CPU must be at least 10 millicores.')
   return {
-    cpu: positiveInteger(Number(cpu), 'CPU (millicores)'),
+    cpu: millicores,
     memory: positiveInteger(Number(memoryMB) * 1048576, 'Memory (bytes)'),
   }
 }
@@ -37,7 +39,7 @@ export function parseKeyValueLines(value: string, kind: 'env' | 'label') {
       if (!/^[A-Z_][A-Z0-9_]*$/.test(key)) throw new Error(`Invalid environment variable name: ${key}`)
     } else {
       if (!/^[A-Za-z][A-Za-z0-9._/-]{0,62}$/.test(key)) throw new Error(`Invalid label name: ${key}`)
-      if (Buffer.byteLength(val, 'utf8') > 256) throw new Error(`Label ${key} must be at most 256 UTF-8 bytes.`)
+      if ([...val].length > 256) throw new Error(`Label ${key} must be at most 256 Unicode code points.`)
     }
     entries.push([key, val])
   }

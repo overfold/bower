@@ -67,21 +67,20 @@ export default async function AllocationDetailPage({
   if (!allocation) notFound()
 
   const matchingConfig = configs.find(({ environment }) => environment.trellisNamespace === allocation?.namespace)
-  const [events, metrics, job, versions] = await Promise.allSettled([
+  const [events, metrics, job] = await Promise.allSettled([
     client.getAllocationEvents(allocationId, allocation.namespace),
     client.getAllocationMetrics(allocationId, allocation.namespace),
     client.getJob(allocation.job, allocation.namespace),
-    client.getJobVersions(allocation.job, allocation.namespace),
   ])
-  const allocationSpec = job.status === 'fulfilled' && job.value.revision === allocation.job_revision
+  // Version history has no incarnation identity. Never use it (or a recreated
+  // job with a reused revision) to attribute resource limits to this allocation.
+  const allocationSpec = allocation.job_incarnation && job.status === 'fulfilled'
+    && job.value.incarnation === allocation.job_incarnation && job.value.revision === allocation.job_revision
     ? job.value.spec
-    : versions.status === 'fulfilled'
-      ? versions.value.find((entry) => entry.revision === allocation.job_revision)?.spec
-      : undefined
-  const terminalTasks = allocationSpec?.task_groups
-    .find((group) => group.name === allocation.group)
-    ?.tasks.map((task) => task.name) ?? []
-  const logs = await Promise.allSettled(terminalTasks.map((task) => client.getAllocationLogs(allocationId, task, allocation.namespace)))
+    : undefined
+  const terminalTasks = allocation.tasks ?? []
+  const logTasks = allocation.tasks ?? [undefined]
+  const logs = await Promise.allSettled(logTasks.map((task) => client.getAllocationLogs(allocationId, task, allocation.namespace)))
   const history = events.status === 'fulfilled' ? [...events.value].sort((a, b) => Date.parse(a.at) - Date.parse(b.at)) : []
   const notice = allocationNotice(allocation)
   const stoppable = !['stopping', 'stopped', 'lost'].includes(allocation.phase)
@@ -120,7 +119,7 @@ export default async function AllocationDetailPage({
       <TabsContent value="details" forceMount className="space-y-4 data-[state=inactive]:hidden">
       <SectionTitle>Details</SectionTitle>
       <AllocationMetrics serviceId={service.id} allocationId={allocationId} cpuLimit={cpuLimit} memoryLimit={memoryLimit} initialMetrics={metrics.status === 'fulfilled' ? metrics.value : []} initialError={metrics.status === 'rejected' ? trellisReadError(metrics.reason) : null} />
-      <MetricsHistoryCharts serviceId={service.id} environmentId={selectedConfig.environment.id} allocationId={allocationId} ranges={availableMetricsRanges(metricsRetentionHours())} cpuLimit={selectedConfig.config.cpu ?? 0} memoryLimit={selectedConfig.config.memory ?? 0} />
+      <MetricsHistoryCharts serviceId={service.id} environmentId={selectedConfig.environment.id} allocationId={allocationId} ranges={availableMetricsRanges(metricsRetentionHours())} cpuLimit={cpuLimit} memoryLimit={memoryLimit} />
 
       <Panel id="details" className="scroll-mt-20">
         <PanelHeader title="Allocation details" />
@@ -157,7 +156,10 @@ export default async function AllocationDetailPage({
       </TabsContent>
       <TabsContent value="logs" id="logs" forceMount className="space-y-4 data-[state=inactive]:hidden">
         <SectionTitle>Logs</SectionTitle>
-        {logs.length ? <AllocationLogs serviceId={service.id} allocationId={allocationId} tasks={logs.map((result, index) => ({ name: terminalTasks[index], output: result.status === 'fulfilled' ? result.value : '', error: result.status === 'rejected' ? trellisReadError(result.reason) : null }))} /> : <Panel>{job.status === 'rejected' && versions.status === 'rejected' ? <TrellisReadError title="Task metadata unavailable" message={trellisReadError(job.reason)} /> : <div className="p-4 text-sm text-ink-muted">Task metadata is unavailable for this revision.</div>}</Panel>}
+        {allocation.tasks === undefined ? <Panel>
+          <PanelHeader title="Task logs" />
+          {logs[0]?.status === 'rejected' ? <TrellisReadError title="Logs unavailable" message={trellisReadError(logs[0].reason)} /> : <pre className="h-[calc(100dvh-12rem)] min-h-64 overflow-auto p-4 font-mono text-xs leading-relaxed text-ink-soft">{logs[0]?.status === 'fulfilled' && logs[0].value || 'No output'}</pre>}
+        </Panel> : logs.length ? <AllocationLogs serviceId={service.id} allocationId={allocationId} tasks={logs.map((result, index) => ({ name: terminalTasks[index], output: result.status === 'fulfilled' ? result.value : '', error: result.status === 'rejected' ? trellisReadError(result.reason) : null }))} /> : <Panel><div className="p-4 text-sm text-ink-muted">No tasks were recorded for this allocation.</div></Panel>}
       </TabsContent>
       </UrlTabs>
     </div>

@@ -134,7 +134,7 @@ export async function reconcileProjectDeployments(projectId: string, orgId: stri
             continue
           }
           const applied = await client.applyJobPlan(nextSpec, env.trellisNamespace, plan)
-          await db.update(deployments).set({ jobSpec: nextSpec, trellisIncarnation: applied.incarnation, trellisVersion: applied.version, trellisRevision: applied.revision }).where(eq(deployments.id, deployment.id))
+          await db.update(deployments).set({ jobSpec: plan.spec ?? nextSpec, trellisIncarnation: applied.incarnation, trellisVersion: applied.version, trellisRevision: applied.revision }).where(eq(deployments.id, deployment.id))
           await recordDeploymentEvent(deployment.id, 'canary_step', `Canary advanced to ${nextWeight}% at version ${applied.version}, revision ${applied.revision}.`, { weight: nextWeight, replicas, plan, applied })
           await syncManagedProxy(projectId, env.id, orgId)
           continue
@@ -152,7 +152,7 @@ export async function reconcileProjectDeployments(projectId: string, orgId: stri
       await notifyDeployment(await createDeploymentSpec(deployment.serviceId, deployment.environmentId), 'healthy', deployment.triggeredByUserId)
     } catch (error) {
       if (error instanceof TrellisApiError && error.status === 409) {
-        await failDeployment(deployment, 'The Trellis job changed during a conditional apply; Bower did not overwrite the competing change.')
+        await failDeployment(deployment, 'The Trellis job or cluster settings changed during a conditional apply; Bower did not overwrite the competing change.')
         continue
       }
       if (error instanceof TrellisApiError && error.status === 404) {

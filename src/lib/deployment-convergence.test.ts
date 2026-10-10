@@ -13,7 +13,7 @@ const spec: TrellisJobSpec = {
 function allocation(id: string, revision: number, phase: TrellisAllocation['phase'], health: TrellisAllocation['health'], extra: Partial<TrellisAllocation> = {}): TrellisAllocation {
   return {
     id, job: 'web', group: 'web', namespace: 'production', node_id: 'node', phase, health,
-    draining: false, generation: 1, job_revision: revision, created_at: '', last_transition_at: '',
+    draining: false, generation: 1, job_incarnation: identity.incarnation, job_revision: revision, created_at: '', last_transition_at: '',
     attempt: 0, ports: [], labels: {}, ...extra,
   }
 }
@@ -43,6 +43,17 @@ test('partial rolling surge does not borrow healthy old-revision allocations', (
   const result = deploymentConvergence(partial, spec, identity)
   assert.equal(result.converged, false)
   assert.deepEqual(result.groups, [{ name: 'web', desired: 2, active: 1, healthy: 1 }])
+})
+
+test('readiness cannot borrow matching revisions from another lifetime, namespace, job or missing identity', () => {
+  for (const extra of [{ job_incarnation: 'inc-old' }, { job_incarnation: undefined }, { namespace: 'staging' }, { job: 'other' }]) {
+    const result = deploymentConvergence(job([
+      allocation('current', 3, 'running', 'healthy'),
+      allocation('wrong', 3, 'running', 'healthy', extra),
+    ]), spec, identity)
+    assert.equal(result.converged, false)
+    assert.deepEqual(result.active.map((entry) => entry.id), ['current'])
+  }
 })
 
 test('retained failures and stale old allocations are history, not active convergence blockers', () => {

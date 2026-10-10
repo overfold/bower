@@ -172,6 +172,30 @@ test('plan-derived applies fence competing writers with incarnation and version'
   ])
 })
 
+test('reviewed plans apply resolved defaults and fence settings, including no-ops and creates', async (t) => {
+  const spec: TrellisJobSpec = { name: 'web', namespace: 'production', task_groups: [{ name: 'main', count: 1, tasks: [{ name: 'app', image: 'app:latest' }] }] }
+  const resolved: TrellisJobSpec = { ...spec, task_groups: [{ name: 'main', count: 1, runtime: 'runc', tasks: [{ name: 'app', image: 'app:latest', resources: { cpu: 250, memory: 268435456 } }] }] }
+  const pins = { 'app:latest': 'app:latest@sha256:reviewed' }
+  let conflict = false
+  const client = new TrellisClient('https://api', 'token')
+  for (const action of ['create', 'update', 'none'] as const) {
+    const server = t.mock.method(globalThis, 'fetch', async (_url: string, options?: RequestInit) => {
+      assert.deepEqual(JSON.parse(String(options?.body)), {
+        spec: resolved, resolved_images: pins, expected_settings: 'settings-reviewed',
+        expected_version: action === 'create' ? 0 : 4,
+        ...(action === 'create' ? {} : { expected_incarnation: 'inc-a' }),
+      })
+      return conflict ? new Response('{"message":"cluster settings changed"}', { status: 409 }) : Response.json({ version: 4 })
+    })
+    const plan = { action, namespace: 'production', job: 'web', base_incarnation: 'inc-a', base_version: 4, base_revision: 3, desired_allocations: 1, changes: [], resolved_images: pins, spec: resolved, settings_fingerprint: 'settings-reviewed' }
+    conflict = false
+    assert.equal((await client.applyJobPlan(spec, 'production', plan)).version, 4)
+    conflict = true
+    await assert.rejects(client.applyJobPlan(spec, 'production', plan), (error: unknown) => error instanceof TrellisApiError && error.status === 409)
+    server.mock.restore()
+  }
+})
+
 test('rollback plans immutable digests without resolving old tags and conditionally applies no-op plans', async (t) => {
   const spec: TrellisJobSpec = { name: 'web', namespace: 'production', task_groups: [{ name: 'main', count: 1, tasks: [{ name: 'web', image: 'app:mutable' }] }] }
   const oldPins = { 'app:mutable': 'app@sha256:old' }
@@ -184,6 +208,7 @@ test('rollback plans immutable digests without resolving old tags and conditiona
     return Response.json(url.endsWith('/plan') ? {
       action: 'none', namespace: 'production', job: 'web', base_incarnation: 'inc', base_version: 9, base_revision: 6,
       desired_allocations: 1, changes: [], resolved_images: newPins,
+      spec: { ...body.spec, task_groups: [{ ...body.spec.task_groups[0], runtime: 'runc' }] }, settings_fingerprint: 'rollback-settings',
     } : { namespace: 'production', name: 'web', incarnation: 'inc', version: 10, revision: 7 })
   })
   const client = new TrellisClient('https://api', 'token')
@@ -196,13 +221,25 @@ test('rollback plans immutable digests without resolving old tags and conditiona
       spec: { name: 'web', namespace: 'production', task_groups: [{ name: 'main', count: 1, tasks: [{ name: 'web', image: 'app@sha256:old' }] }] },
       resolved_images: { 'app@sha256:old': 'app@sha256:old' },
     },
-    { spec, resolved_images: oldPins, expected_version: 9, expected_incarnation: 'inc' },
+    { spec: { ...spec, task_groups: [{ ...spec.task_groups[0], runtime: 'runc' }] }, resolved_images: oldPins, expected_version: 9, expected_incarnation: 'inc', expected_settings: 'rollback-settings' },
   ])
   const unchanged = await client.planJob(spec, 'production', newPins)
   assert.equal(unchanged.action, 'update')
   await client.applyJobPlan(spec, 'production', unchanged)
   assert.equal(bodies.length, 4, 'digest planning still fences the original-spec apply')
-  assert.deepEqual(bodies[3], { spec, resolved_images: newPins, expected_version: 9, expected_incarnation: 'inc' })
+  assert.deepEqual(bodies[3], { spec: { ...spec, task_groups: [{ ...spec.task_groups[0], runtime: 'runc' }] }, resolved_images: newPins, expected_version: 9, expected_incarnation: 'inc', expected_settings: 'rollback-settings' })
+})
+
+test('historical log requests can omit task and preserve explicit task selectors', async (t) => {
+  const paths: string[] = []
+  t.mock.method(globalThis, 'fetch', async (url: string) => {
+    paths.push(new URL(url).search)
+    return new Response('historical output')
+  })
+  const client = new TrellisClient('https://api', 'token')
+  assert.equal(await client.getAllocationLogs('old', undefined, 'production', 10), 'historical output')
+  await client.getAllocationLogs('old', 'removed-sidecar', 'production', 10)
+  assert.deepEqual(paths, ['?tail=10', '?task=removed-sidecar&tail=10'])
 })
 
 test('ordinary reads time out before headers and during body consumption, then recover', async (t) => {

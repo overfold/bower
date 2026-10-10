@@ -215,7 +215,7 @@ export class TrellisClient {
   async applyJob(
     spec: TrellisJobSpec,
     namespace: string,
-    precondition?: { expectedVersion: number; expectedIncarnation?: string },
+    precondition?: { expectedVersion: number; expectedIncarnation?: string; expectedSettings?: string },
     resolvedImages?: Record<string, string>,
   ): Promise<TrellisJobApplyResult> {
     return this.request<TrellisJobApplyResult>('POST', this.resourcePath(namespace, '/jobs'), {
@@ -224,22 +224,26 @@ export class TrellisClient {
         ...(resolvedImages ? { resolved_images: resolvedImages } : {}),
         ...(precondition ? { expected_version: precondition.expectedVersion } : {}),
         ...(precondition?.expectedIncarnation ? { expected_incarnation: precondition.expectedIncarnation } : {}),
+        ...(precondition?.expectedSettings ? { expected_settings: precondition.expectedSettings } : {}),
       },
     })
   }
 
   async applyJobPlan(spec: TrellisJobSpec, namespace: string, plan: TrellisPlan): Promise<TrellisJobApplyResult> {
     if (plan.namespace !== namespace || plan.job !== spec.name) throw new Error('The Trellis plan does not match the requested job.')
+    if (plan.spec && (plan.spec.namespace !== namespace || plan.spec.name !== spec.name)) throw new Error('The Trellis planned spec does not match the requested job.')
+    if (plan.settings_fingerprint && !plan.spec) throw new Error('The Trellis plan is missing its resolved spec.')
     if (plan.action === 'none') {
       if (!plan.base_incarnation || !plan.base_version || !plan.base_revision) throw new Error('An unchanged Trellis plan is missing its job identity.')
-      return { namespace, name: spec.name, incarnation: plan.base_incarnation, version: plan.base_version, revision: plan.base_revision }
+      if (!plan.settings_fingerprint) return { namespace, name: spec.name, incarnation: plan.base_incarnation, version: plan.base_version, revision: plan.base_revision }
     }
     if (plan.action === 'update' && (!plan.base_incarnation || !plan.base_version || !plan.base_revision)) {
       throw new Error('An update Trellis plan is missing its job identity.')
     }
-    return this.applyJob(spec, namespace, {
+    return this.applyJob(plan.spec ?? spec, namespace, {
       expectedVersion: plan.action === 'create' ? 0 : plan.base_version ?? 0,
-      expectedIncarnation: plan.action === 'update' ? plan.base_incarnation : undefined,
+      expectedIncarnation: plan.action !== 'create' ? plan.base_incarnation : undefined,
+      expectedSettings: plan.settings_fingerprint,
     }, plan.resolved_images)
   }
 
@@ -266,7 +270,23 @@ export class TrellisClient {
     if (!resolvedImages) return plan
     // Apply the original authored spec with its pins. Even a no-op digest plan
     // needs a conditional apply to preserve the authored references correctly.
-    return { ...plan, resolved_images: resolvedImages, action: plan.action === 'none' ? 'update' : plan.action }
+    return {
+      ...plan,
+      // Restore authored image references while retaining Trellis's defaults.
+      // The planning spec used digests to avoid resolving historical tags.
+      ...(plan.spec ? { spec: {
+        ...plan.spec,
+        task_groups: plan.spec.task_groups.map((group) => ({
+          ...group,
+          tasks: group.tasks.map((task) => ({
+            ...task,
+            image: spec.task_groups.find((entry) => entry.name === group.name)?.tasks.find((entry) => entry.name === task.name)?.image ?? task.image,
+          })),
+        })),
+      } } : {}),
+      resolved_images: resolvedImages,
+      action: plan.action === 'none' ? 'update' : plan.action,
+    }
   }
 
   async deleteJob(name: string, namespace: string): Promise<void> {
@@ -342,12 +362,12 @@ export class TrellisClient {
 
   async getAllocationLogs(
     id: string,
-    task: string,
+    task: string | undefined,
     namespace: string,
     tail?: number,
   ): Promise<string> {
     const params = new URLSearchParams()
-    params.set('task', task)
+    if (task !== undefined) params.set('task', task)
     if (tail !== undefined) {
       params.set('tail', String(tail))
     }

@@ -63,9 +63,9 @@ export default async function DeploymentDetailPage({ params }: { params: Promise
       const allocation = allocations.find((item) => item.id === failedAllocationIdValue)
       allocationFound = Boolean(allocation)
       if (allocation) {
-        const versions = await client.getJobVersions(allocation.job, allocation.namespace)
-        const spec = runtime?.name === allocation.job && runtime.revision === allocation.job_revision ? runtime.spec : versions.find((version) => version.revision === allocation.job_revision)?.spec
-        const tasks = spec?.task_groups.find((group) => group.name === allocation.group)?.tasks.map((task) => task.name) ?? []
+        // Missing inventory is not an empty inventory: let Trellis resolve a
+        // single historical task, or explain why a selector is required.
+        const tasks = allocation.tasks ?? [undefined]
         const results = await Promise.allSettled(tasks.map((task) => client.getAllocationLogs(allocation.id, task, allocation.namespace, 10)))
         failureLogs = results.flatMap((result) => result.status === 'fulfilled' ? result.value.split('\n') : []).filter(Boolean).slice(-10)
         const rejected = results.find((result) => result.status === 'rejected')

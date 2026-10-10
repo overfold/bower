@@ -31,6 +31,7 @@ export function validateVolumeMounts(input: unknown): VolumeMount[] {
   if (input.length > 32) throw new Error('A service may attach at most 32 volumes.')
 
   const names = new Set<string>()
+  const paths = new Set<string>()
   return input.map((value, index) => {
     const label = `Volume mount ${index + 1}`
     const row = object(value, label)
@@ -44,9 +45,13 @@ export function validateVolumeMounts(input: unknown): VolumeMount[] {
     if (!posix.isAbsolute(containerPath) || posix.normalize(containerPath) !== containerPath) {
       throw new Error(`Mount path for ${name} must be a clean absolute path.`)
     }
-    if (containerPath === '/' || containerPath === '/run' || containerPath === '/run/trellis' || containerPath.startsWith('/run/trellis/')) {
-      throw new Error(`Mount path for ${name} must not use the reserved /run/trellis path.`)
+    if (containerPath === '/' || containerPath === '/run'
+      || containerPath === '/run/trellis' || containerPath.startsWith('/run/trellis/')
+      || containerPath === '/run/trellis-secrets' || containerPath.startsWith('/run/trellis-secrets/')) {
+      throw new Error(`Mount path for ${name} must not use the reserved /run/trellis or /run/trellis-secrets paths.`)
     }
+    if (paths.has(containerPath)) throw new Error(`Mount path ${containerPath} is duplicated.`)
+    paths.add(containerPath)
     if (row.read_only !== undefined && typeof row.read_only !== 'boolean') {
       throw new Error(`${label} read_only must be a boolean.`)
     }

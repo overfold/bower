@@ -221,7 +221,7 @@ test('reconciler targets the persisted accepted job identity rather than inferri
     } }] },
     '@/lib/trellis-instance': { getTrellisClient: async () => ({ getJob: async () => ({
       name: 'web', incarnation: 'inc-a', version: 4, revision: 2, desired: 1, running: 1, healthy: 1,
-      allocations: [{ id: 'current', group: 'web', job_revision: 2, phase: 'running', health: 'healthy', draining: false }],
+      allocations: [{ id: 'current', namespace: 'production', job: 'web', job_incarnation: 'inc-a', group: 'web', job_revision: 2, phase: 'running', health: 'healthy', draining: false }],
     }) }) },
     '@/lib/managed-proxy': {},
     '@/lib/deployment-runtime': { recordDeploymentEvent: async () => {}, createDeploymentSpec: async () => ({}), notifyDeployment: async () => {} },
@@ -437,6 +437,7 @@ test('service errors are not empty allocations and pending placement diagnostics
 test('allocation panels preserve successful logs and distinguish empty events/metrics from unavailable data without invented placement', async () => {
   let eventsFail = true
   let metricsFail = true
+  let tasks: string[] | undefined = ['retired-sidecar']
   const metrics = load(`${servicePath}/allocations/[allocationId]/allocation-metrics.tsx`, { '@/lib/actions/allocation-actions': {} })
   const logs = load(`${servicePath}/allocations/[allocationId]/allocation-logs.tsx`, {
     '@/lib/actions/allocation-actions': {},
@@ -444,24 +445,32 @@ test('allocation panels preserve successful logs and distinguish empty events/me
   })
   const page = load<Page>(`${servicePath}/allocations/[allocationId]/page.tsx`, {
     ...pageDependencies({
-      listAllocations: async () => [{ id: 'a', namespace: 'production', job: 'web', group: 'main', job_revision: 1, phase: 'pending', health: 'unknown', created_at: '2026-09-30T00:00:00Z', last_transition_at: '2026-09-30T00:00:00Z' }],
+      listAllocations: async () => [{ id: 'a', namespace: 'production', job: 'web', group: 'main', tasks, job_revision: 1, phase: 'pending', health: 'unknown', created_at: '2026-09-30T00:00:00Z', last_transition_at: '2026-09-30T00:00:00Z' }],
       getAllocationEvents: async () => { if (eventsFail) throw new Error('offline'); return [] },
       getAllocationMetrics: async () => { if (metricsFail) throw new Error('offline'); return [] },
       getJob: async () => ({ revision: 1, spec: { task_groups: [{ name: 'main', tasks: [{ name: 'app' }] }] } }),
       getJobVersions: async () => [{ version: 1, revision: 1, spec: { task_groups: [{ name: 'main', tasks: [{ name: 'app' }] }] } }],
-      getAllocationLogs: async () => 'independent log output',
+      getAllocationLogs: async (_id: string, task: string | undefined) => {
+        if (task !== tasks?.[0]) throw new Error('incorrect historical task')
+        return `independent log output ${task ?? 'auto-selected'}`
+      },
     }), './allocation-metrics': metrics, './allocation-logs': logs,
   })
   let html = renderToStaticMarkup(await page.default(props))
   assert.match(html, /Lifecycle events unavailable/)
   assert.match(html, /Unavailable/)
   assert.match(html, /independent log output/)
+  assert.match(html, /retired-sidecar/)
   assert.doesNotMatch(html, /created and placed|No lifecycle events have been recorded/)
   eventsFail = metricsFail = false
   html = renderToStaticMarkup(await page.default(props))
   assert.match(html, /No lifecycle events have been recorded/)
   assert.match(html, /No samples/)
   assert.doesNotMatch(html, /created and placed|Lifecycle events unavailable/)
+  tasks = undefined
+  html = renderToStaticMarkup(await page.default(props))
+  assert.match(html, /independent log output/)
+  assert.doesNotMatch(html, /Log task/)
 })
 
 test('version history keeps the deployment journal and omits the separate retained-version table', async () => {
@@ -1129,8 +1138,8 @@ test('the service and allocation pages share one usage-history component, scoped
   assert.equal(allocationHistory.serviceId, 'service')
   assert.equal(allocationHistory.environmentId, 'env')
   assert.equal(allocationHistory.allocationId, 'a')
-  assert.equal(allocationHistory.cpuLimit, 250, 'per-replica limit, not multiplied by replicas')
-  assert.equal(allocationHistory.memoryLimit, 536870912)
+  assert.equal(allocationHistory.cpuLimit, 0, 'unreadable allocation spec must not borrow current configuration limits')
+  assert.equal(allocationHistory.memoryLimit, 0)
   assert.deepEqual(allocationHistory.ranges, serviceHistory.ranges)
 
   for (const path of [`${servicePath}/page.tsx`, `${servicePath}/allocations/[allocationId]/page.tsx`]) {

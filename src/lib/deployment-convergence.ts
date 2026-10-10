@@ -20,7 +20,10 @@ export function sameJobIdentity(job: TrellisJob, identity: DeploymentIdentity) {
 
 export function deploymentConvergence(job: TrellisJob, spec: TrellisJobSpec, identity: DeploymentIdentity) {
   const desiredByGroup = new Map(spec.task_groups.map((group) => [group.name, group.count]))
-  const targetActive = job.allocations.filter((allocation) => allocation.job_revision === identity.revision
+  const targetActive = job.allocations.filter((allocation) => allocation.namespace === spec.namespace
+    && allocation.job === spec.name
+    && allocation.job_incarnation === identity.incarnation
+    && allocation.job_revision === identity.revision
     && !allocation.draining
     && ACTIVE_PHASES.has(allocation.phase))
   const activeByGroup = new Map<string, TrellisAllocation[]>()

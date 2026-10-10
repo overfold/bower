@@ -199,6 +199,7 @@ export interface TrellisAllocation {
   health: TrellisHealthStatus
   draining: boolean
   generation: number
+  job_incarnation?: string
   job_revision: number
   created_at: string // ISO 8601
   last_transition_at: string
@@ -208,6 +209,7 @@ export interface TrellisAllocation {
   next_retry_at?: string
   ports: TrellisAllocationPort[]
   endpoints?: TrellisAllocationEndpoint[]
+  tasks?: string[]
   labels: Record<string, string>
 }
 
@@ -293,6 +295,8 @@ export interface TrellisPlan {
   desired_allocations: number
   changes: TrellisPlanDiff[]
   resolved_images: Record<string, string>
+  spec?: TrellisJobSpec // resolved defaults; absent on older servers
+  settings_fingerprint?: string
 }
 
 // -- Secrets (metadata only) ------------------------------------------------
@@ -319,6 +323,7 @@ export interface TrellisApplyJobRequest {
   resolved_images?: Record<string, string>
   expected_version?: number
   expected_incarnation?: string
+  expected_settings?: string
 }
 
 export interface TrellisPlanJobRequest {
