@@ -15,5 +15,5 @@ export function RestartCountdown({ at, bare }: { at: string; bare?: boolean }) {
   const target = Date.parse(at)
   if (!Number.isFinite(target)) return <span>restart pending</span>
   if (now !== null && target <= now) return <span>restarting</span>
-  return bare ? <Time value={at} mode="live" /> : <span>next attempt <Time value={at} mode="live" /></span>
+  return bare ? <Time value={at} mode="countdown" /> : <span>next attempt <Time value={at} mode="countdown" /></span>
 }

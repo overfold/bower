@@ -22,7 +22,7 @@ export async function ServiceHeader({
   image,
   route,
   health, ready, replicas, canDeploy, failedDeploymentId, failedDeploymentOutcome,
-  changes, rollbackTargets, replacementBackoff, logsHref,
+  changes, rollbackTargets, replacementBackoff, logsHref, capacityBlocked = false,
 }: {
   slug: string
   serviceSlug: string
@@ -42,6 +42,7 @@ export async function ServiceHeader({
   rollbackTargets: { id: string; image: string; createdAt: string; changes: ServiceConfigDiff[] }[]
   replacementBackoff: TrellisReplacementBackoff | null
   logsHref?: string
+  capacityBlocked?: boolean
 }) {
   const deployments = hasConfig ? await getDeploymentsByService(serviceId, 20) : []
 
@@ -65,6 +66,7 @@ export async function ServiceHeader({
           environmentId={environmentId}
           hasDeployments={deployments.some((deployment) => deployment.environmentId === environmentId && Boolean(deployment.previousJobSpec))}
           changes={changes} rollbackTargets={rollbackTargets}
+          capacityBlocked={capacityBlocked}
         />}
       </div>
       <div className="border-b border-line">

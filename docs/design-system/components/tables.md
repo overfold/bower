@@ -31,7 +31,7 @@ Place tables **directly** inside a `Card`, edge to edge, usually after a `CardHe
 | Secondary line under a name | `mt-0.5 text-2xs text-ink-muted` (or `font-mono text-xs` for an ID) |
 | Copyable value | `Mono` / `font-mono` |
 | Status | `StatusDot` / `DeploymentStatus` chip, in its own column **directly after the name** (A2-B9, A2-B10) |
-| Time | `<Time>` relative, `text-ink-muted`, right-aligned, `whitespace-nowrap`. The column header is **"Time"** (A4-Q49) |
+| Time | `<Time>` relative, `text-ink-muted`, right-aligned, `whitespace-nowrap`. Event lists use Time; object dates use Created/Granted/Rotated as appropriate to the data, Needs attention Since (C6/G2) |
 | Counts | Bare numbers (`2`, not `2 routes`), right-aligned or in a narrow column (A4-Q22) |
 | Empty value | `—` |
 | Static attributes (role, environment, protection) | Plain text, not chips (A1 P2-20) |
@@ -86,7 +86,7 @@ Decided in A2-D1, A3-C01, A3-C02, A4-Q56, and A4-Q57.
 | `service-history` | Rev · Image · Status · Trigger · Duration · Time · Actions · › | Service › Deployments |
 
 Cell rules:
-- **Image:** the tag on top in mono (`from → to` in full presets when it changed, with the old tag muted). The repository goes beneath in muted `text-2xs` mono (A5-M8 / Q03). Compact presets show the target tag only (A4-Q05).
+- **Image:** mono tag on top, `from → to` whenever changed in **every preset**, including compact; repository beneath in `text-xs text-ink-muted` mono. Services and deployment Summary use the same image anatomy (R6/C5; supersedes A4-Q05/A5-M8).
 - **Status:** `DeploymentStatus` (Succeeded, Failed, In progress, Rolled back). Never live health (A3 B01).
 - **Trigger:** icon plus label, with the actor beneath (A3-C26). Manual, Webhook, Promotion, Rollback, Auto-rollback.
 - **Duration:** `1m 30s` (`formatDeploymentDuration`).

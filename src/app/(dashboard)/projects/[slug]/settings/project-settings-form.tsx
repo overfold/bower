@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { UnsavedChangesBar } from '@/components/ui/unsaved-changes-bar'
 import { InlineNotice, useFeedback } from '@/components/ui/feedback'
 import {
@@ -31,7 +31,9 @@ interface Props {
 export function ProjectSettingsForm({ project }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [dirty, setDirty] = useState(false)
+  const [saved, setSaved] = useState({ name: project.name, description: project.description ?? '' })
+  const [draft, setDraft] = useState(saved)
+  const dirty = draft.name !== saved.name || draft.description !== saved.description
   const router = useRouter()
   const { toast } = useFeedback()
   const formRef = useRef<HTMLFormElement>(null)
@@ -46,7 +48,7 @@ export function ProjectSettingsForm({ project }: Props) {
       if (result?.error) setError(result.error)
       else if (result?.success) {
         toast({ tone: 'success', title: 'Project settings saved' })
-        setDirty(false)
+        setSaved(draft)
         router.refresh()
       } else setError('Project settings could not be saved. Please try again.')
     } catch (err) {
@@ -60,19 +62,17 @@ export function ProjectSettingsForm({ project }: Props) {
   return (
     <div className="space-y-6">
       <Card>
-        <form ref={formRef} onSubmit={handleSubmit} onChange={() => setDirty(true)}>
-          <CardHeader>
-            <CardTitle>Project details</CardTitle>
-          </CardHeader>
+        <form ref={formRef} onSubmit={handleSubmit}>
+          <CardHeader title="Project details" hint="The name and description shown for this project." />
           <CardContent className="space-y-6">
             {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
             <div className="max-w-xl space-y-2">
               <Label htmlFor="name">Name</Label>
-              <Input id="name" name="name" defaultValue={project.name} required />
+              <Input id="name" name="name" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} dirty={draft.name !== saved.name} required />
             </div>
             <div className="max-w-[720px] space-y-2">
               <Label htmlFor="description" optional>Description</Label>
-              <Textarea id="description" name="description" defaultValue={project.description ?? ''} rows={3} />
+              <Textarea id="description" name="description" value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} dirty={draft.description !== saved.description} rows={3} />
             </div>
             <div className="max-w-xl space-y-2">
               <Label htmlFor="project-slug">Slug</Label>
@@ -85,7 +85,7 @@ export function ProjectSettingsForm({ project }: Props) {
           </CardContent>
         </form>
       </Card>
-      <UnsavedChangesBar dirty={dirty} pending={loading} onSave={() => formRef.current?.requestSubmit()} onDiscard={() => { formRef.current?.reset(); setDirty(false); setError(null) }} />
+      <UnsavedChangesBar dirty={dirty} pending={loading} onSave={() => formRef.current?.requestSubmit()} onDiscard={() => { setDraft(saved); setError(null) }} />
 
     </div>
   )
@@ -113,11 +113,9 @@ export function ProjectDangerZone({ project, counts }: Props) {
   }
 
   return <Card className="border-danger-200">
-        <CardHeader>
-          <CardTitle className="text-danger-500">Danger zone</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="mb-4 text-sm text-ink-muted">
+        <CardHeader title={<span className="text-danger-500">Danger zone</span>} hint="Permanent actions for this project." />
+        <CardContent className="flex flex-wrap items-center justify-between gap-4">
+          <p className="min-w-0 flex-1 text-sm text-ink-muted">
             Deleting a project removes all services, environments, deployments, and configurations permanently.
           </p>
           <AlertDialog open={deleteOpen} onOpenChange={(nextOpen) => {

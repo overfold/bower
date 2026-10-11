@@ -65,7 +65,9 @@ export default function RegisterPage() {
             autoComplete="new-password"
             required
             minLength={8}
+            aria-describedby={!error ? 'password-help' : undefined}
           />
+          {!error ? <p id="password-help" className="text-xs text-ink-muted">Use at least 8 characters.</p> : null}
         </div>
         <Button variant="primary" type="submit" className="mt-1 w-full" size="md" disabled={loading} aria-busy={loading}>
           {loading ? (

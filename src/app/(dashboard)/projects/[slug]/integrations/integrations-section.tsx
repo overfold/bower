@@ -48,7 +48,7 @@ export default async function IntegrationsSection({
     <div className="space-y-8">
       <SectionTitle>Integrations</SectionTitle>
       <Panel>
-        <PanelHeader title="Webhooks" hint={`${visibleHooks.length} ${visibleHooks.length === 1 ? 'webhook' : 'webhooks'}`} action={isAdmin && environment ? (
+        <PanelHeader title="Webhooks" hint="Endpoints that trigger deployments for project services." action={isAdmin && environment ? (
             <CreateWebhookDialog
               projectId={project.id}
               services={services.map((s) => ({ id: s.id, name: s.name }))}
@@ -67,6 +67,7 @@ export default async function IntegrationsSection({
             <div className="overflow-x-auto"><Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Name</TableHead>
                   <TableHead>Service</TableHead>
                   <TableHead>Provider</TableHead>
                   <TableHead>Deploy mode</TableHead>
@@ -77,6 +78,7 @@ export default async function IntegrationsSection({
               <TableBody>
                 {visibleHooks.map((row) => (
                   <TableRow key={row.hook.id}>
+                    <TableCell className="font-medium">{row.hook.name ?? `Webhook ${row.hook.tokenPrefix}`}</TableCell>
                     <TableCell className="font-medium">
                       {row.serviceName}
                     </TableCell>
@@ -102,7 +104,7 @@ export default async function IntegrationsSection({
       </Panel>
 
       <Panel>
-        <PanelHeader title="Notification channels" hint={`${channels.length} ${channels.length === 1 ? 'channel' : 'channels'}`} action={isAdmin ? <CreateNotificationDialog projectId={project.id} /> : undefined} />
+        <PanelHeader title="Notification channels" hint="Destinations for deployment notifications from this project." action={isAdmin ? <CreateNotificationDialog projectId={project.id} /> : undefined} />
 
         {channels.length === 0 ? (
             <EmptyState

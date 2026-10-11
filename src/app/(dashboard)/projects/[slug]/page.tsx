@@ -26,6 +26,8 @@ import { DeploymentsTable } from '@/components/deployments-table'
 import { formatReadyReplicas } from '@/lib/format'
 import { NeedsAttention } from '@/components/needs-attention'
 import { latestFailedDeployments, needsAttentionRows } from '@/lib/needs-attention'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import { ClickableTableRow } from '@/components/clickable-table-row'
 
 function imageTag(image: string | null): string {
   if (!image) return '-'
@@ -76,19 +78,22 @@ export default async function ProjectOverviewPage({
       <DeploymentPoller active={deployments.some((row) => ['pending', 'planning', 'deploying', 'rolling_back'].includes(row.deployment.status))} />
       <SectionTitle>Overview</SectionTitle>
       {settingUp ? <Panel>
-        <PanelHeader title="Set up this project" />
+        <PanelHeader title="Set up this project" hint="Create a service, deploy it, and expose it to traffic." />
         <ol className="divide-y divide-line text-sm">
           <li className="flex items-center justify-between gap-4 p-4"><div><p className="font-medium text-ink">1. Create a service</p><p className="text-sm text-ink-muted">{setupService ? `${setupService.service.name} created.` : 'Define the workload you want to deploy.'}</p></div>{setupService ? <Chip tone="success">Done</Chip> : access.projectRole === 'admin' ? <CreateServiceDialog projectSlug={slug} /> : null}</li>
           <li className="flex items-center justify-between gap-4 p-4 text-ink-muted"><div><p className="font-medium">2. Deploy it</p><p className="text-sm">{deployed ? 'First deployment succeeded.' : setupService ? 'Deploy your service’s saved configuration.' : 'Available after you create a service.'}</p></div>{deployed ? <Chip tone="success">Done</Chip> : setupService && access.projectRole !== 'viewer' ? <Button asChild variant="primary"><Link href={`/projects/${slug}/services/${setupService.service.slug}?action=deploy`}>Deploy</Link></Button> : <Button disabled>Deploy</Button>}</li>
-          <li className="flex items-center justify-between gap-4 p-4 text-ink-muted"><div><p className="font-medium">3. Add a route</p><p className="text-sm">{deployed ? 'Expose your service to traffic.' : 'Available after the first deployment.'}</p></div>{deployed && access.projectRole === 'admin' ? <Button asChild variant="primary"><Link href={`/projects/${slug}/routes`}>Add route</Link></Button> : <Button disabled>Add route</Button>}</li>
+          <li className="flex items-center justify-between gap-4 p-4 text-ink-muted"><div><p className="font-medium">3. Create a route</p><p className="text-sm">{deployed ? 'Expose your service to traffic.' : 'Available after the first deployment.'}</p></div>{deployed && access.projectRole === 'admin' ? <Button asChild variant="primary"><Link href={`/projects/${slug}/routes`}>New route</Link></Button> : <Button disabled>New route</Button>}</li>
         </ol>
       </Panel> : null}
       <NeedsAttention rows={attentionRows} />
       {services.length > 0 && !settingUp ? <>
       <Panel>
-        <PanelHeader title="Service health" hint={`${services.length} services`} />
+        <PanelHeader title="Service health" hint="Current health, ready replicas, and deployed versions for this project." />
         {services.length === 0 ? <EmptyState icon={<Server className="size-4" />} title="No services yet" body="Create a service to start deploying." action={access.projectRole === 'admin' ? <CreateServiceDialog projectSlug={slug} /> : undefined} /> :
-          <div className="grid divide-y divide-line sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-3">{services.map(({ service, config, latestDeployment, health, ready }) => <Link key={service.id} href={`/projects/${slug}/services/${service.slug}`} className="p-4 transition-colors hover:bg-sunken focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"><div className="flex items-center justify-between gap-2"><span className="text-tile font-medium text-ink">{service.name}</span><span className="flex items-center gap-2"><StatusDot status={health} /><ChevronRight className="size-4 text-ink-faint" aria-hidden="true" /></span></div><p className="mt-2 text-xs text-ink-muted">{formatReadyReplicas(ready, config?.replicas ?? 0)} · <span className="font-mono">{imageTag(config?.image ?? null)}</span></p><p className="mt-1 text-xs text-ink-muted">{latestDeployment ? <>Last deploy <Time value={latestDeployment.createdAt} /></> : 'Not deployed'}</p></Link>)}</div>}
+          <Table minWidth="md"><TableHeader><TableRow><TableHead>Service</TableHead><TableHead>Status</TableHead><TableHead>Ready</TableHead><TableHead>Version</TableHead><TableHead>Last deploy</TableHead><TableHead><span className="sr-only">Open</span></TableHead></TableRow></TableHeader><TableBody>{services.map(({ service, config, latestDeployment, health, ready }) => {
+            const href = `/projects/${slug}/services/${service.slug}`
+            return <ClickableTableRow key={service.id} href={href} label={`View ${service.name}`}><TableCell><Link href={href} className="relative z-10 font-medium text-link">{service.name}</Link></TableCell><TableCell><StatusDot status={health} /></TableCell><TableCell className="whitespace-nowrap">{formatReadyReplicas(ready, config?.replicas ?? 0)}</TableCell><TableCell className="font-mono">{imageTag(config?.image ?? null)}</TableCell><TableCell className="whitespace-nowrap">{latestDeployment ? <Time value={latestDeployment.createdAt} /> : 'Not deployed'}</TableCell><TableCell><ChevronRight className="ml-auto size-4 text-ink-faint" aria-hidden="true" /></TableCell></ClickableTableRow>
+          })}</TableBody></Table>}
         <PanelFooter shown={services.length} total={services.length} href={`/projects/${slug}/services`}>View all services</PanelFooter>
       </Panel>
 
@@ -97,7 +102,7 @@ export default async function ProjectOverviewPage({
         <Panel>
           <PanelHeader
             title="Recent deployments"
-            hint={`${deployments.length} deployments`}
+            hint="Deployments for this project, newest first."
           />
           {deployments.length === 0 ? (
             <div className="px-4 py-6">
@@ -116,7 +121,7 @@ export default async function ProjectOverviewPage({
 
         {/* Routes */}
         <Panel>
-          <PanelHeader title="Routes" hint={`${routeRows.length} routes`} />
+          <PanelHeader title="Routes" hint="Public entry points that send traffic to this project’s services." />
           {routeRows.length === 0 ? (
             <div className="px-4 py-6">
               <EmptyState

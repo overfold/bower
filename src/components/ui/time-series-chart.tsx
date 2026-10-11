@@ -2,6 +2,7 @@
 
 import { useId, useState } from 'react'
 import { Time } from '@/components/time'
+import { Chip } from '@/components/status'
 import { Button } from '@/components/ui/button'
 import { InlineNotice } from '@/components/ui/feedback'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -104,6 +105,7 @@ export function TimeSeriesChart({ label, rangeLabel, points, formatValue, limit,
             ? 'No data'
             : <><span className="font-mono text-ink">{formatValue(shownPoint.value)}</span>{shownPoint.peak != null ? <> · peak <span className="font-mono text-ink">{formatValue(shownPoint.peak)}</span></> : null}</>}
           {shownMarkers.map((marker, index) => <span key={`${marker.t}-${index}`}>{' · '}<span className="text-ink">{marker.label}</span></span>)}
+          {exceeded ? <> · <Chip tone="danger">Above limit</Chip></> : null}
         </p>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
           {deploys > 0 ? (
@@ -114,7 +116,7 @@ export function TimeSeriesChart({ label, rangeLabel, points, formatValue, limit,
           ) : null}
           {limit ? (
             <p className="flex items-center gap-1.5 text-2xs text-ink-muted">
-              <span className={cn('h-0 w-4 border-t-2 border-dashed', exceeded ? 'border-danger-500' : 'border-warn-500')} aria-hidden="true" />
+              <span className="h-0 w-4 border-t-2 border-dashed border-ink-muted" aria-hidden="true" />
               {limitLabel} <span className="font-mono">{formatValue(limit)}</span>
             </p>
           ) : null}
@@ -143,7 +145,7 @@ export function TimeSeriesChart({ label, rangeLabel, points, formatValue, limit,
             {[0, 50, 100].map((y) => <line key={y} x1="0" x2="1000" y1={y} y2={y} className="stroke-line" strokeWidth="1" vectorEffect="non-scaling-stroke" />)}
             {[...markerGroups].map(([index, group]) => <line key={index} x1={Math.round(left(index) * 1000) / 100} x2={Math.round(left(index) * 1000) / 100} y1="0" y2="100" className={toneStrokeClasses[group.at(-1)?.tone ?? 'neutral']} strokeWidth="1" vectorEffect="non-scaling-stroke" />)}
             <path d={area} className="fill-brand-500 opacity-10" />
-            {limitTop !== null ? <line x1="0" x2="1000" y1={limitTop} y2={limitTop} className={exceeded ? 'stroke-danger-500' : 'stroke-warn-500'} strokeWidth="1.5" strokeDasharray="6 4" vectorEffect="non-scaling-stroke" /> : null}
+            {limitTop !== null ? <line x1="0" x2="1000" y1={limitTop} y2={limitTop} className="stroke-ink-muted" strokeWidth="1.5" strokeDasharray="6 4" vectorEffect="non-scaling-stroke" /> : null}
             <path d={line} fill="none" className="stroke-brand-500" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
           </svg>
           {active !== null ? (

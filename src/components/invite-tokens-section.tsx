@@ -4,11 +4,11 @@ import { useEffect, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { actionErrorMessage } from '@/lib/action-error'
 import { formatRatio } from '@/lib/format'
-import { Plus, Trash2, X } from 'lucide-react'
+import { Plus, Trash2, X, ChevronsUpDown } from 'lucide-react'
 import { Chip } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Checkbox } from '@/components/ui/checkbox'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu'
 import {
   Dialog,
   DialogBody,
@@ -141,12 +141,8 @@ export function InviteTokensSection({
 
   return (
     <Card>
-      <CardHeader className="min-h-0 py-3">
-        <div className="min-w-0">
-          <CardTitle>Invitations</CardTitle>
-          <CardDescription>Create links that grant selected roles and can be limited by acceptance count.</CardDescription>
-        </div>
-        {canInvite ? (
+      <CardHeader title="Invitations" hint="Create links that grant selected roles and can be limited by acceptance count." action={
+        canInvite ? (
           <Dialog open={open} onOpenChange={(next) => {
             if (pending) return
             setOpen(next)
@@ -227,32 +223,21 @@ export function InviteTokensSection({
                         {teamIds.length ? (
                           <div className="flex flex-wrap gap-1.5" aria-label="Selected teams">
                             {teams.filter((team) => teamIds.includes(team.id)).map((team) => (
-                              <Chip key={team.id} className="gap-1 pr-1">
+                              <span key={team.id} className="inline-flex items-center gap-1 rounded-md border border-line bg-sunken px-2 py-1 text-xs">
                                 {team.name}
-                                <button type="button" className="rounded p-0.5 hover:bg-black/10" aria-label={`Remove ${team.name}`} onClick={() => setTeamIds(teamIds.filter((id) => id !== team.id))}>
+                                <button type="button" className="rounded p-0.5 hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" aria-label={`Remove ${team.name}`} onClick={() => setTeamIds(teamIds.filter((id) => id !== team.id))}>
                                   <X className="size-3" />
                                 </button>
-                              </Chip>
+                              </span>
                             ))}
                           </div>
                         ) : null}
-                        <div className="grid gap-2 sm:grid-cols-2">
-                          {teams.map((team) => {
-                            const id = `invitation-team-${team.id}`
-                            return (
-                              <div key={team.id} className="flex items-center gap-2">
-                                <Checkbox
-                                  id={id}
-                                  checked={teamIds.includes(team.id)}
-                                  onCheckedChange={(checked) => setTeamIds(checked
-                                    ? [...teamIds, team.id]
-                                    : teamIds.filter((teamId) => teamId !== team.id))}
-                                />
-                                <Label htmlFor={id} className="font-normal">{team.name}</Label>
-                              </div>
-                            )
-                          })}
-                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild><Button type="button" aria-label="Select teams">Select teams<ChevronsUpDown /></Button></DropdownMenuTrigger>
+                          <DropdownMenuContent align="start">
+                            {teams.map((team) => <DropdownMenuCheckboxItem key={team.id} checked={teamIds.includes(team.id)} onSelect={(event) => event.preventDefault()} onCheckedChange={(checked) => setTeamIds((current) => checked ? [...current, team.id] : current.filter((id) => id !== team.id))}>{team.name}</DropdownMenuCheckboxItem>)}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </fieldset>
                     ) : null}
 
@@ -304,8 +289,8 @@ export function InviteTokensSection({
               )}
             </DialogContent>
           </Dialog>
-        ) : null}
-      </CardHeader>
+        ) : null
+      } />
 
       <CardContent className="p-0">
         <div className="overflow-x-auto">
@@ -335,7 +320,7 @@ export function InviteTokensSection({
                     <div className="flex items-center gap-2">
                       <div>
                         <div className="flex items-center gap-2">
-                          <Chip className="capitalize">{invitation.organizationRole ?? 'Instance admin'}</Chip>
+                          <span className="capitalize">{invitation.organizationRole ?? 'Instance admin'}</span>
                           {invitation.organizationRole && invitation.grantInstanceAdmin ? <span className="text-xs text-ink-muted">Instance admin</span> : null}
                         </div>
                         {invitation.note ? <p className="mt-1 text-xs text-ink-muted">{invitation.note}</p> : null}

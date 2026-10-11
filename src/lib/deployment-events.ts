@@ -1,12 +1,13 @@
+import type { Tone } from '@/lib/tone'
 /** Explicit deployment event classification. Event types are recorded by deployment-reconciler.ts and actions/services.ts. */
-export type EventTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger'
+export type EventTone = Tone
 
 const EVENT_TONES: Readonly<Record<string, EventTone>> = {
   failed: 'danger',
   reconciliation_error: 'danger',
-  auto_rollback: 'warning',
-  scheduling_blocked: 'warning',
-  replacement_backoff: 'warning',
+  auto_rollback: 'warn',
+  scheduling_blocked: 'warn',
+  replacement_backoff: 'warn',
   healthy: 'success',
   canary_complete: 'success',
   apply_accepted: 'neutral',
@@ -18,6 +19,10 @@ const EVENT_TONES: Readonly<Record<string, EventTone>> = {
 
 export function deploymentEventTone(type: string): EventTone {
   return EVENT_TONES[type] ?? 'neutral'
+}
+
+export function deploymentEventTitle(event: { type: string; message: string }): string {
+  return event.type === 'planning' ? 'Planned the deployment' : event.message
 }
 
 /** The events that explain why a deployment failed or was rolled back, most decisive first. */

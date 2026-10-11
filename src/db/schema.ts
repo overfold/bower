@@ -655,6 +655,7 @@ export const auditLog = pgTable(
 
 export const webhookEndpoints = pgTable("webhook_endpoints", {
   id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name"),
   serviceId: uuid("service_id")
     .notNull()
     .references(() => services.id, { onDelete: "cascade" }),

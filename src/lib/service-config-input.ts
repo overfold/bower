@@ -2,6 +2,7 @@ import type { BowerServiceConfig } from './job-builder'
 import type { TrellisJobLimits } from '@/types/trellis'
 import { parseJsonInput, validateCanarySteps, validateSecretBindings, validateVolumeMounts } from './workload-input'
 import { environmentVariableRecord } from './environment-variable-input'
+import { formatCpu, formatMemory } from './format'
 
 const TIERS = { small: [100, 134217728], medium: [250, 268435456], large: [500, 536870912], xl: [1000, 1073741824] } as const
 
@@ -54,10 +55,10 @@ function integerField(formData: FormData, key: string, label: string, fallback: 
 export function validateWorkloadAdmissionBounds(replicas: number, cpu: number, memory: number, limits?: TrellisJobLimits) {
   if (!limits) return
   if (replicas > limits.max_replicas_per_task_group || replicas > limits.max_desired_allocations) {
-    throw new Error(`Replicas exceed the Trellis operator limit of ${Math.min(limits.max_replicas_per_task_group, limits.max_desired_allocations)}.`)
+    throw new Error(`This cluster supports at most ${Math.min(limits.max_replicas_per_task_group, limits.max_desired_allocations)} replicas.`)
   }
-  if (cpu > limits.max_task_cpu) throw new Error(`CPU exceeds the Trellis operator limit of ${limits.max_task_cpu} millicores.`)
-  if (memory > limits.max_task_memory) throw new Error(`Memory exceeds the Trellis operator limit of ${limits.max_task_memory} bytes.`)
+  if (cpu > limits.max_task_cpu) throw new Error(`CPU can be at most ${formatCpu(limits.max_task_cpu)} per replica on this cluster.`)
+  if (memory > limits.max_task_memory) throw new Error(`Memory can be at most ${formatMemory(limits.max_task_memory)} per replica on this cluster.`)
 }
 
 export function parseServiceConfigInput(formData: FormData, limits?: TrellisJobLimits) {

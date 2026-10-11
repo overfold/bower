@@ -81,18 +81,18 @@ If you find the guide and the code disagree, decide which one is wrong. Fix the 
 
 ## Quick rules
 
-1. **Use the tokens.** Colors come from `@theme` in `globals.css` (`canvas`, `surface`, `sunken`, `line`, `ink-*`, `brand-*`, `ok-*`, `warn-*`, `danger-*`, `info-*`). Never use the default Tailwind palette, hex values, or arbitrary colors. Lint rejects unknown color utilities.
+1. **Use the tokens.** Colors come from `@theme` in `globals.css` (`canvas`, `surface`, `sunken`, `line`, `ink-*`, `brand-*`, `ok-*`, `warn-*`, `danger-*`). The `info` tone and tokens are retired (M2). Never use the default Tailwind palette, hex values, or arbitrary colors. Lint rejects unknown color utilities.
 2. **Use the named type scale** (`text-2xs` through `text-2xl`, plus `text-code` and `text-tile`). Never write `text-[13px]`. Lint auto-fixes it.
 3. **`ink-faint` is never text.** Use it only for decorative icons, dots, and chevrons. Body text is `ink`, `ink-soft`, or `ink-muted`.
-4. **Green means healthy or succeeded. Teal means brand, selection, and links.** Purple (`info`) means "Rolled back" only. Amber (`warn`) means "needs attention". Work in progress is neutral with a spinner.
+4. **Green means healthy or succeeded. Teal means brand, selection, and links.** Amber (`warn`) means attention, including Rolled back, and edited-but-unsaved fields (G1, S2). Work in progress is neutral with a spinner.
 5. **Status labels and tones come from `src/lib/status.ts`.** Render them with `StatusDot`, `DeploymentStatus`, or `AllocationStatus`. Never write a page-local status map.
-6. **Chips are for state that changes.** Static attributes (roles, environment, TLS, team names, counts) are plain text.
-7. **Use mono for values people copy**, such as images, hostnames, IDs, environment keys, paths, ports, and versions. Titles stay sans, even when they are identifiers.
-8. **Cards have a border and no shadow.** Shadows belong to overlays: menus, dialogs, toasts, and the unsaved-changes bar.
+6. **Chips are for state that changes and always have a leading dot** (R2/C1). Static attributes (roles, environment, TLS, team names, counts) are plain text.
+7. **Use mono for values people copy**, such as images, hostnames, IDs, environment keys, paths, ports, and versions. Disable mono ligatures (R4/A1). Titles stay sans, even when they are identifiers.
+8. **Cards have a border and no shadow.** Every card header has a 14px semibold title and a description sentence, not just a count (R1–R3). Preview counts belong only in truncated-list footers (L10). Shadows belong to overlays: menus, dialogs, toasts, and the unsaved-changes bar.
 9. **Each card has at most one primary button.** Final destructive confirmations use `destructive` (solid red). The button that opens them uses `danger` (outlined red).
 10. **Delete destroys, Remove detaches, Revoke ends a credential or grant.** Create new things with "New X" and "Create X". Relate existing things with "Add" or "Attach".
 11. **Validate on submit, inline.** Keep submit buttons enabled, show the message under the field in `danger-500`, and focus the first invalid field. Use a banner only for errors that don't belong to a field.
-12. **Draft forms save through `UnsavedChangesBar`.** Single actions such as "Update password" keep their own button.
+12. **Draft forms save through `UnsavedChangesBar`.** Reserve space beneath it; mark changed fields with warn styling (S1/S2). Service Configuration alone offers primary "Save and deploy…" beside secondary "Save changes" (F1). Single actions such as "Update password" keep their own button.
 13. **Whole rows are clickable** when they open something. They show a hover background and a trailing chevron, and the primary name is a real link.
 14. **Times are relative in lists and absolute on detail pages.** Both use `<Time>`, which shows local time with UTC in the tooltip.
 15. **Keep keyboard focus visible.** Buttons and links use a 2px `brand-500` ring with a 2px offset. Fields use a `brand-500` border with a 3px `brand-100` halo. Don't remove either.

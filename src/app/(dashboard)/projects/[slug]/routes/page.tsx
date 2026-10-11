@@ -86,6 +86,7 @@ export default async function RoutesPage({ params }: { params: Promise<{ slug: s
       <Panel>
         <PanelHeader
           title={`${visibleRoutes.length} route${visibleRoutes.length === 1 ? '' : 's'}`}
+          hint="Hostnames that send traffic to services in this project."
           action={addRouteAction}
         />
         {visibleRoutes.length === 0 ? (

@@ -24,10 +24,12 @@ export function AllocationStopButton({
   serviceId,
   allocationId,
   disabled = false,
+  cancel = false,
 }: {
   serviceId: string
   allocationId: string
   disabled?: boolean
+  cancel?: boolean
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -54,12 +56,12 @@ export function AllocationStopButton({
       <AlertDialogTrigger asChild>
         <Button variant="danger" size="sm" type="button" disabled={disabled}>
           <Square />
-          Stop
+          {cancel ? 'Cancel' : 'Stop'}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Stop allocation <ResourceId value={allocationId} />?</AlertDialogTitle>
+          <AlertDialogTitle>{cancel ? 'Cancel placement?' : <>Stop allocation <ResourceId value={allocationId} />?</>}</AlertDialogTitle>
           <AlertDialogDescription>
             Stop allocation <ResourceId value={allocationId} />. A replacement may be created if the service still requires this replica.
           </AlertDialogDescription>
@@ -68,7 +70,7 @@ export function AllocationStopButton({
         <AlertDialogFooter>
           <AlertDialogCancel disabled={stopping}>Cancel</AlertDialogCancel>
           <AlertDialogAction onClick={stop} disabled={stopping} aria-busy={stopping}>
-            {stopping ? 'Stopping…' : 'Stop allocation'}
+            {stopping ? (cancel ? 'Cancelling…' : 'Stopping…') : cancel ? 'Cancel placement' : 'Stop allocation'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

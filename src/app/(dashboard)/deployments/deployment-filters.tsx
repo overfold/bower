@@ -70,6 +70,7 @@ export function DeploymentFilters({ items, projects, environments, scope = 'orga
         <PanelHeader
           className="h-auto flex-col items-stretch py-3 sm:min-h-[52px] sm:flex-row sm:items-center sm:py-0"
           title={`${filtered.length} deployment${filtered.length === 1 ? '' : 's'}`}
+          hint="Deployment outcomes and configuration changes, newest first."
           action={
             <div className="flex w-full flex-col gap-1 sm:w-auto sm:flex-row">
               <SearchInput value={query} onChange={(event) => { setQuery(event.target.value); setPage(1) }} aria-label={scope === 'project' ? 'Search services and images' : 'Search services, projects and images'} />

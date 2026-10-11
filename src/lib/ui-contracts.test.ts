@@ -10,6 +10,9 @@ import { Checkbox } from '../components/ui/checkbox'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Textarea } from '../components/ui/textarea'
+import { Select, SelectTrigger } from '../components/ui/select'
+import { CardHeader, CardTitle } from '../components/ui/card'
+import { Chip } from '../components/ui/badge'
 import { PageHeading } from '../components/page-heading'
 import { PanelFooter } from '../components/ui/panel'
 import { createToastStore, InlineNotice, PageBanner, PageBannerView, ToastViewport, TOAST_DURATION_MS, TOAST_EXIT_MS, TOAST_LIMIT, useFeedback, type ToastEntry } from '../components/ui/feedback'
@@ -21,8 +24,80 @@ import { ConfigDiffPreview } from '../components/config-diff-preview'
 import { TimeSeriesChart } from '../components/ui/time-series-chart'
 import { markersByBucket, niceCeil, seriesGeometry, seriesRuns, summarizeSeries } from './time-series'
 import { deploymentMarkers } from './deploy-markers'
-import { toneStrokeClasses } from './tone'
+import { toneClasses, toneDotClasses, toneIconClasses, toneStrokeClasses } from './tone'
 import { formatCpu } from './format'
+
+test('card headers render required descriptions and 14px titles', () => {
+  const html = renderToStaticMarkup(createElement(CardHeader, { title: 'Services', hint: 'Services deployed in this project.' }))
+  assert.match(html, /<h2 class="[^"]*text-tile[^"]*">Services<\/h2>/)
+  assert.match(html, /class="[^"]*text-xs text-ink-muted">Services deployed in this project\.<\/div>/)
+  assert.match(renderToStaticMarkup(createElement(CardTitle, null, 'Usage')), /text-tile/)
+  const css = readFileSync(resolve('src/app/globals.css'), 'utf8')
+  assert.match(css, /--text-tile:\s*0\.875rem/)
+  void (() => {
+    // @ts-expect-error Card descriptions are required, not optional decoration.
+    createElement(CardHeader, { title: 'Services' })
+  })
+})
+
+test('every chip has exactly one decorative dot, including status chips', () => {
+  for (const tone of Object.keys(toneClasses) as Array<keyof typeof toneClasses>) {
+    const html = renderToStaticMarkup(createElement(Chip, { tone }, 'Added'))
+    assert.equal(html.match(/rounded-full/g)?.length, 1, tone)
+    assert.match(html, /aria-hidden="true" class="[^"]*rounded-full[^"]*bg-current/)
+    assert.match(html, />Added<\/span>/)
+  }
+  for (const status of ['healthy', 'failed', 'rolled_back', 'deploying', 'unknown']) {
+    const html = renderToStaticMarkup(createElement(StatusDot, { status }))
+    assert.equal(html.match(/rounded-full/g)?.length, 1, status)
+    assert.equal(html.includes('animate-spin'), status === 'deploying')
+  }
+})
+
+test('machine values disable typographic ligatures globally', () => {
+  const css = readFileSync(resolve('src/app/globals.css'), 'utf8')
+  const mono = [...css.matchAll(/\.font-mono(?:\s*,[^{}]+)?\s*\{([^}]+)\}/g)].map((match) => match[1]).join('\n')
+  assert.match(mono, /font-variant-ligatures:\s*none/)
+  assert.match(mono, /font-feature-settings:\s*"liga" 0, "calt" 0/)
+})
+
+test('live sampling clamps clock skew to just now without changing explicit countdowns', async () => {
+  const format = await import('./format')
+  const live = Reflect.get(format, 'formatLiveTime')
+  assert.equal(typeof live, 'function', 'formatLiveTime must expose the live sampling contract')
+  const now = Date.UTC(2026, 9, 7, 12)
+  for (const seconds of [-10, -1, 0, 1, 10]) {
+    assert.equal(live(new Date(now + seconds * 1000), now), 'just now', `${seconds}s skew`)
+  }
+  assert.notEqual(live(new Date(now - 11_000), now), 'just now')
+  assert.equal(format.formatCountdown(1), 'in 1s')
+  assert.equal(format.formatCountdown(10), 'in 10s')
+})
+
+test('dirty form controls expose state without leaking the prop and preserve invalid focus styles', () => {
+  for (const dirty of [true, false]) {
+    const props = { dirty, 'aria-invalid': true as const }
+    const controls = [
+      renderToStaticMarkup(createElement(Input, props)),
+      renderToStaticMarkup(createElement(Textarea, props)),
+      renderToStaticMarkup(createElement(Select, null, createElement(SelectTrigger, props, 'Image'))),
+    ]
+    for (const html of controls) {
+      assert.equal(html.includes('data-dirty="true"'), dirty)
+      assert.doesNotMatch(html, /\sdirty=/)
+      assert.match(html, /aria-invalid="true"/)
+      assert.match(html, /focus-visible:border-brand-500/)
+      assert.match(html, /aria-\[invalid=true\]:focus-visible:border-danger-500/)
+      assert.match(html, /aria-\[invalid=true\]:focus-visible:ring-danger-200/)
+    }
+  }
+  const css = readFileSync(resolve('src/app/globals.css'), 'utf8')
+  const rule = css.match(/[^{}]*\[data-dirty[^{]+\{[^}]+\}/)?.[0] ?? ''
+  assert.match(rule, /:not\(:focus-visible\)/)
+  assert.match(rule, /:not\(\[aria-invalid=["']?true["']?\]\)/)
+  assert.match(rule, /--(?:color-)?warn-500/)
+  assert.match(rule, /--(?:color-)?warn-(?:50|200)/)
+})
 
 test('shared status vocabulary keeps product labels, tones, and progress semantics together', () => {
   for (const [status, label, tone, inProgress = false] of [
@@ -103,7 +178,7 @@ test('DeploymentsTable presets retain their intended column contracts', () => {
   assert.deepEqual(headers('service-compact'), ['Image', 'Status', 'Time', 'Open'])
   assert.deepEqual(headers('service-history'), ['Rev', 'Image', 'Status', 'Trigger', 'Duration', 'Time', 'Actions', 'Open'])
   const compactHtml = renderToStaticMarkup(createElement(DeploymentsTable, { rows: [row], preset: 'compact' }))
-  assert.match(compactHtml, /title="app:v2">v2<\/span><span[^>]+>app<\/span>/)
+  assert.match(compactHtml, /title="app:v2"><span[^>]+>v1 → <\/span>v2<\/span><span[^>]+>app<\/span>/)
   assert.doesNotMatch(compactHtml, /app:v1|Commerce|min-w-\[640px\]/)
   for (const preset of ['organization', 'project', 'home', 'service-history'] as const) {
     const html = renderToStaticMarkup(createElement(DeploymentsTable, { rows: [{ ...row, rollbackAction: createElement('button', null, 'Roll back') }], preset }))
@@ -158,7 +233,7 @@ test('hovering or focusing the toast stack pauses auto-dismiss and resumes with 
   assert.equal(store.getSnapshot()[0].closing, false)
 
   // A toast that arrives while paused waits too.
-  store.push({ tone: 'info', title: 'Rollback started' })
+  store.push({ tone: 'neutral', title: 'Rollback started' })
   t.mock.timers.tick(60_000)
   assert.deepEqual(store.getSnapshot().map((toast) => toast.closing), [false, false])
 
@@ -197,7 +272,7 @@ test('toasts render in sibling polite and assertive regions with no nested live 
   assert.match(empty, /^<section aria-label="Status messages"[^>]*><div aria-live="polite"[^>]*><\/div><div aria-live="assertive"[^>]*><\/div><\/section>$/)
 
   const html = renderToStaticMarkup(createElement(ToastViewport, {
-    toasts: [toast('success', 'Logs copied'), toast('danger', 'Could not roll back', 'The rollback could not be started.'), toast('info', 'Rollback started')],
+    toasts: [toast('success', 'Logs copied'), toast('danger', 'Could not roll back', 'The rollback could not be started.'), toast('neutral', 'Rollback started')],
     onDismiss() {},
   }))
   assert.equal(html.match(/aria-live=/g)?.length, 2)
@@ -215,7 +290,7 @@ test('toasts render in sibling polite and assertive regions with no nested live 
   assert.doesNotMatch(html, /bg-(ok|danger|info)-50/)
   assert.match(html, /class="lucide lucide-circle-check [^"]*text-ok-500"/)
   assert.match(html, /class="lucide lucide-circle-alert [^"]*text-danger-500"/)
-  assert.match(html, /class="lucide lucide-info [^"]*text-info-500"/)
+  assert.match(html, /class="lucide lucide-info [^"]*text-ink-muted"/)
   for (const title of ['Logs copied', 'Could not roll back', 'Rollback started']) {
     assert.match(html, new RegExp(`<button type="button"[^>]*aria-label="Dismiss: ${title}"`))
   }
@@ -231,10 +306,19 @@ test('feedback tones are the shared Tone names, without error or warning aliases
     createElement(PageBanner, { tone: 'warning', title: 'Trellis is unavailable.' })
     // @ts-expect-error 'error' is not a tone; use 'danger'.
     useFeedback().toast({ tone: 'error', title: 'Restart failed' })
+    // @ts-expect-error The info tone is retired; use neutral.
+    InlineNotice({ tone: 'info', children: 'Information' })
   })
   // InlineNotice keeps its tinted, in-flow style.
   assert.match(renderToStaticMarkup(InlineNotice({ tone: 'danger', children: 'Failed' })), /bg-danger-50 text-danger-500" role="alert"/)
   assert.match(renderToStaticMarkup(InlineNotice({ tone: 'warn', children: 'Careful' })), /bg-warn-50/)
+  const neutral = renderToStaticMarkup(createElement(InlineNotice, null, 'Configuration saved.'))
+  assert.match(neutral, /bg-sunken text-ink-soft/)
+  assert.match(neutral, /role="status"/)
+  assert.doesNotMatch(neutral, /info-\d|warn-\d/)
+  for (const map of [toneClasses, toneDotClasses, toneIconClasses, toneStrokeClasses]) {
+    assert.deepEqual(Object.keys(map).sort(), ['brand', 'danger', 'neutral', 'success', 'warn'])
+  }
 })
 
 test('page banners are not dismissible by default and require an id to become dismissible', () => {
@@ -325,11 +409,16 @@ test('Needs attention shows one row per service with a since column and a single
 
 test('the failing service notice leads with the cause and keeps logs one click away', () => {
   const html = renderToStaticMarkup(createElement(ServiceFailureNotice, { logsHref: '/logs', failure: { cause: 'Worker could not reach database', failures: 4, kind: 'restart_backoff', failingSince: '2026-10-02T11:00:00Z', nextAttemptAt: '2099-01-01T00:00:00Z' } }))
-  assert.match(html, /Restart pending/)
+  assert.match(html, /4 failures · Next restart/)
   assert.match(html, /Worker could not reach database/)
   assert.match(html, /href="\/logs"/)
   assert.match(html, /role="alert"/)
-  assert.match(renderToStaticMarkup(createElement(ServiceFailureNotice, { failure: { cause: 'Awaiting placement: insufficient cpu', kind: 'unplaceable' }, logsHref: '/a' })), /View allocation/)
+  const blocked = renderToStaticMarkup(createElement(ServiceFailureNotice, { failure: { cause: 'Awaiting placement: insufficient capacity', kind: 'unplaceable' }, capacityBlocked: true, cpu: 500, configurationHref: '/configuration', logsHref: '/a' }))
+  assert.match(blocked, /No node has room for this service/)
+  assert.match(blocked, /Each replica asks for 0.5 cores/)
+  assert.match(blocked, /href="\/configuration#resources"/)
+  assert.match(blocked, /View cluster status/)
+  assert.doesNotMatch(blocked, /Restart now|View logs/)
 })
 
 test('the last-deploy marker distinguishes a rollback from a failure', () => {
@@ -337,18 +426,20 @@ test('the last-deploy marker distinguishes a rollback from a failure', () => {
   assert.match(renderToStaticMarkup(createElement(LastDeployFailed, { href: '/d' })), /Last deploy failed/)
 })
 
-test('the config diff shows plain environment values, masks secrets, and marks unrecorded values', () => {
-  const html = renderToStaticMarkup(createElement(ConfigDiffPreview, { afterLabel: 'Selected release', changes: [
+test('the config diff uses Before/After, Not set, and masks every environment row until revealed', () => {
+  const html = renderToStaticMarkup(createElement(ConfigDiffPreview, { changes: [
     { kind: 'config', key: 'cpu', label: 'CPU', before: 500, after: null, afterRecorded: false },
     { kind: 'config', key: 'health', label: 'Health check', before: null, after: null },
     { kind: 'environment', key: 'env.PORT', label: 'Environment', variable: 'PORT', change: 'Changed', before: { present: true, masked: false, value: '8080' }, after: { present: true, masked: false, value: '9090' } },
     { kind: 'environment', key: 'env.TOKEN', label: 'Environment', variable: 'TOKEN', change: 'Removed', before: { present: true, masked: true }, after: { present: false, masked: false } },
   ] }))
-  assert.match(html, />8080</)
-  assert.match(html, />9090</)
-  assert.match(html, /••••••••/)
-  assert.match(html, /Not recorded/)
-  assert.match(html, />None</)
+  assert.match(html, />Field<\/span><span>Before<\/span><span>After<\/span>/)
+  assert.doesNotMatch(html, /8080|9090|Not recorded|>None<|>—</)
+  assert.equal(html.match(/••••••••/g)?.length, 3)
+  assert.equal(html.match(/>Not set</g)?.length, 4)
+  assert.match(html, /aria-label="Reveal PORT" aria-pressed="false"/)
+  assert.doesNotMatch(html, /aria-label="Reveal TOKEN"/)
+  assert.match(html, /aria-label="Write-only value"/)
   // The chip follows the variable name instead of sitting above it.
   assert.ok(html.indexOf('>PORT<') < html.indexOf('>Changed<'))
   // The table keeps its bordered, rounded frame inside the dialog body.
@@ -405,9 +496,13 @@ test('time series uses semantic tokens only and respects reduced motion', () => 
   const ok = renderChart({ limit: 1000 })
   assert.match(ok, /stroke-brand-500/)
   assert.match(ok, /stroke-line/)
-  assert.match(ok, /stroke-warn-500/)
+  assert.match(ok, /stroke-ink-muted" stroke-width="1.5" stroke-dasharray="6 4"/)
   assert.doesNotMatch(ok, /stroke-danger-500/)
-  assert.match(renderChart({ limit: 300 }), /stroke-danger-500/)
+  const exceeded = renderChart({ limit: 300 })
+  assert.match(exceeded, /stroke-ink-muted" stroke-width="1.5" stroke-dasharray="6 4"/)
+  assert.match(exceeded, /bg-danger-50 text-danger-500/)
+  assert.match(exceeded, />Above limit</)
+  assert.doesNotMatch(ok, /Above limit/)
   const source = readFileSync(resolve('src/components/ui/time-series-chart.tsx'), 'utf8')
   assert.doesNotMatch(source, /#[0-9a-f]{3,8}\b|\brgb\(|\bhsl\(|text-\[\d/i)
   for (const line of source.split('\n').filter((text) => /\btransition-/.test(text))) assert.match(line, /motion-reduce:transition-none/)
@@ -488,10 +583,10 @@ test('deploy markers take their label and tone from the shared deployment status
     { id: '5', startedAt: 50, status: 'something-new', image: 'ghcr.io/acme/web:v9' },
   ])
   assert.deepEqual(markers.map((marker) => [marker.t, marker.label, marker.tone]), [
-    [10, 'Deployed v2.4.1 (Healthy)', 'success'],
+    [10, 'Deployed v2.4.1 (Succeeded)', 'success'],
     [20, 'Deployed v2.4.2 (Failed)', 'danger'],
     [30, 'Deployed sha256:abc (Rolled back)', 'warn'],
-    [40, 'Deployed latest (Deploying)', 'neutral'],
+    [40, 'Deployed latest (In progress)', 'neutral'],
     [50, 'Deployed v9', 'neutral'],
   ])
 })

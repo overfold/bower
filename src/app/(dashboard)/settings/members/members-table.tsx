@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { SearchInput } from '@/components/ui/search-input'
@@ -92,11 +92,7 @@ export function MembersTable({
 
   return (
     <Card>
-      <CardHeader className="min-h-0 flex-col items-stretch gap-3 py-3 xl:flex-row xl:items-center">
-        <div className="shrink-0">
-          <CardTitle>{uniqueMemberCount} {uniqueMemberCount === 1 ? 'member' : 'members'}</CardTitle>
-        </div>
-
+      <CardHeader title={`${uniqueMemberCount} ${uniqueMemberCount === 1 ? 'member' : 'members'}`} hint="People who belong to this organization and their roles." action={
         <div className="flex flex-1 flex-wrap items-center gap-2 xl:justify-end">
           <div className="min-w-[240px] flex-1">
             <SearchInput
@@ -150,7 +146,7 @@ export function MembersTable({
             </Select>
           </div> : null}
         </div>
-      </CardHeader>
+      } />
 
       <CardContent className="p-0">
         <Table>

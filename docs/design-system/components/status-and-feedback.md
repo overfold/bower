@@ -7,12 +7,13 @@ For **which** status to show and **what to call it**, see [Status and health](..
 ## Chip
 
 ```tsx
-<Chip tone="success"><Dot tone="success" />Healthy</Chip>
+<Chip tone="success">Healthy</Chip>
 ```
 
 `inline-flex gap-1.5 rounded-md border px-2 py-0.5 text-2xs font-medium tracking-normal whitespace-nowrap`, plus `toneClasses[tone]`.
 
-- Chips represent **state that changes**: health, deployment result, verification, invitation status, ingress status, "Undeployed changes", the role of an invitation.
+- Chips represent **state that changes**: health, deployment result, verification, invitation status, ingress status, "Undeployed changes". Invitation roles are plain text (C3).
+- Every `Chip` owns one leading `currentColor` dot, for every tone; callers must not add another dot (R2/C1). In-progress status chips retain their spinner as the non-color progress cue.
 - Static attributes are plain text: environment, TLS, protection, capabilities, team names, member roles, counts (A1 P2-20, AGENTS.md).
 - Chips never wrap, and keep normal tracking even beside a tight H1 (A5-H4).
 - Don't build chips from raw classes. Use `Chip` with a `tone`, or one of the status components below.
@@ -23,22 +24,23 @@ Always render statuses through these components. They read label, tone, and prog
 
 | Component | Renders | Use for |
 | --- | --- | --- |
-| `StatusDot status` | A chip with a tone dot and the label, or a spinner when `inProgress` | Live health of services, allocations, and nodes. Generic statuses |
+| `StatusDot status` | A chip with its primitive-owned leading dot and label; in-progress states retain a spinner (R2) | Live health of services, allocations, and nodes. Generic statuses |
 | `DeploymentStatus status` | A chip with the deployment vocabulary: in-progress statuses collapse to **"In progress"**, and `healthy` reads **"Succeeded"** | Deployment results everywhere |
 | `AllocationStatus phase health` | `StatusDot` for `allocationStatus(phase, health)`: health while running, otherwise the phase, with failed and dead collapsing to **"Failed"** and lost staying **"Lost"** ("Failing" is a service-level word) | Allocation rows and headers (A2-B6, A4-Q9) |
-| `Dot tone pulse?` | A 6px dot | Inside chips, legends, compact lists |
+| `Dot tone pulse?` | A 6px dot | Legends and compact lists; do not add a second dot inside Chip (R2) |
 
 Unknown values fall back to `label()` (sentence-cased) with a neutral tone. If a new status appears, **add it to `statuses`**, not to the page.
 
 Contract: `src/lib/ui-contracts.test.ts` asserts the label, tone, and spinner for the key statuses.
 
-### Interactive status chip
+### Failure notice
 
-When a status needs an explanation (a failing service), the chip itself is the trigger (A3-L19, A5-H6):
+Service status chips are plain chips, with no popover, ⓘ, or interactive hover state (L1). One body notice holds the explanation:
 
-- Wrap the `Chip` in a `<button aria-haspopup="dialog">` with a focus ring.
-- Add an `Info` icon (ⓘ) **inside** the chip, plus a hover state (`group-hover:bg-danger-200`), so it looks clickable.
-- Open a `Popover`. Its title matches the chip word ("Failing"), and under it go the restart state ("Restart pending · next attempt in 30s"), the failure count, the last failure message, and the actions "Restart now" and "View logs" (A4-Q10).
+- **Title:** cause, not the chip word.
+- **Secondary line:** "N failures · next restart in 30s · X of Y replicas ready", with `RestartCountdown` for the scheduled restart.
+- **Actions:** Restart now and View logs, subject to permissions and applicability. Capacity failures instead offer Edit resources and View cluster status, with header Restart disabled (T6).
+- Allocation body notices use the same component/anatomy: cause title, secondary line, actions where applicable (L3). Allocation rows retain their status and message.
 
 Reference: `src/app/(dashboard)/projects/[slug]/services/[serviceSlug]/service-status.tsx`.
 
@@ -61,6 +63,12 @@ A `h-1.5` bar, at most 88px wide, with an always-visible `bg-line` track, then a
 
 Contract: "meters warn at 85%, become dangerous at 100%, and render zero fill".
 
+## Usage history charts
+
+`TimeSeriesChart` uses a neutral dashed `stroke-ink-muted` limit line and neutral legend swatch, never warn/danger for the line. If the series exceeds its limit within the displayed range, show a small danger **Above limit** chip in the readout/summary and keep the accessible summary consistent (C11). Hover readouts show local time with UTC in `title` (T7). Deployment markers use deployment-result labels: Succeeded / Failed / Rolled back, never Healthy for a stored healthy deployment (T8).
+
+`MetricsHistoryCharts` lives in a Usage history card with a description sentence; the 1h/6h/24h segmented control uses the header action slot on service and allocation pages (L5/C14).
+
 ## Timeline
 
 ```tsx
@@ -70,7 +78,7 @@ Contract: "meters warn at 85%, become dangerous at 100%, and render zero fill".
 A vertical list with connecting lines and 14px dots ringed with `surface`.
 
 - Use it for allocation lifecycle and deployment events (A3-L26).
-- Dot tones: `neutral` (ink-faint) for passed steps. `success`, `info`, `warning`, and `danger` for outcomes. **No spinners in history** (A3 B13).
+- Dot tones use shared `Tone` and `toneDotClasses`: `neutral` for passed steps, `success`, `warn`, and `danger` for outcomes. No `warning` alias or `info` tone (M1/M2). **No spinners in history** (A3 B13).
 - Titles use the same labels as chips, capitalized ("Pending", "Starting", "Running"). Raw event keys go in the title's tooltip (`titleTooltip`), not on the page (A4-Q46).
 - Details are collapsed by default and render as key and value pairs, never raw JSON (A1 P1-13).
 
@@ -85,7 +93,7 @@ Three channels, one tone system:
 | `PageBanner tone title action? dismissible? id?` | Full width across the top of the content | Organization- or page-wide conditions: "Trellis is unavailable." | None by default: the banner shows exactly while its condition holds. `dismissible` with an explicit `id` hides it for the session |
 
 Rules:
-- Tones: `success`, `info`, `warn`, `danger`, `neutral`, and `brand`. There are no `error` or `warning` aliases.
+- Tones: `success`, `warn`, `danger`, `neutral`, and `brand`. `InlineNotice` defaults to neutral. The `info` tone is retired; there are no `error` or `warning` aliases (M1/M2).
 - Each notice has a default tone icon (`CheckCircle2`, `CircleAlert`, `TriangleAlert`, `Info`).
 - A notice's action is a **button beside the text**, not a link inside the sentence (A2-H9). `InlineNotice` and `PageBanner` both take it as `action`. In a banner the action sits to the right of the text from `sm` up and wraps below it on narrow screens.
 - Show a warning **once** per dialog, under the description (A5-H3).
@@ -116,7 +124,7 @@ Contract: `src/lib/ui-contracts.test.ts` covers toast timing (danger persists, h
 
 ### Notifications menu vs toasts and banners
 
-The header's [notifications menu](navigation.md#notifications-menu) holds what the user may need to act on **later**. Today that means deployment outcomes that happened while they were looking elsewhere.
+The header's [notifications menu](navigation.md#notifications-menu) holds deployment outcomes and failing-service incidents the user may need to act on **later**. Each item opens the appropriate deployment or service (N5).
 
 | Channel | Answers | Lifetime |
 | --- | --- | --- |

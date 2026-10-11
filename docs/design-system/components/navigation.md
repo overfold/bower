@@ -25,6 +25,7 @@ Nav items:
 - **Active:** `bg-brand-50 text-brand-700`, with `aria-current="page"`. **Inactive:** `text-ink-soft`, hover `bg-sunken text-ink`.
 - Focus: the standard 2px `brand-500` ring with an offset.
 - Recent projects (A2-E3, A3-N01): shown whenever the organization has projects. The most recently visited come first, then the group fills up to 5 with other projects. It is stored in `localStorage` per organization and user, wrapped in try/catch.
+- Inside a project, Projects retains its active colors, but the matching Recent projects link is bold ink (`font-semibold text-ink`) and carries `aria-current="page"` instead (N2).
 
 There is **no** global cluster-health indicator or connection footer in the sidebar (A3-N04). The Status page covers it.
 
@@ -46,7 +47,7 @@ The sticky header, `h-14`. From left to right: the mobile drawer button, the **o
 - **End at the entity.** Don't add the active tab's name, because the tab bar already shows it (A2-E1).
 - **More than 4 levels:** keep the first and the last two, and collapse the middle into a `⋯` dropdown (A2-E2, A3-N14).
 - **Labels are names**, resolved from data: project, service, member, team, and deployment (image and time) names. Never show a prettified UUID. Fall back to the generic noun ("Team") (A3 B02). The 404 crumb shows the requested slug in mono (A5-L6).
-- Instance pages read "Instance › Organizations" (A5-L6).
+- Instance pages read "Settings › Instance › Organizations", with no organization crumb (N1).
 - On narrow screens, intermediate crumbs and their separators are hidden.
 - Breadcrumbs are **the** way back. Don't add "← Back to …" links (A1 P1-12).
 
@@ -58,13 +59,13 @@ A `surface` button with a `line` border showing "Search" and a `⌘K` key hint (
 
 `NotificationsMenu` is a bell `IconButton` with the Search button's border and size, opening a `DropdownMenu` aligned to its end. It answers "what happened to deployments while I was elsewhere?" It is not a channel for the results of your own clicks (see [Notices and toasts](status-and-feedback.md#notices-and-toasts)).
 
-- **What it lists:** deployment outcomes from the current organization. That means failures in any project the viewer can access, whoever triggered them, plus the successes and failures of deployments the viewer triggered. Each deployment appears once, newest first, at most 20, from the last 14 days. In-progress and rolled-back deployments are not listed. Access is filtered on the server (`src/lib/deployment-notifications.ts`).
+- **What it lists:** deployment outcomes and failing-service incidents in accessible projects, filtered on the server. Rolled-back outcomes notify like failures; failing services notify once per incident (G1/G2; see changelog). Preserve the feed's access checks and read-state policy.
 - **Unread badge:** a `brand-500` count pill on the bell, capped at "9+", hidden at 0. The button's accessible name carries the exact count ("Notifications, 3 unread"), so the badge itself is `aria-hidden`.
-- **Rows:** each row is a `DropdownMenuItem` link to the deployment. It shows the service (title), project and environment (plain muted text), a `DeploymentStatus` chip, and a relative `Time`. "Your deploy" marks deployments the viewer triggered. Unread rows add a leading dot, a semibold title, and a visually hidden "Unread:" prefix, so they never rely on color alone.
+- **Rows:** focusable menu-item links with a hover state. Failing-service items open the service; deployment outcomes open the deployment (N5). Use the appropriate shared status component and relative `Time`. Unread rows add a dot, a semibold title, and a hidden "Unread:" prefix.
 - **Read state:** opening the menu marks everything it loaded as read. The server stores one last-seen time per user and organization. Unread markers stay visible until the menu closes. A user's first visit starts with nothing unread.
-- **States:** `EmptyState` ("No deployment activity yet") when there's nothing. A quiet muted "Couldn't load notifications." with **Try again** when the first load fails, and a one-line "Couldn't refresh. Showing earlier results." when a background refresh fails.
+- **States:** `EmptyState` when there's nothing. Initial load errors and "Couldn't refresh. Showing earlier results." both offer **Try again**, rerunning refresh (S6).
 - **Freshness:** the layout renders the first feed. The client refreshes from `/api/notifications` every 60 seconds while the tab is visible, and again when the window regains focus or the tab becomes visible. There are no WebSockets.
-- The footer link "View all deployments" goes to the organization's Deployments page.
+- There is no "View all deployments" footer (N5); each item opens its own target.
 
 ## Page tabs
 
@@ -73,7 +74,7 @@ Project and service pages use **underline tabs** built as links (`ProjectTabs` a
 - `<nav aria-label="Project">` holds links (`aria-current="page"` on the active one).
 - Items: `px-3 py-2.5 text-sm font-medium`. Active is `text-ink`. Inactive is `text-ink-muted`, hover `text-ink`.
 - The active indicator is a 2px `brand-500` underline (`rounded-full`) that **slides** between tabs (`motion` `layoutId`, 220ms, `ease-move`).
-- **Count pills:** only on tabs where a count helps, and hidden at 0. Currently only Services (A3-C22). Active pill: `bg-brand-50 text-brand-700`. Inactive: `border border-line bg-surface text-ink-soft` (A4-Q23).
+- **Count pills:** Services only, hidden at 0. Keep identical border/padding box metrics in active and inactive states; only colors change, so switching tabs never shifts the bar (S4). Active: `bg-brand-50 text-brand-700`; inactive: `border-line bg-surface text-ink-soft`.
 - The row scrolls horizontally on narrow screens, with `.scroll-horizontal` shadows.
 - The same component renders on every tab of the entity (in the shared layout), so the header doesn't flash while a tab loads (A2-H3).
 
@@ -89,7 +90,7 @@ Use these only to switch **views inside a card**. Never use them for page naviga
 
 | Use | Wrapper | Behavior |
 | --- | --- | --- |
-| **Settings** | `SettingsNav` | Grouped under `.overline` labels: **Personal** (Account), **Instance** (Organizations, instance admins only), **Organization** (Organization, Members, Teams, Domains). A 180px column from `md` |
+| **Settings** | `SettingsNav` | Grouped under `.overline` labels in order: **Personal** (Account), **Organization** (Organization, Members, Teams, Domains), **Instance** (Organizations, instance admins only) (N3). A 180px column from `md` |
 | **Project Settings** | `SettingsAnchorNav` | A sticky (`top-20`) in-page list of anchors (General, Access, Integrations, Volumes, Danger zone). It highlights the section in view (IntersectionObserver). A 10rem column from `lg` (A4-Q27) |
 
 Items match the sidebar's active pattern: `bg-brand-50 text-brand-700`, with no colored edge bar (A5-M10 / Q55).

@@ -29,7 +29,6 @@ const toneIcons: Record<Tone, React.ComponentType<{ className?: string }>> = {
   success: CheckCircle2,
   danger: CircleAlert,
   warn: TriangleAlert,
-  info: Info,
   neutral: Info,
   brand: Info,
 }
@@ -212,7 +211,7 @@ function FeedbackToast({ toast, onDismiss }: { toast: ToastEntry; onDismiss: () 
   )
 }
 
-export function InlineNotice({ tone = 'info', children, action, className, icon }: { tone?: Tone; children: React.ReactNode; action?: React.ReactNode; className?: string; icon?: React.ReactNode }) {
+export function InlineNotice({ tone = 'neutral', children, action, className, icon }: { tone?: Tone; children: React.ReactNode; action?: React.ReactNode; className?: string; icon?: React.ReactNode }) {
   const Icon = toneIcons[tone]
   return (
     <div className={cn("flex items-start justify-between gap-4 rounded-lg border px-3.5 py-3 text-sm leading-relaxed", toneClasses[tone], className)} role={tone === 'danger' ? 'alert' : 'status'}>

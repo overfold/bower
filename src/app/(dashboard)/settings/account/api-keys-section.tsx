@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { actionErrorMessage } from '@/lib/action-error'
 import { createApiKeyAction, revokeApiKeyAction } from '@/lib/actions/settings'
 import { Button } from '@/components/ui/button'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { Card, CardHeader, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogBody, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -52,8 +52,7 @@ export function ApiKeysSection({ keys }: { keys: ApiKey[] }) {
 
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between space-y-0">
-        <CardTitle>API keys</CardTitle>
+      <CardHeader title="API keys" hint="Keys for scripts and CI to call the Bower API as you." action={
         <Dialog open={open} onOpenChange={(v) => { if (loading) return; setOpen(v); setError(null); if (!v) setNewKey(null) }}>
           <DialogTrigger asChild>
             <Button variant="primary" size="sm">
@@ -90,7 +89,7 @@ export function ApiKeysSection({ keys }: { keys: ApiKey[] }) {
               )}
           </DialogContent>
         </Dialog>
-      </CardHeader>
+      } />
       <CardContent className={keys.length ? 'p-0' : undefined}>
         {keys.length === 0 ? (
           <EmptyState icon={<KeyRound className="size-4" />} title="No API keys" body="Create a key to authenticate automation with Bower." />
@@ -101,7 +100,7 @@ export function ApiKeysSection({ keys }: { keys: ApiKey[] }) {
                 <TableHead>Name</TableHead>
                 <TableHead>Prefix</TableHead>
                 <TableHead className="text-right">Last used</TableHead>
-                <TableHead className="text-right">Time</TableHead>
+                <TableHead className="text-right">Created</TableHead>
                 <TableHead className="w-10"><span className="sr-only">Actions</span></TableHead>
               </TableRow>
             </TableHeader>

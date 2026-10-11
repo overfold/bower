@@ -7,6 +7,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Time } from '@/components/time'
 import { MemberActionsMenu } from '../../instance/instance-admin-actions'
 import { MemberRolesForm } from './member-roles-form'
+import { EmptyState } from '@/components/ui/empty-state'
+import { Users } from 'lucide-react'
 
 export default async function MemberPage({ params }: { params: Promise<{ userId: string }> }) {
   const user = await getCurrentUser()
@@ -37,7 +39,7 @@ export default async function MemberPage({ params }: { params: Promise<{ userId:
         <PageHeading as="h2" title={member.userName} description={`Member of ${ctx.org.name}`} />
       </div>
       <Panel>
-        <PanelHeader title="Member details" />
+        <PanelHeader title="Member details" hint="Identity and membership details for this person." />
         <dl className="grid gap-x-8 p-4 sm:grid-cols-2 lg:grid-cols-4">
           <KeyValue label="Email">{member.userEmail}</KeyValue>
           <KeyValue label="Instance role">{member.isInstanceAdmin ? 'Admin' : 'User'}</KeyValue>
@@ -45,20 +47,20 @@ export default async function MemberPage({ params }: { params: Promise<{ userId:
         </dl>
       </Panel>
       {canManageRoles ? <Panel>
-        <PanelHeader title="Roles" />
+        <PanelHeader title="Roles" hint="Permissions granted by organization and instance roles." />
         <MemberRolesForm membershipId={member.membership.id} memberName={member.userName} organizationRole={member.membership.role} instanceAdmin={member.isInstanceAdmin} canManageOrganization={canManageRoles} canManageInstance={showInstanceRole} />
       </Panel> : null}
       <Panel>
-        <PanelHeader title="Teams" hint={`${teams.length} ${teams.length === 1 ? 'team' : 'teams'}`} />
+        <PanelHeader title="Teams" hint="Groups this member belongs to in the organization." />
         {teams.length ? (
           <ul className="divide-y divide-line">
             {teams.map((team) => <li key={team.teamId} className="px-4 py-3 text-sm text-ink">{team.teamName}</li>)}
           </ul>
-        ) : <p className="p-4 text-sm text-ink-muted">This member does not belong to any teams.</p>}
+        ) : <EmptyState icon={<Users className="size-4" />} title="No teams" body="This member does not belong to any teams." />}
       </Panel>
       {canRemove ? <Panel className="border-danger-200">
-        <PanelHeader title={<span className="text-danger-500">Danger zone</span>} />
-        <div className="flex items-center justify-between gap-4 p-4"><p className="text-sm text-ink-muted">Remove this member and revoke access granted by the organization.</p><MemberActionsMenu presentation="buttons" membershipId={member.membership.id} memberName={member.userName} email={member.userEmail} canRemoveInstanceAdmin={false} canRemoveFromOrganization /></div>
+        <PanelHeader title={<span className="text-danger-500">Danger zone</span>} hint="Actions that revoke this member’s organization access." />
+        <div className="flex flex-wrap items-center justify-between gap-4 p-4"><p className="min-w-0 flex-1 text-sm text-ink-muted">Remove this member and revoke access granted by the organization.</p><MemberActionsMenu presentation="buttons" membershipId={member.membership.id} memberName={member.userName} email={member.userEmail} canRemoveInstanceAdmin={false} canRemoveFromOrganization /></div>
       </Panel> : null}
     </div>
   )

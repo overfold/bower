@@ -116,12 +116,12 @@ export function NotificationsMenu({ initial }: { initial: NotificationFeed | nul
         <DropdownMenuLabel className="px-3.5 py-2.5">Notifications</DropdownMenuLabel>
         <DropdownMenuSeparator className="mx-0 my-0" />
         {failed && feed ? (
-          <p role="status" className="border-b border-line bg-sunken px-3.5 py-2 text-xs text-ink-muted">Couldn&apos;t refresh. Showing earlier results.</p>
+          <div role="status" className="border-b border-line bg-sunken px-3.5 py-2 text-xs text-ink-muted"><p>Couldn&apos;t refresh. Showing earlier results.</p><DropdownMenuItem onSelect={(event) => { event.preventDefault(); void refresh() }} className="-mx-2 mt-1 w-fit text-link">Try again</DropdownMenuItem></div>
         ) : null}
         {feed && feed.items.length > 0 ? (
           <div className="max-h-[min(26rem,65vh)] overflow-y-auto p-1.5">
             {feed.items.map((item) => (
-              <DropdownMenuItem key={`${item.kind}-${item.id}`} asChild className="items-start gap-2.5 px-2 py-2">
+              <DropdownMenuItem key={`${item.kind}-${item.id}`} asChild className="cursor-pointer items-start gap-2.5 px-2 py-2 hover:bg-brand-50 hover:text-ink">
                 <Link href={notificationHref(item)}>
                   <span aria-hidden className={cn('mt-1.5 size-1.5 shrink-0 rounded-full', item.unread ? 'bg-brand-500' : 'bg-transparent')} />
                   <span className="min-w-0 flex-1">
@@ -160,12 +160,6 @@ export function NotificationsMenu({ initial }: { initial: NotificationFeed | nul
             body="Failures in your projects and the results of your deploys appear here."
           />
         )}
-        <DropdownMenuSeparator className="mx-0 my-0" />
-        <div className="p-1.5">
-          <DropdownMenuItem asChild className="justify-center text-ink-soft">
-            <Link href="/deployments">View all deployments</Link>
-          </DropdownMenuItem>
-        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   )

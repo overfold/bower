@@ -12,7 +12,7 @@ import { Time } from '@/components/time'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { TrellisReadError } from '@/components/trellis-read-error'
 import { getProjectLiveServices } from '@/lib/service-health-query'
-import { formatReadyReplicas } from '@/lib/format'
+import { deploymentImageTag, formatReadyReplicas } from '@/lib/format'
 import { LastDeployFailed } from '@/components/last-deploy-failed'
 import { isUnsuccessfulDeployment } from '@/lib/status'
 import { DeploymentPoller } from '@/components/deployment-poller'
@@ -57,15 +57,15 @@ export default async function ServicesPage({
         </Panel>
       ) : (
         <Panel>
-          <PanelHeader title={`${summaries.length} ${summaries.length === 1 ? 'service' : 'services'}`} action={access.projectRole === 'admin' ? <CreateServiceDialog projectSlug={slug} limits={limits} /> : undefined} />
+          <PanelHeader title={`${summaries.length} ${summaries.length === 1 ? 'service' : 'services'}`} hint="Services in this project and their current readiness." action={access.projectRole === 'admin' ? <CreateServiceDialog projectSlug={slug} limits={limits} /> : undefined} />
           {allocationError ? <TrellisReadError title="Replica readiness unavailable" message={allocationError} /> : null}
-          <Table><TableHeader><TableRow><TableHead>Status</TableHead><TableHead>Service</TableHead><TableHead>Image</TableHead><TableHead>Ready / desired</TableHead><TableHead>Last deploy</TableHead><TableHead>Routes</TableHead><TableHead className="w-12"><span className="sr-only">View</span></TableHead></TableRow></TableHeader>
+          <Table><TableHeader><TableRow><TableHead>Service</TableHead><TableHead>Status</TableHead><TableHead>Image</TableHead><TableHead>Ready / desired</TableHead><TableHead>Last deploy</TableHead><TableHead>Routes</TableHead><TableHead className="w-12"><span className="sr-only">View</span></TableHead></TableRow></TableHeader>
             <TableBody>{summaries.map(({ service, config, latestDeployment, routeCount, ready, health }) => {
               const href = `/projects/${slug}/services/${service.slug}`
               return <ClickableTableRow key={service.id} href={href} label={`View service ${service.name}`}>
-                <TableCell><div className="flex flex-wrap items-center gap-2"><StatusDot status={health} />{latestDeployment && isUnsuccessfulDeployment(latestDeployment.status) ? <LastDeployFailed href={`/projects/${slug}/deployments/${latestDeployment.id}`} outcome={latestDeployment.status === 'rolled_back' ? 'rolled_back' : 'failed'} /> : null}</div></TableCell>
                 <TableCell><Link href={href} className="text-link font-medium">{service.name}</Link></TableCell>
-                <TableCell className="font-mono text-xs">{config?.image ?? 'No image configured'}</TableCell>
+                <TableCell><div className="flex flex-wrap items-center gap-2"><StatusDot status={health} />{latestDeployment && isUnsuccessfulDeployment(latestDeployment.status) ? <LastDeployFailed href={`/projects/${slug}/deployments/${latestDeployment.id}`} outcome={latestDeployment.status === 'rolled_back' ? 'rolled_back' : 'failed'} /> : null}</div></TableCell>
+                <TableCell className="font-mono text-xs">{config?.image ? <><span className="block">{deploymentImageTag(config.image)}</span><span className="block text-xs text-ink-muted">{config.image.replace(/(@[^/]+|:[^/:]+)$/, '')}</span></> : 'No image configured'}</TableCell>
                 <TableCell>{formatReadyReplicas(ready, config?.replicas ?? 0)}</TableCell>
                 <TableCell className="text-right">{latestDeployment ? <Time value={latestDeployment.createdAt} /> : '—'}</TableCell>
                 <TableCell>{routeCount}</TableCell>

@@ -1,5 +1,6 @@
 import { redirect, notFound } from 'next/navigation'
-import { Info } from 'lucide-react'
+import { Info, Terminal } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { getCurrentUser } from '@/lib/auth'
 import { getUserOrganization, getProjectBySlug, getProjectEnvironment, getServiceBySlug, getServiceConfigsWithEnvironments } from '@/lib/queries'
 import { getTrellisClient } from '@/lib/trellis-instance'
@@ -20,11 +21,12 @@ import type { TrellisAllocation } from '@/types/trellis'
 import { Time } from '@/components/time'
 import { TabsContent } from '@/components/ui/tabs'
 import { UrlTabs } from '@/components/url-tabs'
-import { InlineNotice } from '@/components/ui/feedback'
+import { FailureNotice } from '@/components/service-failure-notice'
 import { DeploymentPoller } from '@/components/deployment-poller'
 import { allocationFields, allocationNotice, lifecycleEventTitle, lifecycleEventTone } from '@/lib/allocation-lifecycle'
 import { Timeline } from '@/components/timeline'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { EmptyState } from '@/components/ui/empty-state'
 
 const allocationTabs = [{ value: 'logs', label: 'Logs' }, { value: 'details', label: 'Details' }, { value: 'lifecycle', label: 'Lifecycle' }]
 
@@ -105,30 +107,28 @@ export default async function AllocationDetailPage({
             }
             actions={
               <>
-                {matchingConfig && <ExecDialog allocationId={allocationId} serviceConfigId={matchingConfig.config.id} tasks={terminalTasks} />}
-                <AllocationStopButton serviceId={service.id} allocationId={allocationId} disabled={!stoppable} />
+                {matchingConfig && (allocation.phase === 'running' ? <ExecDialog allocationId={allocationId} serviceConfigId={matchingConfig.config.id} tasks={terminalTasks} /> : <TooltipProvider><Tooltip><TooltipTrigger asChild><span tabIndex={0} className="inline-flex"><Button size="sm" disabled><Terminal />Terminal</Button></span></TooltipTrigger><TooltipContent>Terminal is available while the allocation is running.</TooltipContent></Tooltip></TooltipProvider>)}
+                {allocation.phase !== 'failed' ? <AllocationStopButton serviceId={service.id} allocationId={allocationId} disabled={!stoppable} cancel={allocation.phase === 'pending'} /> : null}
               </>
             }
           />
         </div>
       </div>
 
-      {notice ? <InlineNotice tone={notice.tone}><p className="font-medium">{notice.title}</p><p className="mt-0.5 break-words">{notice.text}</p></InlineNotice> : null}
+      {notice ? <FailureNotice tone={notice.tone} title={notice.text} detail={notice.title} action={notice.tone === 'danger' && tab !== 'logs' && tab != null ? <Button asChild size="sm" variant="ghost"><a href="?tab=logs">View logs</a></Button> : undefined} /> : null}
 
       <UrlTabs tabs={allocationTabs} initial={tab ?? 'logs'} label="Allocation sections">
       <TabsContent value="details" forceMount className="space-y-4 data-[state=inactive]:hidden">
       <SectionTitle>Details</SectionTitle>
-      <AllocationMetrics serviceId={service.id} allocationId={allocationId} cpuLimit={cpuLimit} memoryLimit={memoryLimit} initialMetrics={metrics.status === 'fulfilled' ? metrics.value : []} initialError={metrics.status === 'rejected' ? trellisReadError(metrics.reason) : null} />
-      <MetricsHistoryCharts serviceId={service.id} environmentId={selectedConfig.environment.id} allocationId={allocationId} ranges={availableMetricsRanges(metricsRetentionHours())} cpuLimit={cpuLimit} memoryLimit={memoryLimit} />
 
       <Panel id="details" className="scroll-mt-20">
-        <PanelHeader title="Allocation details" />
+        <PanelHeader title="Allocation details" hint="Where this allocation runs and how it was created." />
         <div className="p-4">
           <dl className="grid grid-cols-2 gap-x-8 gap-y-1 md:grid-cols-4">
             <KeyValue label={explainedLabel('Group', 'A set of tasks that Trellis schedules together.') as never} mono>{allocation.group}</KeyValue>
             <KeyValue label={explainedLabel('Job', 'The Trellis workload definition for this service.') as never} mono>{allocation.job}</KeyValue>
             <KeyValue label="Node" mono><NodeLink id={allocation.node_id} /></KeyValue>
-            <KeyValue label="Revision">{allocation.job_revision}</KeyValue>
+            <KeyValue label={explainedLabel('Revision', 'The version of the service configuration this allocation runs.') as never}>{allocation.job_revision}</KeyValue>
             <KeyValue label={explainedLabel(allocationFields.generation.label, allocationFields.generation.hint) as never}>{allocation.generation}</KeyValue>
             <KeyValue label={explainedLabel(allocationFields.attempt.label, allocationFields.attempt.hint) as never}>{allocation.attempt}</KeyValue>
             <KeyValue label="Created"><Time value={allocation.created_at} mode="absolute" /></KeyValue>
@@ -143,12 +143,14 @@ export default async function AllocationDetailPage({
           )}
         </div>
       </Panel>
+      <AllocationMetrics serviceId={service.id} allocationId={allocationId} cpuLimit={cpuLimit} memoryLimit={memoryLimit} initialMetrics={metrics.status === 'fulfilled' ? metrics.value : []} initialError={metrics.status === 'rejected' ? trellisReadError(metrics.reason) : null} />
+      <MetricsHistoryCharts serviceId={service.id} environmentId={selectedConfig.environment.id} allocationId={allocationId} ranges={availableMetricsRanges(metricsRetentionHours())} cpuLimit={cpuLimit} memoryLimit={memoryLimit} />
       </TabsContent>
       <TabsContent value="lifecycle" id="lifecycle" forceMount className="space-y-4 data-[state=inactive]:hidden">
         <SectionTitle>Lifecycle</SectionTitle>
         <Panel>
           {events.status === 'rejected' ? <TrellisReadError title="Lifecycle events unavailable" message={trellisReadError(events.reason)} /> : history.length === 0 ? (
-            <div className="p-5 text-sm text-ink-muted">No lifecycle events have been recorded.</div>
+            <EmptyState icon={<Info className="size-4" />} title="No lifecycle events" body="No lifecycle events have been recorded." />
           ) : (
             <Timeline items={history.map((event, index) => ({ id: `${event.at}-${event.phase}-${index}`, title: lifecycleEventTitle(event, allocation.node_id), titleTooltip: event.reason || event.phase, description: event.message || 'Lifecycle transition', time: <Time value={event.at} mode="absolute" />, tone: lifecycleEventTone(event, index === history.length - 1) }))} />
           )}
@@ -157,9 +159,9 @@ export default async function AllocationDetailPage({
       <TabsContent value="logs" id="logs" forceMount className="space-y-4 data-[state=inactive]:hidden">
         <SectionTitle>Logs</SectionTitle>
         {allocation.tasks === undefined ? <Panel>
-          <PanelHeader title="Task logs" />
+          <PanelHeader title="Task logs" hint="Output from the tasks running in this allocation." />
           {logs[0]?.status === 'rejected' ? <TrellisReadError title="Logs unavailable" message={trellisReadError(logs[0].reason)} /> : <pre className="h-[calc(100dvh-12rem)] min-h-64 overflow-auto p-4 font-mono text-xs leading-relaxed text-ink-soft">{logs[0]?.status === 'fulfilled' && logs[0].value || 'No output'}</pre>}
-        </Panel> : logs.length ? <AllocationLogs serviceId={service.id} allocationId={allocationId} tasks={logs.map((result, index) => ({ name: terminalTasks[index], output: result.status === 'fulfilled' ? result.value : '', error: result.status === 'rejected' ? trellisReadError(result.reason) : null }))} /> : <Panel><div className="p-4 text-sm text-ink-muted">No tasks were recorded for this allocation.</div></Panel>}
+        </Panel> : logs.length ? <AllocationLogs serviceId={service.id} allocationId={allocationId} tasks={logs.map((result, index) => ({ name: terminalTasks[index], output: result.status === 'fulfilled' ? result.value : '', error: result.status === 'rejected' ? trellisReadError(result.reason) : null }))} /> : <Panel><EmptyState icon={<Terminal className="size-4" />} title="No tasks" body="No tasks were recorded for this allocation." /></Panel>}
       </TabsContent>
       </UrlTabs>
     </div>

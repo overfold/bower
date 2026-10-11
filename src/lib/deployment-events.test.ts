@@ -1,17 +1,24 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { deploymentEventTone, failedAllocationId, failureEvent } from './deployment-events'
+import { deploymentEventTitle, deploymentEventTone, failedAllocationId, failureEvent } from './deployment-events'
 
 test('event tones are explicit by type, not inferred from message text', () => {
   assert.equal(deploymentEventTone('failed'), 'danger')
-  assert.equal(deploymentEventTone('auto_rollback'), 'warning')
-  assert.equal(deploymentEventTone('replacement_backoff'), 'warning')
-  assert.equal(deploymentEventTone('scheduling_blocked'), 'warning')
+  assert.equal(deploymentEventTone('auto_rollback'), 'warn')
+  assert.equal(deploymentEventTone('replacement_backoff'), 'warn')
+  assert.equal(deploymentEventTone('scheduling_blocked'), 'warn')
   assert.equal(deploymentEventTone('healthy'), 'success')
   assert.equal(deploymentEventTone('planning'), 'neutral')
   // A message that merely mentions "error" or "failure" must not turn a neutral event red.
   assert.equal(deploymentEventTone('apply_accepted'), 'neutral')
   assert.equal(deploymentEventTone('something_new'), 'neutral')
+})
+
+test('planning events use product copy without discarding the stored message', () => {
+  const event = { type: 'planning', message: 'technical deployment plan' }
+  assert.equal(deploymentEventTitle(event), 'Planned the deployment')
+  assert.equal(event.message, 'technical deployment plan')
+  assert.equal(deploymentEventTitle({ type: 'failed', message: 'Could not place' }), 'Could not place')
 })
 
 test('the failure event is the terminal failure, else a diagnostic', () => {

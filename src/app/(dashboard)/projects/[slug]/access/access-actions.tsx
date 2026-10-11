@@ -116,7 +116,7 @@ export function GrantAccessDialog({ projectId, teams, members, existingTeamIds, 
                 id="access-search"
                 aria-invalid={Boolean(searchError)}
                 aria-describedby={searchError ? 'access-search-error' : undefined}
-                placeholder="Search by name or email..."
+                placeholder="Search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="rounded-none border-0"

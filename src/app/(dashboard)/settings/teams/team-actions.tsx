@@ -278,7 +278,7 @@ export function AddTeamMemberDialog({ teamId, orgMembers, existingMemberIds }: {
                 id={`member-email-${teamId}`}
                 name="email"
                 type="text"
-                placeholder="Search by name or email…"
+                placeholder="Search"
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setSelectedEmail(''); setActiveIndex(-1) }}
                 required

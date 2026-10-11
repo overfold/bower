@@ -47,7 +47,7 @@ export default async function TeamsPage() {
         </Card>
       ) : (
         <Card>
-          <CardHeader title={`${teamsWithDetails.length} ${teamsWithDetails.length === 1 ? 'team' : 'teams'}`} action={<TeamActions mode="create" />} />
+          <CardHeader title={`${teamsWithDetails.length} ${teamsWithDetails.length === 1 ? 'team' : 'teams'}`} hint="Groups that share access to organization projects." action={<TeamActions mode="create" />} />
           <Table>
             <TableHeader><TableRow><TableHead>Team</TableHead><TableHead>Members</TableHead><TableHead>Projects</TableHead><TableHead className="w-[120px] text-right"><span className="sr-only">Actions</span></TableHead><TableHead className="w-12"><span className="sr-only">View</span></TableHead></TableRow></TableHeader>
             <TableBody>

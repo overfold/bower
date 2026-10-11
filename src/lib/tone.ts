@@ -1,4 +1,12 @@
-export type Tone = 'neutral' | 'brand' | 'success' | 'warn' | 'danger' | 'info'
+export type Tone = 'neutral' | 'brand' | 'success' | 'warn' | 'danger'
+
+export const toneDotClasses: Record<Tone, string> = {
+  neutral: 'bg-ink-faint',
+  brand: 'bg-brand-500',
+  success: 'bg-ok-500',
+  warn: 'bg-warn-500',
+  danger: 'bg-danger-500',
+}
 
 export const toneClasses: Record<Tone, string> = {
   neutral: 'border-line bg-sunken text-ink-soft',
@@ -6,7 +14,6 @@ export const toneClasses: Record<Tone, string> = {
   success: 'border-ok-200 bg-ok-50 text-ok-500',
   warn: 'border-warn-200 bg-warn-50 text-warn-500',
   danger: 'border-danger-200 bg-danger-50 text-danger-500',
-  info: 'border-info-200 bg-info-50 text-info-500',
 }
 
 // Icon color only, for notices on a neutral surface (toasts). The icon shape
@@ -17,7 +24,6 @@ export const toneIconClasses: Record<Tone, string> = {
   success: 'text-ok-500',
   warn: 'text-warn-500',
   danger: 'text-danger-500',
-  info: 'text-info-500',
 }
 
 // Stroke color for thin chart annotations (deploy markers) drawn in SVG.
@@ -27,5 +33,4 @@ export const toneStrokeClasses: Record<Tone, string> = {
   success: 'stroke-ok-500',
   warn: 'stroke-warn-500',
   danger: 'stroke-danger-500',
-  info: 'stroke-info-500',
 }

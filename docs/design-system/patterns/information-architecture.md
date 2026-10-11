@@ -51,7 +51,7 @@ The order is fixed. Don't reorder dynamically (A3-N09). New top-level destinatio
 
 - Organization picker › section › entity › child entity. **End at the entity** (A2-E1).
 - Labels are resolved names (`src/lib/breadcrumbs.ts`). Every dynamic segment must be resolvable, and tests cover each one (A3 B02).
-- Instance-level pages hide the organization picker and start with "Instance" (A5-L6).
+- Instance-level pages hide the organization picker and read "Settings › Instance › Organizations", with no organization crumb (N1).
 - Collapse past 4 levels: the first crumb, then `⋯`, then the last two (A3-N14).
 
 ## Settings
@@ -59,13 +59,13 @@ The order is fixed. Don't reorder dynamically (A3-N09). New top-level destinatio
 | Group | Item | Content | Visible to |
 | --- | --- | --- | --- |
 | Personal | Account | Profile, Password, API keys, Appearance | Everyone |
-| Instance | Organizations | All organizations. Clicking a row **switches to** that organization (A3-N22) | Instance admins |
 | Organization | Organization | General (name, read-only slug) and the Trellis connection (`#connection`) | Organization admins and owners |
 | | Members | Members table (filters above 10 members), Invitations card with "Invite people" | |
 | | Teams | Teams table → team detail page | |
 | | Domains | Domains table, with DNS records expanding into a full-width row | |
+| Instance | Organizations | All organizations. Clicking a row **switches to** that organization (A3-N22) | Instance admins |
 
-There is no link from the Status page to the connection settings (A3-U01). The connection status itself lives only on the Status page (A4-Q29).
+Group order is Personal, Organization, Instance (N3). Connection status lives on Status; the Trellis-unavailable banner offers Check connection settings (L2), rather than a duplicated connection-status section in Settings.
 
 ## Command palette
 

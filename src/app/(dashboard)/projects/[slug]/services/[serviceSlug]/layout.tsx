@@ -83,6 +83,7 @@ async function LiveServiceHeader({ slug, serviceSlug, orgId, service, environmen
       canDeploy={canDeploy} failedDeploymentId={row?.latestDeployment && isUnsuccessfulDeployment(row.latestDeployment.status) ? row.latestDeployment.id : undefined} failedDeploymentOutcome={row?.latestDeployment?.status === 'rolled_back' ? 'rolled_back' : 'failed'}
       changes={changes} rollbackTargets={rollbackTargets.map((deployment) => ({ id: deployment.id, image: deployment.imageAfter, createdAt: deployment.createdAt.toISOString(), changes: diffJobSpecs(deployment.jobSpec, runtimeJob?.spec ?? current?.jobSpec) }))}
       replacementBackoff={replacementBackoff}
+      capacityBlocked={Boolean(row?.allocations.some((allocation) => allocation.phase === 'pending' && ['insufficient_capacity', 'insufficient_cpu'].includes(allocation.reason ?? '')))}
       logsHref={logsAllocationId ? `/projects/${slug}/services/${serviceSlug}/allocations/${logsAllocationId}` : undefined}
     />
 }

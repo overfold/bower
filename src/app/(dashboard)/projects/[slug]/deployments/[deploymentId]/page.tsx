@@ -11,6 +11,7 @@ import { InlineNotice } from '@/components/ui/feedback'
 import { DeploymentDiagnosticActions } from './deployment-diagnostic-actions'
 import { deploymentStatusLabels, label } from '@/lib/labels'
 import { EventDetails } from './event-details'
+import { DeploymentLogExcerpt } from './deployment-log-excerpt'
 import { Button } from '@/components/ui/button'
 import { deploymentImageTag, formatDeploymentDuration, shortDeploymentImage, triggerActor } from '@/lib/format'
 import { Timeline } from '@/components/timeline'
@@ -20,9 +21,11 @@ import { earlierSuccessfulReleases, runningRelease } from '@/lib/service-release
 import { trellisReadError } from '@/lib/trellis-runtime'
 import { diffJobSpecs } from '@/lib/service-config-diff'
 import { deploymentDetailState, failureLogState, previousSuccessfulRelease } from '@/lib/deployment-detail-state'
-import { deploymentEventTone, failedAllocationId, failureEvent } from '@/lib/deployment-events'
+import { deploymentEventTitle, deploymentEventTone, failedAllocationId, failureEvent } from '@/lib/deployment-events'
 import { isUnsuccessfulDeployment } from '@/lib/status'
 import { ConfigDiffPreview } from '@/components/config-diff-preview'
+import { EmptyState } from '@/components/ui/empty-state'
+import { History } from 'lucide-react'
 
 export default async function DeploymentDetailPage({ params }: { params: Promise<{ slug: string; deploymentId: string }> }) {
   const { slug, deploymentId } = await params
@@ -80,25 +83,26 @@ export default async function DeploymentDetailPage({ params }: { params: Promise
 
   return <div className="space-y-5">
     <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><Link href={serviceHref} className="text-sm font-medium text-link">{row.service.name}</Link><div className="mt-1 flex flex-wrap items-center gap-3"><h1 className="break-words text-2xl font-bold text-ink">{shortDeploymentImage(row.deployment.imageAfter)}</h1><DeploymentStatus status={row.deployment.status} /></div><div className="mt-2 text-sm text-ink-muted"><Time value={row.deployment.createdAt} mode="absolute" /> · {label(row.deployment.triggerType)} · {triggerActor(row.deployment.triggerType, row.userName)}</div></div>{access.projectRole !== 'viewer' ? <DeploymentDiagnosticActions serviceId={row.service.id} serviceName={row.service.name} environmentId={row.deployment.environmentId} primaryRecovery={primaryRecovery} runningImage={active?.imageAfter} rollbackTargets={rollbackTargets.map((target) => ({ id: target.id, image: target.imageAfter, createdAt: target.createdAt, changes: diffJobSpecs(target.jobSpec, runtime?.spec ?? active?.jobSpec) }))} configurationHref={`${serviceHref}/configuration`} /> : null}</div>
-    {superseding ? <InlineNotice tone="neutral">Superseded by <span className="font-mono font-medium">{deploymentImageTag(superseding.imageAfter)}</span> · {deploymentStatusLabels[superseding.status].toLowerCase()} <Time value={superseding.completedAt ?? superseding.createdAt} /> · <Link className="font-medium underline" href={`/projects/${slug}/deployments/${superseding.id}`}>View</Link></InlineNotice> : null}
+    {superseding ? <InlineNotice tone="neutral">Superseded by <span className="font-mono font-medium">{deploymentImageTag(superseding.imageAfter)}</span> · {deploymentStatusLabels[superseding.status].toLowerCase()} <Time value={superseding.completedAt ?? superseding.createdAt} /> · <Link className="font-medium text-link" href={`/projects/${slug}/deployments/${superseding.id}`}>View</Link></InlineNotice> : null}
     {unsuccessful && <InlineNotice tone={rolledBack ? 'warn' : 'danger'}>
       <p className="font-medium">{rolledBack ? `Rolled back automatically: ${failedEvent?.message ?? 'the rollout did not converge.'}` : failedEvent?.message ?? 'The deployment failed.'}</p>
-      {logState.kind === 'logs' ? <pre className="mt-2 max-h-52 overflow-auto rounded bg-sunken p-3 text-xs text-ink">{failureLogs.join('\n')}</pre> : <p className="mt-1 text-sm text-ink-muted">{logState.message}</p>}
-      <div className="mt-2"><Button asChild size="sm"><Link href={logState.allocationHref && failedAllocationIdValue ? `${serviceHref}/allocations/${encodeURIComponent(failedAllocationIdValue)}` : serviceHref}>{logState.allocationHref && failedAllocationIdValue ? 'Open allocation' : 'Open service'}</Link></Button></div>
+      {logState.kind === 'logs' ? <DeploymentLogExcerpt lines={failureLogs} /> : <p className="mt-1 text-sm text-ink-muted">{logState.message}</p>}
+      <div className="mt-2"><Button asChild size="sm"><Link href={logState.allocationHref && failedAllocationIdValue ? `${serviceHref}/allocations/${encodeURIComponent(failedAllocationIdValue)}` : serviceHref}>{logState.allocationHref && failedAllocationIdValue ? 'View allocation' : 'Open service'}</Link></Button></div>
     </InlineNotice>}
-    <Panel><PanelHeader title="Summary" /><dl className="grid gap-x-8 px-4 sm:grid-cols-3">
-      <div className="sm:col-span-3"><KeyValue label="Image" mono>{row.deployment.imageBefore ? <><span className="text-ink-muted">{row.deployment.imageBefore}</span> → </> : null}{row.deployment.imageAfter}</KeyValue></div>
+    <Panel><PanelHeader title="Summary" hint="What this deployment changed and how long it took." /><dl className="grid gap-x-8 px-4 sm:grid-cols-3">
+      <div className="sm:col-span-3"><KeyValue label="Image" mono><span className="block">{row.deployment.imageBefore && row.deployment.imageBefore !== row.deployment.imageAfter ? <><span className="text-ink-muted">{deploymentImageTag(row.deployment.imageBefore)}</span> → </> : null}{deploymentImageTag(row.deployment.imageAfter)}</span><span className="block text-xs text-ink-muted">{row.deployment.imageAfter.replace(/(@[^/]+|:[^/:]+)$/, '')}</span></KeyValue></div>
       <KeyValue label="Strategy">{label(row.deployment.strategy)}</KeyValue>
       <KeyValue label="Duration">{row.deployment.completedAt ? formatDeploymentDuration(row.deployment.startedAt, row.deployment.completedAt) : 'In progress'}</KeyValue>
       <KeyValue label="Revision">{row.deployment.trellisRevision ?? '—'}</KeyValue>
     </dl></Panel>
-    {unsuccessful && previousRelease && changesFromPrevious.length ? <Panel><PanelHeader title="Changes from previous successful release" hint={<span className="font-mono">{deploymentImageTag(previousRelease.imageAfter)}</span>} />
-      <div className="p-4"><ConfigDiffPreview changes={changesFromPrevious} beforeLabel="Previous release" afterLabel="This deployment" /></div>
+    {unsuccessful && previousRelease && changesFromPrevious.length ? <Panel><PanelHeader title="Changes from previous successful release" hint="Configuration differences from the last successful deployment." />
+      <div className="p-4"><ConfigDiffPreview changes={changesFromPrevious} /></div>
     </Panel> : null}
-    <Panel><PanelHeader title="Events" />
+    <Panel><PanelHeader title="Events" hint="What happened during this deployment, in order." />
       {events.length ? <Timeline items={events.map((event) => {
-        return { id: event.id, title: event.message, titleTooltip: event.type, tone: deploymentEventTone(event.type), time: <Time value={event.createdAt} mode="absolute" />, description: Object.keys(event.details as object).length ? <EventDetails details={event.details as Record<string, unknown>} /> : null }
-      })} /> : <p className="p-4 text-sm text-ink-muted">No deployment events were recorded.</p>}
+        const details = { ...(event.details as Record<string, unknown>), ...(event.type === 'planning' ? { message: event.message } : {}) }
+        return { id: event.id, title: deploymentEventTitle(event), titleTooltip: event.type, tone: deploymentEventTone(event.type), time: <Time value={event.createdAt} mode="absolute" />, description: Object.keys(details).length ? <EventDetails details={details} /> : null }
+      })} /> : <EmptyState icon={<History className="size-4" />} title="No deployment events" body="Events will appear here as this deployment progresses." />}
     </Panel>
   </div>
 }

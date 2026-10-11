@@ -21,6 +21,7 @@ export function deriveBreadcrumbs(pathname: string, data: BreadcrumbData): { lab
   const raw = pathname.split('/').filter(Boolean)
   if (raw[0] === 'settings' && raw[1] === 'instance') {
     return [
+      { label: 'Settings', href: '/settings' },
       { label: 'Instance', href: '/settings/instance' },
       { label: 'Organizations', href: '/settings/instance' },
     ]

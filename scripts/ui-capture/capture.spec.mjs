@@ -19,6 +19,22 @@ const rowAction = async (page, name, action, index = 0) => {
   await page.getByRole("button", { name: `Actions for ${name}`, exact: true }).nth(index).click();
   await page.getByRole("menuitem", { name: action, exact: true }).click();
 };
+const checkConfigDiff = async (container) => {
+  await expect(container.getByText('Field', { exact: true })).toBeVisible();
+  await expect(container.getByText('Before', { exact: true })).toBeVisible();
+  await expect(container.getByText('After', { exact: true })).toBeVisible();
+  for (const reveal of await container.getByRole('button', { name: /^Reveal / }).all()) {
+    const variable = (await reveal.getAttribute('aria-label')).slice('Reveal '.length);
+    const row = container.getByText(variable, { exact: true }).locator('../..');
+    await expect(reveal).toHaveAttribute('aria-pressed', 'false');
+    await expect(row).toContainText('••••••••');
+    await reveal.click();
+    const hide = row.getByRole('button', { name: `Hide ${variable}`, exact: true });
+    await expect(hide).toHaveAttribute('aria-pressed', 'true');
+    await hide.click();
+    await expect(row).toContainText('••••••••');
+  }
+};
 
 let authCookies;
 test.beforeAll(async ({ browser }) => {
@@ -67,7 +83,7 @@ const pages = [
   [
     "deployment-diagnostics",
     `${project}/deployments/${fixture.deploymentId}`,
-    "ghcr.io/acme/storefront:v2.4.1",
+    "v2.3.0 → v2.4.1",
   ],
   [
     "deployment-failed-diagnostics",
@@ -76,7 +92,7 @@ const pages = [
   ],
   ["service-overview", service, "Storefront"],
   ["service-failed", `${project}/services/order-worker`, "Worker could not reach database"],
-  ["service-unplaceable", `${project}/services/search-indexer`, "No node has 500m CPU free"],
+  ["service-unplaceable", `${project}/services/search-indexer`, "No node has room for this service"],
   [
     "deployment-rolled-back-diagnostics",
     `${project}/deployments/${fixture.rolledBackDeploymentId}`,
@@ -156,7 +172,7 @@ const dialogs = [
   ["attach-volume", `${service}/mounts`, "Attach volume"],
   ["new-api-key", "/settings/account", "New key"],
   ["revoke-api-key", "/settings/account", "Revoke GitHub Actions"],
-  ["add-domain", "/settings/domains", "New domain"],
+  ["add-domain", "/settings/domains", "Add domain"],
   ["delete-domain", "/settings/domains", "Delete domain"],
   ["new-organization", "/settings/instance", "New organization"],
   ["invite-people", "/settings/members", "Invite people"],
@@ -196,6 +212,11 @@ for (const [name, route, button] of dialogs)
       await expect(
         page.locator('[role="dialog"], [role="alertdialog"]'),
       ).toBeVisible();
+      if (name === 'rollback-service') await checkConfigDiff(page.getByRole('alertdialog'));
+      if (name === 'add-domain') {
+        await expect(page.getByRole('dialog').getByRole('heading', { name: 'Add domain', exact: true })).toBeVisible();
+        await expect(page.getByRole('dialog').getByRole('button', { name: 'Add domain', exact: true })).toBeVisible();
+      }
       if (name === "terminal") {
         await expect(
           page.getByText("Connected", { exact: true }),
@@ -224,14 +245,20 @@ for (const slug of ["commerce", "internal-tools"])
 for (const tab of ["Details", "Lifecycle"])
   state(`allocation-${tab.toLowerCase()}`, allocation, async (page) => {
     await page.getByRole("tab", { name: tab, exact: true }).click();
-    await expect(page.getByRole("heading", { name: tab, exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: tab === "Details" ? "Allocation details" : tab, exact: true })).toBeVisible();
     if (tab === "Details") await expect(page.getByLabel("Sampling CPU usage")).toHaveCount(0);
   }, { fullPage: true });
 state("failing-service-cause", `${project}/services/order-worker`, async (page) => {
-  // The cause is in the page body; the status popover keeps replicas, the countdown and actions.
-  await expect(page.getByRole("alert").getByText("Worker could not reach database", { exact: true })).toBeVisible();
-  await click(page, "Failing");
-  await expect(page.getByRole("dialog")).toContainText("replica is not ready");
+  // The plain status chip has no popover; recovery context and actions live in one body notice.
+  const notice = page.getByRole("alert").filter({ hasText: "Worker could not reach database" });
+  await expect(notice).toHaveCount(1);
+  await expect(notice).toBeVisible();
+  await expect(notice).toContainText(/\d+ failures? · Next restart/);
+  await expect(notice).toContainText(/\d+ of \d+ replicas ready/);
+  await expect(notice.getByRole('button', { name: 'Restart now', exact: true })).toBeVisible();
+  await expect(notice.getByRole('link', { name: 'View logs', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Failing', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 state("allocation-failed-lifecycle", `${project}/services/order-worker/allocations/order-worker-alloc-1?tab=lifecycle`, async (page) => {
   // ?tab= deep-links the tab; every earlier crash is toned, not just the last event.
@@ -241,7 +268,12 @@ state("allocation-failed-lifecycle", `${project}/services/order-worker/allocatio
   await expect(page.locator("#lifecycle li span.bg-danger-500")).toHaveCount(2);
 }, { fullPage: true });
 state("unplaceable-service-cause", `${project}/services/search-indexer`, async (page) => {
-  await expect(page.getByRole("alert").filter({ hasText: "No node has 500m CPU free" })).toBeVisible();
+  const notice = page.getByRole("alert").filter({ hasText: "No node has room for this service" });
+  await expect(notice).toBeVisible();
+  await expect(notice).toContainText('Lower the request or free up capacity on the cluster.');
+  await expect(notice.getByRole('link', { name: 'Edit resources', exact: true })).toHaveAttribute('href', `${project}/services/search-indexer/configuration#resources`);
+  await expect(notice.getByRole('link', { name: 'View cluster status', exact: true })).toHaveAttribute('href', '/status');
+  await expect(page.getByRole('button', { name: 'Restart', exact: true })).toBeDisabled();
   await expect(page.getByText("Deploying", { exact: true })).toHaveCount(0);
 }, { fullPage: true });
 state("rolled-back-deployment-diagnostics", `${project}/deployments/${fixture.rolledBackDeploymentId}`, async (page) => {
@@ -250,6 +282,7 @@ state("rolled-back-deployment-diagnostics", `${project}/deployments/${fixture.ro
   await expect(page.getByText("The allocation is no longer available, so its logs have expired.")).toBeVisible();
   await expect(page.getByRole("link", { name: "Open service", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Changes from previous successful release", exact: true })).toBeVisible();
+  await checkConfigDiff(page.locator('[data-slot="card"]').filter({ has: page.getByRole('heading', { name: 'Changes from previous successful release', exact: true }) }));
 }, { fullPage: true });
 state("terminal-fullscreen", allocation, async (page) => {
   await click(page, "Terminal");
@@ -429,7 +462,7 @@ state("remove-team-member", "/settings/teams", async (page) => {
 });
 state("projects-no-search-results", "/projects", (page) =>
   page
-    .getByRole("searchbox", { name: "Filter projects" })
+    .getByRole("searchbox", { name: "Search", exact: true })
     .fill("unmatched-audit-search"),
 );
 state("members-no-search-results", "/settings/members", (page) =>
@@ -551,7 +584,7 @@ state("member-actions", `/settings/members/${fixture.memberId}`, async (page) =>
 });
 state("remove-instance-admin", `/settings/members/${fixture.memberId}`, async (page) => {
   await choose(page, "Instance role", "User");
-  await click(page, "Save");
+  await click(page, "Save changes");
   await expect(page.getByRole("alertdialog")).toContainText("Remove Sam Rivera as instance administrator?");
   await expect(page.getByRole("alertdialog").getByRole("button", { name: "Remove instance admin and save", exact: true })).toBeVisible();
 });
@@ -567,6 +600,7 @@ state("delete-project-confirmed-name", `${project}/settings`, async (page) => {
 state("rollback-to-deployment", `${project}/deployments/${fixture.rollbackDeploymentId}`, async (page) => {
   await click(page, 'Roll back…');
   await expect(page.getByRole("alertdialog")).toBeVisible();
+  await checkConfigDiff(page.getByRole('alertdialog'));
 });
 state("failed-deployment-rollback", `${project}/deployments/${fixture.failedDeploymentId}`, async (page) => {
   await expect(page.getByText(/Superseded by/)).toBeVisible();
@@ -574,7 +608,7 @@ state("failed-deployment-rollback", `${project}/deployments/${fixture.failedDepl
   await expect(rollback).not.toHaveClass(/bg-brand-500/);
   await expect(page.getByRole("button", { name: "Redeploy", exact: true })).not.toHaveClass(/bg-brand-500/);
   await expect(page.getByRole("link", { name: "Edit configuration", exact: true })).toHaveAttribute("href", `${service}/configuration`);
-  await expect(page.getByRole("link", { name: "Open allocation", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "View allocation", exact: true })).toBeVisible();
 });
 for (const [name, route] of [["organization", "/deployments"], ["project", `${project}/deployments`]])
   state(`${name}-deployments-page-two`, route, async (page) => {
@@ -598,8 +632,35 @@ state("domain-dns-expanded", "/settings/domains", async (page) => {
   await expect(page.locator("body")).toContainText("audit-pending");
 });
 state("configuration-dirty", `${service}/configuration`, async (page) => {
-  await page.getByLabel("Container image", { exact: true }).fill("ghcr.io/acme/storefront:v2.5.0");
+  const image = page.getByLabel("Container image", { exact: true });
+  const original = await image.inputValue();
+  await image.fill("ghcr.io/acme/storefront:v2.5.0");
+  await expect(image).toHaveAttribute('data-dirty', 'true');
+  await image.blur();
+  for (const [focused, invalid, token] of [[false, false, 'warn'], [true, false, 'brand'], [true, true, 'danger']]) {
+    await image.evaluate((element, invalid) => element.setAttribute('aria-invalid', String(invalid)), invalid);
+    if (focused) await image.focus(); else await image.blur();
+    await expect.poll(() => image.evaluate((element, token) => {
+      const probe = document.createElement('span');
+      probe.style.color = `var(--${token}-500)`;
+      document.body.append(probe);
+      const expected = getComputedStyle(probe).color;
+      probe.remove();
+      return getComputedStyle(element).borderColor === expected;
+    }, token)).toBe(true);
+  }
+  await image.evaluate((element) => element.removeAttribute('aria-invalid'));
+  await image.blur();
   await expect(page.getByText('1 unsaved field', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Save and deploy…', exact: true })).toBeVisible();
+  const bar = page.getByRole('status').filter({ has: page.getByRole('button', { name: 'Discard', exact: true }) });
+  const height = (await bar.boundingBox()).height;
+  expect(await page.locator('#main-content').evaluate((el) => parseFloat(getComputedStyle(el).paddingBottom))).toBeGreaterThan(height + 16);
+  await image.fill(original);
+  await expect(image).not.toHaveAttribute('data-dirty', 'true');
+  await expect(bar).toHaveCount(0);
+  await image.fill("ghcr.io/acme/storefront:v2.5.0");
+  await image.blur();
   await page.getByRole("button", { name: "Save changes", exact: true }).scrollIntoViewIfNeeded();
 });
 state("advanced-dirty", `${service}/advanced`, async (page) => {
@@ -622,10 +683,21 @@ state('configuration-advanced-toggle', `${service}/configuration`, async (page) 
 for (const empty of [false, true])
   state(`allocation-logs-search-${empty ? "empty" : "results"}`, allocation, async (page) => {
     await page.getByRole("searchbox", { name: "Search logs" }).fill(empty ? "unmatched-audit-search" : "products");
-    await expect(page.locator("#logs pre")).toContainText(empty ? "No matching log lines." : "GET /products");
+    if (empty) {
+      await expect(page.locator('#logs').getByText('No lines match "unmatched-audit-search"', { exact: true })).toBeVisible();
+      await expect(page.locator('#logs pre')).toHaveCount(0);
+      const search = page.getByRole('searchbox', { name: 'Search logs' });
+      await page.locator('#logs').getByRole('button', { name: 'Clear search', exact: true }).last().click();
+      await expect(search).toHaveValue('');
+      await expect(search).toBeFocused();
+      await expect(page.locator('#logs pre')).toContainText('GET /products');
+      await search.fill('unmatched-audit-search');
+    } else {
+      await expect(page.locator('#logs pre')).toContainText('GET /products');
+      expect(await page.locator('#logs pre').evaluate((element) => element.clientHeight)).toBeGreaterThan(384);
+    }
     await expect(page.locator('#logs [role="status"]')).toHaveText(empty ? '0 matches' : '1 match');
     await expect(page.locator('#logs mark')).toHaveCount(empty ? 0 : 1);
-    expect(await page.locator('#logs pre').evaluate((element) => element.clientHeight)).toBeGreaterThan(384);
     await page.getByRole("searchbox", { name: "Search logs" }).scrollIntoViewIfNeeded();
   });
 state("allocation-logs-follow-wrap", allocation, async (page) => {
@@ -645,7 +717,7 @@ state("dashboard-live-health", "/dashboard", async (page) => {
   // Two Storefront replicas and Checkout are healthy; Order Worker fails.
   // Shared ingress lives in platform, outside the project's workload health.
   await expect(allocationTile).toContainText("3/5 healthy");
-  await expect(allocationTile).toContainText("1 blocked / awaiting placement");
+  await expect(allocationTile).toContainText("1 waiting for placement");
   await expect(allocationTile).toContainText("1 unhealthy");
   // One merged row per service: the worker's allocation and restart backoff are not listed twice.
   const worker = page.getByRole("row").filter({ hasText: "Order Worker" });
@@ -674,7 +746,14 @@ state("variable-validation", `${project}/environment`, async (page) => {
   await expect(page.getByText(/Use a key starting with a letter or underscore/)).toBeVisible();
 });
 state("focus-brand-ring", "/projects", async (page) => {
-  const control = page.getByRole("searchbox", { name: "Filter projects" });
+  const control = page.getByRole("searchbox", { name: "Search", exact: true });
+  await expect(control).toHaveAttribute('placeholder', 'Search');
+  const header = page.getByRole('heading', { name: /^\d+ projects$/ });
+  expect(await header.evaluate((element) => getComputedStyle(element).fontSize)).toBe('14px');
+  await expect(header.locator('..')).toContainText('Projects and their current service health across the organization.');
+  const chip = page.getByRole('row').filter({ hasText: 'Commerce Platform' }).getByRole('cell').nth(1).locator('span').first();
+  // A semantic health chip has exactly one decorative dot, including when it is not a StatusDot caller.
+  await expect(chip.locator('span[aria-hidden="true"]')).toHaveCount(1);
   await control.focus();
   await expect(control).toHaveClass(/focus-visible:ring-\[3px\]/);
   await expect(control).toHaveClass(/focus-visible:ring-brand-100/);
@@ -790,6 +869,9 @@ for (const [prefix, extra] of [["", {}], ["dark-", { dark: true }], ["narrow-", 
     await showHistory(page);
     const cpu = page.getByRole("group", { name: /^CPU usage over the/ });
     expect(await cpu.getAttribute("aria-label")).toMatch(/gaps? without data.*cpu limit 1 core, exceeded\./);
+    await expect(cpu.locator('svg line[stroke-dasharray="6 4"]')).toHaveClass(/stroke-ink-muted/);
+    await expect(cpu.locator('svg line[stroke-dasharray="6 4"]')).not.toHaveClass(/stroke-(warn|danger)/);
+    await expect(cpu.locator('../..').getByText('Above limit', { exact: true })).toBeVisible();
     // Hover the plot, about 40 minutes back inside the seeded spike above the limit, to capture the readout state.
     const box = await cpu.boundingBox();
     await page.mouse.move(box.x + box.width * 0.33, box.y + box.height / 2);
@@ -809,7 +891,7 @@ const hoverDeploy = async (page, chart) => {
   const x = Number(await line.getAttribute("x1")) / 1000;
   const box = await chart.boundingBox();
   await page.mouse.move(box.x + box.width * x, box.y + box.height / 2);
-  await expect(page.getByText(/Deployed v2\.4\.1 \(Healthy\)/).first()).toBeVisible();
+  await expect(page.getByText(/Deployed v2\.4\.1 \(Succeeded\)/).first()).toBeVisible();
 };
 for (const [prefix, extra] of [["", {}], ["dark-", { dark: true }], ["narrow-", { narrow: true, fullPage: true }], ["narrow-dark-", { narrow: true, dark: true, fullPage: true }]])
   state(`${prefix}service-metrics-history-deploy`, service, async (page) => {
@@ -908,9 +990,10 @@ for (const [prefix, extra] of [["", {}], ["dark-", { dark: true }]])
     await page.clock.install();
     const name = page.getByLabel("Name", { exact: true });
     const original = await name.inputValue();
-    // Exercise a real save without changing the seeded profile.
-    await name.fill("");
-    await name.fill(original);
+    const sql = postgres(process.env.DATABASE_URL);
+    try {
+    // A reverted value is no longer dirty; exercise a real change and restore the disposable profile below.
+    await name.fill(`${original} (capture)`);
     await click(page, "Save changes");
     const region = page.getByRole("region", { name: "Status messages" });
     const dismiss = region.getByRole("button", { name: "Dismiss: Account updated", exact: true });
@@ -920,6 +1003,10 @@ for (const [prefix, extra] of [["", {}], ["dark-", { dark: true }]])
     await dismiss.focus();
     await page.clock.fastForward(6000);
     await expect(dismiss).toBeVisible();
+    } finally {
+      await sql`UPDATE users SET name=${original} WHERE email='alex@example.test'`;
+      await sql.end();
+    }
   }, extra);
 for (const [prefix, extra] of [["", {}], ["narrow-", { narrow: true }]]) {
   state(`${prefix}toast-danger`, service, async (page) => {
@@ -978,6 +1065,8 @@ state("notifications-open", "/dashboard", async (page) => {
   const markedRead = page.waitForResponse((response) => response.request().method() === "POST");
   await openNotifications(page);
   const menu = page.getByRole("menu", { name: "Notifications" });
+  await expect(menu.getByRole('menuitem', { name: 'View all deployments', exact: true })).toHaveCount(0);
+  await expect(menu.getByRole('link', { name: 'View all deployments', exact: true })).toHaveCount(0);
   await expect(menu.getByRole("menuitem").filter({ hasText: "Unread:" }).first()).toBeVisible();
   await expect(menu.getByRole("menuitem").filter({ hasText: "Failed" }).first()).toHaveAttribute("href", /\/projects\/[^/]+\/deployments\//);
   await markedRead;
@@ -998,17 +1087,18 @@ state("notifications-refresh-error", "/dashboard", async (page) => {
   await failed;
   await openNotifications(page);
   await expect(page.getByText("Couldn't refresh. Showing earlier results.", { exact: true })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Try again', exact: true })).toBeVisible();
 });
 state("narrow-new-service", `${project}/services`, (page) => click(page, "New service"), { narrow: true });
 state("narrow-invite-people", "/settings/members", (page) => click(page, "Invite people"), { narrow: true });
 state("service-deploy-confirmation", `${service}?action=deploy`, async (page) => {
   await expect(page.getByRole("alertdialog")).toBeVisible();
-  await expect(page.getByText("Deploy this service?", { exact: true })).toBeVisible();
+  await expect(page.getByText("Deploy Storefront?", { exact: true })).toBeVisible();
   await expect(page).toHaveURL((url) => !url.searchParams.has("action"));
   await click(page, "Cancel");
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
   await click(page, "Deploy");
-  await expect(page.getByRole("alertdialog")).toContainText("Deploy this service?");
+  await expect(page.getByRole("alertdialog")).toContainText("Deploy Storefront?");
 });
 
 // Only disposable local records are created. Revoke them even if a later wait
@@ -1044,9 +1134,14 @@ for (const kind of ["api-key", "invitation", "webhook"])
           await expect(page.getByText('Anyone with this link can join Acme Cloud as a member. It works once and expires in 7 days.', { exact: true })).toBeVisible();
         } else {
           await click(page, "New webhook");
+          await page.getByRole('dialog').locator('#wh-name').fill('Audit named webhook');
           await choose(page, "Service", "Storefront");
           await click(page, "Create webhook");
           await expect(page.getByRole("textbox", { name: "Token", exact: true })).toBeVisible();
+          const [hook] = await sql`SELECT id, name FROM webhook_endpoints WHERE name='Audit named webhook'`;
+          expect(hook.name).toBe('Audit named webhook');
+          const [audit] = await sql`SELECT details FROM audit_log WHERE resource_id=${hook.id} AND action='webhook.created'`;
+          expect(audit.details.name).toBe('Audit named webhook');
         }
       } finally {
         // Also scrub a partially completed success screen before Playwright's
@@ -1074,6 +1169,26 @@ for (const kind of ["api-key", "invitation", "webhook"])
       }
     },
   );
+
+state('configuration-save-and-deploy', `${service}/configuration`, async (page) => {
+  const sql = postgres(process.env.DATABASE_URL);
+  const [original] = await sql`SELECT sc.* FROM service_configs sc JOIN services s ON s.id=sc.service_id JOIN projects p ON p.id=s.project_id WHERE s.slug='storefront' AND p.slug='commerce'`;
+  try {
+    await page.getByLabel('CPU', { exact: true }).fill('0.75');
+    await click(page, 'Save and deploy…');
+    const dialog = page.getByRole('alertdialog');
+    await expect(dialog).toContainText('Deploy Storefront?');
+    await expect(dialog).toContainText('0.75 cores');
+    const [saved] = await sql`SELECT cpu FROM service_configs WHERE id=${original.id}`;
+    expect(saved.cpu).toBe(750);
+    await expect(page.getByRole('button', { name: 'Discard', exact: true })).toHaveCount(0);
+    await checkConfigDiff(dialog);
+  } finally {
+    const { id, ...values } = original;
+    await sql`UPDATE service_configs SET ${sql(values)} WHERE id=${id}`;
+    await sql.end();
+  }
+});
 
 test("every UI page route is represented", async () => {
   async function routes(dir, parts = []) {
@@ -1216,6 +1331,14 @@ test('mono URLs in Chrome and Linux WebKit at 100%', async ({ browser }) => {
           const values = await page.locator('.font-mono').evaluateAll((elements) => elements.map((element) => element instanceof HTMLInputElement ? element.value : element.textContent).filter((value) => /^https?:/.test(value ?? '')));
           if (route !== '/status') expect(values.length).toBeGreaterThan(0);
           for (const value of values) expect(value).not.toMatch(/https?:\s+\/\//);
+          for (const style of await page.locator('.font-mono, code, kbd, pre, samp').evaluateAll((elements) => elements.map((element) => {
+            const style = getComputedStyle(element);
+            return { ligatures: style.fontVariantLigatures, features: style.fontFeatureSettings };
+          }))) {
+            expect(style.ligatures).toBe('none');
+            expect(style.features).toMatch(/"liga"\s+0/);
+            expect(style.features).toMatch(/"calt"\s+0/);
+          }
           await mkdir(`${output}/mono`, { recursive: true });
           await page.screenshot({ path: `${output}/mono/${name}-${route.split('/').at(-1)}.png`, fullPage: true });
         }

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { actionErrorMessage } from '@/lib/action-error'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { updateServiceConfigOverridesAction } from '@/lib/actions/base-service-config'
 import { Panel, PanelHeader } from '@/components/ui/panel'
 import { Input } from '@/components/ui/input'
@@ -56,6 +56,8 @@ function unsavedSummary(fieldCount: number, variableCount: number) {
 
 export function ConfigurationForm({ serviceId, environmentId, config, limits, projectId, serviceName, sharedNames, secretLabels, canManage, mayBypassMultitenancy, environmentUpdatedAt }: ConfigurationFormProps) {
   const router = useRouter()
+  const pathname = usePathname()
+  const deployAfterSave = useRef(false)
   const { toast } = useFeedback()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -71,6 +73,7 @@ export function ConfigurationForm({ serviceId, environmentId, config, limits, pr
   const initialAccess = config?.apiAccessScope && config.apiAccessLevel ? `${config.apiAccessScope}:${config.apiAccessLevel}` : 'none'
   const [runtime, setRuntime] = useState(initialRuntime)
   const [apiAccess, setApiAccess] = useState(initialAccess)
+  const [selectionBaseline, setSelectionBaseline] = useState({ healthType: config?.healthCheckType ?? '', strategy: config?.deploymentStrategy ?? 'rolling', runtime: initialRuntime, apiAccess: initialAccess })
   const formRef = useRef<HTMLFormElement>(null)
   useEffect(() => {
     if (window.location.hash === '#advanced') queueMicrotask(() => setAdvancedOpen(true))
@@ -104,14 +107,17 @@ export function ConfigurationForm({ serviceId, environmentId, config, limits, pr
       formData.set('secretBindings', JSON.stringify(variableService.secretBindings))
       await updateServiceConfigOverridesAction(serviceId, environmentId, formData)
       setVariableBaseline(variableService)
+      setSelectionBaseline({ healthType, strategy, runtime, apiAccess })
       for (const field of form.elements) if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) field.defaultValue = field.value
       setDirtyFields(new Set())
       toast({ tone: 'success', title: 'Service configuration saved' })
       router.refresh()
+      if (deployAfterSave.current) router.push(`${pathname}?action=deploy`)
     } catch (err) {
       setError(actionErrorMessage(err, 'Something went wrong.'))
     } finally {
       setSaving(false)
+      deployAfterSave.current = false
     }
   }
 
@@ -132,23 +138,23 @@ export function ConfigurationForm({ serviceId, environmentId, config, limits, pr
       </div>
 
       <Panel>
-        <PanelHeader title="General" hint="Image and deployment behavior" />
+        <PanelHeader title="General" hint="The image and deployment behavior for this service." />
         <div className="space-y-4 p-4">
           <div className="space-y-2">
             <Label htmlFor="image">Container image</Label>
-            <Input id="image" name="image" defaultValue={d.image} required mono />
+            <Input dirty={dirtyFields.has('image')} id="image" name="image" defaultValue={d.image} required mono />
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="replicas">Replicas</Label>
-              <Input id="replicas" name="replicas" type="number" defaultValue={d.replicas} required min={1} max={limits?.max_replicas_per_task_group} />
+              <Input dirty={dirtyFields.has('replicas')} id="replicas" name="replicas" type="number" defaultValue={d.replicas} required min={1} max={limits?.max_replicas_per_task_group} />
               {limits ? <p className="text-xs text-ink-muted">Up to {limits.max_replicas_per_task_group} replicas</p> : null}
             </div>
             <div className="space-y-2">
               <Label htmlFor="strategy">Deployment strategy</Label>
-              <Select name="strategy" value={strategy} onValueChange={(value) => { setStrategy(value as typeof strategy); setFieldDirty('strategy', value !== d.deploymentStrategy) }}>
-                <SelectTrigger id="strategy"><SelectValue /></SelectTrigger>
+              <Select name="strategy" value={strategy} onValueChange={(value) => { setStrategy(value as typeof strategy); setFieldDirty('strategy', value !== selectionBaseline.strategy) }}>
+                <SelectTrigger dirty={dirtyFields.has('strategy')} id="strategy"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="rolling">Rolling</SelectItem>
                   <SelectItem value="recreate">Recreate</SelectItem>
@@ -162,31 +168,31 @@ export function ConfigurationForm({ serviceId, environmentId, config, limits, pr
         </div>
       </Panel>
 
-      <Panel>
-        <PanelHeader title="Resources" hint="Compute reserved for each replica" />
+      <Panel id="resources" className="scroll-mt-20">
+        <PanelHeader title="Resources" hint="Compute reserved for each replica of this service." />
         <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="cpu">CPU</Label>
-            <div className="relative"><Input id="cpu" name="cpu" type="number" defaultValue={d.cpu} min={0.001} max={limits ? limits.max_task_cpu / 1000 : undefined} step={0.001} className="pr-14" required /><span className="pointer-events-none absolute right-3 top-2.5 text-xs text-ink-muted">cores</span></div>
+            <div className="relative"><Input dirty={dirtyFields.has('cpu')} id="cpu" name="cpu" type="number" defaultValue={d.cpu} min={0.001} max={limits ? limits.max_task_cpu / 1000 : undefined} step={0.001} className="pr-14" required /><span className="pointer-events-none absolute right-3 top-2.5 text-xs text-ink-muted">cores</span></div>
             {limits ? <p className="text-xs text-ink-muted">Up to {limits.max_task_cpu / 1000} cores per replica</p> : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="memory">Memory</Label>
-            <div className="relative"><Input id="memory" name="memory" type="number" defaultValue={d.memory} min={1} max={limits ? Math.floor(limits.max_task_memory / 1048576) : undefined} step={1} className="pr-10" required /><span className="pointer-events-none absolute right-3 top-2.5 text-xs text-ink-muted">MB</span></div>
+            <div className="relative"><Input dirty={dirtyFields.has('memory')} id="memory" name="memory" type="number" defaultValue={d.memory} min={1} max={limits ? Math.floor(limits.max_task_memory / 1048576) : undefined} step={1} className="pr-10" required /><span className="pointer-events-none absolute right-3 top-2.5 text-xs text-ink-muted">MB</span></div>
             {limits ? <p className="text-xs text-ink-muted">Up to {formatMemory(limits.max_task_memory)} per replica</p> : null}
           </div>
         </div>
       </Panel>
 
       <Panel>
-        <PanelHeader title="Health checks" hint="Determine when a deployment is ready and healthy" />
+        <PanelHeader title="Health checks" hint="Checks that determine when a deployment is ready and healthy." />
         <div className="space-y-4 p-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
             <div className="space-y-2">
               <Label htmlFor="healthType">Type</Label>
               <input type="hidden" name="healthType" value={healthType} />
-              <Select value={healthType || 'none'} onValueChange={(value) => { const next = value === 'none' ? '' : value; setHealthType(next); setFieldDirty('healthType', next !== d.healthCheckType) }}>
-                <SelectTrigger id="healthType"><SelectValue /></SelectTrigger>
+              <Select value={healthType || 'none'} onValueChange={(value) => { const next = value === 'none' ? '' : value; setHealthType(next); setFieldDirty('healthType', next !== selectionBaseline.healthType) }}>
+                <SelectTrigger dirty={dirtyFields.has('healthType')} id="healthType"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">None</SelectItem>
                   <SelectItem value="http">HTTP</SelectItem>
@@ -198,19 +204,19 @@ export function ConfigurationForm({ serviceId, environmentId, config, limits, pr
             {healthType === 'script' && (
               <div className="space-y-2 sm:col-span-3">
                 <Label htmlFor="healthCommand">Command</Label>
-                <Input id="healthCommand" name="healthCommand" defaultValue={d.healthCheckCommand} required mono />
+                <Input dirty={dirtyFields.has('healthCommand')} id="healthCommand" name="healthCommand" defaultValue={d.healthCheckCommand} required mono />
               </div>
             )}
             {healthType === 'http' && (
               <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="healthPath">Path</Label>
-                <Input id="healthPath" name="healthPath" defaultValue={d.healthCheckPath} mono />
+                <Input dirty={dirtyFields.has('healthPath')} id="healthPath" name="healthPath" defaultValue={d.healthCheckPath} mono />
               </div>
             )}
             {(healthType === 'http' || healthType === 'tcp') && (
               <div className={`space-y-2 ${healthType === 'tcp' ? 'sm:col-span-3' : ''}`}>
                 <Label htmlFor="healthPort">Port</Label>
-                <Input id="healthPort" name="healthPort" type="number" min={1} max={65535} defaultValue={d.healthCheckPort} required />
+                <Input dirty={dirtyFields.has('healthPort')} id="healthPort" name="healthPort" type="number" min={1} max={65535} defaultValue={d.healthCheckPort} required />
               </div>
             )}
           </div>
@@ -221,15 +227,15 @@ export function ConfigurationForm({ serviceId, environmentId, config, limits, pr
       <VariablesSection projectId={projectId} environmentId={environmentId} sharedNames={sharedNames} services={[variableService]} secretLabels={secretLabels} canManage={canManage} serviceId={serviceId} updatedAt={environmentUpdatedAt} onServiceChange={setVariableService} />
 
       <section id="advanced" className="rounded-xl border border-line bg-surface">
-        <PanelHeader title="Advanced" hint="Runtime and workload API access" className={!advancedOpen ? 'border-b-0' : undefined} action={<Button type="button" variant="ghost" size="icon" aria-label="Toggle advanced configuration" aria-expanded={advancedOpen} aria-controls="advanced-content" onClick={() => setAdvancedOpen((open) => !open)}><ChevronDown className={`transition-transform ${advancedOpen ? 'rotate-180' : ''}`} aria-hidden="true" /></Button>} />
+        <PanelHeader title="Advanced" hint="Runtime isolation and workload API access for this service." className={!advancedOpen ? 'border-b-0' : undefined} action={<Button type="button" variant="ghost" size="icon" aria-label="Toggle advanced configuration" aria-expanded={advancedOpen} aria-controls="advanced-content" onClick={() => setAdvancedOpen((open) => !open)}><ChevronDown className={`transition-transform ${advancedOpen ? 'rotate-180' : ''}`} aria-hidden="true" /></Button>} />
         <div id="advanced-content" hidden={!advancedOpen} className={advancedOpen ? 'grid gap-5 p-4 md:grid-cols-2' : 'hidden'}>
-          <div className="space-y-2"><Label htmlFor="runtime">Isolation</Label><Select name="runtime" value={runtime} onValueChange={(value) => { setRuntime(value as 'runc' | 'runsc'); setFieldDirty('runtime', value !== initialRuntime) }}><SelectTrigger id="runtime"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="runc">None</SelectItem><SelectItem value="runsc">Sandboxed</SelectItem></SelectContent></Select><p className="text-xs text-ink-muted">Sandboxed workloads use stronger process isolation for the whole service.</p></div>
-          <div className="space-y-2"><Label htmlFor="apiAccess">Workload API access</Label><Select name="apiAccess" value={apiAccess} onValueChange={(value) => { setApiAccess(value); setFieldDirty('apiAccess', value !== initialAccess) }}><SelectTrigger id="apiAccess"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">None</SelectItem>{mayBypassMultitenancy ? <><SelectItem value="cluster:read">Cluster · read</SelectItem><SelectItem value="cluster:write">Cluster · write</SelectItem></> : null}</SelectContent></Select><p className="text-xs text-ink-muted">Cluster-wide API access can only be enabled by an instance admin.</p></div>
+          <div className="space-y-2"><Label htmlFor="runtime">Isolation</Label><Select name="runtime" value={runtime} onValueChange={(value) => { setRuntime(value as 'runc' | 'runsc'); setFieldDirty('runtime', value !== selectionBaseline.runtime) }}><SelectTrigger dirty={dirtyFields.has('runtime')} id="runtime"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="runc">None</SelectItem><SelectItem value="runsc">Sandboxed</SelectItem></SelectContent></Select><p className="text-xs text-ink-muted">Sandboxed workloads use stronger process isolation for the whole service.</p></div>
+          <div className="space-y-2"><Label htmlFor="apiAccess">Workload API access</Label><Select name="apiAccess" value={apiAccess} onValueChange={(value) => { setApiAccess(value); setFieldDirty('apiAccess', value !== selectionBaseline.apiAccess) }}><SelectTrigger dirty={dirtyFields.has('apiAccess')} id="apiAccess"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">None</SelectItem>{mayBypassMultitenancy ? <><SelectItem value="cluster:read">Cluster · read</SelectItem><SelectItem value="cluster:write">Cluster · write</SelectItem></> : null}</SelectContent></Select><p className="text-xs text-ink-muted">Cluster-wide API access can only be enabled by an instance admin.</p></div>
           {apiAccess !== 'none' ? <div className="md:col-span-2"><InlineNotice tone="warn" icon={<ShieldAlert className="mt-0.5 h-4 w-4" />}>This service has cluster-wide workload API access.</InlineNotice></div> : null}
         </div>
       </section>
 
-      <UnsavedChangesBar dirty={dirtyFields.size > 0 || changedVariableCount(variableService, variableBaseline) > 0} summary={unsavedSummary(dirtyFields.size, changedVariableCount(variableService, variableBaseline))} pending={saving} onSave={() => formRef.current?.requestSubmit()} onDiscard={() => { formRef.current?.reset(); setDirtyFields(new Set()); setError(null); setHealthType(config?.healthCheckType ?? ''); setStrategy(config?.deploymentStrategy ?? 'rolling'); setVariableService(variableBaseline); setRuntime(initialRuntime); setApiAccess(initialAccess) }} />
+      <UnsavedChangesBar dirty={dirtyFields.size > 0 || changedVariableCount(variableService, variableBaseline) > 0} summary={unsavedSummary(dirtyFields.size, changedVariableCount(variableService, variableBaseline))} pending={saving} onSave={() => { deployAfterSave.current = false; formRef.current?.requestSubmit() }} onSaveAndDeploy={() => { if (formRef.current?.reportValidity()) { deployAfterSave.current = true; formRef.current.requestSubmit() } }} onDiscard={() => { formRef.current?.reset(); setDirtyFields(new Set()); setError(null); setHealthType(selectionBaseline.healthType); setStrategy(selectionBaseline.strategy); setVariableService(variableBaseline); setRuntime(selectionBaseline.runtime); setApiAccess(selectionBaseline.apiAccess) }} />
     </form>
   )
 }

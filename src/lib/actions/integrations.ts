@@ -13,6 +13,8 @@ export type WebhookCreationState = { error?: string; token?: string }
 
 export async function createWebhookAction(projectId: string, _state: WebhookCreationState, formData: FormData): Promise<WebhookCreationState> {
   const ctx = await requireProject(projectId); if (ctx.projectRole !== 'admin') return { error: 'Insufficient permissions.' }
+  const name = String(formData.get('name') ?? '').trim() || null
+  if (name && name.length > 100) return { error: 'Webhook name must be at most 100 characters.' }
   const serviceId = String(formData.get('serviceId') ?? ''); const environmentId = String(formData.get('environmentId') ?? '')
   const [service] = await db.select().from(services).where(and(eq(services.id, serviceId), eq(services.projectId, projectId))).limit(1)
   const [environment] = await db.select().from(environments).where(and(eq(environments.id, environmentId), eq(environments.projectId, projectId))).limit(1)
@@ -20,8 +22,8 @@ export async function createWebhookAction(projectId: string, _state: WebhookCrea
   const tagFilter = String(formData.get('tagFilter') ?? '').trim() || null
   if (tagFilter) { try { compileTagFilter(tagFilter) } catch { return { error: 'Tag filter must be an RE2-compatible expression of at most 512 characters (no lookaround or backreferences).' } } }
   const token = randomBytes(32).toString('base64url'); const tokenHash = createHash('sha256').update(token).digest('hex')
-  const [hook] = await db.insert(webhookEndpoints).values({ serviceId, environmentId, tokenHash, tokenPrefix: token.slice(0, 8), signatureSecretHash: tokenHash, provider: String(formData.get('provider') ?? 'generic') as 'generic' | 'docker_hub' | 'ghcr', deployMode: String(formData.get('deployMode') ?? 'any_push') as 'any_push' | 'tag' | 'digest', tagFilter }).returning()
-  await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'webhook.created', resourceType: 'webhook', resourceId: hook.id, details: { serviceId, environmentId, provider: hook.provider } })
+  const [hook] = await db.insert(webhookEndpoints).values({ name, serviceId, environmentId, tokenHash, tokenPrefix: token.slice(0, 8), signatureSecretHash: tokenHash, provider: String(formData.get('provider') ?? 'generic') as 'generic' | 'docker_hub' | 'ghcr', deployMode: String(formData.get('deployMode') ?? 'any_push') as 'any_push' | 'tag' | 'digest', tagFilter }).returning()
+  await recordAudit({ orgId: ctx.org.id, userId: ctx.user.id, action: 'webhook.created', resourceType: 'webhook', resourceId: hook.id, details: { name, serviceId, environmentId, provider: hook.provider } })
   revalidatePath(`/projects/${ctx.project.slug}/settings`); return { token }
 }
 

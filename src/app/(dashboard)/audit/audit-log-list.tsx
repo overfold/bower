@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { SearchInput } from '@/components/ui/search-input'
 import { Panel, PanelHeader } from '@/components/ui/panel'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Time } from '@/components/time'
+import { ActivityKeyLine } from '@/components/activity-key-line'
 import { cn } from '@/lib/utils'
 import { auditActionSentence, auditActorDisplay, auditResourceName, label } from '@/lib/labels'
 
@@ -96,7 +96,7 @@ export function AuditLogList({ entries, now }: { entries: AuditEntry[]; now: num
 
   return (
     <Panel>
-      <PanelHeader className="h-auto flex-col items-stretch py-3 sm:min-h-[52px] sm:flex-row sm:items-center sm:py-0" title={`${filtered.length} event${filtered.length === 1 ? '' : 's'}`} hint="Retained for 365 days" action={<div className="flex w-full flex-col gap-1 sm:w-auto sm:flex-row">
+      <PanelHeader className="h-auto flex-col items-stretch py-3 sm:min-h-[52px] sm:flex-row sm:items-center sm:py-0" title={`${filtered.length} event${filtered.length === 1 ? '' : 's'}`} hint="Events are retained for 365 days." action={<div className="flex w-full flex-col gap-1 sm:w-auto sm:flex-row">
         <SearchInput value={query} onChange={(event) => { setQuery(event.target.value); setPage(1) }} placeholder="Search" aria-label="Search audit log" />
         <AuditSelect label="actor" value={actor} setValue={setActor} options={actors} />
         <AuditSelect label="action" value={action} setValue={setAction} options={actions} />
@@ -122,9 +122,7 @@ export function AuditLogList({ entries, now }: { entries: AuditEntry[]; now: num
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium text-ink">{actorDisplay.name} {auditActionSentence(entry.action, auditResourceName(entry), entry.details)}</span>
-                <span className="mt-1 block truncate text-xs text-ink-muted">
-                  <span className="font-mono">{entry.action}</span> · <Time value={entry.createdAt} mode="auto" />
-                </span>
+                <ActivityKeyLine className="mt-1" action={entry.action} createdAt={entry.createdAt} />
               </span>
               <ChevronDown
                 className={cn(

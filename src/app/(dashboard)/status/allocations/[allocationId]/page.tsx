@@ -14,6 +14,8 @@ import { DeploymentPoller } from '@/components/deployment-poller'
 import { InlineNotice } from '@/components/ui/feedback'
 import { allocationFields, allocationNotice, lifecycleEventTitle, lifecycleEventTone } from '@/lib/allocation-lifecycle'
 import type { TrellisAllocation, TrellisEvent } from '@/types/trellis'
+import { EmptyState } from '@/components/ui/empty-state'
+import { History } from 'lucide-react'
 
 export default async function SystemAllocationPage({ params }: { params: Promise<{ allocationId: string }> }) {
   const user = await getCurrentUser()
@@ -53,7 +55,7 @@ export default async function SystemAllocationPage({ params }: { params: Promise
     />
     {notice ? <InlineNotice tone={notice.tone}><p className="font-medium">{notice.title}</p><p className="mt-0.5 break-words">{notice.text}</p></InlineNotice> : null}
     <Panel>
-      <PanelHeader title="Allocation details" />
+      <PanelHeader title="Allocation details" hint="Where this allocation runs and how it was created." />
       <dl className="grid gap-x-8 p-4 sm:grid-cols-2 lg:grid-cols-4">
         <KeyValue label="Node" mono><NodeLink id={allocation.node_id} /></KeyValue>
         <KeyValue label="Group" mono>{allocation.group || '—'}</KeyValue>
@@ -70,8 +72,8 @@ export default async function SystemAllocationPage({ params }: { params: Promise
       </div> : null}
     </Panel>
     <Panel>
-      <PanelHeader title="Lifecycle" />
-      {events.status === 'rejected' ? <TrellisReadError title="Lifecycle events unavailable" message={trellisReadError(events.reason)} /> : history.length === 0 ? <p className="p-4 text-sm text-ink-muted">No lifecycle events have been recorded.</p> : <Timeline items={history.map((event, index) => ({ id: `${event.at}-${event.phase}-${index}`, title: lifecycleEventTitle(event, allocation.node_id), titleTooltip: event.reason || event.phase, description: event.message || 'Lifecycle transition', time: <Time value={event.at} mode="absolute" />, tone: lifecycleEventTone(event, index === history.length - 1) }))} />}
+      <PanelHeader title="Lifecycle" hint="State transitions recorded for this allocation, in order." />
+      {events.status === 'rejected' ? <TrellisReadError title="Lifecycle events unavailable" message={trellisReadError(events.reason)} /> : history.length === 0 ? <EmptyState icon={<History className="size-4" />} title="No lifecycle events" body="No lifecycle events have been recorded." /> : <Timeline items={history.map((event, index) => ({ id: `${event.at}-${event.phase}-${index}`, title: lifecycleEventTitle(event, allocation.node_id), titleTooltip: event.reason || event.phase, description: event.message || 'Lifecycle transition', time: <Time value={event.at} mode="absolute" />, tone: lifecycleEventTone(event, index === history.length - 1) }))} />}
     </Panel>
   </div>
 }

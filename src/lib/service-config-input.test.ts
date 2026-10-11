@@ -45,9 +45,9 @@ test('enforces Trellis cluster admission resource limits when they are readable'
     default_task_cpu: 100, default_task_memory: 128, max_task_cpu: 500, max_task_memory: 2_000_000,
   }
   assert.equal(parseServiceConfigInput(form({ replicas: '2', cpu: '500', memory: '1' }), limits).replicas, 2)
-  assert.throws(() => parseServiceConfigInput(form({ replicas: '3', cpu: '500', memory: '1' }), limits), /operator limit of 2/)
-  assert.throws(() => parseServiceConfigInput(form({ replicas: '2', cpu: '501', memory: '1' }), limits), /CPU.*500/)
-  assert.throws(() => parseServiceConfigInput(form({ replicas: '2', cpu: '500', memory: '2' }), limits), /Memory.*2000000/)
+  assert.throws(() => parseServiceConfigInput(form({ replicas: '3', cpu: '500', memory: '1' }), limits), /at most 2 replicas/)
+  assert.throws(() => parseServiceConfigInput(form({ replicas: '2', cpu: '501', memory: '1' }), limits), /CPU can be at most 0.5 cores per replica on this cluster/)
+  assert.throws(() => parseServiceConfigInput(form({ replicas: '2', cpu: '500', memory: '2' }), limits), /Memory can be at most .* per replica on this cluster/)
 })
 
 test('service configuration validates hidden workload JSON instead of asserting its types', () => {

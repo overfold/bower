@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { getServiceMetricsSeries } from '@/lib/actions/metrics-actions'
-import { Panel, SectionTitle } from '@/components/ui/panel'
+import { Panel, PanelHeader } from '@/components/ui/panel'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { TimeSeriesChart } from '@/components/ui/time-series-chart'
 import { formatCpu, formatMemory } from '@/lib/format'
@@ -68,28 +68,22 @@ export function MetricsHistoryCharts({ serviceId, environmentId, allocationId, r
   const common = { rangeLabel: words, markers, state: chartState, error: load.state === 'error' ? load.message : undefined, onRetry: retry } as const
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <SectionTitle>Usage history</SectionTitle>
-          <p className="mt-0.5 text-xs text-ink-muted">{allocationId ? 'This allocation' : "Summed across this environment's allocations"}, {words}.</p>
-        </div>
-        <Tabs value={range} onValueChange={selectRange}>
+    <Panel>
+      <PanelHeader title="Usage history" hint={`${allocationId ? 'This allocation' : "Summed across this environment's allocations"}, ${words}.`} action={<Tabs value={range} onValueChange={selectRange}>
           <TabsList aria-label="History range">
             {ranges.map((value) => <TabsTrigger key={value} value={value}>{RANGE_LABELS[value].tab}</TabsTrigger>)}
           </TabsList>
-        </Tabs>
-      </div>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Panel className="p-4">
+        </Tabs>} />
+      <div className="grid gap-4 p-4 lg:grid-cols-2">
+        <div>
           <p className="mb-2 text-xs font-medium text-ink-muted">CPU usage</p>
           <TimeSeriesChart {...common} label="CPU usage" points={(series?.points ?? []).map((point) => ({ t: point.t, value: point.cpu, peak: point.cpuPeak }))} formatValue={formatCpu} axisUnits={[1, 1000]} limit={cpuLimit || undefined} limitLabel="CPU limit" />
-        </Panel>
-        <Panel className="p-4">
+        </div>
+        <div>
           <p className="mb-2 text-xs font-medium text-ink-muted">Memory usage</p>
           <TimeSeriesChart {...common} label="Memory usage" points={(series?.points ?? []).map((point) => ({ t: point.t, value: point.memory, peak: point.memoryPeak }))} formatValue={formatMemory} axisUnits={[1048576, 1073741824]} limit={memoryLimit || undefined} limitLabel="Memory limit" />
-        </Panel>
+        </div>
       </div>
-    </div>
+    </Panel>
   )
 }

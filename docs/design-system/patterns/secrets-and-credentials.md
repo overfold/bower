@@ -25,10 +25,11 @@ API key                                      ← visible label
 - Copy is centered on the field. It shows "Copied" for 2s and a success toast. Failure shows a danger toast.
 - **Done is always enabled.** Closing isn't gated on copying (A3-F19).
 - Webhooks also show an example request. Invitations add a sentence describing the role, uses, and expiry (A5-L10).
+- New webhook includes **Name (optional)**, trimmed and limited to 100 characters on the server. Name is the first list column, falling back to "Webhook" plus token prefix when absent. URL and token remain one-time; audit details include the name, with existing authorization preserved (F3).
 
 ## Masked values
 
-Variables and secrets are masked everywhere, including the project matrix, service configuration, and deploy review (A3-L11).
+Variables and secrets are masked everywhere, including the project matrix, service configuration, Deploy/Rollback dialogs and deployment Changes (T9 option B). Readable values have per-row Reveal; write-only shared values stay locked. Non-variable configuration fields remain plain.
 
 | Value type | Display | Interaction |
 | --- | --- | --- |
@@ -36,12 +37,13 @@ Variables and secrets are masked everywhere, including the project matrix, servi
 | Write-only shared value | `••••••••` + lock icon | Not clickable. Tooltip "Write-only. Set {time}." The backend can't read it back, and the UI says so (A3 B15, A4-Q33) |
 | Inherited (service view) | A muted "—", Source "Shared" | — (A5-M19) |
 | Secret binding | Lock icon + the secret's **name** (`DATABASE_URL`) + its target | Hover shows the full binding (A3-S20) |
-| Deploy diff | One row per key with an Added, Changed, or Removed chip, key in mono, value masked | (A4-Q13) |
+| Change tables | Field · Before · After, missing value Not set; one row per variable key, masked values, Added/Removed chips with dots | Per-row Reveal where readable; write-only values locked (T9/M3/R2) |
 
 ## Entering secrets
 
 - A **masked multi-line** textarea with show and hide, and an **Upload file** option, for certificates and keys (A1 P2-13).
 - Bind a secret to a service in the dialog titled **"Bind secret"**, with the variable name prefilled from the key (A5-M14).
+- Bind secret hides Source and retains Scope/Service, Secret, Target, and path. New variable keeps Source (F4).
 - The scope option reads just the service name ("Storefront"). Secret keys appear in mono in selects.
 
 ## Never

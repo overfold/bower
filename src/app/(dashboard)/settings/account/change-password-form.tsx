@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { changePasswordAction } from '@/lib/actions/settings'
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -50,9 +50,7 @@ export function ChangePasswordForm() {
   return (
     <Card>
       <form onSubmit={handleSubmit} onInvalid={(event) => { event.preventDefault(); const field = event.target as HTMLInputElement; if (field.name === 'confirmPassword') setConfirmationError(field.validationMessage); else setFieldErrors((current) => ({ ...current, [field.name]: field.validationMessage })); field.form?.querySelector<HTMLElement>(':invalid')?.focus() }}>
-        <CardHeader>
-          <CardTitle>Change password</CardTitle>
-        </CardHeader>
+        <CardHeader title="Change password" hint="Use at least 8 characters." />
         <CardContent className="space-y-6">
           {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
           <div className="space-y-2">

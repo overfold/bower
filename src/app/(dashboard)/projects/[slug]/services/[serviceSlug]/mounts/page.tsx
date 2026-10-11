@@ -39,7 +39,7 @@ export default async function ServiceMountsPage({ params }: {
     <div className="space-y-6">
       <div><SectionTitle>Mounts</SectionTitle><p className="mt-1 max-w-3xl text-sm text-ink-muted">Attach project volumes to this service.</p></div>
       <Panel>
-        <PanelHeader title="Mounts" hint={`${attached.length} attached`} action={config ? <VolumeMountEditor serviceId={service.id} environmentId={environment.id} mounts={attached} volumes={available.map((volume) => volume.name)} /> : undefined} />
+        <PanelHeader title="Mounts" hint="Project volumes attached to this service and their mount paths." action={config ? <VolumeMountEditor serviceId={service.id} environmentId={environment.id} mounts={attached} volumes={available.map((volume) => volume.name)} /> : undefined} />
         {!config ? (
           <EmptyState icon={<HardDrive className="h-4 w-4" />} title="No configuration" body="This service has no configuration in the selected scope." />
         ) : attached.length === 0 ? (

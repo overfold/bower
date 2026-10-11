@@ -23,7 +23,7 @@ export default async function InstanceSettingsPage() {
       />
 
       <Card>
-        <CardHeader title={`${organizations.length} ${organizations.length === 1 ? 'organization' : 'organizations'}`} action={<CreateOrganizationDialog />} />
+        <CardHeader title={`${organizations.length} ${organizations.length === 1 ? 'organization' : 'organizations'}`} hint="Organizations hosted by this Bower instance." action={<CreateOrganizationDialog />} />
         <CardContent className="p-0">
           <Table>
             <TableHeader>

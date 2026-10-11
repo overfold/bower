@@ -17,6 +17,7 @@ import { Time } from '@/components/time'
 import { deploymentImageTag } from '@/lib/format'
 import { ConfigDiffPreview } from '@/components/config-diff-preview'
 import { DialogBody } from '@/components/ui/dialog'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface ServiceActionsProps {
   serviceId: string
@@ -24,11 +25,12 @@ interface ServiceActionsProps {
   runningImage: string | null
   environmentId: string
   hasDeployments?: boolean
+  capacityBlocked?: boolean
   changes: ServiceConfigDiff[]
   rollbackTargets: { id: string; image: string; createdAt: string; changes: ServiceConfigDiff[] }[]
 }
 
-export function ServiceActions({ serviceId, serviceName, runningImage, environmentId, hasDeployments, changes, rollbackTargets }: ServiceActionsProps) {
+export function ServiceActions({ serviceId, serviceName, runningImage, environmentId, hasDeployments, changes, rollbackTargets, capacityBlocked = false }: ServiceActionsProps) {
   const [deploying, startDeploy] = useTransition()
   const [restarting, startRestart] = useTransition()
   const [rollingBack, startRollback] = useTransition()
@@ -78,7 +80,7 @@ export function ServiceActions({ serviceId, serviceName, runningImage, environme
                 {runningImage ? <span className="mt-1 block">Running <span className="font-mono text-ink">{deploymentImageTag(runningImage)}</span></span> : null}
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <DialogBody className="space-y-4"><div className="space-y-2"><label className="text-sm font-medium text-ink" htmlFor="service-rollback-release">Release</label><Select value={rollbackTarget} onValueChange={setRollbackTarget}><SelectTrigger id="service-rollback-release" aria-label="Rollback release" className="font-mono"><SelectValue /></SelectTrigger><SelectContent>{rollbackTargets.map((target) => <SelectItem key={target.id} value={target.id}><span className="font-mono">{deploymentImageTag(target.image)}</span><span className="ml-2 font-sans text-xs text-ink-muted"><Time value={target.createdAt} /></span></SelectItem>)}</SelectContent></Select></div><ConfigDiffPreview changes={selectedRollback?.changes ?? []} afterLabel="Selected release" /></DialogBody>
+            <DialogBody className="space-y-4"><div className="space-y-2"><label className="text-sm font-medium text-ink" htmlFor="service-rollback-release">Release</label><Select value={rollbackTarget} onValueChange={setRollbackTarget}><SelectTrigger id="service-rollback-release" aria-label="Rollback release" className="font-mono"><SelectValue /></SelectTrigger><SelectContent>{rollbackTargets.map((target) => <SelectItem key={target.id} value={target.id}><span className="font-mono">{deploymentImageTag(target.image)}</span><span className="ml-2 font-sans text-xs text-ink-muted"><Time value={target.createdAt} /></span></SelectItem>)}</SelectContent></Select></div><ConfigDiffPreview changes={selectedRollback?.changes ?? []} /></DialogBody>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <Button variant="primary" loading={rollingBack} disabled={!rollbackTarget} onClick={() => startRollback(run(() => rollbackServiceAction(serviceId, environmentId, rollbackTarget), 'Rollback started', 'Rollback failed'))}>
@@ -88,16 +90,16 @@ export function ServiceActions({ serviceId, serviceName, runningImage, environme
           </AlertDialogContent>
         </AlertDialog>
       )}
-      <Button
+      <TooltipProvider><Tooltip><TooltipTrigger asChild><span tabIndex={capacityBlocked ? 0 : undefined} className="inline-flex"><Button
         variant="default"
         size="sm"
-        disabled={restarting}
+        disabled={restarting || capacityBlocked}
         aria-busy={restarting}
         onClick={() => startRestart(run(() => restartServiceAction(serviceId, environmentId), 'Service restart started', 'Restart failed'))}
       >
         <RefreshCw className={restarting ? 'animate-spin' : undefined} />
         Restart
-      </Button>
+      </Button></span></TooltipTrigger>{capacityBlocked ? <TooltipContent>Restarting won&apos;t help until there is room to place it.</TooltipContent> : null}</Tooltip></TooltipProvider>
       <Button
         variant={changes.length ? 'primary' : 'default'}
         size="sm"
@@ -110,8 +112,8 @@ export function ServiceActions({ serviceId, serviceName, runningImage, environme
       </Button>
       <AlertDialog open={confirmDeploy} onOpenChange={setConfirmDeploy}>
         <AlertDialogContent size="lg">
-          <AlertDialogHeader><AlertDialogTitle>Deploy this service?</AlertDialogTitle><AlertDialogDescription>{changes.length ? 'Review the saved changes that will be deployed.' : 'The saved configuration matches the currently running release.'}</AlertDialogDescription></AlertDialogHeader>
-          {changes.length ? <DialogBody><ConfigDiffPreview changes={changes} afterLabel="After deploy" /></DialogBody> : null}
+          <AlertDialogHeader><AlertDialogTitle>Deploy {serviceName}?</AlertDialogTitle><AlertDialogDescription>{changes.length ? 'Review the saved changes that will be deployed.' : 'The saved configuration matches the currently running release.'}</AlertDialogDescription></AlertDialogHeader>
+          {changes.length ? <DialogBody><ConfigDiffPreview changes={changes} /></DialogBody> : null}
           <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><Button variant="primary" loading={deploying} onClick={() => startDeploy(async () => { await run(() => deployServiceAction(serviceId, environmentId), 'Deployment started', 'Deploy failed')(); setConfirmDeploy(false) })}>Deploy</Button></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -8,7 +8,7 @@ Every page uses one of a few anatomies. Picking the right one is most of the lay
 Breadcrumbs (header bar)                       ← the way back; ends at the entity
 ┌─────────────────────────────────────────────────────────────────┐
 │ H1 Title  [Status chip] [Other chips]           [Secondary] [Primary] │ ← PageHeading
-│ Description (only if informative)                                │
+│ Description (retain existing page descriptions)                   │
 │ meta · meta · meta                                               │
 ├─────────────────────────────────────────────────────────────────┤
 │ Overview  Services (3)  Deployments  …                           │ ← page tabs (entities only)
@@ -16,6 +16,7 @@ Breadcrumbs (header bar)                       ← the way back; ends at the ent
 │ H2 = exact tab label                                             │ ← PageHeading as="h2"
 │ ┌ Card ───────────────────────────────────────────────────────┐ │
 │ │ Title / count                          [filters] [+ Action] │ │
+│ │ Description sentence.                                      │ │
 │ │ …                                                           │ │
 │ │ Showing 8 of 27                     View all deployments →  │ │
 │ └─────────────────────────────────────────────────────────────┘ │
@@ -25,7 +26,7 @@ Rules that apply to every page:
 
 1. **One H1** per page, sentence case, sans (even for identifiers).
 2. **The status chip comes right after the H1**, in the `status` slot. Never under the title, and never with a "Status:" label (A4-Q21).
-3. **Descriptions only where they inform**: permissions combining, storage being pinned to a node, domain verification. Drop descriptions that restate the title (A3-S21, A3-U04).
+3. **Every card header has a description sentence**, even when redundant (R1). Keep existing page descriptions; removing them was rejected (K3), as was removing repeated card subtitles (M5).
 4. **Actions sit top-right**, aligned with the top of the title, with at most one primary (A3 B40, B53).
 5. **No back links.** The breadcrumb is the way back (A1 P1-12).
 6. **Content order:** what needs attention, then the summary, then the details, then the history. The Danger zone always comes last.
@@ -35,7 +36,7 @@ Rules that apply to every page:
 Projects, Deployments, Audit log, and the Status sections.
 
 - `PageHeading` (title and description), then **one card** with a toolbar header: count, search, filters. Then the table, then pagination.
-- Projects is a table: Project, Health ("Healthy" or "1 of 3 failing"), Services, Routes, Last deploy, and a chevron. The search box appears only above 8 projects (A3-L06, L07, B35).
+- Projects is a table: Project, Health, Services, Routes, Last deploy, chevron. Search appears only above 8 projects, in the card header using SearchInput with placeholder and aria-label "Search"; keep count title ("9 projects") plus description (C15/R1).
 - An empty or filtered-empty list renders an `EmptyState` **inside** the card (see [Empty states](empty-loading-and-error-states.md#empty-states)).
 
 ## Entity pages
@@ -44,15 +45,15 @@ Projects, Deployments, Audit log, and the Status sections.
 
 - **Header:** title, a health chip ("1 of 3 failing" or "Healthy"), the description, then tabs. There is no meta row (A3-N18, U05).
 - **Tabs, in a fixed order:** Overview · Services · Deployments · Routes · Environment · Settings (A3-N08, N09). Services shows a count when greater than 0.
-- **Overview:** the Needs-attention table for this project, then a health strip with one clickable tile per service, then Recent deployments (`compact`) beside Routes (A3-L08). An empty project shows **one setup checklist card** instead: ① Create a service (primary), ② Deploy it, ③ Add a route. Later steps unlock in order and say why they are locked (A3-L09).
+- **Overview:** Needs attention, then the Service health card's compact table: Service (link) · Status · Ready ("2/2 ready") · Version (mono tag) · Last deploy (`Time`) · chevron. Use `ClickableTableRow`, opening the service (L6). Then Recent deployments beside Routes. An empty project shows **one setup checklist card**: ① Create a service (primary), ② Deploy it, ③ Create a route, with "New route" as the button (C20a). Later steps unlock in order and explain why.
 - **Settings:** one page with sections (General · Access · Integrations · Volumes · Danger zone), a sticky anchor `SubNav` on the left from `lg`, and the Danger zone **last** (A4-Q26, Q27). Old per-section URLs redirect to the anchors.
 
 ### Service
 
-- **Header:** the name (H1), the live status chip (interactive when failing), the "Undeployed changes" chip when relevant, then a meta row: image (mono, copyable), "2/2 ready", and the primary route hostname with an external-link icon (A2-C3, A3-F04).
+- **Header:** the name (H1), plain live status chip (L1), the "Undeployed changes" chip when relevant, then a meta row: image (mono, copyable), "2/2 ready", and the primary route hostname with an external-link icon.
 - **Actions:** Roll back… (default), Restart (default), Deploy (primary). Deploy is highlighted while there are undeployed changes.
 - **Tabs:** Overview · Configuration · Mounts · Deployments. Advanced was folded into Configuration as a collapsed section, and `/advanced` redirects to it (A4-Q30).
-- **Overview:** CPU and Memory usage tiles (usage against limit, with meters), then "Current allocations" (a card header with a count), then Recent deployments (`service-compact`, 5 rows, with a footer link). No log tail (A3-L20, A4-Q31).
+- **Overview:** CPU and Memory usage tiles, Usage history, Current allocations, and Recent deployments (`service-compact`, 5 rows). Usage history and Current allocations are cards with title and description; the 1h/6h/24h range control lives in Usage history's header action slot (L5/C14). Preview counts appear only in truncated footers (L10). No log tail.
 - The header and tabs live in the shared layout, so they persist while a tab loads (A2-H3).
 
 ### Allocation
@@ -63,6 +64,8 @@ It has its own header, not nested under the service header (A3-N12):
 - **Tabs (underline):** Logs · Details · Lifecycle (A3-N13, A4-Q24). Logs fill the viewport with a sticky toolbar: task select, Follow and Wrap switches, search with a match count, copy and download (A5-M18).
 - **Breadcrumb:** Projects › Project › Service › allocation. There is no "Allocations" crumb.
 - System allocations (for example `bower-proxy`) open a **read-only** allocation page (A5-M5).
+- **Details order:** Allocation details card, usage tiles, Usage history card with its range control in the header (L4/C14). Keep the tab name "Details". Revision has tooltip "The version of the service configuration this allocation runs." (C26); keep the other Trellis fields (K2).
+- Failure body notices share the service notice anatomy (L3). Terminal is disabled outside running; pending allocations offer Cancel, failed hide Stop, and stopping/stopped/lost retain disabled behavior (T4/T5).
 
 ### Node
 
@@ -74,14 +77,14 @@ It has its own header, not nested under the service header (A3-N12):
 
 - **Above the title:** the service as a link.
 - **Title:** the image reference in sans (`storefront:v2.4.1`), with a status chip. Meta: "Oct 2, 23:05 · Webhook" (A3-N15, B42).
-- **Failed:** a compact danger notice under the header with the failure message, the failing allocation's last log lines, and "Open allocation" (A3 B23, A4-Q45). The primary action is "Roll back to {last good}" (see [Deployments and recovery](deployments-and-recovery.md)).
+- **Failed:** a compact danger notice under the header with the failure message, the failing allocation's last log lines, and "View allocation" (C20c). The primary action is "Roll back to {last good}" (see [Deployments and recovery](deployments-and-recovery.md)). Keep the existing failed-deployment layout (L9).
 - **Superseded:** a neutral notice, "Superseded by v2.4.1 · succeeded 1h ago · View", and no primary action (A5-C3).
 - **Summary:** Image, Strategy, Duration, and Revision in a 3-column `KeyValue` grid, with the image spanning the row. **Events** use a `Timeline` with details collapsed.
 
 ## Tab sections
 
 - Each tab page starts with an **H2 that is exactly the tab label** ("Deployments", not "Deployment history"; "Mounts", not "Volume mounts") (A4-Q25).
-- If the tab holds a single list, the card header under the H2 shows only the **count and the action** ("2 routes", "+ New route") (A3 B53, A5-M1 / Q58).
+- If the tab holds a single list, keep the **count title and action** ("2 routes", "+ New route") and add a description sentence (R1; C13 rejected).
 - Long settings pages keep **both levels**: the section H2 and the card title (General › Project details) (A5 / Q59).
 
 A6 rejected an attempt to strip these headings further (A5-M1), so this structure stays.
@@ -89,12 +92,12 @@ A6 rejected an attempt to strip these headings further (A5-M1), so this structur
 ## Settings pages
 
 - Layout (`src/app/(dashboard)/settings/layout.tsx`): a **"Settings" H1** above a two-column grid, with the grouped `SubNav` (180px) on the left and content on the right (A2-C4, C5).
-- Groups and their order: **Personal** › Account · **Instance** › Organizations (instance admins only) · **Organization** › Organization, Members, Teams, Domains (A3-N06, A3 B27).
+- Groups and their order: **Personal** › Account · **Organization** › Organization, Members, Teams, Domains · **Instance** › Organizations (instance admins only) (N3).
 - Each page's section title (H2) is exactly its nav label, and so is its breadcrumb.
 - Settings › Organization combines General and the Trellis connection (`#connection`). `/settings/cluster` redirects there (A3-F11, A4-Q28).
 - Settings › Account holds Profile, Password (its own "Update password" button), API keys, and Appearance (theme select) (A3-F10, A4-Q38).
 - Pages and tables are full width. Individual fields are capped (see [Form widths](../foundations/spacing-and-layout.md#form-widths)).
-- Detail pages: **Team** (members table with Add member, a project access table, Rename in the header, Delete in the Danger zone) and **Member** (Details card, a Roles card with organization role and, for instance admins, instance role selects and one Save, then a Danger zone with "Remove from organization") (A2-C14, A3-F12, A5-M11).
+- Detail pages: **Team** (members table with Add member, project access table, Rename in the header, Delete in the Danger zone) and **Member** (Details, Roles with organization/instance roles as authorized and "Save changes", then Danger zone with "Remove from organization") (C20d/C21).
 
 ## Home
 

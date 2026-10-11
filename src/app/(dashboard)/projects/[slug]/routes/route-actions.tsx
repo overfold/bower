@@ -126,12 +126,13 @@ export function AddRouteDialog({
                     onChange={(event) => setPrefix(event.target.value)}
                     className="w-0 min-w-0 flex-1 rounded-none border-0 font-mono text-sm focus-visible:ring-0"
                     autoComplete="off"
-                    placeholder="prefix"
+                    aria-describedby="hostname-prefix-help"
                   /><span className="flex items-center border-l border-line pl-3 font-mono text-sm text-ink-muted">.</span><Select name="managedDomainId" value={domainId} onValueChange={setDomainId}>
                     <SelectTrigger aria-label="Managed domain" className="w-auto max-w-[60%] shrink-0 rounded-none border-0 pl-1 font-mono focus-visible:ring-0"><SelectValue /></SelectTrigger>
                     <SelectContent>{domains.map((domain) => <SelectItem key={domain.id} value={domain.id}>{domain.domain}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
+                <p id="hostname-prefix-help" className="text-xs text-ink-muted">Subdomain, for example <span className="font-mono">shop</span>.</p>
               </div>
 
               <input type="hidden" name="environmentId" value={environmentId} />

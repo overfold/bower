@@ -25,6 +25,18 @@ export function label(value: string): string {
   return statusLabel(value) ?? labels[value] ?? (value.charAt(0).toUpperCase() + value.slice(1).replace(/_/g, ' '))
 }
 
+/** Placement reason copy for the Status pending allocations table only. */
+export function pendingReasonLabel(value: string): string {
+  const reasons: Record<string, string> = {
+    insufficient_capacity: 'Insufficient capacity',
+    insufficient_cpu: 'Insufficient CPU',
+    insufficient_memory: 'Insufficient memory',
+    awaiting_placement: 'Awaiting placement',
+    no_matching_nodes: 'No matching nodes',
+  }
+  return reasons[value] ?? (value.charAt(0).toUpperCase() + value.slice(1).replaceAll('_', ' '))
+}
+
 export function auditResourceName(entry: { resourceName?: string; details: Record<string, unknown>; resourceType?: string }): string | undefined {
   if (entry.resourceName) return entry.resourceName
   for (const key of ['name', 'serviceName', 'environmentName', 'hostname', 'domain', 'teamName']) {

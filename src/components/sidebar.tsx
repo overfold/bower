@@ -98,7 +98,10 @@ export function SidebarContent({ user, onNavigate, projects = [], currentOrg }: 
 
       <nav aria-label="Main navigation" className="min-h-0 flex-1 overflow-y-auto px-2 pb-4 scroll-thin">
         {([['Workspace', navItems.slice(0, 3)], ['Platform', navItems.slice(3)] ] as const).map(([label, items]) => <div key={label} className="mb-4 space-y-0.5">
-          {label === 'Platform' && recentProjects.length ? <div className="mb-4 space-y-0.5"><p className="overline px-2.5 pb-1">Recent projects</p>{recentProjects.map((project) => <Link key={project.id} href={`/projects/${project.slug}`} onClick={onNavigate} className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-ink-soft hover:bg-sunken hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"><Folder className="h-4 w-4 shrink-0" aria-hidden="true" /><span className="min-w-0 truncate">{project.name}</span></Link>)}</div> : null}
+          {label === 'Platform' && recentProjects.length ? <div className="mb-4 space-y-0.5"><p className="overline px-2.5 pb-1">Recent projects</p>{recentProjects.map((project) => {
+            const current = isActive(pathname, `/projects/${project.slug}`)
+            return <Link key={project.id} href={`/projects/${project.slug}`} onClick={onNavigate} aria-current={current ? 'page' : undefined} className={cn('flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm hover:bg-sunken hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface', current ? 'font-semibold text-ink' : 'text-ink-soft')}><Folder className="h-4 w-4 shrink-0" aria-hidden="true" /><span className="min-w-0 truncate">{project.name}</span></Link>
+          })}</div> : null}
           <p className="overline px-2.5 pb-1">{label}</p>
           {items.map((item) => {
             const active = isActive(pathname, item.href)
@@ -107,7 +110,7 @@ export function SidebarContent({ user, onNavigate, projects = [], currentOrg }: 
                 key={item.href}
                 href={item.href}
                 onClick={onNavigate}
-                aria-current={active ? 'page' : undefined}
+                aria-current={active && !(item.href === '/projects' && pathname.startsWith('/projects/')) ? 'page' : undefined}
                 className={cn(
                   "flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
                   active

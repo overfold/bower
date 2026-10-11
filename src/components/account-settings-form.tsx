@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { UnsavedChangesBar } from '@/components/ui/unsaved-changes-bar'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -21,7 +21,9 @@ export function AccountSettingsForm({ user }: AccountSettingsFormProps) {
   const router = useRouter()
   const { toast } = useFeedback()
   const [loading, setLoading] = useState(false)
-  const [dirty, setDirty] = useState(false)
+  const [saved, setSaved] = useState({ name: user.name, avatarUrl: user.avatarUrl ?? '' })
+  const [draft, setDraft] = useState(saved)
+  const dirty = draft.name !== saved.name || draft.avatarUrl !== saved.avatarUrl
   const [error, setError] = useState<string | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
 
@@ -35,7 +37,7 @@ export function AccountSettingsForm({ user }: AccountSettingsFormProps) {
       if (result?.error) setError(result.error)
       else if (result?.success) {
         toast({ tone: 'success', title: 'Account updated' })
-        setDirty(false)
+        setSaved(draft)
         router.refresh()
       } else setError('Account settings could not be saved. Please try again.')
     } catch {
@@ -47,15 +49,13 @@ export function AccountSettingsForm({ user }: AccountSettingsFormProps) {
 
   return (
     <Card>
-      <form ref={formRef} onSubmit={handleSubmit} onInput={() => setDirty(true)}>
-        <CardHeader>
-          <CardTitle>Profile</CardTitle>
-        </CardHeader>
+      <form ref={formRef} onSubmit={handleSubmit}>
+        <CardHeader title="Profile" hint="How your name and avatar appear to others." />
         <CardContent className="space-y-6">
           {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
           <div className="max-w-xl space-y-2">
             <Label htmlFor="name">Name</Label>
-            <Input id="name" name="name" defaultValue={user.name} required />
+            <Input id="name" name="name" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} dirty={draft.name !== saved.name} required />
           </div>
           <div className="max-w-xl space-y-2">
             <Label htmlFor="email">Email</Label>
@@ -64,12 +64,12 @@ export function AccountSettingsForm({ user }: AccountSettingsFormProps) {
           </div>
           <div className="max-w-[720px] space-y-2">
             <Label htmlFor="avatarUrl" optional>Avatar URL</Label>
-            <Input id="avatarUrl" name="avatarUrl" defaultValue={user.avatarUrl ?? ''} mono />
+            <Input id="avatarUrl" name="avatarUrl" value={draft.avatarUrl} onChange={(event) => setDraft({ ...draft, avatarUrl: event.target.value })} dirty={draft.avatarUrl !== saved.avatarUrl} mono />
             <p className="text-xs text-ink-muted">Enter a public image URL, for example <span className="font-mono">https://example.com/avatar.png</span>.</p>
           </div>
         </CardContent>
       </form>
-      <UnsavedChangesBar dirty={dirty} pending={loading} onDiscard={() => { formRef.current?.reset(); setDirty(false); setError(null) }} onSave={() => formRef.current?.requestSubmit()} />
+      <UnsavedChangesBar dirty={dirty} pending={loading} onDiscard={() => { setDraft(saved); setError(null) }} onSave={() => formRef.current?.requestSubmit()} />
     </Card>
   )
 }

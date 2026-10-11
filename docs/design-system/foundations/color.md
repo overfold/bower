@@ -13,9 +13,8 @@ Source of truth: `src/app/globals.css`. Values are declared once on `:root` with
 | Ink (text) | `ink`, `ink-soft`, `ink-muted`, `ink-faint` | Text hierarchy. `ink-faint` is never text |
 | Brand | `brand-50` … `brand-900`, `brand-950`, `link` | Primary action, selection, links, focus |
 | Success | `ok-50`, `ok-200`, `ok-500` | Healthy, Succeeded, Active, Verified |
-| Warning | `warn-50`, `warn-200`, `warn-500` | Needs attention: Draining, Restart pending, the "last deploy failed" marker |
+| Warning | `warn-50`, `warn-200`, `warn-500` | Attention: Draining, Restart pending, Rolled back, the "last deploy failed" marker, edited-but-unsaved fields (G1/S2) |
 | Danger | `danger-50`, `danger-200`, `danger-500`, `danger-600` | Failed, Failing, errors, destructive actions |
-| Info | `info-50`, `info-200`, `info-500` | **Rolled back only** |
 
 ## Token reference
 
@@ -68,26 +67,24 @@ The light-mode primary `brand-500` gives 6.3:1 with white text, practically the 
 | `ok` | `#EDF8F1` / `#172B1F` | `#BADEC9` / `#366349` | `#166939` / `#79D29E` | — |
 | `warn` | `#FEF4E7` / `#2E2419` | `#F6D7AC` / `#8F693D` | `#B35309` / `#EC7F13` | — |
 | `danger` | `#FDEAE8` / `#2E1A19` | `#F5C3BD` / `#8F443D` | `#B42318` / `#EB7870` | `#901C14` / `#E6574C` |
-| `info` | `#F1EEFC` / `#231F33` | `#D5CBF6` / `#564785` | `#6A43C7` / `#8566CC` | — |
 
-Values are light / dark. In light mode, each 500 text on its 50 fill passes AA: ok 6.2, warn 4.6, danger 5.7, info 5.7. Each 500 on `surface` is between 5.0 and 6.7.
+Values are light / dark. In light mode, each 500 text on its 50 fill passes AA: ok 6.2, warn 4.6, danger 5.7. Each 500 on `surface` is between 5.0 and 6.7. The `info` family is retired, including its theme tokens and lint allow-list entries (M2).
 
 ## Tones
 
-`src/lib/tone.ts` defines the six tones that every chip, notice, toast, and banner uses. **Use a tone, not individual color classes.**
+`src/lib/tone.ts` defines the five tones that every chip, notice, toast, and banner uses. **Use a tone, not individual color classes.** `InlineNotice` defaults to `neutral` (M2).
 
 | Tone | Classes (`toneClasses`) | Dot | Means |
 | --- | --- | --- | --- |
 | `neutral` | `border-line bg-sunken text-ink-soft` | `bg-ink-faint` | In progress (with a spinner), stopped, completed, drained, unknown, static labels |
 | `brand` | `border-brand-100 bg-brand-50 text-brand-700` | `bg-brand-500` | Selection and brand emphasis. **Never a status** |
 | `success` | `border-ok-200 bg-ok-50 text-ok-500` | `bg-ok-500` | Healthy, Succeeded, Running, Active, Verified, Applied |
-| `warn` | `border-warn-200 bg-warn-50 text-warn-500` | `bg-warn-500` | Needs attention: Draining, Restart pending, Undeployed changes, a meter at 85% or more |
+| `warn` | `border-warn-200 bg-warn-50 text-warn-500` | `bg-warn-500` | Attention: Draining, Restart pending, Rolled back, Undeployed changes, a meter at 85% or more. Also marks edited-but-unsaved fields (S2) |
 | `danger` | `border-danger-200 bg-danger-50 text-danger-500` | `bg-danger-500` | Failed, Failing, Unhealthy, Lost, Error, a meter at 100% |
-| `info` | `border-info-200 bg-info-50 text-info-500` | `bg-info-500` | **Rolled back**, and nothing else |
 
 There are no aliases: notices, toasts, and banners take these names (`danger`, not `error`; `warn`, not `warning`), and TypeScript rejects anything else.
 
-Toasts sit on a neutral surface and show their tone on the icon only, through `toneIconClasses` (`text-ok-500`, `text-danger-500`, `text-warn-500`, `text-info-500`, `text-brand-500`, and `text-ink-muted` for `neutral`). The icon shape carries the tone as well, so it is never conveyed by color alone.
+Toasts sit on a neutral surface and show their tone on the icon only, through `toneIconClasses` (`text-ok-500`, `text-danger-500`, `text-warn-500`, `text-brand-500`, and `text-ink-muted` for `neutral`). The icon shape carries the tone as well, so it is never conveyed by color alone. Timeline and status dots share `toneDotClasses`; no local maps or `warning` alias (M1). Chip dots inherit `currentColor` (R2).
 
 ## Overlays, transparency, and special values
 
@@ -113,7 +110,7 @@ Don't use `black` and other generic keywords for new UI. Two dismiss buttons sti
 
 **Don't**
 - Use brand teal to mean healthy or success. Green (`ok`) means that.
-- Use `info` (purple) for anything except "Rolled back": not for in-progress, system activity, or the "allocated" bar.
+- Use the retired `info` tone or utilities. Rolled back is `warn`; ordinary informational notices are `neutral` (G1/M2).
 - Use `warn` for work in progress. Amber means someone should look.
 - Add `bg-[#…]`, `text-gray-500`, `bg-surface-raised`, or any other undeclared color. Lint fails.
 - Use `opacity-50` to show a disabled state. See [Buttons](../components/buttons.md#disabled).
@@ -123,7 +120,6 @@ Don't use `black` and other generic keywords for new UI. Two dismiss buttons sti
 Dark values are tuned for the dark surfaces: brand and status 500s become lighter, and 50 fills become dark tints. The dark theme is **not fully verified** (decision A4-Q38), and a few combinations are known to fail contrast:
 
 - White text on dark `brand-500` and `danger-500` buttons measures about 2.2:1 and 2.8:1.
-- The `info` chip text on its fill measures about 3.6:1.
 - Dark `ink-faint` (5.3:1) is almost the same as `ink-muted`, so it is not actually faint.
 
 These are tracked in [known issues](../records/known-issues.md#dark-theme). Fix them at the token level, not per page.

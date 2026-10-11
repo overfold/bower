@@ -14,9 +14,12 @@ Every text-like control (`Input`, `Textarea`, `SelectTrigger`) shares this contr
 | Shape | `rounded-lg` (8px), `border border-line-strong`, `bg-surface`, **no shadow** |
 | Text | `text-sm text-ink`. Placeholder `text-ink-muted` |
 | Focus | `border-brand-500` plus a `ring-[3px] ring-brand-100` halo |
+| Dirty | A value differing from its saved value uses a `warn-500` border and warn-50/warn-200 halo tokens, exposed by the shared control's dirty state (S2) |
 | Invalid (`aria-invalid="true"`) | `border-danger-500` plus `ring-danger-200`, **including while focused** |
 | Disabled | `border-line bg-sunken text-ink-muted` (no opacity) |
 | Read-only (for example a slug) | `readOnly` plus `className="bg-sunken"`, with `mono` if the value is copyable |
+
+State precedence is **invalid danger > normal brand focus > dirty warn** (S2). `Input`, `Textarea`, and `SelectTrigger` accept `dirty`, rendered as `data-dirty`; the shared rule uses `warn-500` and a 3px `warn-200` halo only outside invalid, focused, and disabled states. Draft forms compute dirtiness against saved values; discarding or saving clears it. Do not hard-code orange or override the shared controls locally.
 
 ## Field anatomy
 
@@ -101,6 +104,7 @@ For choosing many items from a long list (teams when inviting), use a multi-sele
 - Grows to fill the toolbar (`flex-1`), with a minimum width of 240px.
 - Clearing focuses the input and fires a normal `input` event, so controlled filters update.
 - Show filter controls only when the list is long enough to need them: Projects above 8 items, Members above 10 (A3-L07, A1 P1-11). Always show search on pages built for searching (Deployments, Audit log).
+- Projects uses placeholder and aria-label **Search**, inside the count-titled card header with its description (C15). Grant access and team-member searches also keep placeholder Search (C16).
 
 ## Date and time
 

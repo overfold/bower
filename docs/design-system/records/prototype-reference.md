@@ -20,7 +20,7 @@ Bower's visual language started from a **Magic Patterns prototype** (a Vite + Re
 | `brand-50…900` | `#EDF6F4` … `#052A26` (500 = `#0E6E62`) | `#EEF6F5` … `#052925` (500 = `#0E6C60`) | Adopted, practically identical. Bower adds `brand-950` (`#0B1915`) for the auth background and `link` = `brand-700` |
 | `warn` 50/200/500 | `#FEF4E7` / `#F6D7AC` / `#B45309` | `#FEF4E7` / `#F6D7AC` / `#B35309` | Adopted |
 | `danger` 50/200/500 | `#FDECEA` / `#F5C4BE` / `#B42318` | `#FDEAE8` / `#F5C3BD` / `#B42318` | Adopted. Bower adds `danger-600` for the destructive hover |
-| `info` 50/200/500 | `#F1EEFC` / `#D6CCF6` / `#6941C6` | `#F1EEFC` / `#D5CBF6` / `#6A43C7` | Adopted. Bower narrows its meaning to Rolled back |
+| `info` 50/200/500 | `#F1EEFC` / `#D6CCF6` / `#6941C6` | Retired | Audit review (Oct 2026): M2/G1 removes info; Rolled back is warn |
 | Success | None (brand teal meant healthy) | `ok` 50/200/500 (green) | **Bower adds a separate status green** (A1 P1-02, A3-T04) |
 | Dark theme | None | `light-dark()` pairs for every token | Bower only |
 | Fonts | Inter, JetBrains Mono | Same, via `next/font` | Adopted |

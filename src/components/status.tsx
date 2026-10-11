@@ -3,28 +3,19 @@ import { cn } from '@/lib/utils'
 import { Chip } from '@/components/ui/badge'
 import { label } from '@/lib/labels'
 import { statusDefinition } from '@/lib/status'
-import type { Tone } from '@/lib/tone'
+import { toneDotClasses, type Tone } from '@/lib/tone'
 export type { Tone } from '@/lib/tone'
-
-const toneDot: Record<Tone, string> = {
-  brand: 'bg-brand-500',
-  success: 'bg-ok-500',
-  warn: 'bg-warn-500',
-  danger: 'bg-danger-500',
-  info: 'bg-info-500',
-  neutral: 'bg-ink-faint',
-}
 
 export function Dot({ tone = 'neutral', pulse }: { tone?: Tone; pulse?: boolean }) {
   return (
     <span className="relative inline-flex h-1.5 w-1.5 shrink-0">
       {pulse ? (
         <span
-          className={cn('absolute inset-0 animate-ping rounded-full opacity-60', toneDot[tone])}
+          className={cn('absolute inset-0 animate-ping rounded-full opacity-60', toneDotClasses[tone])}
           style={{ animationDuration: '1.6s' }}
         />
       ) : null}
-      <span className={cn('relative h-1.5 w-1.5 rounded-full', toneDot[tone])} />
+      <span className={cn('relative h-1.5 w-1.5 rounded-full', toneDotClasses[tone])} />
     </span>
   )
 }
@@ -38,7 +29,7 @@ export function StatusDot({ status, className }: { status: string; className?: s
 
   return (
     <Chip tone={tone} className={className}>
-      {inProgress ? <Loader2 className="size-3 animate-spin" aria-hidden /> : <Dot tone={tone} />}
+      {inProgress ? <Loader2 className="size-3 animate-spin" aria-hidden /> : null}
       <span>{definition?.label ?? label(status)}</span>
     </Chip>
   )
@@ -50,7 +41,7 @@ export function DeploymentStatus({ status, className }: { status: string; classN
   const inProgress = definition?.inProgress ?? false
   const displayStatus = inProgress ? 'In progress' : normalized === 'healthy' ? 'Succeeded' : definition?.label ?? label(normalized)
   const tone: Tone = definition?.tone ?? 'neutral'
-  return <Chip tone={tone} className={className}>{inProgress ? <Loader2 className="size-3 animate-spin" aria-hidden /> : <Dot tone={tone} />}<span>{displayStatus}</span></Chip>
+  return <Chip tone={tone} className={className}>{inProgress ? <Loader2 className="size-3 animate-spin" aria-hidden /> : null}<span>{displayStatus}</span></Chip>
 }
 
 export function AllocationStatus({ phase, health, className }: { phase: string; health?: string | null; className?: string }) {
@@ -84,7 +75,7 @@ export function Meter({ value, tone = 'brand', label }: { value: number; tone?: 
         aria-label={`${label ?? 'Usage'} ${value}%`}
       >
         <div
-          className={cn('h-full rounded-full transition-[width] duration-300 ease-move', toneDot[resolved])}
+          className={cn('h-full rounded-full transition-[width] duration-300 ease-move', toneDotClasses[resolved])}
           style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
         />
       </div>

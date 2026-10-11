@@ -10,6 +10,7 @@ export function deploymentMarkers(deployments: MetricsDeployment[]): Required<Ti
   return deployments.map((deployment) => {
     const status = statusDefinition(deployment.status)
     const tag = deploymentImageTag(deployment.image)
-    return { t: deployment.startedAt, label: status ? `Deployed ${tag} (${status.label})` : `Deployed ${tag}`, tone: status?.tone ?? 'neutral' }
+    const outcome = deployment.status === 'healthy' ? 'Succeeded' : status?.inProgress ? 'In progress' : status?.label
+    return { t: deployment.startedAt, label: outcome ? `Deployed ${tag} (${outcome})` : `Deployed ${tag}`, tone: status?.tone ?? 'neutral' }
   })
 }

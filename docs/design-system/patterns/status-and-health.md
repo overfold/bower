@@ -11,11 +11,10 @@ Status is the most important information in Bower. It also drifted the most acro
 | `success` (green) | Working as intended | Healthy, Succeeded, Running, Active, Verified, Applied |
 | `danger` (red) | Broken, needs a fix | Failing, Failed, Unhealthy, Lost, Error, Stale heartbeat |
 | `warn` (amber) | Someone should look | Draining, Restart pending, Rolled back (the rollout failed and Bower restored the previous release), Undeployed changes, Last deploy failed (marker) |
-| `info` (purple) | Neutral information in notices | Informational notices only; no status uses it |
 | `neutral` + spinner | Happening now | Deploying, In progress, Pending, Starting, Placed |
 | `neutral` | Settled, not a problem | Stopped, Completed, Drained, Not deployed, Unknown, Superseded |
 
-In-progress states are **neutral with a spinner**, never amber or purple (A2-B4, A3-T05). Amber is reserved for attention so that people don't learn to ignore it (A1 P1-04).
+In-progress states are **neutral with a spinner**, never amber. `info` is retired; ordinary notices default to neutral (M2). Amber also marks edited-but-unsaved fields (S2), not work in progress.
 
 ## Vocabulary by object
 
@@ -26,7 +25,7 @@ Derived from running allocations (`src/lib/service-health.ts`), **not** from the
 | Label | When |
 | --- | --- |
 | Healthy | All desired replicas are ready |
-| Failing | Some or all replicas aren't running or are unhealthy. Opens the cause popover (A3-S01) |
+| Failing | Some or all replicas aren't running or are unhealthy. Plain chip; one body notice explains the cause and recovery (L1) |
 | Deploying | A deployment is in progress (spinner) |
 | Restart pending | Trellis is waiting before restarting after repeated crashes. Plain-language name for "replacement backoff" (A3-S05) |
 | Stopped | Scaled to zero, or stopped on purpose |
@@ -37,6 +36,8 @@ When a service is live but its **newest deployment failed** (the previous versio
 "Undeployed changes" is a separate `warn` chip in the service header. It appears when the saved configuration differs from what is running, and the Deploy button is highlighted at the same time (A3-F04).
 
 ### Project: aggregate health
+
+Both the Projects table and project header use one shared calculation from **live service health**, never failed-deployment history or a minimum failing-count floor (T1).
 
 | Label | When |
 | --- | --- |
@@ -92,7 +93,7 @@ Node status is a **chip in its own column directly after the node name**, never 
 | *N* drained | neutral |
 | *N* unhealthy | danger |
 
-The cluster summary must reflect drains and failures, not just connectivity (A1 P0-10, A5-M6). The Nodes tile reads "3 · 1 drained".
+The cluster summary must reflect drains and failures, not just connectivity. The Nodes tile reads "3 nodes", with detail "2 healthy · 1 drained"; include non-zero draining/unhealthy counts (L11). Connection detail reads "Trellis {version} · checked {Time}" only when existing data supplies a version, otherwise "Checked {Time}" (K7).
 
 ### Other states
 
@@ -100,7 +101,7 @@ The cluster summary must reflect drains and failures, not just connectivity (A1 
 | --- | --- |
 | Domain | Verified (success) · Pending verification (warn). A verified row's DNS cell is empty (A4-Q41) |
 | Managed ingress | Applied (success) · Pending (neutral) (A4-Q52) |
-| Invitation | Active · Accepted (single-use accepted, or the use limit reached) · Expired · Revoked. The role is a chip and the note goes on a second line (A5-M20) |
+| Invitation | Active · Accepted (single-use accepted, or the use limit reached) · Expired · Revoked. The role is plain text and the note goes beneath (C3) |
 | Webhook, notification channel | Active |
 | Heartbeat | "Last heartbeat 12s ago". A **Stale** chip (danger) appears only when stale (A5-M5) |
 
@@ -111,14 +112,14 @@ The cluster summary must reflect drains and failures, not just connectivity (A1 
 | Surface | Shows |
 | --- | --- |
 | Deployments tables, deployment page, audit | Deployment result (Succeeded, Failed, …) |
-| Service header, services list, project tiles, node and allocation rows | Live health |
+| Service header, services list, project Service health table, node and allocation rows | Live health (L6) |
 | Needs attention | The symptom, with its own status |
 
 ## Needs attention
 
 `src/components/needs-attention.tsx`, with rules in `src/lib/needs-attention.ts`. It appears on Home and, scoped to the project, on the project Overview (A4-Q06).
 
-- **Table columns:** Status · What · Cause · Since · (action). Hidden entirely when there are no rows (A3-L02). "Since" is when the problem began (the earliest failure signal), not the latest transition.
+- **Table columns:** What · Status · Cause · Since · (action) (R5/C4). Hidden entirely when there are no rows. "Since" is when the problem began (the earliest failure signal), not the latest transition (G2).
 - **One row per service, one cause, one time, one action.** **What** is the service's display name, with the allocation ID beneath in small mono (A4-Q03). A live failure takes precedence over the latest deployment outcome. The cause is the most specific one (restart backoff, then the allocation message, then the placement reason). Rows sort by severity: failing services, failed deployments, automatic rollbacks, draining nodes.
 - **What qualifies:**
   - a failed or automatically rolled-back deployment, **only if it is the service's newest** (A4-Q01), using the failure event's message
@@ -127,7 +128,11 @@ The cluster summary must reflect drains and failures, not just connectivity (A1 
   - services with a restart pending
   - nodes that are draining **and still have allocations**
 - **One action per row**, as a small default button: View logs (View allocation when nothing has run, Open service when no allocation is known), View diagnostics, View progress.
-- When cluster data can't be read, say so ("Couldn't check the cluster"). Never "All clear" (A2-M1).
+- When cluster data can't be read, retain the page banner (Retry connection, Check connection settings) and unavailable stat tiles. Do not repeat it as an Unknown Needs-attention row or a Cluster data unavailable card on Home (L2). Never "All clear".
+
+## Pending allocations (Status)
+
+The description is a sentence with the waiting count, such as "Allocations Trellis hasn't placed yet · 1 waiting." Show the summary reason strip only for two or more distinct reasons. Reasons are plain sentence-case labels with the Trellis message beneath in muted text; the reason-label helper is scoped to this table, not a broader enum decision (L8; C2 undecided). Waiting is a duration ("10m"), not "10m ago".
 
 ## Counts must agree
 

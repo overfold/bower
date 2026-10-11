@@ -76,7 +76,7 @@ export function VolumeManager({ projectId, environmentId, volumes, usages, proje
 
   return (
     <Panel>
-      <PanelHeader title={`${volumes.length} ${volumes.length === 1 ? 'volume' : 'volumes'}`} action={canManage ? <Button size="sm" variant="primary" onClick={() => edit()}><Plus />New volume</Button> : undefined} />
+      <PanelHeader title={`${volumes.length} ${volumes.length === 1 ? 'volume' : 'volumes'}`} hint="Define persistent storage to mount in this project's services." action={canManage ? <Button size="sm" variant="primary" onClick={() => edit()}><Plus />New volume</Button> : undefined} />
       {volumes.length === 0 ? (
         <EmptyState
           icon={<HardDrive className="h-4 w-4" />}

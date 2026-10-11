@@ -9,8 +9,8 @@ export default function DashboardLoading() {
     <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
       <TableSkeleton columns={4} />
       <div className="min-w-0 space-y-5">
-        <Panel><PanelHeader><Skeleton className="h-4 w-24" /></PanelHeader>{[0, 1, 2].map((node) => <div key={node} className="flex justify-between gap-3 border-b border-line px-4 py-2.5 last:border-0"><Skeleton className="h-5 w-32" /><Skeleton className="h-5 w-16" /></div>)}</Panel>
-        <Panel><PanelHeader><Skeleton className="h-4 w-32" /></PanelHeader>{[0, 1, 2, 3, 4].map((item) => <div key={item} className="flex gap-2.5 border-b border-line px-4 py-3 last:border-0"><Skeleton className="h-6 w-6 shrink-0 rounded-md" /><div className="min-w-0 flex-1 space-y-2"><Skeleton className="h-4 w-3/4" /><Skeleton className="h-3 w-full" /></div></div>)}</Panel>
+        <Panel><PanelHeader title={<Skeleton className="h-4 w-24" />} hint={<Skeleton className="h-3 w-48" />} />{[0, 1, 2].map((node) => <div key={node} className="flex justify-between gap-3 border-b border-line px-4 py-2.5 last:border-0"><Skeleton className="h-5 w-32" /><Skeleton className="h-5 w-16" /></div>)}</Panel>
+        <Panel><PanelHeader title={<Skeleton className="h-4 w-32" />} hint={<Skeleton className="h-3 w-48" />} />{[0, 1, 2, 3, 4].map((item) => <div key={item} className="flex gap-2.5 border-b border-line px-4 py-3 last:border-0"><Skeleton className="h-6 w-6 shrink-0 rounded-md" /><div className="min-w-0 flex-1 space-y-2"><Skeleton className="h-4 w-3/4" /><Skeleton className="h-3 w-full" /></div></div>)}</Panel>
       </div>
     </div>
   </div>

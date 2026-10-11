@@ -35,7 +35,7 @@ Use `PageHeading` for every page H1 and for tab section H2s (`as="h2"`). Don't h
 ```
 
 - It renders a `<time dateTime>` element. Its `title` always shows the full local timestamp plus UTC ("Oct 2, 2026, 23:05 CEST · 21:05 UTC") (A3-T16).
-- `relative` (the default) is for lists, tables, and activity. `absolute` is for detail-page facts (A3-T15). `live` is for metric footers ("Updated 5s ago"). Future times read "in 7 days" (A5-M3).
+- `relative` is for lists, tables, and activity; `absolute` for detail facts; `live` for metric footers ("Sampled just now"). Live samples within 10 seconds on either side of the browser clock read just now (T2/C9). `countdown` ticks each second without sample clamping, including the final 10 seconds of a scheduled restart. Relative invitation-expiry dates retain readable future values such as "in 7 days".
 - It updates every minute (every second in `live` mode). The first render is server-safe (UTC absolute), so there is no hydration mismatch.
 - It **inherits** the surrounding size and color. Set color at the call site (usually `text-ink-muted`) (A3-T10).
 - Invalid or missing values render "—".

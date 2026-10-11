@@ -14,7 +14,7 @@ const groups = [
 export function SettingsNav({ showInstance }: { showInstance: boolean }) {
   const pathname = usePathname()
   const navGroups = showInstance
-    ? [groups[0], { label: 'Instance', links: [{ label: 'Organizations', href: '/settings/instance' }] }, groups[1]]
+    ? [...groups, { label: 'Instance', links: [{ label: 'Organizations', href: '/settings/instance' }] }]
     : groups
   return (
     <div className="space-y-5">

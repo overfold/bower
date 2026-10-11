@@ -57,7 +57,7 @@ export default async function AccessSection({ params }: { params: Promise<{ slug
     <div className="space-y-8">
       <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <SectionTitle>Project access</SectionTitle>
+          <SectionTitle>Access</SectionTitle>
           <p className="mt-1 text-sm text-ink-muted">
             Each person receives the combined permissions granted by their organization role, team memberships, and individual project access.
           </p>
@@ -66,7 +66,7 @@ export default async function AccessSection({ params }: { params: Promise<{ slug
 
       {!hasGrants ? (
         <Panel>
-          <PanelHeader title="0 with access" action={grantAction} />
+          <PanelHeader title="0 with access" hint="People and teams with permission to use this project." action={grantAction} />
           <EmptyState
             icon={<Shield className="h-4 w-4" />}
             title="No project access"
@@ -75,7 +75,7 @@ export default async function AccessSection({ params }: { params: Promise<{ slug
         </Panel>
       ) : (
         <Panel>
-          <PanelHeader title={`${entityCount} with access`} action={grantAction} />
+          <PanelHeader title={`${entityCount} with access`} hint="People and teams with permission to use this project." action={grantAction} />
           <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -83,7 +83,7 @@ export default async function AccessSection({ params }: { params: Promise<{ slug
                 <TableHead>Entity</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Source</TableHead>
-                <TableHead className="text-right">Time</TableHead>
+                <TableHead className="text-right">Granted</TableHead>
                 {isAdmin && <TableHead className="w-[56px]"><span className="sr-only">Actions</span></TableHead>}
                 <TableHead className="w-12"><span className="sr-only">View</span></TableHead>
               </TableRow>

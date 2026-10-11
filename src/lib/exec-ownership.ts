@@ -7,4 +7,5 @@ export function assertExecAllocation(
   const allocation = allocations.find((item) => item.id === id && item.namespace === namespace
     && (item.labels?.['bower/service'] === service || item.job === service || item.job === activeJob))
   if (!allocation) throw new Error('Allocation does not belong to this service environment.')
+  if (allocation.phase !== 'running') throw new Error('Terminal is available while the allocation is running.')
 }

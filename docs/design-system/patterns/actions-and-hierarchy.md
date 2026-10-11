@@ -51,6 +51,9 @@ Sources: A3-S11, A3-S12, A3 B52, and A6's review of A5-L3 ("+ Attach volume" kee
 - **`+` goes on create and attach triggers only.** It never goes on a submit button (A3-C05).
 - An ellipsis means a choice follows ("Roll back…").
 - Labels are sentence case and name the object when that is ambiguous ("Delete project", not "Delete").
+- **Restart now** only when a restart is already scheduled (Status Restart pending and the failure notice); **Restart** elsewhere, including the service header (C20f).
+- Allocation pending: **Cancel**, with confirmation "Cancel placement?", using the existing stop operation and audit recording. Failed: hide Stop. Running/placed/starting: **Stop**. Stopping/stopped/lost: retain disabled behavior (T5).
+- Domains use **Add domain** in the trigger, dialog, and submit, with **Adding…** while pending (C20b). Service Configuration alone offers primary **Save and deploy…** beside secondary **Save changes**, then deploy review after saving (F1).
 
 ## Disabled and unavailable actions
 

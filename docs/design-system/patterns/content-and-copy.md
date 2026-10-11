@@ -7,7 +7,7 @@ Bower speaks like a calm, competent colleague: **specific, plain, and brief**.
 - **Say what happened and what to do.** "Worker could not reach database. Restart pending · next attempt in 30s." Not "An error occurred."
 - **Name things.** "Delete Commerce Platform?", not "Delete this item?"
 - **Don't hype or cheer.** No exclamation marks, no "Oops", no emoji.
-- **Don't restate the title.** If a description repeats its heading, delete it (A3-S21).
+- **Describe every card.** Use a plain, sentence-case line ending with a period; a count alone is not a description. Even redundant card subtitles stay (R1; M5 rejected). Keep existing page descriptions (K3 rejected).
 - **Assume a technical reader, not a Trellis expert** (A2-A1). Cluster, node, ingress, allocation, and image are fine. Revision internals, incarnations, convergence, and "replacement backoff" are not.
 
 ## Capitalization and punctuation
@@ -41,7 +41,7 @@ Use these words, and only these words, for these concepts.
 | **Restart cooldown** | The Status page section explaining restart waits | — (A2-G2) |
 | **Can roll back** (row action) | A release that can still be restored | Retained Trellis versions (A2-G3) |
 | **Drained** | A draining node with nothing left on it | Draining (once finished) (A4-Q11) |
-| **Failing** | A service or allocation that isn't running | Down, Failed (for allocations), Degraded (A3-S01, A4-Q09) |
+| **Failing** | A service with fewer ready replicas than desired | Down, Degraded. Terminal allocations read **Failed**, not Failing (G2) |
 | **Succeeded** | A deployment that finished well | Healthy, Deployed (A3-S02) |
 | **Undeployed changes** | Saved configuration that isn't running yet | Pending changes, draft |
 | **Entity** | The first column of Project › Access (teams or people) | Who, Member (A2-G5, A3-S19). The count reads "4 with access" (A4-Q68) |
@@ -56,6 +56,8 @@ Trellis terms that must stay (Allocation, Group, Job, Current try, the `@/` volu
 
 - Field labels are nouns ("Container image", "Rate limit"). Add "(optional)" where it applies.
 - Hints explain format, limits, or consequences: "Up to 8 cores per replica", "Visitors enter this password on a Bower page.", "Replaces replicas one at a time. No downtime."
+- Register password hint: "Use at least 8 characters.", linked with `aria-describedby`; errors replace it (C18). Hostname hint: "Subdomain, for example `shop`", with the hostname preview retained (C16).
+- CPU validation uses cores: "CPU can be at most {formatCpu} per replica on this cluster." No millicores or "Trellis operator" wording (C8).
 - Never put rules in placeholders (A3-C17).
 - Explain the **chosen** option under a select, not every option in a menu (A3-C18).
 
@@ -78,7 +80,7 @@ Trellis terms that must stay (Allocation, Group, Job, Current try, the `@/` volu
 
 ## Pluralization and numbers
 
-- Always pluralize: "1 service", "2 services", "1 core", "0 deployments" (A1 P3-11, A3 B67).
+- Always pluralize with a shared helper: "1 service", "2 services", "1 core", "0 deployments". Never "1 deployments" (C24).
 - Count columns use bare numbers. Prose and hints use a number and a noun.
 - See [Data formatting](data-formatting.md) for units, ratios, and times.
 
@@ -96,3 +98,7 @@ Trellis terms that must stay (Allocation, Group, Job, Current try, the `@/` volu
 | Create without deploy | "The service is created without deploying. Review its configuration, then deploy when ready." |
 | Domain deletion | "This removes the domain from Bower. DNS records are left untouched." |
 | Workload API access | "Lets this service call the cluster API. Any access is cluster-wide, and only an instance admin can turn it on." (A2-M11) |
+| Domain trigger, dialog, submit | "Add domain"; pending "Adding…" (C20b) |
+| Deploy confirmation | "Deploy {service name}?" (C20e) |
+| Secret empty state | "Create a secret, then bind it to a service from the Variables table." (K5) |
+| First planning event | "Planned the deployment"; technical stored message belongs in Details, including older events (K1) |

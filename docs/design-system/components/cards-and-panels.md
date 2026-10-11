@@ -17,17 +17,16 @@ Sources: `src/components/ui/card.tsx`, `src/components/ui/panel.tsx`, `src/compo
 ```tsx
 <CardHeader
   title="Recent deployments"
-  hint="27 deployments"
+  hint="Deployments across the organization, newest first."
   action={<Button size="sm" variant="primary"><Plus />New service</Button>}
 />
 ```
 
 | Prop | Purpose |
 | --- | --- |
-| `title` | The card title, rendered as an `h2` by default (`as` changes the level). `text-sm font-semibold tracking-tight` |
-| `hint` | One line under the title, `text-xs text-ink-muted`. Usually a **count** ("27 deployments", "5 variables") or a short scope ("Image and deployment behavior") |
+| `title` | The card title, rendered as an `h2` by default (`as` changes the level). `text-tile font-semibold tracking-tight` (14px; R3/A2) |
+| `hint` | Required description sentence under every card header, `text-xs text-ink-muted`. Say what the card holds in sentence case, about one line, ending with a period. A count alone does not qualify (R1) |
 | `action` | Actions on the right: create and bulk actions, filters and search, a status chip. Stacks under the title below `sm` |
-| `children` | For custom header content when `title` isn't used |
 
 Layout: `min-h-[52px] px-4 py-3 border-b`.
 
@@ -35,18 +34,18 @@ Layout: `min-h-[52px] px-4 py-3 border-b`.
 
 Decided in A3-C03, A4-Q08, and A5-V1:
 
-- **Title, then count and status, then actions.** Example: "Cluster" with an "All healthy" chip.
+- **Title, description sentence, optional status, then actions.** Example: "Cluster" with an "All healthy" chip. Preview counts belong in the footer only (L10).
 - **Create and bulk actions:** "+ New webhook", "+ Attach volume", "Grant access", "Paste .env".
 - **Filter toolbars:** search plus filter selects, as on Deployments, Members, and Audit log (A5-M17).
 - **Not** "View all" links. Those go in the footer.
 
 ### Under a tab's H2
 
-When a tab page has an H2 (for example "Routes") and a single card under it, the card header shows only the **count and the action** ("2 routes" and "+ New route"), so the title isn't repeated (A3 B53, A3-N17). On pages with several cards, each card keeps its own title, for example Configuration with General, Resources, Health checks, Variables, and Advanced.
+When a tab page has an H2 (for example "Routes") and a single card under it, keep the **count title** and action ("2 routes" and "+ New route") and add a description sentence (R1; C13 rejected). On pages with several cards, each card keeps its own title and description, for example Configuration with General, Resources, Health checks, Variables, and Advanced. Do not remove repeating subtitles (M5 rejected).
 
 ## `CardTitle`, `CardDescription`
 
-For custom headers. `CardTitle` matches the `title` style. `CardDescription` (`text-xs text-ink-muted`) wraps to its own line.
+`CardTitle` matches the 14px title style. `CardDescription` (`text-xs text-ink-muted`) wraps to its own line. Use the `CardHeader` prop form to enforce the description; convert hand-written headers rather than bypassing it (R1).
 
 ## `CardContent`
 
@@ -100,12 +99,14 @@ Label            text-xs font-medium text-ink-muted
 
 - Tiles sit in one card as a `grid gap-px bg-line` strip with 1px dividers (Home and the Status page share them, A5-M4).
 - The meter goes **under** the value at full tile width (A3 B70).
-- While a value is loading, show a `Skeleton` bar, not "Sampling…" or a muted dash (A3-C21). A live tile's footer reads "Updated 5s ago" (A5-C2).
+- While a value is loading, keep the `Skeleton` bar (A3-C21). CPU awaiting its second sample has footer "Across N tasks · Sampling" ("task" at 1), not a sampled timestamp (T3). Once available, use "Across N tasks · Sampled …"; times under about 10s read "just now" (T2/C9).
+- Usage tiles emphasize "0.2 cores" at tile size with smaller muted " of 0.5 cores" (A4). Allocation meters use brand below 85%, warn from 85%, danger from 100% (A6).
+- Home deployments show a count plus smaller muted "deployments · 68% succeeded". Allocation subtitles wrap rather than truncate (L7).
 - Header-less tiles are fine (CPU usage and Memory usage on the service Overview). Lists below them get a real card header (A5-M1 / Q56–57).
 
 ## Danger zone card
 
-A card with `border-danger-200` whose title is "Danger zone" in `text-danger-500` (A3-S10, A5-M11). It is always the **last** section on the page (A4-Q26). It holds one row per destructive action: a sentence explaining the consequence, and a `danger` button. See [Destructive actions](../patterns/destructive-actions.md#danger-zone).
+A card with `border-danger-200` whose title is "Danger zone" in `text-danger-500`, plus a description sentence (R1). It is always the **last** section on the page. Each destructive row has consequence text on the left and a `danger` button on the right, wrapping on narrow screens; project, member, and team use the same layout (C21). See [Destructive actions](../patterns/destructive-actions.md#danger-zone).
 
 ## Don't
 

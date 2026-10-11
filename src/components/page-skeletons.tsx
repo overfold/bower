@@ -8,7 +8,7 @@ export function HeadingSkeleton() {
 export function TableSkeleton({ rows = 5, columns = 4 }: { rows?: number; columns?: number }) {
   return (
     <Panel>
-      <PanelHeader><Skeleton className="h-4 w-36" /></PanelHeader>
+      <PanelHeader title={<Skeleton className="h-4 w-36" />} hint={<Skeleton className="h-3 w-64 max-w-full" />} />
       <div className="flex gap-5 border-b border-line bg-sunken px-4 py-3">
         {Array.from({ length: columns }, (_, column) => <Skeleton key={column} className="h-3 min-w-0 flex-1" />)}
       </div>
@@ -35,7 +35,7 @@ export function FormSkeleton() {
 }
 
 function FormPanelSkeleton() {
-  return <Panel><PanelHeader><Skeleton className="h-4 w-32" /></PanelHeader><div className="space-y-5 p-4">{[0, 1, 2].map((field) => <div key={field} className="space-y-2"><Skeleton className="h-3 w-24" /><Skeleton className="h-9 w-full max-w-lg rounded-lg" /></div>)}</div><div className="flex justify-end border-t border-line bg-sunken px-4 py-3"><Skeleton className="h-9 w-28 rounded-lg" /></div></Panel>
+  return <Panel><PanelHeader title={<Skeleton className="h-4 w-32" />} hint={<Skeleton className="h-3 w-64 max-w-full" />} /><div className="space-y-5 p-4">{[0, 1, 2].map((field) => <div key={field} className="space-y-2"><Skeleton className="h-3 w-24" /><Skeleton className="h-9 w-full max-w-lg rounded-lg" /></div>)}</div><div className="flex justify-end border-t border-line bg-sunken px-4 py-3"><Skeleton className="h-9 w-28 rounded-lg" /></div></Panel>
 }
 
 export function SettingsSkeleton() {
@@ -47,7 +47,7 @@ export function TeamSkeleton() {
 }
 
 export function MemberSkeleton() {
-  return <div aria-label="Loading member" aria-busy="true" className="space-y-6"><div className="flex items-center gap-4"><Skeleton className="h-12 w-12 shrink-0 rounded-lg" /><div className="min-w-0"><HeadingSkeleton /></div></div><Panel><PanelHeader><Skeleton className="h-4 w-32" /></PanelHeader><div className="grid gap-5 p-4 sm:grid-cols-2 lg:grid-cols-4">{[0, 1, 2].map((field) => <div key={field} className="space-y-2"><Skeleton className="h-3 w-20" /><Skeleton className="h-4 w-28" /></div>)}</div></Panel><Panel><PanelHeader><Skeleton className="h-4 w-32" /></PanelHeader><div className="space-y-2 p-4"><Skeleton className="h-3 w-24" /><Skeleton className="h-9 w-40 rounded-lg" /></div></Panel><Panel><PanelHeader><Skeleton className="h-4 w-16" /></PanelHeader>{[0, 1].map((team) => <div key={team} className="border-b border-line px-4 py-3 last:border-0"><Skeleton className="h-4 w-40" /></div>)}</Panel></div>
+  return <div aria-label="Loading member" aria-busy="true" className="space-y-6"><div className="flex items-center gap-4"><Skeleton className="h-12 w-12 shrink-0 rounded-lg" /><div className="min-w-0"><HeadingSkeleton /></div></div><Panel><PanelHeader title={<Skeleton className="h-4 w-32" />} hint={<Skeleton className="h-3 w-64 max-w-full" />} /><div className="grid gap-5 p-4 sm:grid-cols-2 lg:grid-cols-4">{[0, 1, 2].map((field) => <div key={field} className="space-y-2"><Skeleton className="h-3 w-20" /><Skeleton className="h-4 w-28" /></div>)}</div></Panel><Panel><PanelHeader title={<Skeleton className="h-4 w-32" />} hint={<Skeleton className="h-3 w-64 max-w-full" />} /><div className="space-y-2 p-4"><Skeleton className="h-3 w-24" /><Skeleton className="h-9 w-40 rounded-lg" /></div></Panel><Panel><PanelHeader title={<Skeleton className="h-4 w-16" />} hint={<Skeleton className="h-3 w-64 max-w-full" />} />{[0, 1].map((team) => <div key={team} className="border-b border-line px-4 py-3 last:border-0"><Skeleton className="h-4 w-40" /></div>)}</Panel></div>
 }
 
 export function EnvironmentSkeleton() {
@@ -63,5 +63,5 @@ export function ServiceHeaderSkeleton() {
 }
 
 export function NodeSkeleton() {
-  return <div aria-label="Loading node" aria-busy="true" className="space-y-6"><HeadingSkeleton /><Panel><PanelHeader><Skeleton className="h-4 w-32" /></PanelHeader><div className="grid gap-5 p-4 sm:grid-cols-2 lg:grid-cols-4">{[0, 1, 2, 3, 4, 5, 6, 7].map((field) => <div key={field} className="space-y-2"><Skeleton className="h-3 w-24" /><Skeleton className="h-4 w-32" /></div>)}</div></Panel><Panel><PanelHeader><Skeleton className="h-4 w-24" /></PanelHeader><div className="grid gap-5 p-4 sm:grid-cols-2">{[0, 1].map((meter) => <div key={meter} className="space-y-3"><Skeleton className="h-4 w-48" /><Skeleton className="h-3" /><Skeleton className="h-3 w-40" /></div>)}</div></Panel><TableSkeleton columns={5} /></div>
+  return <div aria-label="Loading node" aria-busy="true" className="space-y-6"><HeadingSkeleton /><Panel><PanelHeader title={<Skeleton className="h-4 w-32" />} hint={<Skeleton className="h-3 w-64 max-w-full" />} /><div className="grid gap-5 p-4 sm:grid-cols-2 lg:grid-cols-4">{[0, 1, 2, 3, 4, 5, 6, 7].map((field) => <div key={field} className="space-y-2"><Skeleton className="h-3 w-24" /><Skeleton className="h-4 w-32" /></div>)}</div></Panel><Panel><PanelHeader title={<Skeleton className="h-4 w-24" />} hint={<Skeleton className="h-3 w-64 max-w-full" />} /><div className="grid gap-5 p-4 sm:grid-cols-2">{[0, 1].map((meter) => <div key={meter} className="space-y-3"><Skeleton className="h-4 w-48" /><Skeleton className="h-3" /><Skeleton className="h-3 w-40" /></div>)}</div></Panel><TableSkeleton columns={5} /></div>
 }

@@ -14,6 +14,7 @@ import { getProjectLiveServices } from '@/lib/service-health-query'
 import { Chip } from '@/components/ui/badge'
 import { Suspense } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
+import { projectHealth } from '@/lib/project-health'
 
 export default async function ProjectLayout({
   children,
@@ -50,7 +51,7 @@ export default async function ProjectLayout({
   const header = <>
       <PageHeading
         title={project.name}
-        status={services.length > 0 ? <Suspense fallback={<Skeleton className="h-5 w-20 rounded-full" />}><ProjectHealth orgId={ctx.org.id} projectId={project.id} environment={environment} serviceCount={services.length} /></Suspense> : undefined}
+        status={<Suspense fallback={<Skeleton className="h-5 w-20 rounded-full" />}><ProjectHealth orgId={ctx.org.id} projectId={project.id} environment={environment} /></Suspense>}
         description={project.description ?? undefined}
       />
       <div className="mt-6 border-b border-line">
@@ -61,13 +62,12 @@ export default async function ProjectLayout({
   return <ProjectShell header={header}>{children}</ProjectShell>
 }
 
-async function ProjectHealth({ orgId, projectId, environment, serviceCount }: {
+async function ProjectHealth({ orgId, projectId, environment }: {
   orgId: string
   projectId: string
   environment: Awaited<ReturnType<typeof getProjectEnvironment>>
-  serviceCount: number
 }) {
   const live = await getProjectLiveServices(orgId, projectId, environment)
-  const failing = live.services.filter(({ health }) => health !== 'healthy').length
-  return <Chip tone={failing ? 'danger' : 'success'}>{failing ? `${failing} of ${serviceCount} failing` : 'Healthy'}</Chip>
+  const health = projectHealth(live.services)
+  return <Chip tone={health.tone}>{health.label}</Chip>
 }

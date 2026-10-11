@@ -17,9 +17,9 @@ The scale is declared in `@theme` in `globals.css`. Always use these names.
 | --- | --- | --- | --- |
 | `text-2xs` | 11px | 16px | Chips, table column headers, tab count pills, secondary lines in table cells, avatar initials, timeline times |
 | `text-xs` | 12px | Tailwind default | Field hints and errors, card header hints, metadata, stat labels, footers ("Showing 8 of 27"), toolbar text |
-| `text-sm` | 13px | Tailwind default | **Body text.** Controls, buttons, table cells, card titles, labels, nav items, descriptions |
+| `text-sm` | 13px | Tailwind default | **Body text.** Controls, buttons, table cells, labels, nav items, descriptions |
 | `text-code` | 12.5px | — | Monospace values. Applied automatically by `.font-mono` |
-| `text-tile` | 14px | — | Titles of clickable tiles and list items (for example the project Overview service tiles) |
+| `text-tile` | 14px | — | Card titles (semibold; R3/A2), clickable tile and list item titles |
 | `text-md` | 15px | — | Dialog and alert-dialog titles |
 | `text-lg` | 18px | — | Section headings (H2): `PageHeading as="h2"`, `SectionTitle`. Wordmark text |
 | `text-xl` | 22px | — | Not-found and error-boundary titles |
@@ -52,7 +52,7 @@ Decided in A4-Q20 and enforced by the `PageHeading` contract test.
 | --- | --- | --- | --- |
 | H1, page | `text-2xl font-bold tracking-tightest` | `PageHeading` (default `as="h1"`) | One per page: the entity or page name |
 | H2, section | `text-lg font-semibold tracking-tight` | `PageHeading as="h2"` or `SectionTitle` | The tab section under page tabs, settings section titles, major page sections |
-| H3, card | `text-sm font-semibold tracking-tight` | `CardHeader title`, `CardTitle`, `PageHeading as="h3"` | Card and panel titles |
+| H3, card | `text-tile font-semibold tracking-tight` | `CardHeader title`, `CardTitle` | Card and panel titles (R3/A2) |
 | Item | `text-sm` or `text-tile`, `font-medium` | — | List, tile, and timeline item titles. Never larger than the card title above them |
 | Dialog | `text-md font-semibold tracking-tight` | `DialogTitle` and `AlertDialogTitle` | Dialog headers |
 
@@ -87,6 +87,8 @@ Use it for group labels such as the sidebar groups ("Workspace", "Recent project
 Mono: image references and tags, hostnames, URLs, environment-variable keys, IDs, allocation and node IDs, paths, IP addresses, ports in technical contexts, versions shown as data, action keys (`service.deploy`), slugs in "Type `commerce` to confirm", log lines, the terminal.
 
 Sans: names (project, service, team, and person display names), labels, counts, roles, statuses, titles, and headings, **even when they contain an identifier**.
+
+Monospace never uses ligatures (R4/A1). Apply `font-variant-ligatures: none` and `font-feature-settings: "liga" 0, "calt" 0` to `.font-mono, code, kbd, pre, samp`, including `Mono`. URLs such as `http://127.0.0.1:8128` and operators (`->`, `!=`, `==`) must retain their literal character shapes.
 
 Size: `.font-mono` forces `font-size: var(--text-code)` (12.5px) **everywhere**, so mono values have one size even inside 12px meta lines (A5 "Mono size" kept). Use `Mono` from `components/status.tsx` (mono + `ink-soft`), `ResourceId`, or `Input mono` rather than raw classes where possible.
 

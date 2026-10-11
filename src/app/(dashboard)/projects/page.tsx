@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { getUserOrganization, getProjectsForUser, getProjectSummaries, getProjectEnvironment } from '@/lib/queries'
 import { getProjectLiveServices } from '@/lib/service-health-query'
-import { worstServiceHealth } from '@/lib/service-health'
 import { PageHeading } from '@/components/page-heading'
 import { Panel } from '@/components/ui/panel'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -38,8 +37,7 @@ export default async function ProjectsPage() {
     updatedAt: p.updatedAt.toISOString(),
     serviceCount: summaryMap.get(p.id)?.serviceCount ?? 0,
     routeCount: summaryMap.get(p.id)?.routeCount ?? 0,
-    healthStatus: worstServiceHealth(liveByProject.get(p.id)?.services.map((row) => row.health) ?? []),
-    failedDeployments: liveByProject.get(p.id)?.services.filter((row) => row.latestDeployment?.status === 'failed').map((row) => ({ id: row.latestDeployment!.id, serviceName: row.service.name })) ?? [],
+    liveServices: liveByProject.get(p.id)?.services.map(({ health }) => ({ health })) ?? [],
     latestDeployment: summaryMap.get(p.id)?.latestDeployment
       ? { ...summaryMap.get(p.id)!.latestDeployment!, createdAt: summaryMap.get(p.id)!.latestDeployment!.createdAt.toISOString() }
       : null,

@@ -508,7 +508,7 @@ test('pending allocations count against runtime health rather than declaring all
     capacity: { cpuTotal: 1000, cpuAllocated: 500, memoryTotal: 1000, memoryAllocated: 500 },
   }))
   assert.match(html, /1\/2/)
-  assert.match(html, /1 blocked \/ awaiting placement/)
+  assert.match(html, /1 waiting for placement/)
   assert.match(html, /Capacity data unavailable/)
   assert.doesNotMatch(html, /All active allocations healthy|50%/)
 })

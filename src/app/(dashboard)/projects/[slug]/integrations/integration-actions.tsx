@@ -29,7 +29,12 @@ interface CreateWebhookDialogProps {
   environmentId: string
 }
 
-export function CreateWebhookDialog({ projectId, services, environmentId }: CreateWebhookDialogProps) {
+export function CreateWebhookDialog(props: CreateWebhookDialogProps) {
+  const [generation, setGeneration] = useState(0)
+  return <WebhookDialog key={generation} {...props} onClosed={() => setGeneration((current) => current + 1)} />
+}
+
+function WebhookDialog({ projectId, services, environmentId, onClosed }: CreateWebhookDialogProps & { onClosed: () => void }) {
   const [open, setOpen] = useState(false)
   const boundAction = createWebhookAction.bind(null, projectId)
   const [state, formAction, isPending] = useActionState<WebhookCreationState, FormData>(boundAction, {})
@@ -39,6 +44,7 @@ export function CreateWebhookDialog({ projectId, services, environmentId }: Crea
 
   function handleClose() {
     setOpen(false)
+    onClosed()
   }
 
   return (
@@ -73,6 +79,10 @@ export function CreateWebhookDialog({ projectId, services, environmentId }: Crea
             <DialogBody className="space-y-4">
               {state.error && !hideStaleError ? <InlineNotice tone="danger">{state.error}</InlineNotice> : null}
               <input type="hidden" name="environmentId" value={environmentId} />
+              <div className="space-y-2">
+                <Label htmlFor="wh-name" optional>Name</Label>
+                <Input id="wh-name" name="name" maxLength={100} />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="wh-service">Service</Label>
                 <Select name="serviceId">

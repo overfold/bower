@@ -18,6 +18,7 @@ export function AllocationLogs({ serviceId, allocationId, tasks }: { serviceId: 
   const [follow, setFollow] = useState(false)
   const [wrap, setWrap] = useState(false)
   const [query, setQuery] = useState('')
+  const search = useRef<HTMLInputElement>(null)
   const container = useRef<HTMLPreElement>(null)
   // Server render and first paint use UTC; the viewer's own time zone applies after mount, as in Time.
   const [localTime, setLocalTime] = useState(false)
@@ -60,7 +61,7 @@ export function AllocationLogs({ serviceId, allocationId, tasks }: { serviceId: 
     return fragments
   }
   return <Panel className="overflow-visible">
-    <PanelHeader title="Task logs" />
+    <PanelHeader title="Task logs" hint="Output from the tasks running in this allocation." />
     <div className="sticky top-14 z-10 flex flex-wrap items-center gap-2 border-b border-line bg-surface p-3">
       <label className="flex items-center gap-2 text-sm">Task <Select value={task} onValueChange={(value) => {
         const next = tasks.find((entry) => entry.name === value)
@@ -68,7 +69,7 @@ export function AllocationLogs({ serviceId, allocationId, tasks }: { serviceId: 
       }}><SelectTrigger aria-label="Log task" className="w-40"><SelectValue /></SelectTrigger><SelectContent>{tasks.map((entry) => <SelectItem key={entry.name} value={entry.name}>{entry.name}</SelectItem>)}</SelectContent></Select></label>
       <label className="flex items-center gap-2 text-sm"><Switch checked={follow} onCheckedChange={setFollow} />Follow</label>
       <label className="flex items-center gap-2 text-sm"><Switch checked={wrap} onCheckedChange={setWrap} />Wrap</label>
-      <SearchInput aria-label="Search logs" value={query} onChange={(event) => setQuery(event.target.value)} />
+      <SearchInput ref={search} aria-label="Search logs" value={query} onChange={(event) => setQuery(event.target.value)} />
       {query ? <span role="status" className="text-xs text-ink-muted">{matches} {matches === 1 ? 'match' : 'matches'}</span> : null}
       <Button size="sm" onClick={async () => {
         try { await navigator.clipboard.writeText(exported); toast({ tone: 'success', title: query ? 'Matching lines copied' : 'Logs copied' }) }
@@ -80,10 +81,10 @@ export function AllocationLogs({ serviceId, allocationId, tasks }: { serviceId: 
       }}>{query ? 'Download matching lines' : 'Download'}</Button>
     </div>
     {error ? <InlineNotice tone="danger" className="m-3">{error}</InlineNotice> : null}
-    <pre ref={container} className={`h-[calc(100dvh-12rem)] min-h-64 overflow-auto p-4 font-mono text-xs leading-relaxed text-ink-soft ${wrap ? 'whitespace-pre-wrap break-all' : ''}`}>{output ? lines.length ? lines.map((line, index) => {
+    {query && !lines.length ? <div className="flex min-h-64 flex-col items-center justify-center gap-3 p-4 text-sm text-ink-muted"><p>No lines match &quot;{query}&quot;</p><Button size="sm" onClick={() => { setQuery(''); search.current?.focus() }}>Clear search</Button></div> : <pre ref={container} className={`h-[calc(100dvh-12rem)] min-h-64 overflow-auto p-4 font-mono text-xs leading-relaxed text-ink-soft ${wrap ? 'whitespace-pre-wrap break-all' : ''}`}>{output ? lines.map((line, index) => {
       const timestamp = line.match(/^(\d{4}-\d{2}-\d{2}T\S+)\s+(.*)$/)
       const level = /\bERROR\b/i.test(line) ? 'text-danger-500' : /\bWARN(?:ING)?\b/i.test(line) ? 'text-warn-500' : ''
       return <span key={index} className={`block ${level}`}>{timestamp ? <><span className="text-ink-muted" title={timestampTitle(timestamp[1])}>{formatLogTimestamp(timestamp[1], localTime ? undefined : 'UTC') ?? highlight(timestamp[1])} </span>{highlight(timestamp[2])}</> : highlight(line || '\u00a0')}</span>
-    }) : 'No matching log lines.' : 'No output'}</pre>
+    }) : 'No output'}</pre>}
   </Panel>
 }

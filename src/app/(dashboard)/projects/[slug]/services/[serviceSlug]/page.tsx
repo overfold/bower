@@ -22,7 +22,7 @@ import { availableMetricsRanges, metricsRetentionHours } from '@/lib/metrics-ser
 import { DeploymentsTable } from '@/components/deployments-table'
 import { ClickableTableRow } from '@/components/clickable-table-row'
 import { ServiceFailureNotice } from '@/components/service-failure-notice'
-import { currentJobAllocations, getServiceHealth } from '@/lib/service-health'
+import { currentJobAllocations, getReadyCount, getServiceHealth } from '@/lib/service-health'
 import { allocationCause, isFailingAllocation, serviceFailure } from '@/lib/service-failure'
 import type { TrellisJob } from '@/types/trellis'
 
@@ -39,7 +39,8 @@ export default async function ServiceDetailPage({
   if (!orgCtx) redirect('/no-organization')
   const project = await getProjectBySlug(orgCtx.org.id, slug)
   if (!project) notFound()
-  if (!await getProjectRole(user.id, orgCtx.role, project.id)) notFound()
+  const projectRole = await getProjectRole(user.id, orgCtx.role, project.id)
+  if (!projectRole) notFound()
   const service = await getServiceBySlug(project.id, serviceSlug)
   if (!service) notFound()
 
@@ -93,24 +94,25 @@ export default async function ServiceDetailPage({
     <div className="space-y-6">
       <DeploymentPoller active={hasActiveDeployment} />
       <SectionTitle>Overview</SectionTitle>
-      {failure ? <ServiceFailureNotice failure={failure} logsHref={failureHref} /> : null}
+      {failure ? <ServiceFailureNotice failure={failure} logsHref={failureHref} serviceId={service.id} environmentId={environment.id} canDeploy={projectRole !== 'viewer'} ready={getReadyCount(currentAllocations)} replicas={selectedConfig?.config.replicas} cpu={selectedConfig?.config.cpu} configurationHref={`/projects/${slug}/services/${serviceSlug}/configuration`} capacityBlocked={currentAllocations.some((allocation) => allocation.phase === 'pending' && ['insufficient_capacity', 'insufficient_cpu'].includes(allocation.reason ?? ''))} /> : null}
 
       <AllocationMetrics serviceId={service.id} allocationIds={allocationRows.map((allocation) => allocation.id)} initialMetrics={metrics.flatMap((result) => result.status === 'fulfilled' ? result.value : [])} initialError={allocationError || (metrics.some((result) => result.status === 'rejected') ? 'Metrics unavailable.' : null)} cpuLimit={cpuLimit} memoryLimit={memoryLimit} />
 
       {selectedConfig ? <MetricsHistoryCharts serviceId={service.id} environmentId={environment.id} ranges={availableMetricsRanges(metricsRetentionHours())} cpuLimit={cpuLimit} memoryLimit={memoryLimit} /> : null}
 
       <div className="space-y-5">
-        <SectionTitle>Current allocations</SectionTitle>
-        {allocationError ? <Panel><TrellisReadError title="Allocations unavailable" message={allocationError} /></Panel> : allocationRows.length === 0 ? (
-          <Panel>
+        <Panel>
+        <PanelHeader title="Current allocations" hint="Runtime allocations for this service and their current state." />
+        {allocationError ? <TrellisReadError title="Allocations unavailable" message={allocationError} /> : allocationRows.length === 0 ? (
+          <>
             <EmptyState
               icon={<Boxes className="h-4 w-4" />}
               title="No current allocations"
               body="Deploy this service to see its runtime allocations and diagnostics."
             />
-          </Panel>
+          </>
         ) : (
-          <Panel>
+          <>
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -143,14 +145,15 @@ export default async function ServiceDetailPage({
                 </TableBody>
               </Table>
             </div>
-          </Panel>
+          </>
         )}
+        </Panel>
       </div>
 
       <div className="space-y-5">
         {selectedDeployments.length === 0 ? (
           <Panel>
-            <PanelHeader title="Recent deployments" hint="0 deployments" />
+            <PanelHeader title="Recent deployments" hint="Recent deployments for this service, newest first." />
             <EmptyState
               icon={<Rocket className="h-4 w-4" />}
               title="No deployments yet"
@@ -159,7 +162,7 @@ export default async function ServiceDetailPage({
           </Panel>
         ) : (
           <Panel>
-            <PanelHeader title="Recent deployments" hint={`${selectedDeployments.length} deployments`} />
+            <PanelHeader title="Recent deployments" hint="Recent deployments for this service, newest first." />
             <DeploymentsTable preset="service-compact" rows={recentDeployments} />
             <PanelFooter shown={Math.min(5, selectedDeployments.length)} total={selectedDeployments.length} href={`/projects/${slug}/services/${serviceSlug}/revisions`}>View all deployments</PanelFooter>
           </Panel>

@@ -30,12 +30,12 @@ test('unknown IDs are never prettified and settings labels match navigation', ()
   assert.equal(deriveBreadcrumbs('/projects/unknown', data).at(-1)?.label, 'unknown')
   assert.equal(deriveBreadcrumbs('/projects/commerce/services/unknown', data).at(-1)?.label, 'Service')
   assert.equal(deriveBreadcrumbs('/projects/commerce/deployments/unknown', data).at(-1)?.label, 'Deployment')
-  assert.deepEqual(deriveBreadcrumbs('/settings/instance', data).map((crumb) => crumb.label), ['Instance', 'Organizations'])
+  assert.deepEqual(deriveBreadcrumbs('/settings/instance', data).map((crumb) => crumb.label), ['Settings', 'Instance', 'Organizations'])
 })
 
 test('top-level pages leave the header to the organization switcher', () => {
   for (const page of ['dashboard', 'projects', 'deployments', 'status', 'audit']) {
     assert.deepEqual(deriveBreadcrumbs(`/${page}`, data), [])
   }
-  assert.deepEqual(deriveBreadcrumbs('/settings/instance/new', data).map((crumb) => crumb.label), ['Instance', 'Organizations'])
+  assert.deepEqual(deriveBreadcrumbs('/settings/instance/new', data).map((crumb) => crumb.label), ['Settings', 'Instance', 'Organizations'])
 })

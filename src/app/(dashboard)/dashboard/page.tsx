@@ -12,12 +12,12 @@ import {
 } from '@/lib/queries'
 import { getTrellisClient } from '@/lib/trellis-instance'
 import { trellisReadError } from '@/lib/trellis-runtime'
-import { TrellisReadError } from '@/components/trellis-read-error'
 import { NodeLink } from '@/components/node-link'
 import { parseNodeAllocatedResources } from '@/lib/trellis-resource-metrics'
 import { PageHeading } from '@/components/page-heading'
+import { ActivityKeyLine } from '@/components/activity-key-line'
 import { Panel, PanelHeader, PanelFooter } from '@/components/ui/panel'
-import { StatusDot, DeploymentStatus, Chip, Dot, Mono } from '@/components/status'
+import { StatusDot, DeploymentStatus, Chip, Mono } from '@/components/status'
 import { EmptyState } from '@/components/ui/empty-state'
 import { DeploymentPoller } from '@/components/deployment-poller'
 import { DashboardStatsBar } from '@/components/dashboard-stats-bar'
@@ -125,10 +125,7 @@ export default async function DashboardPage() {
   const drainedNodes = nodes.filter(isDrained).length
   const failureMessages = await getDeploymentFailureMessages(latestFailedDeployments(visibleDeployments, requestTime).map((row) => row.deployment.id))
   const attentionRows = needsAttentionRows({ deployments: visibleDeployments.map((row) => ({ ...row, failureMessage: failureMessages.get(row.deployment.id) })), allocations: currentAllocations, jobs, targets: visibleTargets, nodes, now: requestTime })
-  if (clusterError || allocationsError || jobsError) attentionRows.unshift({ id: 'cluster-error', status: 'unknown', serviceName: 'Cluster health', cause: 'Couldn’t check the cluster', href: '/status', action: 'Open status', severity: -1 })
   const recentRows = await withFailureMessages(recentDeployments)
-  // One notice per distinct cause, so a cluster outage reads as one problem, not three bare headings.
-  const unavailable = [...new Set([clusterError, allocationsError, metricsError].filter((message): message is string => Boolean(message)))].map((message) => ({ message, title: 'Cluster data unavailable' }))
   const resourceNames = new Map<string, string>(projectList.map((project) => [project.id, project.name]))
   for (const { service } of visibleServices) resourceNames.set(service.id, service.name)
   for (const row of visibleDeployments) resourceNames.set(row.deployment.id, row.serviceName)
@@ -158,15 +155,13 @@ export default async function DashboardPage() {
           status: row.deployment.status,
         }))}
       />
-      {unavailable.length > 0 && <Panel>
-        {unavailable.map(({ title, message }) => <TrellisReadError key={message} title={title} message={message} />)}
-      </Panel>}
 
       {/* Active deployments alert */}
       {hasActive && (
         <Panel className="overflow-hidden">
           <PanelHeader
             title={`In flight · ${activeDeployments.length} deployment${activeDeployments.length === 1 ? '' : 's'}`}
+            hint="Deployments that are still running across your projects."
           />
           <ul className="divide-y divide-line">
             {activeDeployments.map((row) => {
@@ -209,7 +204,7 @@ export default async function DashboardPage() {
           <Panel className="min-w-0 overflow-hidden">
             <PanelHeader
               title="Recent deployments"
-              hint={`${visibleDeployments.length} deployments`}
+              hint="Deployments across your projects, newest first."
             />
             {recentDeployments.length === 0 ? (
               <EmptyState
@@ -231,9 +226,9 @@ export default async function DashboardPage() {
             <Panel>
               <PanelHeader
                 title="Cluster"
+                hint="Nodes and their current health across the cluster."
                 action={
                   <Chip tone={nodes.some((node) => node.status === 'unhealthy') ? 'danger' : drainingNodes > 0 ? 'warn' : drainedNodes > 0 ? 'neutral' : 'success'}>
-                    <Dot tone={nodes.some((node) => node.status === 'unhealthy') ? 'danger' : drainingNodes > 0 ? 'warn' : drainedNodes > 0 ? 'neutral' : 'success'} />
                     {nodes.some((node) => node.status === 'unhealthy') ? `${nodes.filter((node) => node.status === 'unhealthy').length} unhealthy` : drainingNodes > 0 ? `${drainingNodes} draining` : drainedNodes > 0 ? `${drainedNodes} drained` : 'All healthy'}
                   </Chip>
                 }
@@ -258,10 +253,10 @@ export default async function DashboardPage() {
           <Panel>
             <PanelHeader
               title="Recent activity"
-              hint={`${homeActivity.length} events`}
+              hint="Recent changes made by people and automation."
             />
             {recentActivity.length === 0 ? (
-              <div className="px-4 py-6 text-center text-sm text-ink-muted">No activity yet.</div>
+              <EmptyState icon={<BotIcon className="size-4" />} title="No activity yet" body="Project and organization changes will appear here." />
             ) : (
               <ul className="divide-y divide-line">
                 {recentActivity.map((entry) => {
@@ -279,9 +274,7 @@ export default async function DashboardPage() {
                               {actor.name} {auditActionSentence(entry.entry.action, auditResourceName({ resourceName: resourceNames.get(entry.entry.resourceId), details: entry.entry.details as Record<string, unknown>, resourceType: entry.entry.resourceType }), entry.entry.details as Record<string, unknown>)}
                             </span>
                           </span>
-                          <p className="mt-0.5 truncate font-mono text-xs text-ink-muted">
-                            {entry.entry.action} · {formatRelativeTime(entry.entry.createdAt)}
-                          </p>
+                          <ActivityKeyLine className="mt-0.5" action={entry.entry.action} createdAt={entry.entry.createdAt} />
                         </div>
                       </div>
                     </li>

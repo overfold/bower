@@ -126,11 +126,11 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
       <Panel>
         <PanelHeader
           title="Managed domains"
-          hint="Domains verified for this organization and available to project routes"
+          hint="Domains verified for this organization and available to project routes."
           action={canManage ? (
             <Button variant="primary" size="sm" onClick={openAddDialog}>
               <Plus />
-              New domain
+              Add domain
             </Button>
           ) : undefined}
         />
@@ -143,7 +143,7 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
             action={canManage ? (
               <Button variant="primary" size="sm" onClick={openAddDialog}>
                 <Plus />
-                New domain
+                Add domain
               </Button>
             ) : undefined}
           />
@@ -301,7 +301,7 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
       <Dialog open={adding} onOpenChange={setAdding}>
         <DialogContent size="sm">
           <DialogHeader>
-            <DialogTitle>Create domain</DialogTitle>
+            <DialogTitle>Add domain</DialogTitle>
             <DialogDescription>
               Add a domain you control. Bower will give you a TXT record to verify ownership.
             </DialogDescription>
@@ -332,7 +332,7 @@ export function DomainManager({ domains, canManage }: { domains: DomainRow[]; ca
                 <Button type="button" disabled={busy === 'add'}>Cancel</Button>
               </DialogClose>
               <Button variant="primary" type="submit" disabled={busy === 'add'}>
-                {busy === 'add' ? 'Creating…' : 'Create domain'}
+                {busy === 'add' ? 'Adding…' : 'Add domain'}
               </Button>
             </DialogFooter>
           </form>

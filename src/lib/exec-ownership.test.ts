@@ -5,12 +5,15 @@ import { TrellisClient } from './trellis'
 import type { TrellisAllocation } from '@/types/trellis'
 
 test('namespace and ID remain mandatory even with matching labels and job names', () => {
-  const allocation = { id: 'alloc', namespace: 'prod', job: 'web-green', labels: { 'bower/service': 'web' } } as unknown as TrellisAllocation
+  const allocation = { id: 'alloc', namespace: 'prod', job: 'web-green', phase: 'running', labels: { 'bower/service': 'web' } } as unknown as TrellisAllocation
   assertExecAllocation([allocation], 'alloc', 'prod', 'web', 'web-green')
   assert.throws(() => assertExecAllocation([allocation], 'alloc', 'staging', 'web', 'web-green'))
   assert.throws(() => assertExecAllocation([allocation], 'other', 'prod', 'web', 'web-green'))
   assert.throws(() => assertExecAllocation([allocation], 'alloc', 'prod', 'worker', 'worker-green'))
   assertExecAllocation([{ ...allocation, labels: {} }], 'alloc', 'prod', 'web', 'web-green')
+  for (const phase of ['pending', 'placed', 'starting', 'failed', 'stopping', 'stopped', 'lost'] as const) {
+    assert.throws(() => assertExecAllocation([{ ...allocation, phase }], 'alloc', 'prod', 'web', 'web-green'), /while the allocation is running/)
+  }
 })
 
 test('exec descriptor uses namespaced escaped URL, argv query, upgrade and server bearer', () => {

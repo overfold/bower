@@ -38,10 +38,10 @@ export function ProjectTabs({ slug, tabs }: { slug: string; tabs: TabItem[] }) {
             {typeof tab.count === 'number' && tab.count > 0 && (
               <span
                 className={cn(
-                  'nums rounded-md px-1.5 py-px text-2xs font-semibold',
+                  'nums rounded-md border px-1.5 py-px text-2xs font-semibold',
                   isActive
-                    ? 'bg-brand-50 text-brand-700'
-                    : 'border border-line bg-surface text-ink-soft',
+                    ? 'border-brand-200 bg-brand-50 text-brand-700'
+                    : 'border-line bg-surface text-ink-soft',
                 )}
               >
                 {tab.count}

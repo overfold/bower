@@ -50,8 +50,8 @@ export function HeaderBar({ orgs, currentOrg, teams, searchData, user, projects,
   projects: { id: string; name: string; slug: string }[]
 }) {
   const pathname = usePathname()
-  const crumbs = deriveBreadcrumbs(pathname, searchData)
   const showOrganizationSwitcher = !pathname.startsWith('/settings/instance')
+  const crumbs = deriveBreadcrumbs(pathname, searchData)
   const [paletteOpen, setPaletteOpen] = useState(false)
 
   useEffect(() => {

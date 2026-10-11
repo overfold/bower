@@ -9,10 +9,11 @@ const SelectValue = SelectPrimitive.Value
 
 const SelectTrigger = React.forwardRef<
   React.ComponentRef<typeof SelectPrimitive.Trigger>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
->(({ className, children, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger> & { dirty?: boolean }
+>(({ className, children, dirty, ...props }, ref) => (
   <SelectPrimitive.Trigger
     ref={ref}
+    data-dirty={dirty || undefined}
     className={cn(
       "flex h-9 w-full items-center justify-between whitespace-nowrap rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink transition-[border-color,box-shadow] duration-150 ease-enter placeholder:text-ink-muted focus-visible:border-brand-500 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-100 disabled:cursor-not-allowed disabled:border-line disabled:bg-sunken disabled:text-ink-muted aria-[invalid=true]:border-danger-500 aria-[invalid=true]:ring-danger-200 aria-[invalid=true]:focus-visible:border-danger-500 aria-[invalid=true]:focus-visible:ring-danger-200 [&>span]:line-clamp-1",
       className,

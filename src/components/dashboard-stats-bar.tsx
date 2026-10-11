@@ -1,6 +1,6 @@
 import { Panel } from '@/components/ui/panel'
 import type { TrellisAllocation } from '@/types/trellis'
-import { formatCpu, formatMemory, formatPercent, formatRatio } from '@/lib/format'
+import { formatCpu, formatMemory, formatPercent, formatRatio, plural } from '@/lib/format'
 import { allocationHealthSummary } from '@/lib/service-health'
 
 type DeploymentStatus =
@@ -98,13 +98,13 @@ export function StatCell({
         {meter !== undefined ? (
           <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-line" aria-hidden="true">
             <div
-              className="h-full rounded-full bg-brand-500"
+              className={`h-full rounded-full ${meter >= 100 ? 'bg-danger-500' : meter >= 85 ? 'bg-warn-500' : 'bg-brand-500'}`}
               style={{ width: `${Math.min(100, Math.max(0, meter))}%` }}
             />
           </div>
         ) : null}
       </div>
-      <p className="mt-1.5 truncate text-xs text-ink-muted">{detail}</p>
+      <p className="mt-1.5 text-xs text-ink-muted">{detail}</p>
     </section>
   )
 }
@@ -138,7 +138,7 @@ export function DashboardStatsBar({
     : total === 0
       ? 'No active allocations'
       : pendingAllocations > 0
-        ? `${pendingAllocations} blocked / awaiting placement${unhealthyAllocations > 0 ? ` · ${unhealthyAllocations} unhealthy` : ''}`
+        ? `${pendingAllocations} waiting for placement${unhealthyAllocations > 0 ? ` · ${unhealthyAllocations} unhealthy` : ''}`
       : unhealthyAllocations > 0
         ? `${unhealthyAllocations} failing${transitioningAllocations > 0 ? ` · ${transitioningAllocations} transitioning` : ''}`
         : transitioningAllocations > 0
@@ -173,7 +173,7 @@ export function DashboardStatsBar({
               <div className="mt-2 flex items-baseline gap-2.5">
                 <p className="nums text-2xl font-semibold tracking-tight text-ink">{deploymentCount}</p>
                 <p className="text-xs text-ink-muted">
-                  {successRate === null ? 'No completed deployments' : `${formatPercent(successRate)} successful`}
+                  {successRate === null ? 'deployments · none completed' : `deployments · ${formatPercent(successRate)} succeeded`}
                 </p>
               </div>
             </div>
@@ -188,7 +188,7 @@ export function DashboardStatsBar({
           <div
             className="mt-3 flex h-12 items-end gap-1 border-b border-line"
             role="img"
-            aria-label={`Deployment activity over the last 14 days: ${deploymentCount} deployments${successRate === null ? '' : `, ${successRate}% successful over 14 days`}.`}
+            aria-label={`Deployment activity over the last 14 days: ${plural(deploymentCount, 'deployment')}${successRate === null ? '' : `, ${successRate}% successful over 14 days`}.`}
           >
             {series.map((day) => {
               const height = day.total === 0 ? 0 : Math.max(10, (day.total / maxDailyDeployments) * 100)

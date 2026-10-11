@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
@@ -20,5 +20,5 @@ export function AppearanceSettings() {
     const dark = value === 'dark' || (value === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
     document.documentElement.dataset.theme = dark ? 'dark' : 'light'
   }
-  return <Card><CardHeader><CardTitle>Appearance</CardTitle></CardHeader><CardContent className="space-y-2"><Label htmlFor="theme">Theme</Label><Select value={theme} onValueChange={update}><SelectTrigger id="theme"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="system">System</SelectItem><SelectItem value="light">Light</SelectItem><SelectItem value="dark">Dark</SelectItem></SelectContent></Select></CardContent></Card>
+  return <Card><CardHeader title="Appearance" hint="How Bower looks on this device." /><CardContent className="space-y-2"><Label htmlFor="theme">Theme</Label><Select value={theme} onValueChange={update}><SelectTrigger id="theme" className="max-w-xl"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="system">System</SelectItem><SelectItem value="light">Light</SelectItem><SelectItem value="dark">Dark</SelectItem></SelectContent></Select></CardContent></Card>
 }

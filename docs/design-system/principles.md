@@ -17,8 +17,8 @@ Bower is where people learn whether their software is running, so the UI must ne
 
 A red chip is only half an answer. Wherever something is wrong, show what is wrong, why, and the most likely next action.
 
-- Home and the project Overview open with **Needs attention**: one row per symptom, naming the service, the cause, the time, and one action.
-- A failing service's chip opens a popover with the failure count, the last message, the next restart, and "Restart now" or "View logs".
+- Home and the project Overview open with **Needs attention**: one row per service, naming the service, the cause, the Since time, and one action (G2).
+- A failing service has one body notice: cause title, failure count, next restart, ready replicas, and recovery actions. Its status chip is plain, with no popover (L1/L3).
 - A failed deployment leads with "Roll back to {last good}" when a good release exists.
 
 *Sources: A3-L02, A3-L19, A3-F21, A4-Q01, A4-Q02, A2-G7.*
@@ -27,8 +27,8 @@ A red chip is only half an answer. Wherever something is wrong, show what is wro
 
 Color, words, and component shapes each have one job. When the same signal means two things, people learn to ignore it.
 
-- Each tone has one meaning: green for success, red for failure, amber for "needs attention", purple for "Rolled back" only, neutral for everything else. Brand teal marks selection, links, and the primary action. It never means "healthy".
-- Each object has one status word per state, for example "Failing" for a service or allocation that isn't running.
+- Each tone has one meaning: green for success, red for failure, amber for attention (including Rolled back and edited-but-unsaved fields), neutral for ordinary information. The `info` tone is retired (G1/M2/S2). Brand teal marks selection, links, and the primary action. It never means "healthy".
+- Each object has one status word per state: "Failing" for a service, "Failed" for a terminal allocation (G2).
 - Chips are for state that changes. Static attributes are plain text.
 - Each verb has one meaning: Delete, Remove, and Revoke are never interchangeable.
 
@@ -40,7 +40,7 @@ Bower is a working tool that people look at for hours. The resting state is quie
 
 - Cards have a border and no shadow. Elevation is for things that float: menus, dialogs, toasts.
 - Each card has one primary action. Destructive red appears in rows only on hover, and solid red only at the final confirmation.
-- Descriptions appear only where they add information.
+- Every card header has a description sentence, even if redundant; retain existing page descriptions (R1; M5/K3 rejected).
 
 *Sources: A3-T08, A3-C02, A3-C04, A3-S21, A3-U04.*
 

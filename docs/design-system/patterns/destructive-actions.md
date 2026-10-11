@@ -54,6 +54,7 @@ Type commerce to confirm
 - A card with `border-danger-200` titled **"Danger zone"** in `text-danger-500` (A3-S10, A5-M11).
 - It is **last** on the page (A4-Q26).
 - Each row is a short sentence on the consequence, plus a `danger` button.
+- Standardize project/member/team rows: consequence text left, danger action right, wrapping on narrow screens. Every Danger zone header also has a description sentence (C21/R1).
 - Only destructive actions belong here. Rename and role changes go elsewhere (A3-F12).
 
 Used on: Project Settings (Delete project), Team (Delete team), Member (Remove from organization).

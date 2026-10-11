@@ -2,33 +2,208 @@
   "version": "7",
   "dialect": "postgresql",
   "entries": [
-    { "idx": 0, "version": "7", "when": 1788432203162, "tag": "0000_round_mojo", "breakpoints": true },
-    { "idx": 1, "version": "7", "when": 1788446492931, "tag": "0001_chemical_senator_kelly", "breakpoints": true },
-    { "idx": 2, "version": "7", "when": 1788549587848, "tag": "0002_odd_energizer", "breakpoints": true },
-    { "idx": 3, "version": "7", "when": 1788764834280, "tag": "0003_wild_taskmaster", "breakpoints": true },
-    { "idx": 4, "version": "7", "when": 1788825600000, "tag": "0004_instance_tokens", "breakpoints": true },
-    { "idx": 5, "version": "7", "when": 1789430400000, "tag": "0005_remove_service_types", "breakpoints": true },
-    { "idx": 6, "version": "7", "when": 1789430401000, "tag": "0006_organization_domains", "breakpoints": true },
-    { "idx": 7, "version": "7", "when": 1789430402000, "tag": "0008_service_advanced_settings", "breakpoints": true },
-    { "idx": 8, "version": "7", "when": 1789430403000, "tag": "0009_base_service_configs", "breakpoints": true },
-    { "idx": 9, "version": "7", "when": 1789593300000, "tag": "0010_project_user_access", "breakpoints": true },
-    { "idx": 10, "version": "7", "when": 1789681800000, "tag": "0011_remove_project_registry_url", "breakpoints": true },
-    { "idx": 11, "version": "7", "when": 1789682580000, "tag": "0012_remove_environment_locking", "breakpoints": true },
-    { "idx": 12, "version": "7", "when": 1789683300000, "tag": "0013_remove_environment_promotion_order", "breakpoints": true },
-    { "idx": 13, "version": "7", "when": 1789729500000, "tag": "0014_remove_shared_secret_groups", "breakpoints": true },
-    { "idx": 14, "version": "7", "when": 1789732800000, "tag": "0015_advanced_config_inheritance", "breakpoints": true },
-    { "idx": 15, "version": "7", "when": 1789740000000, "tag": "0016_route_protection", "breakpoints": true },
-    { "idx": 16, "version": "7", "when": 1790251200000, "tag": "0017_align_trellis_model", "breakpoints": true },
-    { "idx": 17, "version": "7", "when": 1790340000000, "tag": "0018_first_class_invitations", "breakpoints": true },
-    { "idx": 18, "version": "7", "when": 1790841600000, "tag": "0019_deployment_job_identity", "breakpoints": true },
-    { "idx": 19, "version": "7", "when": 1790841601000, "tag": "0020_trellis_workload_identity", "breakpoints": true },
-    { "idx": 20, "version": "7", "when": 1790841602000, "tag": "0021_cluster_only_tokens", "breakpoints": true },
-    { "idx": 21, "version": "7", "when": 1790877600000, "tag": "0022_invitation_uses", "breakpoints": true },
-    { "idx": 22, "version": "7", "when": 1790985600000, "tag": "0023_audit_actors", "breakpoints": true },
-    { "idx": 23, "version": "7", "when": 1791158400000, "tag": "0024_notification_read_states", "breakpoints": true },
-    { "idx": 24, "version": "7", "when": 1791158401000, "tag": "0025_auth_abuse", "breakpoints": true },
-    { "idx": 25, "version": "7", "when": 1791244800000, "tag": "0026_service_config_project_integrity", "breakpoints": true },
-    { "idx": 26, "version": "7", "when": 1791310871996, "tag": "0027_service_incidents", "breakpoints": true },
-    { "idx": 27, "version": "7", "when": 1791324107020, "tag": "0028_allocation_metric_samples", "breakpoints": true }
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1788432203162,
+      "tag": "0000_round_mojo",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788446492931,
+      "tag": "0001_chemical_senator_kelly",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788549587848,
+      "tag": "0002_odd_energizer",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788764834280,
+      "tag": "0003_wild_taskmaster",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788825600000,
+      "tag": "0004_instance_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789430400000,
+      "tag": "0005_remove_service_types",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789430401000,
+      "tag": "0006_organization_domains",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789430402000,
+      "tag": "0008_service_advanced_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789430403000,
+      "tag": "0009_base_service_configs",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789593300000,
+      "tag": "0010_project_user_access",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789681800000,
+      "tag": "0011_remove_project_registry_url",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789682580000,
+      "tag": "0012_remove_environment_locking",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1789683300000,
+      "tag": "0013_remove_environment_promotion_order",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1789729500000,
+      "tag": "0014_remove_shared_secret_groups",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1789732800000,
+      "tag": "0015_advanced_config_inheritance",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1789740000000,
+      "tag": "0016_route_protection",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1790251200000,
+      "tag": "0017_align_trellis_model",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1790340000000,
+      "tag": "0018_first_class_invitations",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790841600000,
+      "tag": "0019_deployment_job_identity",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790841601000,
+      "tag": "0020_trellis_workload_identity",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1790841602000,
+      "tag": "0021_cluster_only_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1790877600000,
+      "tag": "0022_invitation_uses",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1790985600000,
+      "tag": "0023_audit_actors",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1791158400000,
+      "tag": "0024_notification_read_states",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791158401000,
+      "tag": "0025_auth_abuse",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1791244800000,
+      "tag": "0026_service_config_project_integrity",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1791310871996,
+      "tag": "0027_service_incidents",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1791324107020,
+      "tag": "0028_allocation_metric_samples",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1791671249457,
+      "tag": "0029_webhook_name",
+      "breakpoints": true
+    }
   ]
 }

@@ -6,6 +6,8 @@ This is the consolidated list of design decisions **currently in force**, groupe
 
 **Precedence:** a later audit overrides an earlier one, and the code overrides all of them (see [Where the truth lives](../README.md#where-the-truth-lives)). When you change a rule, edit its row here, keep the old IDs under "Supersedes", and add a [changelog](../changelog.md) entry.
 
+**Audit review (Oct 2026):** IDs R1–R6, T*, L*, C*, M*, S*, F*, K*, N*, A*, and G* below refer to the owner review of `bower-ui-audit-desktop-10`. These rows record approved contracts, not a claim that implementation or visual verification has finished. The [Unreleased changelog](../changelog.md#unreleased) records the same rule changes.
+
 ## Audience and language
 
 | Decision | Current rule | Source | Supersedes |
@@ -15,7 +17,7 @@ This is the consolidated list of design decisions **currently in force**, groupe
 | Retained terms | Keep "Allocation", "Entity", and the `@/` volume path, each with a tooltip | A3-S06, S18, S19, A2-G5 | — |
 | Crash backoff | "Restart pending" (status). "Restart cooldown" names the Status section | A3-S05, A2-G2 | "Replacement backoff" |
 | Retained versions | Fold into deployment history as a "can roll back" row action | A2-G3 | "Retained Trellis versions" table |
-| Page descriptions | Only where they add information (Volumes, Access, Domains) | A3-U04, A3-S21 | A3-N17 "drop descriptions" |
+| Page descriptions | Keep existing descriptions; removing them was rejected (K3). Card descriptions are required separately (R1) | Audit review (Oct 2026): R1/K3 | A3-U04, A3-S21; A3-N17 "drop descriptions" |
 | Capitalization | Sentence case everywhere. No CSS `capitalize` | A1 P1-06, P3-11 | — |
 
 ## Foundations
@@ -31,14 +33,16 @@ This is the consolidated list of design decisions **currently in force**, groupe
 | `ink-faint` | Decorative and non-text only (linted) | A2-A4, A1 P3-01 | Near-duplicate of muted |
 | Success color | Separate green (`ok`), not brand teal | A3-T04, A1 P1-02 | Brand-as-success |
 | In-progress color | Neutral with a spinner | A3-T05, A2-B4, A1 P1-04 | Warn or purple for progress |
-| Purple (`info`) | Rolled back only | A3-T06 | Four meanings |
-| One tone system | One `Tone` type shared by chips, notices, toasts, and banners | A1 P1-03 | Per-component tones |
+| Rolled back color | `warn`, not purple. `info` tone, tokens, theme utilities, and lint allow-list entries are retired; InlineNotice defaults to neutral | Audit review (Oct 2026): G1/M2 | A3-T06 (Purple/info); four meanings |
+| One tone system | Shared `Tone` and `toneDotClasses` for status dots and Timeline; use `warn`, never `warning` | Audit review (Oct 2026): M1 | A1 P1-03; per-component tones |
 | Card elevation | Border only. Shadows on overlays only | A3-T08, A1 P3-06 | Border plus `shadow-card` |
 | Canvas | Keep the current canvas color | A3-T09 | — |
 | Overline | One style: 11px, 600, uppercase, slight tracking | A3-T07 | Four styles |
 | Type scale | Named steps only (2xs 11, xs 12, sm 13, code 12.5, tile 14, md 15, lg 18, xl 22, 2xl 26), linted | A1 P1-05, A5-L1 (tile) | 11 ad-hoc pixel sizes |
-| Heading scale | H1 26 bold · H2 18 semibold · card 13–14 semibold · item 14 medium | A4-Q20, A2-A5 | — |
+| Heading scale / card title | H1 26 bold · H2 18 semibold · card 14 semibold (`text-tile`) · item 14 medium | Audit review (Oct 2026): R3/A2 | A4-Q20, A2-A5; card 13–14 ambiguity |
 | Monospace | For anything a user might copy. One size (12.5px). Titles stay sans | A3-T11, A3-U06, A2-A7 | Mono on labels and titles |
+| Mono ligatures | Disable ligatures and liga/calt on font-mono, code, kbd, pre, samp, including Mono | Audit review (Oct 2026): R4/A1 | Default JetBrains Mono ligatures |
+| Dirty fields | Warn border/halo when value differs from saved value; invalid danger > brand focus > dirty warn | Audit review (Oct 2026): S2 | — |
 | Machine-ID pages | Readable sans H1, mono ID as metadata | A2-A6 | Mono H1 |
 | Disabled buttons | Neutral: sunken fill, muted text, no opacity. Ghost and link get muted text only | A4-Q18, A5-H1 | 50% opacity |
 | Ghost hover | `bg-ink/5` | A5-L11 | `bg-sunken` (invisible on canvas) |
@@ -57,7 +61,7 @@ This is the consolidated list of design decisions **currently in force**, groupe
 | Timestamps | Relative in lists, absolute on detail pages, a tooltip both ways | A3-T15 | A2-A8 ("always relative") |
 | Time zone | Viewer's local time, UTC in the tooltip | A3-T16 | UTC everywhere |
 | Inline time size | Inherit from surrounding text | A3-T10 | Fixed 12px |
-| Time column name | "Time" in every table | A4-Q49 | "Started", "When" |
+| Time column name | Event lists keep Time; Needs attention uses Since. Object tables: API keys Created, access Granted, secrets Rotated only for last_rotated_at, otherwise Created | Audit review (Oct 2026): G2/C6; Unreleased changelog | A4-Q49; "Started", "When" |
 | Future times | "in 7 days", with the full date in the tooltip | A5-M3 | — |
 | Durations | "1m 30s" | A3-T13 | "90s" |
 | CPU | Cores ("0.5 cores"), at most 2 decimals | A2-A9, A2-M14 | mCPU, millicores |
@@ -65,7 +69,7 @@ This is the consolidated list of design decisions **currently in force**, groupe
 | Ready count | "2/2 ready" | A3-T12 | — |
 | Ratios and counts | "2/10 uses", bare numbers in count columns, "67%" | A4-Q22 | — |
 | IDs | Readable names. Middle-truncated opaque IDs with a tooltip and copy (`ResourceId`) | A1 P0-02 | `slice(0, 8)` |
-| Images in tables | Tag on top, repository muted beneath. Compact presets show the target tag only | A5-M8 / Q03, A4-Q05 | — |
+| Images in tables | Tag in mono above repository in text-xs muted mono, including Services and deployment Summary. All deployment presets show from → to when changed, including compact | Audit review (Oct 2026): R6/C5 | A4-Q05, A5-M8 / Q03 (compact target-only) |
 
 ## Status
 
@@ -74,7 +78,7 @@ This is the consolidated list of design decisions **currently in force**, groupe
 | Service status meaning | Live health from running allocations | A2-B1, A1 P0-06 | Last deployment result |
 | Live but newest deploy failed | Live chip plus a "Last deploy failed" warning marker | A2-B2 | — |
 | Non-running service | "Failing" | A3-S01 | "Down" |
-| Allocation that exited | "Failing" everywhere | A4-Q09 | "Failed" |
+| Allocation that exited | Failed (Lost remains distinct); Failing is reserved for services | Audit review (Oct 2026): G2; Unreleased changelog | A4-Q09 |
 | Allocation chip | One chip: health while running, otherwise the phase | A2-B6 | Two chips |
 | Successful deployment | "Succeeded" | A3-S02, A2-B3 | "Healthy" |
 | Working node | "Healthy" | A3-S03 | "Ready" |
@@ -84,12 +88,12 @@ This is the consolidated list of design decisions **currently in force**, groupe
 | Status column position | Directly after the name | A2-B10 | — |
 | Node status | A chip column, not a color dot only | A2-B9, A2-H2 | — |
 | Status chip on detail pages | Right after the H1, outside the heading element | A4-Q21, A5-H4 | Under the title, inside the H1 |
-| Failing explanation | A popover on the chip (with ⓘ and a hover state). Title = chip word | A3-L19, A4-Q10, A5-H6 | Banner |
+| Failing explanation | Plain service chip. One body notice: cause title, failures / next restart / ready replicas, Restart now and View logs as applicable. Allocation notices share the anatomy; rows keep status/message | Audit review (Oct 2026): L1/L3/G2 | A3-L19, A4-Q10, A5-H6; chip popover/banner |
 | Cluster chip | All healthy / *N* draining / *N* drained / *N* unhealthy | A4-Q08, A5-M6, A1 P0-10 | Always green |
 | Undeployed changes | A warn chip in the service header, and Deploy highlighted | A3-F04 | — |
 | Allocation health tile | Counts failed allocations of the current version, from the same selector as Needs attention | A2-B7, A2-C2 | — |
-| Needs attention form | A table (Status, What, Cause, Time, action), hidden when empty | A3-L02 | A2-B8 (chip strip) |
-| Needs attention rows | One per symptom. The service name, with the specific ID beneath | A4-Q02, Q03 | — |
+| Needs attention form | What · Status · Cause · Since · action; hidden when empty | Audit review (Oct 2026): R5/C4/G2 | A3-L02; A2-B8 (chip strip) |
+| Needs attention rows | One per service, one cause, one Since time, one action; service name with relevant ID beneath | Audit review (Oct 2026): G2; Unreleased changelog | A4-Q02, Q03 (one per symptom) |
 | Failed deployments in attention | Only when it is the service's newest deployment | A4-Q01 | All failures in the last 24h |
 | Project Overview attention | The same table, scoped to the project | A4-Q06 | — |
 | Superseded failed deployment | A neutral "Superseded by …" notice, no primary | A5-C3 | Roll back as primary |
@@ -112,22 +116,23 @@ This is the consolidated list of design decisions **currently in force**, groupe
 | Tab order | Predefined by usage, never dynamic | A3-N09 | — |
 | Project header | Title, health chip, description, tabs | A3-N18, A3-U05 | Meta row |
 | Tab H2 | Kept, and exactly the tab label | A4-Q25, A3-N17 | Renamed headings |
-| Single-card tab | The card header shows only the count and action | A3 B53, A5-M1 / Q58 | — |
+| Single-card tab | Keep count title and action, and add the required description sentence (C13 rejected) | Audit review (Oct 2026): R1/C13 | A3 B53, A5-M1 / Q58 (description omitted) |
 | Service tabs | Overview, Configuration, Mounts, Deployments | A4-Q30, A3-N10, A3-S09 | 5 tabs, with History and Advanced |
 | Advanced settings | A collapsed section in Configuration, part of the draft | A4-Q30, A5-M9 | Advanced tab |
 | Allocation page | Its own page and header, with Logs · Details · Lifecycle tabs | A3-N12, N13 | Nested under the service |
 | Page tabs vs segmented | Underline tabs for pages. Segmented only inside cards | A4-Q24 | — |
 | Project Settings | One page with sections, a sticky anchor `SubNav`, and the Danger zone last | A4-Q26, Q27, A3-N08 | Separate pages |
-| Settings navigation | Grouped side `SubNav`: Personal (Account), Instance (Organizations), Organization (Organization, Members, Teams, Domains) | A3-N06, A2-C4, A3 B27, A5-M10 | Flat tabs (A1 P1-10 restored tabs, then A2-C4 replaced them) |
+| Settings navigation | Side SubNav in order Personal, Organization, Instance; Instance visible only to instance admins | Audit review (Oct 2026): N3 | A3-N06, A2-C4, A3 B27, A5-M10; flat tabs |
+| Current project in sidebar | Projects stays active; matching Recent projects link is bold ink with aria-current=page instead | Audit review (Oct 2026): N2 | — |
 | Settings title | A "Settings" H1 above the navigation. The section as H2 | A2-C5 | — |
 | SubNav active style | `brand-50` fill with `brand-700` text, no edge bar | A5-M10 / Q55 | Grey fill |
 | Org settings | General and the Trellis connection merged. `/settings/cluster` redirects | A3-F11, A4-Q28 | — |
-| Connection status in settings | None (the Status page has it). No link from Status to settings | A4-Q29, A3-U01 | A3-N05 |
+| Connection status in settings | No duplicate status section; Status owns it. Trellis-unavailable banner offers Check connection settings | Audit review (Oct 2026): L2 | A4-Q29, A3-U01 (no link), A3-N05 |
 | Content width | Full width. Controls are capped individually | A3-N07, A2-A10, A4-Q37 | A1 P3-12 (narrow forms) |
 | Command palette | Recent, then Go to, then Actions. Type icons. Places before actions | A3-N19, A4-Q32, A5-H2 | Actions first |
 | Palette no results | "No results for "…"" only | A3-N20 | Create row |
 | Instance › Organizations rows | Clicking switches organization | A3-N22 | Static rows |
-| Notifications menu | A bell `DropdownMenu` after Search in the header. Deployment outcomes only: failures in accessible projects, plus the viewer's own results. Newest 20 from 14 days, filtered on the server | Notifications v1 (2026-10-04) | — |
+| Notifications menu | Bell DropdownMenu after Search; deployment outcomes and failing-service incidents, access-filtered. Focusable hovered links open the deployment or service respectively. No View all deployments footer | Audit review (Oct 2026): N5; Unreleased changelog | Notifications v1 (2026-10-04), deployment-only footer |
 | Notification read state | One last-seen time per user and organization. Opening the menu marks what it loaded as read. A first visit starts with nothing unread | Notifications v1 (2026-10-04) | — |
 | Unread badge | `brand-500` count capped at "9+". The exact count goes in the button's accessible name. Unread rows add a dot, a heavier title, and a hidden "Unread:" prefix | Notifications v1 (2026-10-04) | — |
 
@@ -141,10 +146,11 @@ This is the consolidated list of design decisions **currently in force**, groupe
 | Home activity | 5 rows. Read-only events only in the Audit log | A5-M6 / Q35, A5-M7 / Q33 | — |
 | CPU and memory on the Cluster card | Removed (shown in the stat tiles) | A2-C7 | — |
 | Projects list | A table. Search only above 8 projects | A3-L06, L07 | Cards |
-| Project Overview | Attention, health strip of service tiles, deployments plus routes | A3-L08 | — |
+| Project Overview | Attention, compact Service health table (Service · Status · Ready · Version · Last deploy · chevron), deployments plus routes. Whole rows open services | Audit review (Oct 2026): L6 | A3-L08 service tiles |
 | Empty project | One setup checklist card | A3-L09 | Three empty cards |
 | Service header | Status, image, replicas, public URL | A2-C3 | Name only |
-| Service Overview | Usage tiles, current allocations, 5 recent deployments. No log tail | A3-L20, A4-Q31 | — |
+| Service Overview sections | Usage history and Current allocations are cards with title and description, like Recent deployments. Range control in Usage history header; 5 recent deployments, no log tail | Audit review (Oct 2026): L5/C14 | A3-L20, A4-Q31; free-standing section headings |
+| Allocation Details order | Allocation details card, usage tiles, Usage history; retain Details tab name | Audit review (Oct 2026): L4 | — |
 | Status page | Summary strip (Home's tiles), then the existing section order. Empty sections as one slim line | A4-Q53, A5-M4, A3-L13, L14 | — |
 | Status columns | Restart pending: Service, Failures, Last failure, Next restart. Ingress: Proxy, Routes, Status, Updated | A4-Q51, Q52 | Trellis column names |
 | Node page | Merged sections, allocations on the node, an allocated bar with a used overlay, heartbeat once | A3-L15, L17, L18, A4-Q54, A5-M5 | C12, four sections |
@@ -155,7 +161,7 @@ This is the consolidated list of design decisions **currently in force**, groupe
 | Lifecycle | Vertical timeline, toned dots, no spinners | A3-L26 | — |
 | Logs | Fill the viewport, sticky toolbar, WARN and ERROR colored only | A5-M18, A3-C24 | 384px box |
 | Teams | List plus a team detail page | A2-C14 | Accordion |
-| Member detail | Details card, Roles card (org and instance roles, one Save), Danger zone | A5-M11 / Q62, A4-Q39 | — |
+| Member detail | Details, Roles (org/instance roles as authorized, one Save changes), Danger zone | Audit review (Oct 2026): C20d/C21 | A5-M11 / Q62, A4-Q39 (Save) |
 | Member roles in table | Text only. Change them on the detail page | A3-F14 (follow-up) | A2-C16 (inline selects) |
 | Instance role column | Visible to instance admins only. Labels Admin / User | A3-F17, A2-C17 | "Instance admin" |
 | Domains | DNS expands into a full-width row, one at a time. Route count only | A3-L23, L24, A4-Q40 | — |
@@ -177,7 +183,12 @@ This is the consolidated list of design decisions **currently in force**, groupe
 | Actions header | Visually hidden everywhere | A4-Q56 | — |
 | `⋯` with a chevron | `⋯` directly before the chevron | A4-Q57 | — |
 | Clickable rows | Whole row, hover, chevron, link-styled name | A3-N21, A2-M22, D3 | — |
-| Card headers | Title, count, status, and create actions | A3-C03 | — |
+| Card descriptions | Every CardHeader/PanelHeader has a required description sentence in text-xs ink-muted; count alone is insufficient. Use prop form, not hand-written bypasses; repeating subtitles stay | Audit review (Oct 2026): R1; M5/K3 rejected | A3-U04 for cards; A3-C03 count hint |
+| Chip dots | Every Chip owns a leading currentColor dot, every tone; remove caller-side dots | Audit review (Oct 2026): R2/C1 option A | Caller-owned dots |
+| Preview counts | Named header title and description without counts. Counts only in truncated PanelFooter; existing Cluster detail-link exception remains | Audit review (Oct 2026): L10 | Header and footer duplication |
+| Chart limit | Always neutral dashed ink-muted line and legend. Above-limit series adds danger Above limit chip in readout/summary; accessible summary agrees | Audit review (Oct 2026): C11 | Warn/danger limit line |
+| Chart range placement | 1h/6h/24h in Usage history CardHeader action slot on service and allocation | Audit review (Oct 2026): C14/L5 | Outside-card control |
+| Danger zone layout | Red title plus description; consequence left, danger button right, wrapping on narrow screens for project/member/team | Audit review (Oct 2026): C21 | Team neutral title; stacked layout drift |
 | Continuation links | In the card footer (`PanelFooter`), only when rows are cut off | A5-V1 | "View all" in the header (A4-Q08) |
 | Primary buttons | One per card | A3-C04 | — |
 | `+` icon | On create and attach triggers, never on submit buttons | A6 (A5-L3), A3-C05 | — |
@@ -209,13 +220,13 @@ This is the consolidated list of design decisions **currently in force**, groupe
 | Confirmation ✕ | Added | A3-C12 | Cancel and Esc only |
 | Growable dialogs | Pinned near the top, with scroll shadows | A5-M12 | Centered |
 | Joined inputs | No inner rounded corners where they meet | A6 (A5-M12 change) | — |
-| Empty states | Large style everywhere, with a next action | A3-C09, A2-D9 | Compact in cards |
+| Empty states | Large shared EmptyState everywhere, including Variables and node allocations, with appropriate next action. Log no-match is sans with Clear search and refocus | Audit review (Oct 2026): C22/C23 | A3-C09, A2-D9; one-line card empties |
 | Filtered-empty | "Clear filters" as the main action | A3-C10 | — |
 | Pagination | Range plus Previous/Next (ghost, brand text) | A3-C23, A2-D4, A5-H1 | Plain text |
-| Tab counts | Services only, hidden at 0. Inactive pill on white with a border | A3-C22, A4-Q23, A2-D8 | All tabs |
+| Tab counts | Services only, hidden at 0. Identical border/padding metrics active/inactive; only colors change | Audit review (Oct 2026): S4 | A3-C22, A4-Q23, A2-D8; shifting pill metrics |
 | Disclosure | A chevron button everywhere | A2-D3 | Native `<details>` |
-| Stat loading | A skeleton bar | A3-C21 | "Sampling…" |
-| Meter thresholds | Always a track. Warn at 85%, danger at 100% | A4-Q55 | Prototype 70/85 |
+| Stat loading | Keep skeleton. CPU footer Across N tasks · Sampling until value exists, then Sampled …; singular task at 1 | Audit review (Oct 2026): T3 | A3-C21; sampled timestamp before measurement |
+| Meter thresholds | Always a track. Brand below 85%, warn from 85%, danger from 100%, including StatCell | Audit review (Oct 2026): A6 | A4-Q55; prototype 70/85; StatCell brand-only |
 | Search fields | Grow to fill (min 240px), placeholder "Search", the shared `SearchInput` | A4-Q59, A5-M16 | Four implementations |
 | Filter placement | In the card header | A5-M17 / Q19 | Separate row |
 | Select menus | Trigger-width minimum, max-w-xs, truncate | A5-M17 | Wrapping |
@@ -235,7 +246,10 @@ This is the consolidated list of design decisions **currently in force**, groupe
 | Rollback on the running release | Not offered. "Roll back…" is a secondary button | A4-Q15, A3 B03 | — |
 | Rollback dialog | Names the service and the running release. Labelled picker. Diff preview | A4-Q16, A5-M15 | — |
 | Failed deployment primary | Roll back to the last good release when one exists | A3-F21, A2-G7 | Redeploy |
-| Deploy confirmation | Shows what changes. Variables masked per key. Other fields as sentences | A3-F03, A4-Q13, Q14 | Raw JSON |
+| Variable masking | Mask values everywhere: Environment matrix, service Variables, Deploy/Rollback review, deployment Changes. Per-row Reveal for readable values; write-only shared values locked/unrevealable. Non-variable fields plain | Audit review (Oct 2026): T9 option B | A3-F03, A4-Q13; Unreleased plain env values |
+| Change table labels | Field · Before · After in all ConfigDiffPreview contexts, missing values Not set, no caller-specific headings. Keep Added/Removed chips | Audit review (Oct 2026): M3 | Running/After deploy; Previous release/This deployment; dash/Not recorded |
+| Allocation Stop/Cancel | Pending Cancel with Cancel placement?; failed hides action; running/placed/starting Stop; stopping/stopped/lost disabled. Same stop operation and audit recording | Audit review (Oct 2026): T5 | Stop on pending/failed |
+| Save and deploy | Service Configuration only: primary Save and deploy… saves draft then opens existing deploy review; Save changes secondary | Audit review (Oct 2026): F1 option A | Save-only bar in this context |
 | Route editing | A full edit dialog | A3-F06 | Protection only |
 | Route port default | The service's known port, with the source in an ⓘ | A2-F3 | 8080 |
 | Hostname input | One combined control, with the preview beneath | A5-M12 / Q51 | Domain shown three times |
@@ -276,3 +290,5 @@ This is the consolidated list of design decisions **currently in force**, groupe
 | Copy gating on one-time secrets | Not done | A3-F19 |
 | Organization deletion UI | Not supported (no operation exists) | A3 B57 |
 | Revealing shared write-only values | Not possible (the backend can't read them back) | A3 B15 |
+| Remove repeated card subtitles / page descriptions | Rejected; required card sentences and existing page descriptions stay | Audit review (Oct 2026): M5/K3/R1 |
+| Rename single-card count titles | Rejected; keep count titles plus descriptions | Audit review (Oct 2026): C13/R1 |

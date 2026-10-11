@@ -9,7 +9,7 @@ export const allocationFields = {
   attempt: { label: 'Attempt', hint: 'The current Trellis allocation attempt.' },
 } as const
 
-type TimelineTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger'
+type TimelineTone = Tone
 
 /** Every failed or lost transition is toned, not just the last one: earlier crashes explain a restart loop. */
 export function lifecycleEventTone(event: Pick<TrellisEvent, 'phase'>, isLast: boolean): TimelineTone {

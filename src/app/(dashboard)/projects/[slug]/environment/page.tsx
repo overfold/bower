@@ -77,15 +77,15 @@ export default async function EnvironmentPage({ params }: { params: Promise<{ sl
         <Panel>
           <PanelHeader
             title="Secrets"
-            hint={`${secrets.length} ${secrets.length === 1 ? 'secret' : 'secrets'} available to services`}
+            hint="Store sensitive values and bind them to services as environment variables or files."
             action={canManage ? <CreateSecretDialog projectId={project.id} environmentId={environment.id} /> : undefined}
           />
           {secrets.length === 0 ? (
-            <EmptyState icon={<KeyRound className="h-4 w-4" />} title="No secrets" body="Add a secret, then bind it to a service below." />
+            <EmptyState icon={<KeyRound className="h-4 w-4" />} title="No secrets" body="Create a secret, then bind it to a service from the Variables table." />
           ) : (
             <div className="overflow-x-auto">
               <Table>
-                <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Time</TableHead><TableHead className="text-right"><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Rotated</TableHead><TableHead className="text-right"><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
                 <TableBody>
                   {secrets.map((row) => (
                     <TableRow key={row.secret.id}>

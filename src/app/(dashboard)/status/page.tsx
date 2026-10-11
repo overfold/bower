@@ -20,7 +20,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ChevronRight } from 'lucide-react'
 import { DrainToggle } from './drain-toggle'
 import { ResetBackoffButton } from './reset-backoff-button'
-import { formatCpu, formatMemory } from '@/lib/format'
+import { formatCpu, formatMemory, formatDeploymentDuration } from '@/lib/format'
 import type { TrellisAllocation, TrellisJob, TrellisNode } from '@/types/trellis'
 import { formatRelativeTime } from '@/lib/format'
 import { ResourceId } from '@/components/resource-id'
@@ -28,6 +28,9 @@ import { ClickableTableRow } from '@/components/clickable-table-row'
 import { Time } from '@/components/time'
 import { RestartCountdown } from '@/components/restart-countdown'
 import { DeploymentPoller } from '@/components/deployment-poller'
+import { pendingReasonLabel } from '@/lib/labels'
+import { EmptyState } from '@/components/ui/empty-state'
+import { Server } from 'lucide-react'
 
 export default async function StatusPage() {
   const user = await getCurrentUser()
@@ -102,6 +105,10 @@ export default async function StatusPage() {
   const activeOnNode = (node: TrellisNode) => allocations.filter((allocation) => allocation.node_id === node.id && !['stopped', 'failed', 'lost', 'completed', 'dead'].includes(allocation.phase)).length
   const drainedNodes = nodes.filter((node) => node.status === 'draining' && allocationsAvailable && activeOnNode(node) === 0).length
   const drainingNodes = nodes.filter((node) => node.status === 'draining').length - drainedNodes
+  const healthyNodes = nodes.filter((node) => node.status === 'healthy').length
+  const unhealthyNodes = nodes.filter((node) => node.status === 'unhealthy').length
+  const version = nodes.find((node) => node.version)?.version
+  const checkedAt = new Date()
 
   return (
     <div className="space-y-6">
@@ -110,8 +117,8 @@ export default async function StatusPage() {
 
       <Panel aria-label="Cluster status summary">
         <div className="grid gap-px bg-line sm:grid-cols-2 lg:grid-cols-4">
-          <StatCell label="Connection" value={clusterError ? 'Unavailable' : 'Connected'} detail={clusterError ? 'Could not reach the cluster' : 'Cluster reachable'} />
-          <StatCell label="Nodes" value={clusterError ? '—' : `${nodes.length}${drainedNodes ? ` · ${drainedNodes} drained` : ''}`} detail={drainingNodes ? `${drainingNodes} draining` : 'No nodes draining'} />
+          <StatCell label="Connection" value={clusterError ? 'Unavailable' : 'Connected'} detail={clusterError ? 'Could not reach the cluster' : <>{version ? `Trellis ${version} · checked ` : 'Checked '}<Time value={checkedAt} mode="live" /></>} />
+          <StatCell label="Nodes" value={clusterError ? '—' : `${nodes.length} node${nodes.length === 1 ? '' : 's'}`} detail={clusterError ? 'Node data unavailable' : [`${healthyNodes} healthy`, ...(drainedNodes ? [`${drainedNodes} drained`] : []), ...(drainingNodes ? [`${drainingNodes} draining`] : []), ...(unhealthyNodes ? [`${unhealthyNodes} unhealthy`] : [])].join(' · ')} />
           <StatCell label="CPU allocated" value={metricsError || clusterError ? '—' : `${cpuPct}%`} detail={`${formatCpu(allocatedCpu)} / ${formatCpu(totalAllocatableCpu)}`} meter={metricsError || clusterError ? undefined : cpuPct} />
           <StatCell label="Memory allocated" value={metricsError || clusterError ? '—' : `${memoryPct}%`} detail={`${formatMemory(allocatedMemory)} / ${formatMemory(totalAllocatableMemory)}`} meter={metricsError || clusterError ? undefined : memoryPct} />
         </div>
@@ -119,10 +126,10 @@ export default async function StatusPage() {
       </Panel>
 
       <Panel>
-        {pending.length || operationsError ? <PanelHeader title="Pending allocations" hint={pending.length ? `${pending.length} waiting across ${reasonCounts.length} reason${reasonCounts.length === 1 ? '' : 's'}` : undefined} /> : null}
+        <PanelHeader title="Pending allocations" hint={`Allocations Trellis hasn’t placed yet · ${pending.length} waiting.`} />
         {operationsError ? <TrellisReadError title="Allocation diagnostics incomplete" message={operationsError} /> : null}
         {pending.length > 0 ? <>
-          <div className="flex flex-wrap gap-2 border-b border-line p-4">{reasonCounts.map(({ reason, count }) => <Chip key={reason} tone="warn"><span className="nums">{count}</span> {reason.replaceAll('_', ' ')}</Chip>)}</div>
+          {reasonCounts.length > 1 ? <div className="flex flex-wrap gap-2 border-b border-line p-4">{reasonCounts.map(({ reason, count }) => <Chip key={reason} tone="warn"><span className="nums">{count}</span> {pendingReasonLabel(reason)}</Chip>)}</div> : null}
           <Table><TableHeader><TableRow><TableHead>Allocation</TableHead><TableHead>Workload</TableHead><TableHead>Reason</TableHead><TableHead>Waiting</TableHead></TableRow></TableHeader><TableBody>
             {pending.map((allocation) => {
               const target = targetFor(allocation)
@@ -130,12 +137,12 @@ export default async function StatusPage() {
               return <TableRow key={`${allocation.namespace}/${allocation.id}`}>
                 <TableCell>{href ? <Link href={href} className="text-link"><ResourceId value={allocation.id} /></Link> : <ResourceId value={allocation.id} />}</TableCell>
                 <TableCell><div className="text-ink">{target?.serviceName ?? allocation.job}</div><div className="text-xs text-ink-muted">{target ? `${target.projectName} · ${target.environmentName}` : allocation.namespace}</div></TableCell>
-                <TableCell><Chip tone="warn">{(allocation.reason || 'awaiting_placement').replaceAll('_', ' ')}</Chip>{allocation.message ? <p className="mt-1 max-w-md text-xs text-ink-muted">{allocation.message}</p> : null}</TableCell>
-                <TableCell className="text-ink-muted"><Time value={allocation.created_at} mode="auto" /></TableCell>
+                <TableCell>{pendingReasonLabel(allocation.reason || 'awaiting_placement')}{allocation.message ? <p className="mt-1 max-w-md text-xs text-ink-muted">{allocation.message}</p> : null}</TableCell>
+                <TableCell className="text-ink-muted">{formatDeploymentDuration(new Date(allocation.created_at), checkedAt)}</TableCell>
               </TableRow>
             })}
           </TableBody></Table>
-        </> : !operationsError ? <p className="px-4 py-3 text-sm text-ink-muted">No pending allocations</p> : null}
+        </> : !operationsError ? <EmptyState icon={<Server className="size-4" />} title="No pending allocations" body="All allocations have been placed." /> : null}
       </Panel>
 
       {backoffs.length > 0 ? <Panel>
@@ -155,8 +162,8 @@ export default async function StatusPage() {
       </Panel> : null}
 
       <Panel>
-        <PanelHeader title="Nodes" />
-        {clusterError ? <TrellisReadError title="Nodes unavailable" message={clusterError} /> : nodes.length === 0 ? <p className="border-t border-line px-4 py-3 text-sm text-ink-muted">No nodes are registered with this cluster.</p> : <Table>
+        <PanelHeader title="Nodes" hint="Registered nodes, their health, and available resources." />
+        {clusterError ? <TrellisReadError title="Nodes unavailable" message={clusterError} /> : nodes.length === 0 ? <EmptyState icon={<Server className="size-4" />} title="No nodes" body="Nodes will appear here when they register with this cluster." /> : <Table>
           <TableHeader><TableRow><TableHead>Node</TableHead><TableHead>Status</TableHead><TableHead>Address</TableHead><TableHead>Software</TableHead><TableHead>System</TableHead><TableHead>Resources</TableHead>{orgCtx.role === 'owner' ? <TableHead className="w-12 text-right"><span className="sr-only">Actions</span></TableHead> : null}<TableHead className="w-8"><span className="sr-only">Open</span></TableHead></TableRow></TableHeader>
           <TableBody>{nodes.map((node) => {
             const allocated = allocatedByNode.get(node.id)

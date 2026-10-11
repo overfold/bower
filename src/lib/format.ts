@@ -129,6 +129,20 @@ export function formatCountdown(seconds: number): string {
   return `in ${Math.ceil(total / 3600)}h`
 }
 
+/** Sampling tolerates small clock skew; scheduled countdowns use formatCountdown instead. */
+export function formatLiveTime(value: DateValue, now = Date.now()): string {
+  const date = validDate(value)
+  if (!date || !Number.isFinite(now)) return '—'
+  const seconds = (now - date.getTime()) / 1000
+  if (Math.abs(seconds) <= 10) return 'just now'
+  if (seconds > 0 && seconds < 60) return `${Math.floor(seconds)}s ago`
+  return formatRelativeTime(date, now)
+}
+
+export function plural(count: number, singular: string, multiple = `${singular}s`): string {
+  return `${count} ${count === 1 ? singular : multiple}`
+}
+
 const logTimestampOptions: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }
 
 /** A log line's timestamp in the given time zone (the viewer's by default), compact enough for a log gutter. */

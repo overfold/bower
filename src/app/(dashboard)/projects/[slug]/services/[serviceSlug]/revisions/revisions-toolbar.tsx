@@ -25,7 +25,7 @@ export function RevisionsToolbar({ items }: { items: DeploymentsTableRow[] }) {
   const visible = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
 
   return <Panel>
-    <PanelHeader className="h-auto flex-col items-stretch py-3 sm:min-h-[52px] sm:flex-row sm:items-center sm:py-0" title={`${filtered.length} deployment${filtered.length === 1 ? '' : 's'}`} action={<div className="flex w-full flex-col gap-1 sm:w-auto sm:flex-row">
+    <PanelHeader hint="Deployment history for this service, newest first." className="h-auto flex-col items-stretch py-3 sm:min-h-[52px] sm:flex-row sm:items-center sm:py-0" title={`${filtered.length} deployment${filtered.length === 1 ? '' : 's'}`} action={<div className="flex w-full flex-col gap-1 sm:w-auto sm:flex-row">
       <SearchInput value={query} onChange={(event) => { setQuery(event.target.value); setPage(1) }} aria-label="Search revisions and images" />
       <Select value={status} onValueChange={(value) => { setStatus(value); setPage(1) }}><SelectTrigger aria-label="Filter by deployment status" className="h-10 w-full text-sm sm:h-8 sm:w-[150px]"><SelectValue /></SelectTrigger><SelectContent align="end"><SelectItem value="all">All statuses</SelectItem><SelectItem value="failed">Failed</SelectItem><SelectItem value="active">In progress</SelectItem><SelectItem value="healthy">Succeeded</SelectItem><SelectItem value="rolled_back">Rolled back</SelectItem></SelectContent></Select>
     </div>} />

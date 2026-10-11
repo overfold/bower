@@ -19,6 +19,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { ChevronRight, Info } from 'lucide-react'
 import { ClickableTableRow } from '@/components/clickable-table-row'
 import { Time } from '@/components/time'
+import { EmptyState } from '@/components/ui/empty-state'
+import { Server } from 'lucide-react'
 
 export default async function NodePage({ params }: { params: Promise<{ nodeId: string }> }) {
   const user = await getCurrentUser()
@@ -64,7 +66,7 @@ export default async function NodePage({ params }: { params: Promise<{ nodeId: s
     <div className="space-y-6">
       <PageHeading title={node.id} status={<StatusDot status={nodeDrained ? 'drained' : node.status === 'healthy' ? 'ready' : node.status} />} description={nodeDrained ? 'No allocations left. Ready for maintenance.' : undefined} actions={ctx.role === 'owner' ? <DrainToggle nodeId={node.id} drain={node.status === 'draining'} allocationCount={activeAllocations.length} /> : undefined} />
       <Panel>
-        <PanelHeader title="Node details" />
+        <PanelHeader title="Node details" hint="Identity and connection details reported by this node." />
         <dl className="grid gap-x-8 p-4 sm:grid-cols-2 lg:grid-cols-4">
           <KeyValue label="Endpoint" mono>{node.host}:{node.port}</KeyValue>
           <KeyValue label="Version" mono>{node.version || '—'}</KeyValue>
@@ -75,7 +77,7 @@ export default async function NodePage({ params }: { params: Promise<{ nodeId: s
         </dl>
       </Panel>
       <Panel>
-        <PanelHeader title="Capacity" />
+        <PanelHeader title="Capacity" hint="What this node can run and what is already allocated." />
         {metricsError ? <TrellisReadError title="Allocated resources unavailable" message={metricsError} /> : null}
         <div className="grid gap-5 p-4 sm:grid-cols-2">
           <ResourceBar label="CPU" used={cpuUsed == null ? null : formatCpu(cpuUsed)} allocated={metricsError ? null : formatCpu(allocated.cpu)} allocatable={formatCpu(allocatable.cpu)} capacity={formatCpu(capacity.cpu)} usedPct={cpuUsedPct} allocatedPct={metricsError ? null : cpuAllocatedPct} />
@@ -83,13 +85,13 @@ export default async function NodePage({ params }: { params: Promise<{ nodeId: s
         </div>
       </Panel>
       <Panel>
-        <PanelHeader title="Allocations on this node" hint={`${allocations.length} allocation${allocations.length === 1 ? '' : 's'}`} />
+        <PanelHeader title="Allocations on this node" hint="Workloads placed on this node and their current status." />
         {allocationsError ? <TrellisReadError title="Allocations unavailable" message={allocationsError} /> : allocations.length ? <Table><TableHeader><TableRow><TableHead>Allocation</TableHead><TableHead>Service</TableHead><TableHead>Status</TableHead><TableHead>Created</TableHead><TableHead><span className="sr-only">Open</span></TableHead></TableRow></TableHeader><TableBody>{allocations.map((allocation) => {
           const target = targets.find((item) => item.namespace === allocation.namespace && (item.job === allocation.job || item.serviceSlug === allocation.labels?.['bower/service']))
           const href = target ? `/projects/${target.projectSlug}/services/${target.serviceSlug}/allocations/${allocation.id}` : `/status/allocations/${encodeURIComponent(allocation.id)}`
           const cells = <><TableCell><Link className="relative z-10 text-link hover:underline" href={href}><ResourceId value={allocation.id} /></Link></TableCell><TableCell>{target?.serviceName ?? allocation.job}</TableCell><TableCell><AllocationStatus phase={allocation.phase} health={allocation.health} /></TableCell><TableCell><Time value={allocation.created_at} mode="auto" /></TableCell><TableCell><ChevronRight className="ml-auto size-4 text-ink-faint" /></TableCell></>
           return <ClickableTableRow key={allocation.id} href={href} label={`View allocation ${allocation.id}`}>{cells}</ClickableTableRow>
-        })}</TableBody></Table> : <p className="border-t border-line px-4 py-3 text-sm text-ink-muted">No allocations are currently placed on this node.</p>}
+        })}</TableBody></Table> : <EmptyState icon={<Server className="size-4" />} title="No allocations on this node" body="Workloads will appear here when Trellis places them on this node." />}
       </Panel>
     </div>
   )

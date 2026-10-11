@@ -8,7 +8,7 @@ Control specs are in [Form controls](../components/form-controls.md). This page 
 | --- | --- | --- |
 | **Draft with `UnsavedChangesBar`** | A form edits persisted settings, especially across several cards | Service Configuration (with Variables and Advanced), Settings › Organization, Account profile, Project General |
 | **Dialog submit** | Creating or editing one object in a focused task | Create service, Create route, Edit route, New variable, Invite people |
-| **Card button** | A single action that isn't a draft | Change password ("Update password", in the card footer) (A3-F10). Member roles (a Save next to the selects) (A4-Q39, A5-M11) |
+| **Card button** | A single action that isn't a draft | Change password ("Update password", in the card footer). Member roles ("Save changes" next to the selects; C20d) |
 | **Immediate** | A toggle or row action that takes effect at once and is easy to reverse, or a page with no draft form | Log Follow and Wrap switches. Variables on the **project Environment** page (A4-Q36) |
 
 Never combine models within one form. A field that saves immediately must not sit inside a draft card that looks the same. That is why service Configuration variables are part of the draft (A4-Q36).
@@ -23,13 +23,15 @@ Never combine models within one form. A field that saves immediately must not si
 
 - It **appears only when the form is dirty** and floats at the bottom, centered on the content column (it is portalled and tracks `#main-content`), at most `max-w-3xl`. It uses `shadow-raised` (A3-F05, A3 B07).
 - It shows a summary ("2 unsaved changes", or a custom summary such as "1 field, 2 variables", omitting zero parts), **Discard** (default), and **Save changes** (primary, with `loading`) (A4-F08, A5-L5).
-- While visible, it adds `data-unsaved` to `#main-content`, which pads the page bottom so the last field stays reachable.
+- While visible, reserve bottom padding equal to the bar height plus its offset so it never covers the last field, including service Configuration and project/org/account settings (S1).
+- **Service Configuration only:** "Save and deploy…" is primary and "Save changes" secondary. Save the draft first, then open the existing deploy review dialog for the saved changes; do not deploy without review or add a second primary (F1).
 - It warns before leaving: `beforeunload`, plus a confirmation on in-app link clicks.
 - There is one bar per page. Several cards on one page share a single draft and a single bar.
 - Discard restores the saved values **without** marking the form dirty again (programmatic select changes are ignored).
 
 ## Field anatomy and layout
 
+- Changed fields use the shared dirty warn ring/border while they differ from the saved value. Invalid danger overrides focus; normal brand focus overrides dirty warn (S2). Discard restores the saved value and clears this indicator.
 - Label, then control, then hint. The error replaces the hint (see [Form controls](../components/form-controls.md#field-anatomy)).
 - **Optional fields** are labelled "(optional)". Required fields aren't marked (A2-F4).
 - **Group related fields** in cards with a title and hint (General, Resources, Health checks). In long dialogs, use `.overline` group labels with a divider above ("Destination", "Security") (A4-Q61).

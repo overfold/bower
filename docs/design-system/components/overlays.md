@@ -95,7 +95,7 @@ A `rounded-xl` surface with `p-1.5`. Items are `rounded-lg px-2 py-1.5 text-sm t
 
 ## Popover
 
-`w-72 rounded-xl p-4 shadow-pop` by default. Use it when the explanation contains **actions or links** and must work with the keyboard. The failing-service popover is the reference (see [Status and feedback](status-and-feedback.md#interactive-status-chip)). Triggers must be real buttons with `aria-haspopup`.
+`w-72 rounded-xl p-4 shadow-pop` by default. Use it for an anchored explanation containing **actions or links** that must work with the keyboard. Triggers must be real buttons with `aria-haspopup`. Failing services no longer use a chip popover: their cause and actions live in a body notice (L1; see [Failure notice](status-and-feedback.md#failure-notice)).
 
 ## Tooltip
 

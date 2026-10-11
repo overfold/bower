@@ -29,9 +29,6 @@
   --color-danger-200: var(--danger-200);
   --color-danger-500: var(--danger-500);
   --color-danger-600: var(--danger-600);
-  --color-info-50: var(--info-50);
-  --color-info-200: var(--info-200);
-  --color-info-500: var(--info-500);
   --color-ok-50: var(--ok-50);
   --color-ok-200: var(--ok-200);
   --color-ok-500: var(--ok-500);
@@ -101,9 +98,6 @@
   --danger-200: light-dark(hsl(7 73% 85%), hsl(5 40% 40%));
   --danger-500: light-dark(hsl(4 76% 40%), hsl(4 75% 68%));
   --danger-600: light-dark(hsl(4 76% 32%), hsl(4 75% 60%));
-  --info-50: light-dark(hsl(253 70% 96%), hsl(254 25% 16%));
-  --info-200: light-dark(hsl(254 70% 88%), hsl(254 30% 40%));
-  --info-500: light-dark(hsl(258 54% 52%), hsl(258 50% 60%));
 }
 
 @media (prefers-color-scheme: dark) {
@@ -206,10 +200,20 @@ input[type="search"]::-webkit-search-cancel-button {
 
 @layer base {
   * { border-color: var(--line); }
+  .font-mono, code, kbd, pre, samp {
+    font-variant-ligatures: none;
+    font-feature-settings: "liga" 0, "calt" 0;
+  }
   body {
     background-color: var(--canvas);
     color: var(--ink);
   }
+}
+
+/* Invalid and focused controls retain their normal utility styles. */
+[data-dirty="true"]:not(:focus-visible):not([aria-invalid="true"]):not(:disabled) {
+  border-color: var(--warn-500);
+  box-shadow: 0 0 0 3px var(--warn-200);
 }
 
 @layer components {
@@ -222,7 +226,7 @@ input[type="search"]::-webkit-search-cancel-button {
 .overline { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-muted); text-decoration-line: none; }
 
 /* Override responsive utility padding while a floating save bar is present. */
-#main-content[data-unsaved] { padding-bottom: 8rem; }
+#main-content[data-unsaved] { padding-bottom: calc(var(--unsaved-bar-height, 7rem) + 2rem); }
 
 /* Copyable identifiers use a single body size regardless of their surrounding text. */
 .font-mono { font-size: var(--text-code); }

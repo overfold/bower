@@ -11,6 +11,7 @@ import { parseEnvText } from '@/components/key-value-editor'
 import { Button, IconButton } from '@/components/ui/button'
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { InlineNotice } from '@/components/ui/feedback'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Panel, PanelHeader } from '@/components/ui/panel'
@@ -47,10 +48,6 @@ function MaskedValue({ value }: { value: string }) {
   </div>
 }
 
-function InheritedUnavailableValue() {
-  return <span className="text-ink-muted">—</span>
-}
-
 function SharedUnavailableValue({ updatedAt }: { updatedAt: string }) {
   return <span className="inline-flex items-center gap-1.5 font-mono text-xs text-ink-muted" title={`Write-only. Set ${formatRelativeTime(updatedAt)}.`}>••••••••<LockKeyhole className="h-3.5 w-3.5" /></span>
 }
@@ -59,8 +56,8 @@ export function VariablesSection(props: VariablesSectionProps) {
   const services = props.serviceId ? props.services.filter((service) => service.id === props.serviceId) : props.services
   const rows = useMemo(() => buildVariableMatrix(props.sharedNames, services, props.secretLabels), [props.sharedNames, services, props.secretLabels])
   return <Panel>
-    <PanelHeader title="Variables" hint={`${rows.length} ${rows.length === 1 ? 'variable' : 'variables'}`} action={props.canManage ? <div className="flex gap-2"><PasteDialog {...props} services={services} /><VariableDialog {...props} services={services} /></div> : undefined} />
-    {rows.length === 0 ? <div className="p-6 text-sm text-ink-muted">No variables configured.</div> : <Table minWidth="md">
+    <PanelHeader title="Variables" hint="Share configuration across services or set service-specific values and secret bindings." action={props.canManage ? <div className="flex gap-2"><PasteDialog {...props} services={services} /><VariableDialog {...props} services={services} /></div> : undefined} />
+    {rows.length === 0 ? <EmptyState icon={<LockKeyhole className="h-4 w-4" />} title="No variables" body="Add a variable to share configuration across services." action={props.canManage ? <VariableDialog {...props} services={services} /> : undefined} /> : <Table minWidth="md">
       <TableHeader><TableRow><TableHead>Key</TableHead>{props.serviceId ? <><TableHead>Value</TableHead><TableHead>Source</TableHead></> : <><TableHead>Shared</TableHead>{services.map((service) => <TableHead key={service.id}>{service.name}</TableHead>)}</>}{props.canManage ? <TableHead><span className="sr-only">Actions</span></TableHead> : null}</TableRow></TableHeader>
       <TableBody>{rows.map((row) => <TableRow key={row.key}>
         <TableCell className="font-mono text-xs font-medium">{row.key}</TableCell>
@@ -68,7 +65,7 @@ export function VariablesSection(props: VariablesSectionProps) {
         {row.services.map((cell, index) => <TableCell key={services[index].id}>{cell.kind === 'secret'
           ? <span className="inline-flex max-w-[240px] items-start gap-1.5" title={`${cell.displayName} · ${cell.target === 'file' ? `File: ${row.key}` : `Environment variable: ${row.key}`}`}><LockKeyhole className="mt-0.5 h-3.5 w-3.5 shrink-0" /><span><span className="block truncate">{cell.displayName}</span><span className="block text-2xs text-ink-muted">{cell.target === 'file' ? `File · ${row.key}` : `Environment variable · ${row.key}`}</span></span></span>
           : cell.kind === 'value' ? <MaskedValue value={cell.value} />
-          : cell.kind === 'inherited' ? <InheritedUnavailableValue />
+          : cell.kind === 'inherited' ? <SharedUnavailableValue updatedAt={props.updatedAt} />
           : <span className="text-ink-muted">—</span>}</TableCell>)}
         {props.serviceId ? <TableCell className="text-xs text-ink-muted">{row.services[0]?.kind === 'inherited' ? 'Shared' : 'This service'}</TableCell> : null}
         {props.canManage ? <TableCell className="w-12"><VariableDialog {...props} services={services} editKey={row.key} icon /></TableCell> : null}
@@ -85,6 +82,7 @@ function VariableDialog({ editKey, icon, ...props }: VariablesSectionProps & { e
     ? props.services.find((service) => service.envVars[editKey] !== undefined || service.secretBindings.some((binding) => binding.target === 'env' ? binding.env === editKey : binding.path === editKey))?.id ?? 'shared'
     : 'shared')
   const [target, setTarget] = useState(initialTarget)
+  const bindOnly = Boolean(editKey && props.services.find((service) => service.id === initialTarget)?.secretBindings.some((binding) => binding.target === 'env' ? binding.env === editKey : binding.path === editKey))
   const [kind, setKind] = useState<'value' | 'secret'>('value')
   const [key, setKey] = useState(editKey ?? '')
   const [secretName, setSecretName] = useState(Object.keys(props.secretLabels)[0] ?? '')
@@ -99,7 +97,7 @@ function VariableDialog({ editKey, icon, ...props }: VariablesSectionProps & { e
     if (binding) {
       setKind('secret'); setSecretName(binding.name); setBindingTarget(binding.target)
       setDestination((binding.target === 'env' ? binding.env : binding.path) ?? '')
-    } else setKind('value')
+    } else setKind(bindOnly ? 'secret' : 'value')
   }
 
   function servicePayload(service: VariableService) {
@@ -161,7 +159,7 @@ function VariableDialog({ editKey, icon, ...props }: VariablesSectionProps & { e
     <DialogContent size={editKey ? 'lg' : 'md'}><DialogHeader><DialogTitle>{kind === 'secret' && target !== 'shared' ? 'Bind secret' : editKey ? `Edit ${editKey}` : 'Create variable'}</DialogTitle></DialogHeader>
       <form ref={formRef} onSubmit={submit} onInvalid={(event) => { event.preventDefault(); const field = event.target as HTMLInputElement; const message = field.validity.patternMismatch ? 'Use a key starting with a letter or underscore, followed by uppercase letters, numbers, or underscores.' : field.validationMessage; setFieldError({ id: field.id, message }); field.focus() }} onInput={(event) => { const field = event.target as HTMLInputElement; if (field.validity?.valid && fieldError?.id === field.id) setFieldError(null) }}><DialogBody className="space-y-4">{error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
         <div className="space-y-2"><Label>Scope</Label><Select value={target} onValueChange={selectScope}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{!props.serviceId && (!editKey || /^[A-Z_][A-Z0-9_]*$/.test(editKey)) ? <SelectItem value="shared">Shared</SelectItem> : null}{props.services.map((service) => <SelectItem key={service.id} value={service.id}>{service.name}</SelectItem>)}</SelectContent></Select></div>
-        {target !== 'shared' ? <div className="space-y-2"><Label>Source</Label><Select value={kind} onValueChange={(value) => { const next = value as 'value' | 'secret'; setKind(next); if (next === 'secret' && !destination) setDestination(key || props.secretLabels[secretName] || secretName); setFieldError(null) }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="value">Plain value</SelectItem><SelectItem value="secret" disabled={Object.keys(props.secretLabels).length === 0}>Secret binding</SelectItem></SelectContent></Select></div> : null}
+        {target !== 'shared' && !bindOnly ? <div className="space-y-2"><Label>Source</Label><Select value={kind} onValueChange={(value) => { const next = value as 'value' | 'secret'; setKind(next); if (next === 'secret' && !destination) setDestination(key || props.secretLabels[secretName] || secretName); setFieldError(null) }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="value">Plain value</SelectItem><SelectItem value="secret" disabled={Object.keys(props.secretLabels).length === 0}>Secret binding</SelectItem></SelectContent></Select></div> : null}
         {kind === 'secret' && target !== 'shared' ? <>
           <div className="space-y-2"><Label htmlFor={`variable-secret-${editKey ?? 'new'}`}>Secret</Label><Select value={secretName} onValueChange={(value) => { if (bindingTarget === 'env' && (!destination || destination === (props.secretLabels[secretName] ?? secretName))) setDestination(props.secretLabels[value] ?? value); setSecretName(value); setFieldError(null) }}><SelectTrigger id={`variable-secret-${editKey ?? 'new'}`} className="font-mono" aria-invalid={fieldError?.id === `variable-secret-${editKey ?? 'new'}`} aria-describedby={fieldError?.id === `variable-secret-${editKey ?? 'new'}` ? `variable-secret-error-${editKey ?? 'new'}` : undefined}><SelectValue placeholder="Select a secret" /></SelectTrigger><SelectContent>{Object.entries(props.secretLabels).map(([name, label]) => <SelectItem key={name} value={name} className="font-mono">{label}</SelectItem>)}</SelectContent></Select>{fieldError?.id === `variable-secret-${editKey ?? 'new'}` ? <p id={`variable-secret-error-${editKey ?? 'new'}`} className="text-xs text-danger-500">{fieldError.message}</p> : null}</div>
           <div className="grid gap-4 sm:grid-cols-[140px_1fr]"><div className="space-y-2"><Label>Target</Label><Select value={bindingTarget} onValueChange={(value) => { const next = value as 'env' | 'file'; setBindingTarget(next); setDestination(next === 'env' ? (editKey && /^[A-Z_]/.test(editKey) ? editKey : props.secretLabels[secretName] ?? secretName) : `/run/trellis-secrets/${secretName}`) }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="env">Environment</SelectItem><SelectItem value="file">File</SelectItem></SelectContent></Select></div><div className="space-y-2"><Label htmlFor={`binding-destination-${editKey ?? 'new'}`}>{bindingTarget === 'env' ? 'Environment variable' : 'File path'}</Label><Input id={`binding-destination-${editKey ?? 'new'}`} value={destination} onChange={(event) => setDestination(event.target.value)} required pattern={bindingTarget === 'env' ? '[A-Z_][A-Z0-9_]*' : undefined} mono aria-invalid={fieldError?.id === `binding-destination-${editKey ?? 'new'}`} aria-describedby={`binding-destination-help-${editKey ?? 'new'}`} /><p id={`binding-destination-help-${editKey ?? 'new'}`} className={`text-xs ${fieldError?.id === `binding-destination-${editKey ?? 'new'}` ? 'text-danger-500' : 'text-ink-muted'}`}>{fieldError?.id === `binding-destination-${editKey ?? 'new'}` ? fieldError.message : bindingTarget === 'env' ? <>Use uppercase letters, numbers, and underscores, for example <span className="font-mono">DATABASE_URL</span>.</> : <>Use an absolute path, for example <span className="font-mono">/run/trellis-secrets/database</span>.</>}</p></div></div>

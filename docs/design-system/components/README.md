@@ -30,7 +30,7 @@ Check this list before building UI. If something here does the job, use it. If i
 | `Dialog` and its parts | `dialog.tsx` | Forms and multi-step tasks in a modal | [Overlays](overlays.md#dialog) |
 | `AlertDialog` and its parts | `alert-dialog.tsx` | Confirmations | [Overlays](overlays.md#alertdialog) |
 | `DropdownMenu` and its parts | `dropdown-menu.tsx` | Menus (row actions, profile, org picker) | [Overlays](overlays.md#dropdownmenu) |
-| `Popover` | `popover.tsx` | Rich, interactive explanations (failing-service cause) | [Overlays](overlays.md#popover) |
+| `Popover` | `popover.tsx` | Anchored interactive explanations; not failing-service status chips (L1) | [Overlays](overlays.md#popover) |
 | `Tooltip` | `tooltip.tsx` | Short, non-essential explanations | [Overlays](overlays.md#tooltip) |
 | `Tabs` (segmented) | `tabs.tsx` | **In-card** view switches only. Page tabs use the underline tab bar | [Navigation](navigation.md#segmented-tabs) |
 | `SubNav` | `sub-nav.tsx` | Vertical secondary navigation (Settings, Project Settings) | [Navigation](navigation.md#subnav) |

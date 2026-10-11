@@ -18,7 +18,9 @@ Use `EmptyState` (icon, title, body, action) everywhere, at the same large size,
 Rules:
 - Give a next step whenever the user can act (A2-M7).
 - When a list is empty, hide "View all" and pagination.
-- **Empty project:** one setup checklist card (Create a service → Deploy it → Add a route). Later steps are disabled with the reason ("Available after you create a service.") (A3-L09).
+- **Empty project:** one setup checklist card (Create a service → Deploy it → Create a route), with New route as the trigger (C20a). Later steps explain why they are disabled.
+- **Variables:** large EmptyState with icon, "No variables", "Add a variable to share configuration across services.", and New variable. Node allocations: "No allocations on this node" (C22).
+- **Log search:** sans empty state, "No lines match \"{query}\"", with Clear search that clears and refocuses the field; never a mono line inside the pre (C23).
 - Use the object's icon in the tile (`Folder` for projects, `Rocket` for deployments, `Globe` for routes).
 - A project with no services reads "No services", with zero counts and "Never" for last deploy (A4-Q69).
 
@@ -29,7 +31,7 @@ Rules:
 | Route navigation | `loading.tsx` with a **skeleton that matches the page's shape**, built from `page-skeletons.tsx` (`TablePageSkeleton`, `FormSkeleton`, `SettingsSkeleton`, `NodeSkeleton`, …) (A1 P2-16, A2-H3) |
 | Entity tabs (project, service) | The header and tabs stay rendered in the layout, and only the tab content shows a skeleton. Never blank the header (A2-H3) |
 | Slow parts of a page (live health, runtime headers) | An explicit `Suspense` boundary with a local skeleton (`ServiceHeaderSkeleton`) |
-| A stat or metric value not yet known | A `Skeleton` bar in place of the value, never "Sampling…" or a dash (A3-C21). A live footer reads "Sampled 5s ago"; CPU shows "No CPU samples yet" after a few samples without a usable reading |
+| A stat or metric value not yet known | Keep the Skeleton bar. CPU awaiting the second sample has footer "Across N tasks · Sampling" (task at 1); only after a value exists show "Across N tasks · Sampled …" (T3). Recent samples read just now (T2/C9) |
 | Button action | `Button loading` (spinner, disabled, `aria-busy`). No page spinner |
 | Deployment in progress | A neutral chip with a spinner. `DeploymentPoller` refreshes every 5 seconds until it finishes (and every 15 seconds otherwise) |
 
@@ -53,7 +55,7 @@ Bower depends on a live Trellis cluster. When it can't be reached:
 
 - **Organization-wide:** `TrellisReadErrorProvider` shows a `PageBanner` (`warn` tone), "Trellis is unavailable.", with the message. **Retry connection** and **Check connection settings** (to `/settings/organization#connection`) sit in the banner's `action` slot, beside the text. The banner can't be dismissed: it shows exactly while Trellis is unreachable.
 - **Per section:** `TrellisReadError title message` renders a quiet block inside the card (`role="status"` when the banner already explains it, `alert` otherwise) with **Retry**.
-- **Never substitute a reassuring value.** Readiness reads "Unavailable · 2 desired". Health reads unknown. Needs attention says it couldn't check, not "All clear" (A1 P1-19, A2-M1).
+- **Never substitute a reassuring value.** Readiness reads "Unavailable · 2 desired"; stats show "—". Home keeps the page banner but removes the Unknown Needs-attention row and redundant Cluster data unavailable card (L2). Never show "All clear" for unreadable data.
 - **Not configured** (no cluster connection) reads "Not configured" in muted text, with a Configure link where the user can act (A1 P2-09).
 
 ## Not found
