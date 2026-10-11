@@ -117,13 +117,12 @@ export function buildJobSpec(config: BowerServiceConfig): TrellisJobSpec {
   const taskGroup: TrellisTaskGroup = {
     name: config.name,
     count: config.replicas,
-    runtime: config.runtime ?? 'runc',
     labels,
     tasks: [primaryTask],
   }
 
   if (config.apiAccess) {
-    taskGroup.api_access = config.apiAccess
+    primaryTask.api_access = config.apiAccess
   }
 
   const restart = buildRestartPolicy()
@@ -152,6 +151,7 @@ function buildPrimaryTask(config: BowerServiceConfig): TrellisTask {
   const task: TrellisTask = {
     name: config.name,
     image: normalizeContainerImage(config.image),
+    runtime: config.runtime ?? 'runc',
     resources: {
       cpu: config.cpu,
       memory: config.memory,

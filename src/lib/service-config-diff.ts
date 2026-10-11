@@ -86,8 +86,8 @@ export function diffJobSpecs(selected: unknown, running: unknown): ServiceConfig
     ['secrets', 'Secret bindings', bindings(oldTask.secrets), bindings(newTask.secrets)],
     ['volumes', 'Mounts', oldTask.volumes, newTask.volumes],
     ['networking', 'Networking', oldTask.networking, newTask.networking],
-    ['runtime', 'Isolation', before.runtime || 'runc', after.runtime || 'runc'],
-    ['api', 'Workload API access', before.api_access, after.api_access],
+    ['runtime', 'Isolation', oldTask.runtime, newTask.runtime],
+    ['api', 'Workload API access', oldTask.api_access, newTask.api_access],
     ['restart', 'Restart policy', before.restart, after.restart],
     ['constraints', 'Placement', before.constraints, after.constraints],
   ], oldTask.env, oldTask.secrets, newTask.env, newTask.secrets)

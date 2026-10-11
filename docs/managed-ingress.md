@@ -19,7 +19,7 @@ When a route is created or updated, Bower:
 1. Validates that the hostname is covered by a verified organization domain and is not claimed by another project/environment
 2. Generates bootstrap configuration in the fenced job revision, rather than a separately mutable Caddyfile secret
 3. Deploys (or updates) the shared `bower-ingress` job in `BOWER_PROXY_NAMESPACE` (default `platform`): a Caddy task and a route-sync task
-4. The sync agent uses `api_access: cluster/read` to discover healthy allocations in every routed namespace and the home dashboard namespace, renders namespace-qualified upstreams, and reloads Caddy through its admin API. The credential itself is cluster-wide, so the managed proxy is trusted infrastructure.
+4. The sync agent task uses `api_access: {access: read}` to discover healthy allocations in every routed namespace and the home dashboard namespace, renders namespace-qualified upstreams, and reloads Caddy through its admin API. The credential itself is cluster-wide, so the managed proxy is trusted infrastructure. The Caddy task has no API grant; both tasks explicitly use the `runc` runtime.
 5. The proxy is considered healthy only after route-sync has recently fetched Trellis state and Caddy has accepted the generated configuration
 
 The Caddy admin API is bound to loopback and is used only by the colocated route-sync task; it is never exposed on the node's external interfaces.

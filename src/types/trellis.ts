@@ -6,12 +6,12 @@
 
 export interface TrellisWhoAmI {
   kind: string
-  scope: 'cluster'
   access: 'read' | 'write'
   subject?: {
     namespace: string
     job: string
     task_group: string
+    task: string
   }
   created_at?: string // ISO 8601
 }
@@ -102,6 +102,8 @@ export interface TrellisHealthCheck {
 export interface TrellisTask {
   name: string
   image: string
+  runtime: TrellisRuntime
+  api_access?: TrellisApiAccess
   env?: Record<string, string>
   networking?: TrellisNetworking
   resources?: TrellisResources
@@ -137,19 +139,16 @@ export interface TrellisUpdateStrategy {
 }
 
 export interface TrellisApiAccess {
-  scope: 'cluster'
   access: 'read' | 'write'
 }
 
-export type TrellisRuntime = '' | 'runc' | 'runsc'
+export type TrellisRuntime = 'runc' | 'runsc'
 
 export interface TrellisTaskGroup {
   name: string
   count: number
-  runtime?: TrellisRuntime
   labels?: Record<string, string>
   constraints?: TrellisConstraint[]
-  api_access?: TrellisApiAccess
   restart?: TrellisRestartPolicy
   update?: TrellisUpdateStrategy
   tasks: TrellisTask[]

@@ -11,12 +11,13 @@ import { getTrellisJobLimits } from '@/lib/trellis-instance'
 import { assertWorkloadApiAccessAllowed } from '@/lib/workload-policy'
 import { serviceConfigAuditState } from '@/lib/audit-details'
 import { validateServiceVariableConflicts } from '@/lib/environment-variable-input'
+import type { TrellisApiAccess } from '@/types/trellis'
 
 function deepEqual(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b)
 }
 
-const ADVANCED_OVERRIDE_FIELDS = ['runtime', 'apiAccessScope', 'apiAccessLevel'] as const
+const ADVANCED_OVERRIDE_FIELDS = ['runtime', 'apiAccessLevel'] as const
 
 function preserveAdvancedOverrides(overrides: unknown) {
   const existing = (overrides ?? {}) as Record<string, unknown>
@@ -106,12 +107,12 @@ export async function updateServiceConfigOverridesAction(serviceId: string, envi
   await validateVariablesForEnvironment(access.project.id, environmentId, desired.envVars, desired.secretBindings)
   const runtime = formData.has('runtime') ? String(formData.get('runtime')) : envConfig.runtime
   if (runtime !== 'runc' && runtime !== 'runsc') throw new Error('Runtime must be runc or runsc.')
-  const existingApiAccess = envConfig.apiAccessScope && envConfig.apiAccessLevel ? `${envConfig.apiAccessScope}:${envConfig.apiAccessLevel}` : 'none'
+  const existingApiAccess = envConfig.apiAccessLevel ?? 'none'
   const apiAccessValue = formData.has('apiAccess') ? String(formData.get('apiAccess')) : existingApiAccess
-  if (apiAccessValue !== 'none' && apiAccessValue !== 'cluster:read' && apiAccessValue !== 'cluster:write') throw new Error('Invalid workload API access setting.')
-  const apiAccess = apiAccessValue === 'none' ? undefined : { scope: 'cluster' as const, access: apiAccessValue === 'cluster:read' ? 'read' as const : 'write' as const }
+  if (apiAccessValue !== 'none' && apiAccessValue !== 'read' && apiAccessValue !== 'write') throw new Error('Invalid workload API access setting.')
+  const apiAccess: TrellisApiAccess | undefined = apiAccessValue === 'none' ? undefined : { access: apiAccessValue }
   assertWorkloadApiAccessAllowed(apiAccess, access.user.isInstanceAdmin)
-  const advanced = { runtime, apiAccessScope: apiAccess?.scope ?? null, apiAccessLevel: apiAccess?.access ?? null }
+  const advanced = { runtime, apiAccessLevel: apiAccess?.access ?? null }
   const base = await getBaseServiceConfig(serviceId)
 
   const newOverrides: Record<string, unknown> = {}

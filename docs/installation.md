@@ -6,7 +6,7 @@ This guide deploys Bower to a Trellis cluster from the root [`trellis.yml`](../t
 
 You need:
 
-- A running Trellis cluster and `trellisctl` configured with a credential that has `cluster/write` access.
+- A running Trellis cluster and `trellisctl` configured with a credential that has `write` access (cluster-wide).
 - A node that can accept inbound TCP on ports 80 and 443. Bower's shared ingress uses host networking on those ports.
 - For HTTPS, a hostname whose DNS you control.
 

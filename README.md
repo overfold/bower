@@ -24,7 +24,7 @@ Trellis schedules and runs containers. Bower adds the application layer on top: 
 
 ## Quick start
 
-You need a Trellis cluster, `trellisctl` with `cluster/write` access, and a node that accepts inbound traffic on ports 80 and 443.
+You need a Trellis cluster, `trellisctl` with `write` access (cluster-wide), and a node that accepts inbound traffic on ports 80 and 443.
 
 The manifest below targets a single-node cluster and runs Postgres alongside Bower, with data stored on that node. For production, use an external database. The [installation guide](docs/installation.md) explains how.
 

@@ -18,6 +18,7 @@ task_groups:
     tasks:
       - name: postgres
         image: docker.io/library/postgres:16-alpine
+        runtime: runc
         networking:
           mode: namespace
         resources:
@@ -45,12 +46,12 @@ task_groups:
     # Stop/start upgrades interrupt the dashboard; see docs/operations.md.
     update:
       strategy: recreate
-    api_access:
-      scope: cluster
-      access: write
     tasks:
       - name: bower
         image: ghcr.io/overfold/bower:latest
+        runtime: runc
+        api_access:
+          access: write
         networking:
           mode: namespace
           ports:

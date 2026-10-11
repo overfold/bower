@@ -47,7 +47,7 @@ export function getTrellisClientFromEnv(): TrellisClient {
   if (!apiToken) {
     throw new Error(
       'TRELLIS_API_TOKEN environment variable is not set. ' +
-        'Set it to a valid Trellis bearer token with cluster/write scope.',
+        'Set it to a valid Trellis bearer token with write access (cluster-wide).',
     )
   }
 

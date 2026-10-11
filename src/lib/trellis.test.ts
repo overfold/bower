@@ -68,14 +68,14 @@ test('plan and apply requests forward explicit resolved image pins exactly', asy
   const spec: TrellisJobSpec = {
     name: 'web',
     namespace: 'production',
-    task_groups: [{ name: 'web', count: 1, tasks: [{ name: 'web', image: 'registry.example/web:mutable' }] }],
+    task_groups: [{ name: 'web', count: 1, tasks: [{ name: 'web', runtime: 'runc', image: 'registry.example/web:mutable' }] }],
   }
   const pins = { 'registry.example/web:mutable': 'registry.example/web@sha256:planned' }
   await client.planJob(spec, 'production', pins)
   await client.applyJob(spec, 'production', { expectedVersion: 7, expectedIncarnation: 'inc-a' }, pins)
   assert.deepEqual(bodies, [
     {
-      spec: { name: 'web', namespace: 'production', task_groups: [{ name: 'web', count: 1, tasks: [{ name: 'web', image: 'registry.example/web@sha256:planned' }] }] },
+      spec: { name: 'web', namespace: 'production', task_groups: [{ name: 'web', count: 1, tasks: [{ name: 'web', runtime: 'runc', image: 'registry.example/web@sha256:planned' }] }] },
       resolved_images: { 'registry.example/web@sha256:planned': 'registry.example/web@sha256:planned' },
     },
     { spec, resolved_images: pins, expected_version: 7, expected_incarnation: 'inc-a' },
@@ -160,7 +160,7 @@ test('plan-derived applies fence competing writers with incarnation and version'
   const spec: TrellisJobSpec = {
     name: 'web',
     namespace: 'production',
-    task_groups: [{ name: 'web', count: 1, tasks: [{ name: 'web', image: 'registry.example/web:mutable' }] }],
+    task_groups: [{ name: 'web', count: 1, tasks: [{ name: 'web', runtime: 'runc', image: 'registry.example/web:mutable' }] }],
   }
   const pins = { 'registry.example/web:mutable': 'registry.example/web@sha256:reviewed' }
   const plan = { action: 'update' as const, namespace: 'production', job: 'web', base_incarnation: 'inc-a', base_version: 4, base_revision: 3, desired_allocations: 1, changes: [], resolved_images: pins }
@@ -173,8 +173,8 @@ test('plan-derived applies fence competing writers with incarnation and version'
 })
 
 test('reviewed plans apply resolved defaults and fence settings, including no-ops and creates', async (t) => {
-  const spec: TrellisJobSpec = { name: 'web', namespace: 'production', task_groups: [{ name: 'main', count: 1, tasks: [{ name: 'app', image: 'app:latest' }] }] }
-  const resolved: TrellisJobSpec = { ...spec, task_groups: [{ name: 'main', count: 1, runtime: 'runc', tasks: [{ name: 'app', image: 'app:latest', resources: { cpu: 250, memory: 268435456 } }] }] }
+  const spec: TrellisJobSpec = { name: 'web', namespace: 'production', task_groups: [{ name: 'main', count: 1, tasks: [{ name: 'app', runtime: 'runc', image: 'app:latest' }] }] }
+  const resolved: TrellisJobSpec = { ...spec, task_groups: [{ name: 'main', count: 1, tasks: [{ name: 'app', runtime: 'runc', image: 'app:latest', resources: { cpu: 250, memory: 268435456 } }] }] }
   const pins = { 'app:latest': 'app:latest@sha256:reviewed' }
   let conflict = false
   const client = new TrellisClient('https://api', 'token')
@@ -197,7 +197,7 @@ test('reviewed plans apply resolved defaults and fence settings, including no-op
 })
 
 test('rollback plans immutable digests without resolving old tags and conditionally applies no-op plans', async (t) => {
-  const spec: TrellisJobSpec = { name: 'web', namespace: 'production', task_groups: [{ name: 'main', count: 1, tasks: [{ name: 'web', image: 'app:mutable' }] }] }
+  const spec: TrellisJobSpec = { name: 'web', namespace: 'production', task_groups: [{ name: 'main', count: 1, tasks: [{ name: 'web', runtime: 'runc', image: 'app:mutable' }] }] }
   const oldPins = { 'app:mutable': 'app@sha256:old' }
   const newPins = { 'app:mutable': 'app@sha256:new' }
   const bodies: unknown[] = []
@@ -208,7 +208,7 @@ test('rollback plans immutable digests without resolving old tags and conditiona
     return Response.json(url.endsWith('/plan') ? {
       action: 'none', namespace: 'production', job: 'web', base_incarnation: 'inc', base_version: 9, base_revision: 6,
       desired_allocations: 1, changes: [], resolved_images: newPins,
-      spec: { ...body.spec, task_groups: [{ ...body.spec.task_groups[0], runtime: 'runc' }] }, settings_fingerprint: 'rollback-settings',
+      spec: body.spec, settings_fingerprint: 'rollback-settings',
     } : { namespace: 'production', name: 'web', incarnation: 'inc', version: 10, revision: 7 })
   })
   const client = new TrellisClient('https://api', 'token')
@@ -218,16 +218,16 @@ test('rollback plans immutable digests without resolving old tags and conditiona
   assert.equal((await client.applyJobPlan(spec, 'production', plan)).version, 10)
   assert.deepEqual(bodies, [
     {
-      spec: { name: 'web', namespace: 'production', task_groups: [{ name: 'main', count: 1, tasks: [{ name: 'web', image: 'app@sha256:old' }] }] },
+      spec: { name: 'web', namespace: 'production', task_groups: [{ name: 'main', count: 1, tasks: [{ name: 'web', runtime: 'runc', image: 'app@sha256:old' }] }] },
       resolved_images: { 'app@sha256:old': 'app@sha256:old' },
     },
-    { spec: { ...spec, task_groups: [{ ...spec.task_groups[0], runtime: 'runc' }] }, resolved_images: oldPins, expected_version: 9, expected_incarnation: 'inc', expected_settings: 'rollback-settings' },
+    { spec, resolved_images: oldPins, expected_version: 9, expected_incarnation: 'inc', expected_settings: 'rollback-settings' },
   ])
   const unchanged = await client.planJob(spec, 'production', newPins)
   assert.equal(unchanged.action, 'update')
   await client.applyJobPlan(spec, 'production', unchanged)
   assert.equal(bodies.length, 4, 'digest planning still fences the original-spec apply')
-  assert.deepEqual(bodies[3], { spec: { ...spec, task_groups: [{ ...spec.task_groups[0], runtime: 'runc' }] }, resolved_images: newPins, expected_version: 9, expected_incarnation: 'inc', expected_settings: 'rollback-settings' })
+  assert.deepEqual(bodies[3], { spec, resolved_images: newPins, expected_version: 9, expected_incarnation: 'inc', expected_settings: 'rollback-settings' })
 })
 
 test('historical log requests can omit task and preserve explicit task selectors', async (t) => {

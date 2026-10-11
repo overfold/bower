@@ -86,13 +86,14 @@ async function syncClusterIngress(orgId: string, removedServiceId?: string, remo
     { name: 'bower-ingress-data', host_path: '@/bower-ingress-data', container_path: '/data' },
     { name: 'bower-ingress-config', host_path: '@/bower-ingress-config', container_path: '/config' },
   ]
-  const hash = createHash('sha256').update(JSON.stringify({ controllerRoutes, options, tls: [...customTls], volumes })).digest('hex')
+  const hash = createHash('sha256').update(JSON.stringify({ controllerRoutes, options, tls: [...customTls], volumes, taskApiAccess: true })).digest('hex')
   const spec: TrellisJobSpec = {
     name: 'bower-ingress', namespace,
-    task_groups: [{ name: 'proxy', count: 1, api_access: { scope: 'cluster', access: 'read' },
+    task_groups: [{ name: 'proxy', count: 1,
       labels: { 'bower/managed': 'true', 'bower/infrastructure': 'proxy', 'bower/config-hash': hash },
       update: { strategy: 'recreate' },
       tasks: [{ name: 'caddy', image: process.env.BOWER_CADDY_IMAGE || 'ghcr.io/overfold/bower-proxy:latest',
+        runtime: 'runc',
         resources: { cpu: 100, memory: 134217728 },
         networking: { mode: 'host', ports: [{ port: httpPort }, { port: httpsPort }, { port: adminPort }] },
         volumes,
@@ -102,6 +103,7 @@ async function syncClusterIngress(orgId: string, removedServiceId?: string, remo
         secrets: [...customTls.keys()].map((name) => ({ name, target: 'file' as const, path: `/run/trellis-secrets/${name}` })),
         health_check: { type: 'tcp', port: httpPort, interval: 10_000_000_000, timeout: 2_000_000_000, threshold: 3 },
       }, { name: 'route-sync', image: process.env.BOWER_PROXY_SYNC_IMAGE || 'ghcr.io/overfold/bower-proxy-sync:latest',
+        runtime: 'runc', api_access: { access: 'read' },
         resources: { cpu: 50, memory: 67108864 }, networking: { mode: 'host' },
         env: { BOWER_ROUTES: JSON.stringify(controllerRoutes), BOWER_DASHBOARD: dashboard ? JSON.stringify(dashboard) : '',
           CADDY_ADMIN_URL: `http://127.0.0.1:${adminPort}/load`, CADDY_ADMIN_PORT: String(adminPort),

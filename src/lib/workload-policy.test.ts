@@ -25,8 +25,8 @@ test('default tenant policy allows managed paths but denies all workload API gra
   assert.throws(() => assertHostPathAllowed('/srv/data', true, {}), /BOWER_IA_BYPASS/)
   assert.doesNotThrow(() => assertWorkloadApiAccessAllowed(undefined, false, {}))
   for (const access of [
-    { scope: 'cluster', access: 'read' },
-    { scope: 'cluster', access: 'write' },
+    { access: 'read' },
+    { access: 'write' },
   ] as const) {
     assert.throws(() => assertWorkloadApiAccessAllowed(access, false, enabled), /instance admin/)
     assert.throws(() => assertWorkloadApiAccessAllowed(access, true, {}), /BOWER_IA_BYPASS/)
@@ -36,7 +36,7 @@ test('default tenant policy allows managed paths but denies all workload API gra
 
 test('instance admin with bypass enabled may configure privileged capabilities', () => {
   assert.doesNotThrow(() => assertHostPathAllowed('/srv/data', true, enabled))
-  assert.doesNotThrow(() => assertWorkloadApiAccessAllowed({ scope: 'cluster', access: 'write' }, true, enabled))
+  assert.doesNotThrow(() => assertWorkloadApiAccessAllowed({ access: 'write' }, true, enabled))
 })
 
 test('deployment permits stored privileged capabilities only while the operator bypass remains enabled', () => {
@@ -44,7 +44,7 @@ test('deployment permits stored privileged capabilities only while the operator 
   assert.doesNotThrow(() => assertStoredHostPathAllowed('/srv/data', enabled))
   assert.doesNotThrow(() => assertStoredWorkloadApiAccessAllowed(undefined, {}))
   for (const access of ['read', 'write'] as const) {
-    assert.throws(() => assertStoredWorkloadApiAccessAllowed({ scope: 'cluster', access }, {}), /not enabled/)
-    assert.doesNotThrow(() => assertStoredWorkloadApiAccessAllowed({ scope: 'cluster', access }, enabled))
+    assert.throws(() => assertStoredWorkloadApiAccessAllowed({ access }, {}), /not enabled/)
+    assert.doesNotThrow(() => assertStoredWorkloadApiAccessAllowed({ access }, enabled))
   }
 })

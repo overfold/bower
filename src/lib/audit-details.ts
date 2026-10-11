@@ -29,7 +29,7 @@ export function routeAuditState(route: Record<string, unknown>): Record<string, 
 
 export function serviceConfigAuditState(config: Record<string, unknown> | null): Record<string, unknown> | null {
   if (!config) return null
-  const fields = ['image', 'replicas', 'cpu', 'memory', 'healthCheckType', 'healthCheckPort', 'healthCheckInterval', 'healthCheckTimeout', 'healthCheckThreshold', 'deploymentStrategy', 'resourceTier', 'autoRollbackSeconds', 'canarySteps', 'runtime', 'apiAccessScope', 'apiAccessLevel']
+  const fields = ['image', 'replicas', 'cpu', 'memory', 'healthCheckType', 'healthCheckPort', 'healthCheckInterval', 'healthCheckTimeout', 'healthCheckThreshold', 'deploymentStrategy', 'resourceTier', 'autoRollbackSeconds', 'canarySteps', 'runtime', 'apiAccessLevel']
   return {
     ...Object.fromEntries(fields.filter((field) => field in config).map((field) => [field, config[field]])),
     environmentVariableNames: config.environmentVariableNames ?? Object.keys((config.envVars ?? {}) as object),

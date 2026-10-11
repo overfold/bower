@@ -10,13 +10,14 @@ const base: BowerServiceConfig = {
   secrets: [{ name: 'DATABASE_URL', target: 'env', env: 'DATABASE_URL' }],
   volumes: [{ name: 'cache', host_path: '@/cache', container_path: '/cache' }],
   runtime: 'runsc',
-  apiAccess: { scope: 'cluster', access: 'read' },
+  apiAccess: { access: 'read' },
 }
 
 test('builds a complete workload with Bower-owned networking and advanced settings', () => {
   const spec = buildJobSpec(base); const group = spec.task_groups[0]; const primary = group.tasks[0]
   assert.equal(spec.name, 'api-green'); assert.equal(group.count, 2); assert.equal(group.labels?.['bower/service'], 'api')
-  assert.equal(group.runtime, 'runsc'); assert.deepEqual(group.api_access, { scope: 'cluster', access: 'read' })
+  assert.equal(primary.runtime, 'runsc'); assert.deepEqual(primary.api_access, { access: 'read' })
+  assert.equal('runtime' in group, false); assert.equal('api_access' in group, false)
   assert.equal(group.tasks.length, 1); assert.deepEqual(primary.networking, { mode: 'namespace' })
   assert.equal(primary.health_check?.port, 9090); assert.equal(primary.health_check?.interval, 7_000_000_000); assert.equal(primary.secrets?.[0].env, 'DATABASE_URL')
   assert.equal(primary.volumes?.[0].container_path, '/cache'); assert.equal(primary.volumes?.[0].host_path, '@/cache')
@@ -26,6 +27,8 @@ test('builds a complete workload with Bower-owned networking and advanced settin
 })
 
 test('defaults unqualified container images to Docker Hub', () => {
+  const task = buildJobSpec({ ...base, runtime: undefined, apiAccess: undefined }).task_groups[0].tasks[0]
+  assert.equal(task.runtime, 'runc'); assert.equal('api_access' in task, false)
   assert.equal(normalizeContainerImage('nginx:alpine'), 'docker.io/library/nginx:alpine')
   assert.equal(normalizeContainerImage('acme/api:v2'), 'docker.io/acme/api:v2')
   assert.equal(normalizeContainerImage('ghcr.io/acme/api:v2'), 'ghcr.io/acme/api:v2')

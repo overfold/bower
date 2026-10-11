@@ -71,8 +71,8 @@ test('structured health commands retain argument order', () => {
 })
 
 test('rollback previews stored resources, mounts and environment differences', () => {
-  const running = { task_groups: [{ count: 3, runtime: 'runsc', tasks: [{ image: 'web:v3', resources: { cpu: 500, memory: 512 }, env: { TOKEN: 'new-private', ADDED: 'private' }, volumes: [{ name: 'uploads', container_path: '/uploads' }] }] }] }
-  const selected = { task_groups: [{ count: 1, runtime: 'runc', tasks: [{ image: 'web:v1', resources: { cpu: 100, memory: 128 }, env: { TOKEN: 'old-private' } }] }] }
+  const running = { task_groups: [{ count: 3, tasks: [{ runtime: 'runsc', image: 'web:v3', resources: { cpu: 500, memory: 512 }, env: { TOKEN: 'new-private', ADDED: 'private' }, volumes: [{ name: 'uploads', container_path: '/uploads' }] }] }] }
+  const selected = { task_groups: [{ count: 1, tasks: [{ runtime: 'runc', image: 'web:v1', resources: { cpu: 100, memory: 128 }, env: { TOKEN: 'old-private' } }] }] }
   const changes = diffJobSpecs(selected, running)
   assert.deepEqual(changes.map((change) => change.key), ['image', 'replicas', 'cpu', 'memory', 'volumes', 'runtime', 'env.ADDED', 'env.TOKEN'])
   assert.deepEqual(changes.find((change) => change.key === 'replicas'), { kind: 'config', key: 'replicas', label: 'Replicas', before: 3, after: 1 })

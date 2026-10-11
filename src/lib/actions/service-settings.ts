@@ -74,19 +74,18 @@ export async function updateServiceVolumeMountsAction(serviceId: string, environ
 
 function parseApiAccess(value: string): TrellisApiAccess | undefined {
   if (!value || value === 'none') return undefined
-  if (value !== 'cluster:read' && value !== 'cluster:write') {
+  if (value !== 'read' && value !== 'write') {
     throw new Error('Invalid workload API access setting.')
   }
-  return { scope: 'cluster', access: value === 'cluster:read' ? 'read' : 'write' }
+  return { access: value }
 }
 
 type AdvancedConfigValues = {
   runtime: Exclude<TrellisRuntime, ''>
-  apiAccessScope: 'cluster' | null
   apiAccessLevel: 'read' | 'write' | null
 }
 
-const ADVANCED_OVERRIDE_FIELDS = ['runtime', 'apiAccessScope', 'apiAccessLevel'] as const
+const ADVANCED_OVERRIDE_FIELDS = ['runtime', 'apiAccessLevel'] as const
 
 function parseAdvancedConfig(formData: FormData, isInstanceAdmin: boolean): AdvancedConfigValues {
   const runtimeValue = String(formData.get('runtime') ?? 'runc')
@@ -95,7 +94,6 @@ function parseAdvancedConfig(formData: FormData, isInstanceAdmin: boolean): Adva
   assertWorkloadApiAccessAllowed(apiAccess, isInstanceAdmin)
   return {
     runtime: runtimeValue,
-    apiAccessScope: apiAccess?.scope ?? null,
     apiAccessLevel: apiAccess?.access ?? null,
   }
 }
@@ -115,9 +113,8 @@ export async function updateBaseServiceAdvancedAction(serviceId: string, formDat
     const overrides = (envConfig.overrides ?? {}) as Record<string, unknown>
     const patch: Record<string, unknown> = { updatedAt: new Date() }
     if (!('runtime' in overrides)) patch.runtime = values.runtime
-    const apiAccessOverridden = 'apiAccessScope' in overrides || 'apiAccessLevel' in overrides
+    const apiAccessOverridden = 'apiAccessLevel' in overrides
     if (!apiAccessOverridden) {
-      patch.apiAccessScope = values.apiAccessScope
       patch.apiAccessLevel = values.apiAccessLevel
     }
     if (Object.keys(patch).length > 1) {
@@ -132,8 +129,8 @@ export async function updateBaseServiceAdvancedAction(serviceId: string, formDat
     resourceType: 'service',
     resourceId: serviceId,
     details: {
-      before: { runtime: base.runtime, scope: base.apiAccessScope, access: base.apiAccessLevel },
-      after: { runtime: values.runtime, scope: values.apiAccessScope, access: values.apiAccessLevel },
+      before: { runtime: base.runtime, access: base.apiAccessLevel },
+      after: { runtime: values.runtime, access: values.apiAccessLevel },
     },
   })
   revalidatePath(`/projects/${access.project.slug}/services/${access.service.slug}/advanced`)
@@ -152,8 +149,7 @@ export async function updateServiceAdvancedAction(serviceId: string, environment
 
   if (base) {
     if (desired.runtime !== base.runtime) newOverrides.runtime = desired.runtime
-    if (desired.apiAccessScope !== base.apiAccessScope || desired.apiAccessLevel !== base.apiAccessLevel) {
-      newOverrides.apiAccessScope = desired.apiAccessScope
+    if (desired.apiAccessLevel !== base.apiAccessLevel) {
       newOverrides.apiAccessLevel = desired.apiAccessLevel
     }
   }
@@ -172,8 +168,8 @@ export async function updateServiceAdvancedAction(serviceId: string, environment
     resourceId: serviceId,
     details: {
       environmentId,
-      before: { runtime: config.runtime, scope: config.apiAccessScope, access: config.apiAccessLevel },
-      after: { runtime: desired.runtime, scope: desired.apiAccessScope, access: desired.apiAccessLevel },
+      before: { runtime: config.runtime, access: config.apiAccessLevel },
+      after: { runtime: desired.runtime, access: desired.apiAccessLevel },
       overriddenFields: ADVANCED_OVERRIDE_FIELDS.filter((field) => field in newOverrides),
     },
   })
@@ -187,9 +183,8 @@ export async function resetServiceAdvancedOverridesAction(serviceId: string, env
   const base = await getBaseServiceConfig(serviceId)
   if (!base) throw new Error('No base service configuration exists.')
   const baseApiAccess =
-    base.apiAccessScope === 'cluster' &&
     (base.apiAccessLevel === 'read' || base.apiAccessLevel === 'write')
-      ? { scope: base.apiAccessScope, access: base.apiAccessLevel } as TrellisApiAccess
+      ? { access: base.apiAccessLevel } as TrellisApiAccess
       : undefined
   assertWorkloadApiAccessAllowed(baseApiAccess, access.user.isInstanceAdmin)
 
@@ -198,7 +193,6 @@ export async function resetServiceAdvancedOverridesAction(serviceId: string, env
 
   await db.update(serviceConfigs).set({
     runtime: base.runtime,
-    apiAccessScope: base.apiAccessScope,
     apiAccessLevel: base.apiAccessLevel,
     overrides: Object.keys(newOverrides).length > 0 ? newOverrides : null,
     updatedAt: new Date(),

@@ -38,9 +38,8 @@ export async function createDeploymentSpec(serviceId: string, environmentId: str
 
   const runtime: TrellisRuntime = row.config.runtime === 'runsc' ? 'runsc' : 'runc'
   const apiAccess: TrellisApiAccess | undefined =
-    row.config.apiAccessScope === 'cluster' &&
     (row.config.apiAccessLevel === 'read' || row.config.apiAccessLevel === 'write')
-      ? { scope: row.config.apiAccessScope, access: row.config.apiAccessLevel }
+      ? { access: row.config.apiAccessLevel }
       : undefined
   assertStoredWorkloadApiAccessAllowed(apiAccess)
   const replicas = positiveInteger(overrides?.replicas ?? row.config.replicas, 'Stored replicas')

@@ -134,7 +134,7 @@ try {
             {
               name: "web",
               count: 2,
-              tasks: [{ name: "app", image: `ghcr.io/acme/${slug}:v2.3.0` }],
+              tasks: [{ name: "app", runtime: "runc", image: `ghcr.io/acme/${slug}:v2.3.0` }],
             },
           ],
         };
@@ -142,7 +142,7 @@ try {
         const startedAt = new Date(Date.now() - (j === 0 ? 45 * 60000 : (j + 1) * 3600000));
         const completedAt = new Date(startedAt.getTime() + 90000);
         const [deployment] =
-          await sql`INSERT INTO deployments ${sql({ service_id: service.id, environment_id: environment.id, image_before: `ghcr.io/acme/${slug}:v2.3.0`, image_after: config.image, strategy: config.deployment_strategy, status, trigger_type: j === 0 ? "webhook" : "manual", triggered_by_user_id: owner.id, trellis_job_name: slug, trellis_version: 3 - j, trellis_revision: 3 - j, job_spec: sql.json({ ...previous, task_groups: [{ ...previous.task_groups[0], tasks: [{ name: "app", image: config.image }] }] }), previous_job_spec: sql.json(previous), started_at: startedAt, completed_at: completedAt, created_at: startedAt })} RETURNING *`;
+          await sql`INSERT INTO deployments ${sql({ service_id: service.id, environment_id: environment.id, image_before: `ghcr.io/acme/${slug}:v2.3.0`, image_after: config.image, strategy: config.deployment_strategy, status, trigger_type: j === 0 ? "webhook" : "manual", triggered_by_user_id: owner.id, trellis_job_name: slug, trellis_version: 3 - j, trellis_revision: 3 - j, job_spec: sql.json({ ...previous, task_groups: [{ ...previous.task_groups[0], tasks: [{ name: "app", runtime: "runc", image: config.image }] }] }), previous_job_spec: sql.json(previous), started_at: startedAt, completed_at: completedAt, created_at: startedAt })} RETURNING *`;
         // Event types match what Bower records, and each falls inside the deployment's own window
         // (started to completed). Failure events name the allocation involved.
         const at = (seconds) => new Date(startedAt.getTime() + seconds * 1000);
@@ -172,7 +172,7 @@ try {
           service_id: service.id, environment_id: environment.id, image_after: image,
           strategy: "rolling", status: j === 0 ? "failed" : "healthy", trigger_type: "manual",
           trellis_job_name: retained ? slug : null, trellis_version: retained ? 2 : null, trellis_revision: retained ? 2 : null,
-          job_spec: retained ? sql.json({ name: slug, namespace: "commerce-production", task_groups: [{ name: "web", count: i === 0 ? 2 : 1, tasks: [{ name: "app", image }] }] }) : null,
+          job_spec: retained ? sql.json({ name: slug, namespace: "commerce-production", task_groups: [{ name: "web", count: i === 0 ? 2 : 1, tasks: [{ name: "app", runtime: "runc", image }] }] }) : null,
           started_at: new Date(Date.now() - (j + 4) * 86400000), created_at: new Date(Date.now() - (j + 4) * 86400000), completed_at: new Date(Date.now() - (j + 4) * 86400000 + 90000),
         })} RETURNING id`;
         if (i === 0 && retained) rollbackDeploymentId = older.id;

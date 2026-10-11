@@ -77,10 +77,10 @@ const spec = (name, namespace, version = "v2.4.1") => ({
     {
       name: "web",
       count: name === "storefront" ? 2 : 1,
-      runtime: "runc",
       tasks: [
         {
           name: "app",
+          runtime: "runc",
           image: `ghcr.io/acme/${name}:${version}`,
           resources: { cpu: 500, memory: 536870912 },
           env: { PORT: "3000" },
@@ -144,7 +144,6 @@ const server = http.createServer(async (req, res) => {
   if (p === "/v1/auth/whoami")
     data = {
       kind: "operator",
-      scope: "cluster",
       access: "write",
       created_at: now(),
     };

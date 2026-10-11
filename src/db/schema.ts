@@ -357,7 +357,6 @@ export const baseServiceConfigs = pgTable("base_service_configs", {
   autoRollbackSeconds: integer("auto_rollback_seconds").notNull().default(300),
   canarySteps: jsonb("canary_steps").notNull().default([10, 25, 50, 100]),
   runtime: text("runtime").notNull().default("runc"),
-  apiAccessScope: text("api_access_scope"),
   apiAccessLevel: text("api_access_level"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -368,9 +367,7 @@ export const baseServiceConfigs = pgTable("base_service_configs", {
 }, (table) => [
   foreignKey({ name: "base_service_configs_service_id_fkey", columns: [table.serviceId], foreignColumns: [services.id] }).onDelete("cascade"),
   check("base_service_configs_runtime_check", sql`${table.runtime} IN ('runc', 'runsc')`),
-  check("base_service_configs_api_scope_check", sql`${table.apiAccessScope} IS NULL OR ${table.apiAccessScope} = 'cluster'`),
   check("base_service_configs_api_level_check", sql`${table.apiAccessLevel} IS NULL OR ${table.apiAccessLevel} IN ('read', 'write')`),
-  check("base_service_configs_api_pair_check", sql`(${table.apiAccessScope} IS NULL) = (${table.apiAccessLevel} IS NULL)`),
 ]);
 
 export const serviceConfigs = pgTable(
@@ -405,7 +402,6 @@ export const serviceConfigs = pgTable(
     autoRollbackSeconds: integer("auto_rollback_seconds").notNull().default(300),
     canarySteps: jsonb("canary_steps").notNull().default([10, 25, 50, 100]),
     runtime: text("runtime").notNull().default("runc"),
-    apiAccessScope: text("api_access_scope"),
     apiAccessLevel: text("api_access_level"),
     overrides: jsonb("overrides"),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -423,9 +419,7 @@ export const serviceConfigs = pgTable(
     foreignKey({ name: "service_configs_service_project_fkey", columns: [table.serviceId, table.projectId], foreignColumns: [services.id, services.projectId] }).onDelete("cascade"),
     foreignKey({ name: "service_configs_environment_project_fkey", columns: [table.environmentId, table.projectId], foreignColumns: [environments.id, environments.projectId] }).onDelete("cascade"),
     check("service_configs_runtime_check", sql`${table.runtime} IN ('runc', 'runsc')`),
-    check("service_configs_api_scope_check", sql`${table.apiAccessScope} IS NULL OR ${table.apiAccessScope} = 'cluster'`),
     check("service_configs_api_level_check", sql`${table.apiAccessLevel} IS NULL OR ${table.apiAccessLevel} IN ('read', 'write')`),
-    check("service_configs_api_pair_check", sql`(${table.apiAccessScope} IS NULL) = (${table.apiAccessLevel} IS NULL)`),
   ]
 );
 

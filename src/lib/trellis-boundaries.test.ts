@@ -49,12 +49,38 @@ test('advanced settings reject removed namespace grants and malformed cluster va
     '@/lib/queries': { getBaseServiceConfig: async () => ({}) },
     '@/lib/actions/shared': { requireService: async () => access, recordAudit: async () => {} },
   })
-  for (const value of ['namespace:read', 'namespace:write', 'cluster:read:extra', 'cluster:admin']) {
+  for (const value of ['namespace:read', 'namespace:write', 'cluster:read', 'cluster:write', 'cluster:read:extra', 'cluster:admin']) {
     const form = new FormData()
     form.set('apiAccess', value)
     await assert.rejects(actions.updateServiceAdvancedAction('service', 'env', form), /Invalid workload API access/)
   }
   assert.equal(writes, 0)
+})
+
+test('advanced settings store plain access levels and preserve explicit disabled environment overrides', async () => {
+  const writes: Array<Record<string, unknown>> = []
+  const actions = load<typeof import('./actions/service-settings')>('src/lib/actions/service-settings.ts', {
+    'next/cache': { revalidatePath() {} },
+    '@/db': { db: {
+      select: () => query([{ config: { id: 'config', runtime: 'runc', apiAccessLevel: 'write', overrides: { replicas: 3 } } }]),
+      update: () => ({ set: (values: Record<string, unknown>) => { writes.push(values); return { where: async () => {} } } }),
+    } },
+    '@/lib/queries': { getBaseServiceConfig: async () => ({ runtime: 'runc', apiAccessLevel: 'write' }) },
+    '@/lib/actions/shared': { requireService: async () => ({ ...access, user: { id: 'user', isInstanceAdmin: true } }), recordAudit: async () => {} },
+    '@/lib/workload-policy': { assertWorkloadApiAccessAllowed: (grant: { access: string } | undefined, admin: boolean) => {
+      assert.equal(admin, true)
+      if (grant) assert.ok(grant.access === 'read' || grant.access === 'write')
+    } },
+  })
+  for (const value of ['read', 'write', 'none']) {
+    const form = new FormData()
+    form.set('apiAccess', value)
+    await actions.updateServiceAdvancedAction('service', 'env', form)
+    const stored = JSON.parse(JSON.stringify(writes.at(-1)))
+    assert.equal('apiAccessScope' in stored, false)
+    assert.equal(stored.apiAccessLevel, value === 'none' ? null : value)
+    assert.deepEqual(stored.overrides, value === 'write' ? { replicas: 3 } : { replicas: 3, apiAccessLevel: value === 'none' ? null : value })
+  }
 })
 
 test('SSE rejects unauthenticated, missing namespace, and inaccessible environments without opening a stream', async () => {
@@ -261,7 +287,11 @@ test('shared ingress aggregates environments, skips unchanged applies, and survi
   assert.equal(applied!.name, 'bower-ingress')
   assert.equal(applied!.namespace, 'platform')
   const group = applied!.task_groups[0]
-  assert.deepEqual(JSON.parse(JSON.stringify(group.api_access)), { scope: 'cluster', access: 'read' })
+  assert.equal('api_access' in group, false)
+  assert.equal('runtime' in group, false)
+  assert.equal(group.tasks[0].api_access, undefined)
+  assert.deepEqual(JSON.parse(JSON.stringify(group.tasks[1].api_access)), { access: 'read' })
+  assert.ok(group.tasks.every((task) => task.runtime === 'runc'))
   assert.equal(group.update?.strategy, 'recreate')
   assert.deepEqual(JSON.parse(group.tasks[1].env!.BOWER_ROUTES).map((route: { namespace: string }) => route.namespace), ['team-a', 'team-b'])
   assert.equal(JSON.parse(group.tasks[1].env!.BOWER_DASHBOARD).job, 'bower')

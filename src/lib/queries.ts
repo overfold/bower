@@ -541,7 +541,6 @@ export type MergedServiceConfig = {
   autoRollbackSeconds: number
   canarySteps: unknown
   runtime: 'runc' | 'runsc'
-  apiAccessScope: 'cluster' | null
   apiAccessLevel: 'read' | 'write' | null
   overriddenFields: string[]
   isBase: boolean
@@ -573,7 +572,6 @@ export async function getMergedServiceConfig(serviceId: string, environmentId: s
       autoRollbackSeconds: base.autoRollbackSeconds,
       canarySteps: base.canarySteps,
       runtime: base.runtime as 'runc' | 'runsc',
-      apiAccessScope: base.apiAccessScope as 'cluster' | null,
       apiAccessLevel: base.apiAccessLevel as 'read' | 'write' | null,
       overriddenFields: [],
       isBase: true,
@@ -608,7 +606,6 @@ export async function getMergedServiceConfig(serviceId: string, environmentId: s
       autoRollbackSeconds: envConfig.autoRollbackSeconds,
       canarySteps: envConfig.canarySteps,
       runtime: envConfig.runtime as 'runc' | 'runsc',
-      apiAccessScope: envConfig.apiAccessScope as 'cluster' | null,
       apiAccessLevel: envConfig.apiAccessLevel as 'read' | 'write' | null,
       overriddenFields: [],
       isBase: false,
@@ -639,7 +636,6 @@ export async function getMergedServiceConfig(serviceId: string, environmentId: s
     autoRollbackSeconds: (overrides.autoRollbackSeconds as number) ?? base.autoRollbackSeconds,
     canarySteps: overrides.canarySteps ?? base.canarySteps,
     runtime: (('runtime' in overrides ? overrides.runtime : base.runtime) as 'runc' | 'runsc'),
-    apiAccessScope: (('apiAccessScope' in overrides ? overrides.apiAccessScope : base.apiAccessScope) as 'cluster' | null),
     apiAccessLevel: (('apiAccessLevel' in overrides ? overrides.apiAccessLevel : base.apiAccessLevel) as 'read' | 'write' | null),
     overriddenFields,
     isBase: false,
