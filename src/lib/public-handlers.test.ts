@@ -11,7 +11,7 @@ import * as bodyHelpers from './request-body'
 import * as filters from './webhook-filter'
 
 // Execute the real handlers, replacing only database/auth/deployment I/O.
-function load(path: string, dependencies: Record<string, unknown>, env: Record<string, string> = {}): { POST: (request: Request, context?: unknown) => Promise<Response>, GET: (request: NextRequest) => Promise<Response> } {
+function load<T = { POST: (request: Request, context?: unknown) => Promise<Response>, GET: (request: NextRequest) => Promise<Response> }>(path: string, dependencies: Record<string, unknown>, env: Record<string, string> = {}): T {
   const filename = resolve(path); const require = createRequire(filename); const loaded = { exports: {} }
   const { outputText } = ts.transpileModule(readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: true, target: ts.ScriptTarget.ES2022 } })
   runInNewContext(outputText, {
@@ -19,7 +19,7 @@ function load(path: string, dependencies: Record<string, unknown>, env: Record<s
     process: { env },
     require: (name: string) => name in dependencies ? dependencies[name] : require(name.startsWith('@/') ? resolve('src', name.slice(2)) : name),
   }, { filename })
-  return loaded.exports as ReturnType<typeof load>
+  return loaded.exports as T
 }
 
 function query(rows: unknown[]) {
@@ -64,6 +64,19 @@ test('route authentication redirects use the public Bower origin, not the intern
   const accepted = await handler.POST(formRequest())
   assert.equal(accepted.status, 303)
   assert.equal(accepted.headers.get('location'), 'https://app.test/.bower/auth/callback?token=handoff-fixture')
+})
+
+test('credential session endpoints check the configured public origin behind the front server', async () => {
+  const route = load<typeof import('../app/api/v1/credentials/route')>('src/app/api/v1/credentials/route.ts', {
+    '@/lib/actions/settings': {}, '@/lib/automation': {}, '@/lib/request-body': bodyHelpers,
+    '@/lib/auth': { getCurrentUser: async () => null },
+  }, { BOWER_PUBLIC_URL: 'https://bower.example.com' })
+  for (const method of ['POST', 'DELETE'] as const) {
+    const request = (origin: string) => new Request('http://localhost:3001/api/v1/credentials', { method, headers: { origin, 'x-forwarded-host': 'untrusted.test' } })
+    assert.equal((await route[method](request('https://bower.example.com'))).status, 401, 'public-origin request reaches session authentication')
+    assert.equal((await route[method](request('http://localhost:3001'))).status, 403)
+    assert.equal((await route[method](request('https://untrusted.test'))).status, 403)
+  }
 })
 
 function request(body: string | Buffer, headers: HeadersInit = {}, chunked = false) {
@@ -111,20 +124,39 @@ test('webhook rejects unknown tokens before reads, preserves raw HMAC, bounds de
 
 test('deploy authenticates before reads, enforces body limits and validates malformed bodies without deploying', async () => {
   let authenticated = false; let deployments = 0
-  const route = load('src/app/api/deploy/route.ts', {
-    '@/lib/api-auth': { authenticateApiKeyToken: async () => authenticated ? {} : null, authenticateApiKey: async (_: unknown, serviceId: string) => serviceId === 'service-7' ? { project: { id: 'project-3' }, actor: { actorType: 'api_key' } } : null },
-    '@/db': { db: { select: () => query([{ id: 'environment-9' }]) } },
-    '@/lib/actions/services': { deployServiceFromAutomation: async (...args: unknown[]) => { deployments++; assert.deepEqual(args.slice(0, 3), ['service-7', 'environment-9', 'app:v3']); return { deployment: { id: 'deployment-5' } } } },
+  const serviceId = '00000000-0000-0000-0000-000000000007'
+  const environmentId = '00000000-0000-0000-0000-000000000009'
+  const auth = { authenticateApiKeyToken: async () => authenticated ? {} : null,
+    authenticateApiKey: async (_: unknown, service: string, environment: string) => service === serviceId && environment === environmentId ? { actor: { actorType: 'api_key' } } : null }
+  const contract = load<typeof import('./automation')>('src/lib/automation.ts', {
+    '@/lib/api-auth': auth, '@/db': {}, '@/lib/trellis-instance': {},
+    '@/lib/actions/services': { deployServiceFromAutomation: async (...args: unknown[]) => { deployments++; assert.deepEqual(args.slice(0, 3), [serviceId, environmentId, 'app:v3']); return { deployment: { id: 'deployment-5' } } } },
+  })
+  const versioned = load<typeof import('../app/api/v1/automation/route')>('src/app/api/v1/automation/route.ts', {
+    '@/lib/automation': contract, '@/lib/api-auth': auth,
     '@/lib/request-body': bodyHelpers,
   })
-  const anonymous = request('x'.repeat(100000))
-  assert.equal((await route.POST(anonymous)).status, 401); assert.equal(anonymous.bodyUsed, false)
+  const legacy = load('src/app/api/deploy/route.ts', { '@/app/api/v1/automation/route': versioned })
+  for (const route of [versioned, legacy]) {
+    authenticated = false
+    const anonymous = request('x'.repeat(100000))
+    assert.equal((await route.POST(anonymous)).status, 401); assert.equal(anonymous.bodyUsed, false)
+    authenticated = true
+    for (const chunked of [false, true]) assert.equal((await route.POST(request('x'.repeat(8193), chunked ? {} : { 'content-length': '8193' }, chunked))).status, 413)
+    for (const malformed of ['{', 'null', '{"serviceId":123}', '[]']) assert.equal((await route.POST(request(malformed))).status, 400)
+    const accepted = await route.POST(request(JSON.stringify({ serviceId, environmentId, image: 'app:v3' }), {}, true))
+    assert.equal(accepted.status, 202)
+    assert.deepEqual(await accepted.json(), { accepted: true, deploymentId: 'deployment-5' })
+  }
+  authenticated = false
+  const anonymousRecovery = request('x'.repeat(100000))
+  assert.equal((await versioned.PATCH(anonymousRecovery)).status, 401)
+  assert.equal(anonymousRecovery.bodyUsed, false)
   authenticated = true
-  for (const chunked of [false, true]) assert.equal((await route.POST(request('x'.repeat(8193), chunked ? {} : { 'content-length': '8193' }, chunked))).status, 413)
-  for (const malformed of ['{', 'null', '{"serviceId":123}', '[]']) assert.equal((await route.POST(request(malformed))).status, 400)
-  assert.equal(deployments, 0)
-  assert.equal((await route.POST(request('{"serviceId":"service-7","environmentId":"environment-9","image":"app:v3"}', {}, true))).status, 202)
-  assert.equal(deployments, 1)
+  for (const chunked of [false, true]) assert.equal((await versioned.PATCH(request('x'.repeat(8193), chunked ? {} : { 'content-length': '8193' }, chunked))).status, 413)
+  for (const malformed of ['{', 'null', '{"operation":"restart"}', '[]']) assert.equal((await versioned.PATCH(request(malformed))).status, 400)
+  assert.equal('PATCH' in legacy, false)
+  assert.equal(deployments, 2)
 })
 
 test('password handler bounds forms and rejects shared rate/concurrency admission before bcrypt or grant issuance', async () => {

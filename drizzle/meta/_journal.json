@@ -211,6 +211,13 @@
       "when": 1791710097199,
       "tag": "0030_task_api_access",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1792315713562,
+      "tag": "0031_automation_keys",
+      "breakpoints": true
     }
   ]
 }

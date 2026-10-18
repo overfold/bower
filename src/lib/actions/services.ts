@@ -20,9 +20,11 @@ import type { TrellisJobApplyResult, TrellisJobSpec } from '@/types/trellis'
 import { parseDeploymentStrategy, parseHealthCheckInput, parseResourceInputs, positiveInteger, validateWorkloadAdmissionBounds } from '@/lib/service-config-input'
 import { validateCanarySteps } from '@/lib/workload-input'
 import { releaseImagePins } from '@/lib/service-releases'
+import { authenticateApiKey } from '@/lib/api-auth'
 
 type Trigger = 'manual' | 'webhook' | 'rollback' | 'auto_rollback'
 type AutomationActor = { actorType: 'api_key'; apiKeyId: string; userId: string } | { actorType: 'webhook'; userId?: null }
+type AutomationAccess = NonNullable<Awaited<ReturnType<typeof authenticateApiKey>>>
 
 function deploymentApplyError(error: unknown) {
   if (error instanceof TrellisApiError && error.status === 409) {
@@ -169,8 +171,18 @@ export async function rollbackServiceAction(serviceId: string, environmentId: st
   try { await rollbackService(serviceId, environmentId, targetDeploymentId); return {} } catch (error) { return actionFailure(error) }
 }
 
-async function rollbackService(serviceId: string, environmentId: string, targetDeploymentId?: string) {
-  const access = await requireService(serviceId); if (access.projectRole === 'viewer') throw new ActionError('Insufficient permissions.')
+export async function rollbackServiceFromAutomation(header: string | null, serviceId: string, environmentId: string, targetDeploymentId: string) {
+  const access = await authenticateApiKey(header, serviceId, environmentId, 'rollback')
+  if (!access) throw new ActionError('Insufficient permissions.')
+  if (!targetDeploymentId) throw new ActionError('A rollback target is required.')
+  return rollbackService(serviceId, environmentId, targetDeploymentId, access)
+}
+
+async function rollbackService(serviceId: string, environmentId: string, targetDeploymentId?: string, automationAccess?: AutomationAccess) {
+  const access = automationAccess
+    ? { ...automationAccess, org: { id: automationAccess.project.orgId }, user: { id: automationAccess.actor.userId } }
+    : await requireService(serviceId)
+  if (access.projectRole === 'viewer') throw new ActionError('Insufficient permissions.')
   const [last] = await db.select().from(deployments).where(and(eq(deployments.serviceId, serviceId), eq(deployments.environmentId, environmentId))).orderBy(desc(deployments.createdAt)).limit(1)
   let storedSpec = last?.previousJobSpec
   let storedPins = releaseImagePins(storedSpec, { resolved_images: (last?.planDiff as { previous_resolved_images?: Record<string, string> } | null)?.previous_resolved_images })
@@ -221,9 +233,10 @@ async function rollbackService(serviceId: string, environmentId: string, targetD
   const followUps = await Promise.allSettled([
     recordDeploymentEvent(deployment.id, 'rollback', `Trellis accepted rollback version ${applied.version}, revision ${applied.revision}.`, { ...applied }),
     createDeploymentSpec(serviceId, environmentId).then((row) => notifyDeployment(row, 'deploying', access.user.id)),
-    recordAudit({ orgId: access.org.id, userId: access.user.id, action: 'service.rollback.requested', resourceType: 'deployment', resourceId: deployment.id, details: { serviceId, serviceName: access.service.name, environmentId, environmentName: configRow.environment?.name, ...(targetDeploymentId ? { targetDeploymentId } : {}) } }),
+    recordAudit({ orgId: access.org.id, userId: access.user.id, actorType: automationAccess?.actor.actorType, apiKeyId: automationAccess?.actor.apiKeyId, action: 'service.rollback.requested', resourceType: 'deployment', resourceId: deployment.id, details: { serviceId, serviceName: access.service.name, environmentId, environmentName: configRow.environment?.name, ...(targetDeploymentId ? { targetDeploymentId } : {}) } }),
   ])
   for (const result of followUps) if (result.status === 'rejected') console.error(`Rollback ${deployment.id} follow-up failed.`, result.reason)
+  return { deploymentId: deployment.id }
 }
 
 export async function refreshDeploymentStatusesAction(projectId: string) {
@@ -236,14 +249,23 @@ export async function restartServiceAction(serviceId: string, environmentId: str
   try { await restartService(serviceId, environmentId); return {} } catch (error) { return actionFailure(error) }
 }
 
-async function restartService(serviceId: string, environmentId: string) {
-  const access = await requireService(serviceId); if (access.projectRole === 'viewer') throw new ActionError('Insufficient permissions.')
+export async function restartServiceFromAutomation(header: string | null, serviceId: string, environmentId: string) {
+  const access = await authenticateApiKey(header, serviceId, environmentId, 'restart')
+  if (!access) throw new ActionError('Insufficient permissions.')
+  return restartService(serviceId, environmentId, access)
+}
+
+async function restartService(serviceId: string, environmentId: string, automationAccess?: AutomationAccess) {
+  const access = automationAccess
+    ? { ...automationAccess, org: { id: automationAccess.project.orgId }, user: { id: automationAccess.actor.userId } }
+    : await requireService(serviceId)
+  if (access.projectRole === 'viewer') throw new ActionError('Insufficient permissions.')
   const [row] = await db.select({ config: serviceConfigs, environment: environments }).from(serviceConfigs).innerJoin(environments, eq(environments.id, serviceConfigs.environmentId)).where(and(eq(serviceConfigs.serviceId, serviceId), eq(serviceConfigs.environmentId, environmentId), eq(environments.projectId, access.service.projectId))).limit(1)
   if (!row) throw new ActionError('Service configuration not found.')
   const jobName = (row.config.activeJobName as string | null) || access.service.slug
   const client = await getTrellisClient(access.org.id)
   await client.restartJob(jobName, row.environment.trellisNamespace)
-  await recordAudit({ orgId: access.org.id, userId: access.user.id, action: 'service.restarted', resourceType: 'service', resourceId: serviceId, details: { serviceName: access.service.name, environmentId, environmentName: row.environment.name, jobName } })
+  await recordAudit({ orgId: access.org.id, userId: access.user.id, actorType: automationAccess?.actor.actorType, apiKeyId: automationAccess?.actor.apiKeyId, action: 'service.restarted', resourceType: 'service', resourceId: serviceId, details: { serviceName: access.service.name, environmentId, environmentName: row.environment.name, jobName } })
   revalidatePath(`/projects/${access.project.slug}/services/${access.service.slug}`)
 }
 

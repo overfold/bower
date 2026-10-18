@@ -179,6 +179,7 @@ test('service deletion retains records on job or ingress cleanup failure; absent
   let failure: Error | null = new TrellisApiError(403, 'Forbidden', 'denied')
   let proxyFailure = false
   const actions = load<typeof import('./actions/services')>('src/lib/actions/services.ts', {
+    '@/lib/api-auth': {},
     'next/navigation': navigation, 'next/cache': { revalidatePath() {} }, '@/lib/auth': {}, '@/lib/queries': {},
     '@/lib/deployment-runtime': {}, '@/lib/deployment-reconciler': {},
     '@/lib/actions/shared': { requireService: async () => access, recordAudit: async () => {} },
@@ -667,6 +668,7 @@ test('targeted rollback scopes the target and replays its spec rather than the l
   let targetSql: { sql: string; params: unknown[] } | undefined
   const applied: unknown[] = []
   const actions = load<typeof import('./actions/services')>('src/lib/actions/services.ts', {
+    '@/lib/api-auth': {},
     'next/navigation': navigation, 'next/cache': { revalidatePath() {} },
     '@/lib/auth': {}, '@/lib/queries': {},
     '@/lib/actions/shared': { requireService: async () => ({ ...access, projectRole: role }), recordAudit: async () => {} },
@@ -815,6 +817,7 @@ test('automation deploys write API key or webhook actors and human-readable serv
   const row = { project: { orgId: 'org' }, service: { slug: 'web', name: 'Storefront' }, environment: { name: 'Production', trellisNamespace: 'commerce-production' }, config: { image: 'app:v3', deploymentStrategy: 'rolling' }, spec: { name: 'web' } }
   let reads = 0
   const actions = load<typeof import('./actions/services')>('src/lib/actions/services.ts', {
+    '@/lib/api-auth': {},
     'next/navigation': navigation, 'next/cache': { revalidatePath() {} },
     '@/lib/auth': {}, '@/lib/queries': {}, '@/lib/managed-proxy': {}, '@/lib/deployment-reconciler': {}, '@/lib/trellis-cleanup': {},
     '@/lib/actions/shared': { recordAudit: async (entry: Record<string, unknown>) => { audits.push(entry) } },
@@ -923,6 +926,7 @@ test('combined member role save enforces authorization and last owner/admin prot
   const writes: Record<string, unknown>[] = []
   const tx = { update: () => ({ set: (value: Record<string, unknown>) => ({ where: async () => { writes.push(value) } }) }) }
   const actions = load<typeof import('./actions/settings')>('src/lib/actions/settings.ts', {
+    '@/lib/api-auth': {},
     'next/cache': { revalidatePath() {} }, 'next/headers': {}, '@/lib/invitations': {},
     '@/lib/organization-members': {},
     '@/lib/auth': { getCurrentUser: async () => ({ id: 'requester' }) },
@@ -968,6 +972,7 @@ test('service actions return safe messages for expected failures, since React re
   let restart: () => Promise<unknown> = async () => {}
   let role = 'admin'
   const actions = load<typeof import('./actions/services')>('src/lib/actions/services.ts', {
+    '@/lib/api-auth': {},
     'next/navigation': navigation, 'next/cache': { revalidatePath() {} },
     '@/lib/auth': {}, '@/lib/queries': {},
     '@/lib/actions/shared': { requireService: async () => ({ ...access, projectRole: role, service: { slug: 'web', name: 'Web' }, project: { slug: 'demo' } }), recordAudit: async () => {} },
@@ -1039,6 +1044,7 @@ test('audit, notification and post-apply event failures never fail an accepted d
     const events: string[] = []
     const row = { project: { orgId: 'org' }, service: { slug: 'web', name: 'Web' }, environment: { name: 'Production', trellisNamespace: 'production' }, config: { image: 'app:mutable', deploymentStrategy: 'rolling' }, spec: { name: 'web', namespace: 'production', task_groups: [{ name: 'main', tasks: [{ image: 'app:mutable' }] }] } }
     const actions = load<typeof import('./actions/services')>('src/lib/actions/services.ts', {
+      '@/lib/api-auth': {},
       'next/navigation': navigation, 'next/cache': { revalidatePath() {} },
       '@/lib/auth': {}, '@/lib/queries': {}, '@/lib/managed-proxy': {}, '@/lib/deployment-reconciler': {},
       '@/lib/actions/shared': { requireService: async () => access, recordAudit: async () => { if (failure === 'audit') throw new Error('audit unavailable') } },
@@ -1076,6 +1082,7 @@ test('targeted rollback rejects the running release, newer releases and missing 
   let target: Record<string, unknown> = { jobSpec: spec, trellisJobName: 'web', trellisIncarnation: 'inc', trellisVersion: 4, trellisRevision: 3, createdAt: new Date(1) }
   let reads = 0
   const actions = load<typeof import('./actions/services')>('src/lib/actions/services.ts', {
+    '@/lib/api-auth': {},
     'next/navigation': navigation, 'next/cache': { revalidatePath() {} },
     '@/lib/auth': {}, '@/lib/queries': {}, '@/lib/managed-proxy': {}, '@/lib/deployment-reconciler': {}, '@/lib/deployment-runtime': {},
     '@/lib/actions/shared': { requireService: async () => access },

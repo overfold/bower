@@ -2,16 +2,17 @@
 
 import { and, eq, inArray } from 'drizzle-orm'
 import { db } from '@/db'
-import { organizations, users, invitations, invitationTeams, organizationMembers, apiKeys, teams } from '@/db/schema'
+import { organizations, users, invitations, invitationTeams, organizationMembers, apiKeys, teams, environments, projects } from '@/db/schema'
 import { createHash, randomBytes } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { getCurrentUser, hashPassword, verifyPassword, replacePasswordAndSessions, getSessionCookieConfig, PasswordWorkBusyError } from '@/lib/auth'
 import { revokeOrganizationMembership } from '@/lib/organization-members'
 import { getUserOrganization, isInstanceAdmin } from '@/lib/queries'
-import { recordAudit } from './shared'
+import { getProjectRole, recordAudit } from './shared'
 import { acceptInvitation, createInvitationToken, hashInvitationToken } from '@/lib/invitations'
 import { ORG_COOKIE_NAME } from '@/lib/constants'
+import { API_KEY_SCOPES, type ApiKeyScope } from '@/lib/api-auth'
 
 export async function updateOrganizationAction(
   formData: FormData,
@@ -259,17 +260,40 @@ export async function createApiKeyAction(name: string) {
   if (!name.trim()) return { error: 'Key name is required.' }
   const token = `bower_${randomBytes(24).toString('base64url')}`
   const [key] = await db.insert(apiKeys).values({ orgId: ctx.org.id, userId: user.id, name: name.trim(),
-    keyHash: createHash('sha256').update(token).digest('hex'), keyPrefix: token.slice(0, 13) }).returning()
+    keyHash: createHash('sha256').update(token).digest('hex'), keyPrefix: token.slice(0, 13),
+    expiresAt: new Date(Date.now() + 30 * 86400_000) }).returning()
   await recordAudit({ orgId: ctx.org.id, userId: user.id, action: 'api_key.created', resourceType: 'api_key', resourceId: key.id, details: { name: key.name, prefix: key.keyPrefix } })
   revalidatePath('/settings/account'); return { token }
 }
 
+export async function createAutomationApiKeyAction(input: {
+  name: string; projectId: string; environmentId: string; scopes: ApiKeyScope[]; expiresAt: string
+}) {
+  const user = await getCurrentUser(); if (!user) return { error: 'Not authenticated.' }
+  const ctx = await getUserOrganization(user.id); if (!ctx) return { error: 'No organization found.' }
+  const expiresAt = new Date(input.expiresAt)
+  if (typeof input.name !== 'string' || !input.name.trim() || input.name.length > 128 || !Array.isArray(input.scopes) || !input.scopes.length || input.scopes.some((scope) => !API_KEY_SCOPES.includes(scope))) return { error: 'A name (up to 128 characters) and valid scopes are required.' }
+  if (!Number.isFinite(expiresAt.getTime()) || expiresAt.getTime() <= Date.now() || expiresAt.getTime() > Date.now() + 30 * 86400_000) return { error: 'Expiration must be in the next 30 days.' }
+  const [row] = await db.select({ project: projects }).from(projects).innerJoin(environments, eq(environments.projectId, projects.id))
+    .where(and(eq(projects.id, input.projectId), eq(projects.orgId, ctx.org.id), eq(environments.id, input.environmentId))).limit(1)
+  if (!row) return { error: 'Project environment not found.' }
+  const role = await getProjectRole(user.id, ctx.role, row.project.id)
+  if (!role || (role === 'viewer' && input.scopes.some((scope) => scope !== 'read'))) return { error: 'Insufficient permissions.' }
+  const token = `bower_${randomBytes(24).toString('base64url')}`
+  const [key] = await db.insert(apiKeys).values({ orgId: ctx.org.id, userId: user.id, name: input.name.trim(),
+    projectId: input.projectId, environmentId: input.environmentId, scopes: [...new Set(input.scopes)], expiresAt,
+    keyHash: createHash('sha256').update(token).digest('hex'), keyPrefix: token.slice(0, 13) }).returning()
+  await recordAudit({ orgId: ctx.org.id, userId: user.id, action: 'api_key.created', resourceType: 'api_key', resourceId: key.id,
+    details: { name: key.name, prefix: key.keyPrefix, projectId: key.projectId, environmentId: key.environmentId, scopes: key.scopes, expiresAt: expiresAt.toISOString() } })
+  revalidatePath('/settings/account')
+  return { token, id: key.id, expiresAt: expiresAt.toISOString() }
+}
+
 export async function revokeApiKeyAction(id: string) {
   const user = await getCurrentUser(); if (!user) return
-  const ctx = await getUserOrganization(user.id)
   const [key] = await db.select().from(apiKeys).where(and(eq(apiKeys.id, id), eq(apiKeys.userId, user.id))).limit(1)
   await db.delete(apiKeys).where(and(eq(apiKeys.id, id), eq(apiKeys.userId, user.id)))
-  if (ctx && key) await recordAudit({ orgId: ctx.org.id, userId: user.id, action: 'api_key.revoked', resourceType: 'api_key', resourceId: id, details: { name: key.name } })
+  if (key) await recordAudit({ orgId: key.orgId, userId: user.id, action: 'api_key.revoked', resourceType: 'api_key', resourceId: id, details: { name: key.name } })
   revalidatePath('/settings/account')
 }
 

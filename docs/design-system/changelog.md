@@ -6,6 +6,9 @@ Changes to Bower's tokens, primitives, shared components, lint rules, and docume
 
 ## Unreleased
 
+**Fixed**
+- Table scroll regions now contain absolutely positioned accessible headings, so wide credential tables scroll internally instead of widening the narrow page. The account capture checks page width and the labelled keyboard-scrollable region.
+
 The entries with review IDs below record approved design contracts from **Audit review (Oct 2026)** (`bower-ui-audit-desktop-10`). Implementation and capture verification are handled separately; these entries do not assert that either has completed.
 
 **Added**

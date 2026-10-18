@@ -1120,8 +1120,25 @@ for (const kind of ["api-key", "invitation", "webhook"])
             .getByRole("dialog")
             .getByLabel("Name", { exact: true })
             .fill("Audit temporary key");
+          await choose(page, "Project", "Commerce Platform");
+          await choose(page, "Environment", "Production");
+          await page.getByRole('checkbox', { name: 'Read diagnosis, logs and metrics', exact: true }).uncheck();
+          await click(page, "Create key");
+          await expect(page.getByText('Select at least one permission.', { exact: true })).toBeVisible();
+          await expect(page.getByRole('checkbox', { name: 'Read diagnosis, logs and metrics', exact: true })).toBeFocused();
+          await page.getByRole('checkbox', { name: 'Read diagnosis, logs and metrics', exact: true }).check();
+          await page.getByRole('checkbox', { name: 'Deploy', exact: true }).check();
+          await choose(page, "Expires after", "1 hour");
           await click(page, "Create key");
           await expect(page.getByRole("textbox", { name: "API key", exact: true })).toBeVisible();
+          const [key] = await sql`SELECT k.scopes, k.expires_at, p.slug AS project, e.slug AS environment
+            FROM api_keys k JOIN projects p ON p.id=k.project_id JOIN environments e ON e.id=k.environment_id
+            WHERE k.name='Audit temporary key'`;
+          expect(key.scopes).toEqual(['read', 'deploy']);
+          expect(key.project).toBe('commerce');
+          expect(key.environment).toBe('production');
+          expect(new Date(key.expires_at).getTime() - Date.now()).toBeGreaterThan(3500_000);
+          expect(new Date(key.expires_at).getTime() - Date.now()).toBeLessThanOrEqual(3600_000);
         } else if (kind === "invitation") {
           await click(page, "Invite people");
           await page
@@ -1401,6 +1418,10 @@ for (const scenario of scenarios)
       await expect(page.locator("body")).toContainText(scenario.ready);
     if (scenario.setup) await scenario.setup(page);
     await page.evaluate(() => document.fonts.ready);
+    if (scenario.name === 'narrow-settings-account') {
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+      await expect(page.getByRole('region', { name: 'API keys', exact: true })).toHaveAttribute('tabindex', '0');
+    }
     if (!scenario.setup || scenario.fullPage) {
       await page.evaluate(() => window.scrollTo(0, 0));
       await page.evaluate(

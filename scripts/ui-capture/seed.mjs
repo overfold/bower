@@ -217,6 +217,9 @@ try {
       await sql`INSERT INTO secrets_metadata (project_id,environment_id,name,trellis_secret_name,last_rotated_at) VALUES (${project.id},${environment.id},${name},${name === "DATABASE_URL" ? "database-url" : "stripe-api-key"},now())`;
     await sql`INSERT INTO notification_channels (project_id,type,name,config) VALUES (${project.id},'slack','Production alerts',${sql.json({ url: "https://hooks.slack.test/audit" })})`;
     await sql`INSERT INTO api_keys (org_id,user_id,name,key_hash,key_prefix,last_used_at) VALUES (${org.id},${owner.id},'GitHub Actions','audit-api-key-hash','bw_audit...',now())`;
+    await sql`INSERT INTO api_keys (org_id,user_id,name,key_hash,key_prefix,project_id,environment_id,scopes,expires_at) VALUES
+      (${org.id},${owner.id},'Production diagnosis','audit-read-key-hash','bw_read...',${project.id},${environment.id},${sql.json(['read'])},now()+interval '1 day'),
+      (${org.id},${owner.id},'Expired deploy','audit-expired-key-hash','bw_expired...',${project.id},${environment.id},${sql.json(['deploy'])},now()-interval '1 hour')`;
     await sql`INSERT INTO invitations (org_id,token_hash,organization_role,note,reusable,max_uses,use_count,created_by_user_id,expires_at) VALUES (${org.id},${digest("audit-invite")},'member','Platform team onboarding',true,10,2,${owner.id},now()+interval '7 days')`;
     for (const action of [
       "service.deploy",

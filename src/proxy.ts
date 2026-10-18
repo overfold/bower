@@ -27,7 +27,7 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except:
-     * - /api/v1/webhooks (public webhook endpoints)
+     * - webhook, deploy, automation and credential APIs (handlers authenticate requests)
      * - _next/static (static files)
      * - _next/image (image optimization)
      * - favicon.ico, sitemap.xml, robots.txt (metadata files)
@@ -36,6 +36,6 @@ export const config = {
      * /login and /register are matched but handled as public paths
      * in the proxy function body.
      */
-    '/((?!api/webhooks|api/deploy|api/route-auth|_next/static|_next/image|favicon\\.ico|sitemap\\.xml|robots\\.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+    '/((?!api/webhooks|api/deploy|api/v1/automation|api/v1/credentials|api/route-auth|_next/static|_next/image|favicon\\.ico|sitemap\\.xml|robots\\.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 }

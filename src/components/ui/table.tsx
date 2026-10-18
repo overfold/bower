@@ -24,7 +24,7 @@ const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableE
       observer.observe(table)
       return () => observer.disconnect()
     }, [titleId, explicitLabel])
-    return <div ref={wrapper} className="w-full overflow-x-auto scroll-thin scroll-horizontal [--scroll-surface:var(--surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500" tabIndex={overflowing ? 0 : undefined} role={overflowing ? 'region' : undefined} aria-labelledby={overflowing ? labelledBy : undefined}>
+    return <div ref={wrapper} className="relative w-full overflow-x-auto scroll-thin scroll-horizontal [--scroll-surface:var(--surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500" tabIndex={overflowing ? 0 : undefined} role={overflowing ? 'region' : undefined} aria-labelledby={overflowing ? labelledBy : undefined}>
       <table ref={ref} className={cn('w-full border-collapse text-left', minWidth === 'md' && 'min-w-[640px]', className)} {...props} />
     </div>
   },
